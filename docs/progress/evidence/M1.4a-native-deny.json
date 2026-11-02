@@ -1,0 +1,45 @@
+{
+  "status": "passed",
+  "observedAt": "2026-11-02T17:29:16.326Z",
+  "kind": "real_model_native_deny",
+  "scenario": "deny",
+  "platform": "darwin-arm64",
+  "cliVersion": "codex-cli 0.163.0",
+  "inferenceRequested": true,
+  "runId": "5e6ed6ef-1247-4af3-b315-c3193030ac07",
+  "threadId": "01a19d4e-bb11-7280-9f3f-1f9d8f465575",
+  "turnId": "01a19d4e-bb67-7230-8603-8271eba45ceb",
+  "runStatus": "completed",
+  "taskStatus": "needs_review",
+  "verifiedMethods": [
+    "item/commandExecution/requestApproval"
+  ],
+  "decisions": [
+    {
+      "kind": "command",
+      "commandHash": "a81a73bd6fba564af706353444272646bea2a1040e590f735f9fdebf13f8daf0",
+      "whitelisted": true,
+      "decision": "decline"
+    }
+  ],
+  "expectedEffectPresent": false,
+  "helperHashUnchanged": true,
+  "interruptRequested": false,
+  "pidIdentityConfirmed": false,
+  "helperExited": null,
+  "diagnostics": {
+    "clientThreadStarts": 1,
+    "clientThreadResumes": 0,
+    "clientTurnStarts": 1,
+    "notificationCount": 63,
+    "serverRequestsDenied": 0,
+    "selectedModel": "gpt-6.1-sol",
+    "externalMcpServers": 0,
+    "disabledInheritedMcpServers": 2,
+    "nativePolicyVerified": true,
+    "nativeApprovalsReviewer": "user",
+    "failureCode": "",
+    "remoteFailureCategory": "",
+    "phase": "turn/completed"
+  }
+}

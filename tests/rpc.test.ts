@@ -83,20 +83,11 @@ test('owner cancellation rejects pending work and waits for its child process to
     await rpc.waitClosed();
   } finally { await rpc.close(); }
 });
-test('the trusted runtime preserves injected guards but excludes unrelated application secrets', () => {
-  const originalSecret = process.env.PERSONAL_AGENT_UNRELATED_SECRET;
-  const originalGuard = process.env.CODEX_M0_TEST_GUARD;
-  process.env.PERSONAL_AGENT_UNRELATED_SECRET = 'fixture-only';
-  process.env.CODEX_M0_TEST_GUARD = 'fixture-guard';
-  try {
-    const env = runtimeEnvironment();
-    assert.equal(env.PERSONAL_AGENT_UNRELATED_SECRET, undefined);
-    assert.equal(env.CODEX_M0_TEST_GUARD, 'fixture-guard');
-    assert.equal(env.PATH, process.env.PATH);
-  } finally {
-    if (originalSecret === undefined) delete process.env.PERSONAL_AGENT_UNRELATED_SECRET; else process.env.PERSONAL_AGENT_UNRELATED_SECRET = originalSecret;
-    if (originalGuard === undefined) delete process.env.CODEX_M0_TEST_GUARD; else process.env.CODEX_M0_TEST_GUARD = originalGuard;
-  }
+test('the native child preserves configured authentication/proxy bindings but cannot inherit the parent agent tool bridge or sandbox identity', () => {
+  const env=runtimeEnvironment({PATH:'/fixture/bin',HOME:'/fixture/home',CODEX_HOME:'/fixture/codex',OIC_MANIFEST_PATH:'/fixture/identity',HTTPS_PROXY:'https://fixture.invalid',
+    PERSONAL_AGENT_UNRELATED_SECRET:'fixture-only',CODEX_M0_TEST_GUARD:'fixture-guard',CODEX_APP_TOOLS_PIPE_PATH:'/fixture/parent-tools',CODEX_SANDBOX:'seatbelt',CODEX_THREAD_ID:'parent-thread',CODEX_SESSION_ID:'parent-session'});
+  assert.equal(env.PATH,'/fixture/bin');assert.equal(env.HOME,'/fixture/home');assert.equal(env.CODEX_HOME,'/fixture/codex');assert.equal(env.OIC_MANIFEST_PATH,'/fixture/identity');assert.equal(env.HTTPS_PROXY,'https://fixture.invalid');
+  for(const key of ['PERSONAL_AGENT_UNRELATED_SECRET','CODEX_M0_TEST_GUARD','CODEX_APP_TOOLS_PIPE_PATH','CODEX_SANDBOX','CODEX_THREAD_ID','CODEX_SESSION_ID'])assert.equal(env[key],undefined);
 });
 test('a diagnostic consumer failure does not break RPC error correlation or expose private error text', async () => {
   const rpc = client('remote-error', { onRemoteError: () => { throw new Error('fixture-consumer-error'); } });

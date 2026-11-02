@@ -25,7 +25,8 @@ for await (const line of createInterface({ input: process.stdin })) {
   }
   if (m.method === 'thread/start'||m.method==='thread/resume') {
     if (m.params.config?.['mcp_servers.fixture-external.enabled'] !== false) { write({ id: m.id, error: { code: -32602, message: 'fixture MCP was not disabled' } }); continue; }
-    cwd = m.params.cwd; threadId = m.method==='thread/resume'?m.params.threadId:'fixture-thread-' + String(m.id).slice(-12); write({ id: m.id, result: { thread: { id: threadId, cwd,status:{type:'idle'} } } }); continue;
+    cwd = m.params.cwd; threadId = m.method==='thread/resume'?m.params.threadId:'fixture-thread-' + String(m.id).slice(-12); write({ id: m.id, result: { thread: { id: threadId, cwd,status:{type:'idle'} },approvalPolicy:'on-request',approvalsReviewer:mode==='auto-review'?'auto_review':m.params.approvalsReviewer,
+      sandbox:m.params.sandbox==='read-only'?{type:'readOnly',networkAccess:mode==='unsafe-network'}:{type:'workspaceWrite',writableRoots:mode==='unsafe-roots'?['/']:[cwd],networkAccess:mode==='unsafe-network',excludeTmpdirEnvVar:mode!=='unsafe-temp',excludeSlashTmp:true} } }); continue;
   }
   if (m.method === 'turn/start') {
     if (mode === 'reject') { write({ id: m.id, error: { code: -32602, message: 'fixture rejection' } }); continue; }

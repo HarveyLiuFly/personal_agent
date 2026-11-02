@@ -41,7 +41,7 @@ codex app-server generate-ts --experimental --out "$protocol_tmp/experimental"
 | 模型、Skills、MCP | 从锁版模型/工具目录与实际状态展示；不硬编码模型名称，不从一句模型陈述制造 Agent/工具 |
 | Memory / Goal 扩展 | 可选且逐项验证；不替代 Personal Memory、Schedule 或业务 Goal |
 
-适配器内部使用生成类型，领域层使用 `domain.ts`。原始 stdio stdout 仅处理协议帧；stderr 脱敏记录；限制最大帧、队列、超时、并发请求和重启次数。子进程环境由允许清单构造，保留授权方式必需的受控绑定，不直接全量传播宿主环境。配置可执行路径时验证来源、真实路径与工作目录，不拼接 Shell 字符串。
+适配器内部使用生成类型，领域层使用 `domain.ts`。原始 stdio stdout 仅处理协议帧；stderr 脱敏记录；限制最大帧、队列、超时、并发请求和重启次数。子进程环境由允许清单构造，保留授权方式必需的受控绑定，不直接全量传播宿主环境；Codex 变量仅保留受支持的 Home/API Key，不继承父客户端工具桥、Thread/Session 身份或“已在沙箱”标记。配置可执行路径时验证来源、真实路径与工作目录，不拼接 Shell 字符串。
 
 ### 2.2 Item 与事件的正确处理
 
@@ -116,3 +116,5 @@ Electron Main 取得 OS 单实例锁后才提升 Owner Epoch；数据库 Epoch �
 每项实际验证记录正常/失败/拒绝/恢复结果，区分真实组件、Stub、模拟器和外部阻塞；执行状态与证据格式遵循[总体规划](00_总体架构与开发规划.md)的开发验证规则。
 
 当前交互支持单连接服务端请求的持久映射、单次命令决定、补问与停止。回复先保存 responding/Hash，再写 stdio；旧 Owner/连接请求不复活，超时或关闭默认拒绝。只读模式不放行命令升级；会话永久批准/策略修改未开放，文件批准须先具备可信 Diff，当前只支持拒绝。Interrupt 先持久阻止新派发，再落盘请求，只有权威 Turn interrupted 才确认取消；只有 RPC 接收或超时均保留 Unknown 并停止本地进程。
+
+Host 审批路由不依赖个人全局默认：Thread Start/Resume 与 Turn 明确选择 on-request 和 `approvalsReviewer=user`，收到线程响应后复核有效 Reviewer、网络、沙箱类型及工作区/临时目录写边界；不匹配则拒绝模型派发。此 user 指通过产品 Host 的审批回调，由界面或受控测试 Owner 作单次决定；不能静默继承原生自动审核并宣称 Host 已审批。模型代码任务的显式工作区写授权与原生命令升级审批分别记录。

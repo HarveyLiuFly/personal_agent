@@ -27,6 +27,10 @@ test('real stdio fixture sees committed intents before both requests and final p
   assert.equal(view.snapshot!.needsSnapshot, false);
   assert.deepEqual(readFileSync(f.receipts, 'utf8').trim().split('\n'), ['thread/start','turn/start']);
   assert.equal(f.runtime.diagnostics.clientTurnStarts, 1);
+  const db=new DatabaseSync(f.file,{readOnly:true});
+  const verified=db.prepare("SELECT sequence FROM task_events WHERE run_id=? AND event_type='native_policy_verified'").get(run.runId)!;
+  const sent=db.prepare("SELECT sequence FROM task_events WHERE run_id=? AND event_type='intent_prepared' AND json_extract(payload_json,'$.kind')='turn_start'").get(run.runId)!;
+  assert.ok(Number(verified.sequence)<Number(sent.sequence));db.close();
 });
 test('duplicate keys after completion return the stored result without another transport', async t => {
   const f = fixture(t), first = f.runtime.submit(f.input); await f.runtime.wait();
@@ -82,6 +86,18 @@ test('configured servers explicitly disabled with zero tools are accepted as a c
   const f = fixture(t, 'disabled-list'), run = f.runtime.submit(f.input); await f.runtime.wait();
   assert.equal(f.runtime.view({ projectId: f.project.id, runId: run.runId }).status, 'completed');
   assert.equal(f.runtime.diagnostics.externalMcpServers, 0);
+});
+test('an inherited automatic approval reviewer cannot bypass the Host broker before a model turn',async t=>{
+ const f=fixture(t,'auto-review'),run=f.runtime.submit(f.input);await f.runtime.wait();
+ assert.equal(f.runtime.diagnostics.clientTurnStarts,0);assert.equal(f.runtime.diagnostics.failureCode,'NATIVE_POLICY_NOT_ENFORCED');
+ assert.equal(f.runtime.view({projectId:f.project.id,runId:run.runId}).status,'failed');
+});
+test('native network, write-root and temporary-directory expansion fail before any model turn',async t=>{
+ for(const mode of ['unsafe-network','unsafe-roots','unsafe-temp']){
+  const f=fixture(t,mode,async()=>{}),run=f.runtime.submit({...f.input,code:{profile:'node-test',target:'test.mjs',allowedPaths:['src.mjs']}});await f.runtime.wait();
+  assert.equal(f.runtime.diagnostics.clientTurnStarts,0);assert.equal(f.runtime.diagnostics.failureCode,'NATIVE_POLICY_NOT_ENFORCED');
+  assert.equal(f.runtime.view({projectId:f.project.id,runId:run.runId}).status,'failed');
+ }
 });
 const code = {profile:'node-test' as const,target:'test/math.test.mjs',allowedPaths:['src/math.mjs']};
 test('code execution requires a successful frozen contract before any RPC connection or model request', async t => {

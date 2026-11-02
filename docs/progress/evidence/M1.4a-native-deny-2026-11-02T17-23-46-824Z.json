@@ -1,0 +1,28 @@
+{
+  "status": "blocked",
+  "observedAt": "2026-11-02T17:23:46.824Z",
+  "kind": "real_model_native_deny",
+  "scenario": "deny",
+  "platform": "darwin-arm64",
+  "cliVersion": "codex-cli 0.163.0",
+  "inferenceRequested": true,
+  "code": "PROBE_ASSERTION_FAILED",
+  "decisions": [],
+  "interruptRequested": false,
+  "pidIdentityConfirmed": false,
+  "helperAlive": null,
+  "effectPresent": true,
+  "diagnostics": {
+    "clientThreadStarts": 1,
+    "clientThreadResumes": 0,
+    "clientTurnStarts": 1,
+    "notificationCount": 53,
+    "serverRequestsDenied": 0,
+    "selectedModel": "gpt-6.1-sol",
+    "externalMcpServers": 0,
+    "disabledInheritedMcpServers": 2,
+    "failureCode": "",
+    "remoteFailureCategory": "",
+    "phase": "turn/completed"
+  }
+}

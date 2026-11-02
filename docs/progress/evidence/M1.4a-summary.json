@@ -1,0 +1,42 @@
+{
+  "checkpoint": "M1.4a",
+  "status": "passed_in_scope",
+  "platform": "darwin-arm64",
+  "checks": {
+    "tests": 109,
+    "passed": 109,
+    "failed": 0,
+    "skipped": 0,
+    "designContracts": 17,
+    "generatedTypes": 747,
+    "typecheck": "passed",
+    "productionBuild": "passed"
+  },
+  "nativeDefaultPolicyFinding": {
+    "initialDenyProbe": "failed: zero Host requests and controlled external sentinel written",
+    "configuredReviewer": "auto_review",
+    "parentToolBridgeAndSandboxMarkersPresent": true,
+    "causalIsolation": "Reviewer default confirmed; bridge contribution not independently isolated"
+  },
+  "fix": {
+    "explicitReviewer": "user",
+    "effectivePolicyVerifiedBeforeTurn": true,
+    "nativePolicyHashRecordedBeforeTurnIntent": true,
+    "parentCodexToolBridgeAndIdentityExcluded": true,
+    "supportedAuthenticationAndTLSRetained": true
+  },
+  "nativeCases": {
+    "deny": "passed; one decline, no effect",
+    "accept": "passed; one accept, expected controlled sentinel only",
+    "interrupt": "passed; authoritative interrupted, identity-confirmed Node PID exited, no delayed effect",
+    "resumeRegression": "passed; prior context marker, new Run/Turn in same Task/Thread, effective user reviewer verified"
+  },
+  "desktop": "real Electron with synthetic approval backend regression passed; native model approval evidence is the separate CLI component probe",
+  "M1Gate": "open",
+  "remaining": [
+    "corrected-policy real desktop code/continuation task",
+    "native directory dialog",
+    "Electron restart/history reconstruction",
+    "OS single-instance ownership"
+  ]
+}

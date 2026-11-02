@@ -2,7 +2,7 @@
   "observed_at": "2026-11-03",
   "cli_version": "codex-cli 0.163.0",
   "binary_source_commit": null,
-  "evidence_scope": "macOS arm64 M0 passed. M1 durable execution, native code task with frozen verification, explicit lost-response history reconciliation and same-thread continuation passed their recorded scopes. Native approval/interrupt and complete Electron restart/OS ownership acceptance remain open; M1 gate is not closed.",
+  "evidence_scope": "macOS arm64 M0 passed. M1 durable execution, native code/frozen verification, explicit history reconciliation and continuation passed recorded scopes. M1.4a fixed inherited auto-review and parent tool-bridge environment; native command approval accept/decline and interrupted process-exit probes passed. Corrected-policy code regression, native directory and Electron restart/OS ownership acceptance remain open; M1 gate is not closed.",
   "methods": [
     {
       "method": "initialize",
@@ -69,8 +69,8 @@
       "schema_observed": true,
       "runtime_verification": "passed",
       "fallback": "block continuation gate",
-      "runtime_evidence": "docs/progress/evidence/M1.3c-native-continuation.json",
-      "runtime_scope": "One native read-only continuation with a fenced new Run/Intent, same Task/Thread and a distinct Turn; final marker came from prior user context. No native code-continuation or interrupt claim."
+      "runtime_evidence": "docs/progress/evidence/M1.4a-native-continuation.json",
+      "runtime_scope": "One native read-only continuation after explicit user reviewer and effective sandbox validation, with a fenced new Run/Intent, same Task/Thread, distinct Turn and prior context marker. No code-continuation claim."
     },
     {
       "method": "thread/turns/list",
@@ -97,8 +97,10 @@
       "first_milestone": "M1",
       "requirement": "required",
       "schema_observed": true,
-      "runtime_verification": "pending",
-      "fallback": "block stop-control gate"
+      "runtime_verification": "passed",
+      "fallback": "block stop-control gate",
+      "runtime_evidence": "docs/progress/evidence/M1.4a-native-interrupt.json",
+      "runtime_scope": "One real native model command in an isolated workspace: persisted interrupt, authoritative interrupted outcome, identity-confirmed Node helper PID exited and delayed effect absent. No general background-process guarantee."
     },
     {
       "method": "turn/steer",

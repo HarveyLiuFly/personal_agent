@@ -232,6 +232,10 @@ export class ExecutionLedger {
       this.event(String(run.task_id), token.runId, 'manifest_bound', { moduleHashes, toolProfileHash });
     });
   }
+  confirmNativePolicy(token:RunToken,policyHash:string):void {
+    if(!/^[a-f0-9]{64}$/.test(policyHash))return fail('INVALID_NATIVE_POLICY_HASH');
+    this.tx(()=>{const run=this.guard(token);if(this.one("SELECT intent_id FROM execution_intents WHERE run_id=? AND kind='turn_start'",token.runId)||!this.one("SELECT intent_id FROM execution_intents WHERE run_id=? AND kind IN ('thread_start','thread_resume') AND state='accepted'",token.runId))return fail('NATIVE_POLICY_SCOPE_MISMATCH');this.event(String(run.task_id),token.runId,'native_policy_verified',{policyHash});});
+  }
   prepare(token: RunToken, key: string, kind: 'thread_start' | 'thread_resume' | 'turn_start' | 'turn_interrupt', params: unknown, threadId: string | null = null, turnId: string | null = null): Intent {
     if (!id(key) || !['thread_start','thread_resume','turn_start','turn_interrupt'].includes(kind) || (kind !== 'thread_start' && !id(threadId))) return fail('INVALID_INTENT');
     return this.tx(() => {

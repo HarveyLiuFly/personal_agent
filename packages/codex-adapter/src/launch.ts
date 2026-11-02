@@ -21,14 +21,14 @@ export function resolveVerifierNode(root: string): string {
   return file;
 }
 
-/** Preserve injected authentication/proxy guards for the trusted Runtime; no values are logged. */
-export function runtimeEnvironment(): NodeJS.ProcessEnv {
+/** Preserve configured authentication/proxy bindings, never the parent agent's tool bridge or sandbox markers. */
+export function runtimeEnvironment(inputEnvironment:NodeJS.ProcessEnv=process.env): NodeJS.ProcessEnv {
   const exact = new Set(['PATH', 'HOME', 'USER', 'LOGNAME', 'SHELL', 'LANG', 'TERM', 'TMPDIR',
     'HTTP_PROXY', 'HTTPS_PROXY', 'NO_PROXY', 'http_proxy', 'https_proxy', 'no_proxy',
-    'SSL_CERT_FILE', 'SSL_CERT_DIR', 'REQUESTS_CA_BUNDLE', 'NODE_EXTRA_CA_CERTS', 'OIC_MANIFEST_PATH']);
+    'SSL_CERT_FILE', 'SSL_CERT_DIR', 'REQUESTS_CA_BUNDLE', 'NODE_EXTRA_CA_CERTS', 'OIC_MANIFEST_PATH','CODEX_HOME','CODEX_API_KEY']);
   const environment: NodeJS.ProcessEnv = {};
-  for (const [name, value] of Object.entries(process.env)) {
-    if (exact.has(name) || /^(CODEX_|OPENAI_|OAI_|OIC_|IDENTITY_|AZURE_|MSI_|AWS_|GOOGLE_|GCLOUD_|CLOUDSDK_|XDG_|LC_)/.test(name)) environment[name] = value;
+  for (const [name, value] of Object.entries(inputEnvironment)) {
+    if (exact.has(name) || /^(OPENAI_|OAI_|OIC_|IDENTITY_|AZURE_|MSI_|AWS_|GOOGLE_|GCLOUD_|CLOUDSDK_|XDG_|LC_)/.test(name)) environment[name] = value;
   }
   return environment;
 }

@@ -1,0 +1,38 @@
+{
+  "status": "passed",
+  "observedAt": "2026-11-02T17:32:03.415Z",
+  "kind": "real_model_native_interrupt",
+  "scenario": "interrupt",
+  "platform": "darwin-arm64",
+  "cliVersion": "codex-cli 0.163.0",
+  "inferenceRequested": true,
+  "runId": "dc6361dd-cb07-48d7-8895-e43d17bd3e8a",
+  "threadId": "01a19d51-5034-7d22-bf92-deea69b6a557",
+  "turnId": "01a19d51-5080-72a0-a73a-d1c2f0fba3e3",
+  "runStatus": "cancelled",
+  "taskStatus": "cancelled",
+  "verifiedMethods": [
+    "turn/interrupt"
+  ],
+  "decisions": [],
+  "expectedEffectPresent": false,
+  "helperHashUnchanged": true,
+  "interruptRequested": true,
+  "pidIdentityConfirmed": true,
+  "helperExited": true,
+  "diagnostics": {
+    "clientThreadStarts": 1,
+    "clientThreadResumes": 0,
+    "clientTurnStarts": 1,
+    "notificationCount": 30,
+    "serverRequestsDenied": 0,
+    "selectedModel": "gpt-6.1-sol",
+    "externalMcpServers": 0,
+    "disabledInheritedMcpServers": 2,
+    "nativePolicyVerified": true,
+    "nativeApprovalsReviewer": "user",
+    "failureCode": "",
+    "remoteFailureCategory": "",
+    "phase": "turn/completed"
+  }
+}

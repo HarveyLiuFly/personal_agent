@@ -1,0 +1,39 @@
+{
+  "status": "passed",
+  "observedAt": "2026-11-02T17:34:08.541Z",
+  "kind": "real_native_thread_resume_and_fenced_continuation",
+  "platform": "darwin-arm64",
+  "cliVersion": "codex-cli 0.163.0",
+  "verifiedMethods": [
+    "thread/resume",
+    "turn/start"
+  ],
+  "inferenceRequested": true,
+  "scope": "CLI component probe in the original controlled workspace; one new real model turn, no Electron restart claim.",
+  "sourceRunId": "2b831e03-93c2-419c-ba6d-0abb43f3f3fc",
+  "runId": "acf704e3-9ef6-4114-b758-2151d9261c0f",
+  "threadId": "01a19d3a-f61a-79b2-beb7-ae460635f76b",
+  "sourceTurnId": "01a19d40-e7b6-7040-be5b-9576b72e7d6a",
+  "turnId": "01a19d53-488c-7323-8a85-c1a7022082e6",
+  "sameTask": true,
+  "sameThread": true,
+  "newRun": true,
+  "newTurn": true,
+  "priorContextMarkerMatched": true,
+  "taskStatus": "needs_review",
+  "diagnostics": {
+    "clientThreadStarts": 0,
+    "clientThreadResumes": 1,
+    "clientTurnStarts": 1,
+    "notificationCount": 24,
+    "serverRequestsDenied": 0,
+    "selectedModel": "gpt-6.1-sol",
+    "externalMcpServers": 0,
+    "disabledInheritedMcpServers": 2,
+    "nativePolicyVerified": true,
+    "nativeApprovalsReviewer": "user",
+    "failureCode": "",
+    "remoteFailureCategory": "",
+    "phase": "turn/completed"
+  }
+}
