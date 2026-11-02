@@ -67,6 +67,10 @@ Composer 在 Idle 时创建 Turn，运行中按锁版能力 Steer/Interrupt，�
 
 最小存储使用共用 Schema 中的 Profile/Dot、Project/Workspace、Task/Run、Thread Binding、ExecutionIntent、审批映射和验证相关表；尚未实现的 Goal/Source/Memory 服务关闭。Run/Intent 的状态语义由 Runtime 方案定义，M1 只实现前台单任务所需路径，不另造一种临时恢复语义。
 
+前台账本采用 Node/Electron 内置 SQLite，直接初始化共用 SQL（当前 Revision 2），启用外键、WAL、FULL 同步与有界 busy timeout。已有未知/旧版非空库明确拒绝，不覆盖初始化。目录身份保存设备号/inode，重新派发前复核；任务/Run/Intent 状态变更、Thread 绑定、单任务事件序号与 Outbox 在同一短事务提交。暂不启用后台 Outbox 投递服务。
+
+Electron Main 取得 OS 单实例锁后才提升 Owner Epoch；数据库 Epoch 仅拒绝旧写入，不能替代进程互斥。新 Owner 将旧活跃 Run 保留为 Unknown 并阻止派发：`sending` Intent 转 Unknown，`prepared` Intent 标记尚未发送的拒绝，已接受回执保留。接收 ID 前不发下一请求，重复提交键仅返回原 Run；Unknown 不生成替代 Run。显示快照存于已有 Checkpoint 表，仅是有界缓存，Run 结束后 Task 仍等待独立完成验证。
+
 每次服务端 Request 绑定 Runtime Epoch、Connection Epoch、RPC ID 与 Thread/Turn。连接已失效的审批不在新进程重新放行。发送请求前保存 Intent；接收结果丢失时按 Runtime 的核查合同处理，无法证实就保留 Unknown。
 
 实现顺序：版本与环境探测 → 安全窗口/IPC → 双向 RPC → 第一条真实 Turn → 最小执行账本 → 流式 Reducer/历史 → 审批/停止 → Diff/验证 → 故障恢复。协议 Stub 用于确定性故障用例，真实模型闭环单独执行。

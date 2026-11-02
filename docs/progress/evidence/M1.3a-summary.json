@@ -1,0 +1,28 @@
+{
+  "observedAt": "2026-11-02T15:12:38.611642+00:00",
+  "milestone": "M1.3a",
+  "status": "passed_component_scope",
+  "nodeTests": {
+    "discovered": 61,
+    "executed": 61,
+    "passed": 61,
+    "failed": 0,
+    "skipped": 0,
+    "newLedgerCases": 15
+  },
+  "designChecks": 17,
+  "realComponents": [
+    "SQLite file/WAL transactions",
+    "Node worker SIGKILL and reopen"
+  ],
+  "fixtures": [
+    "domain task inputs",
+    "owner handover exclusive-lock premise"
+  ],
+  "notRun": [
+    "Electron ledger integration and double startup",
+    "model request through ledger",
+    "approvals/stop/reconciliation/verification E2E"
+  ],
+  "next": "M1.1c durable RPC execution and live UI; M1 gate stays open"
+}

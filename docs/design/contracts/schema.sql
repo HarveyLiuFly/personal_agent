@@ -12,7 +12,7 @@ CREATE TABLE schema_metadata (
   singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
   schema_revision INTEGER NOT NULL CHECK (schema_revision > 0)
 );
-INSERT INTO schema_metadata VALUES (1, 1);
+INSERT INTO schema_metadata VALUES (1, 2);
 
 CREATE TABLE profiles (
   profile_id TEXT PRIMARY KEY,
@@ -56,6 +56,12 @@ CREATE TABLE workspaces (
   write_fence INTEGER NOT NULL DEFAULT 0 CHECK (write_fence >= 0),
   UNIQUE(workspace_id, dot_id),
   FOREIGN KEY(project_id, dot_id) REFERENCES projects(project_id, dot_id)
+);
+CREATE UNIQUE INDEX one_workspace_per_directory ON workspaces(dot_id, canonical_cwd);
+CREATE TABLE workspace_identities (
+  workspace_id TEXT PRIMARY KEY REFERENCES workspaces(workspace_id),
+  device_id TEXT NOT NULL,
+  inode TEXT NOT NULL
 );
 
 CREATE TABLE goals (
@@ -287,6 +293,8 @@ CREATE TABLE execution_intents (
   created_at_ms INTEGER NOT NULL,
   CHECK (kind = 'thread_start' OR execution_thread_id IS NOT NULL)
 );
+CREATE UNIQUE INDEX one_initial_intent_per_run ON execution_intents(run_id,kind)
+WHERE kind IN ('thread_start','thread_resume','turn_start');
 
 CREATE TABLE task_events (
   event_id TEXT PRIMARY KEY,

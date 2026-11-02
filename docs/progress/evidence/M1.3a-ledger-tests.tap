@@ -1,0 +1,88 @@
+TAP version 13
+# Subtest: initializes common schema, persists workspace identity and protects local database permissions
+ok 1 - initializes common schema, persists workspace identity and protects local database permissions
+  ---
+  duration_ms: 11.701125
+  type: 'test'
+  ...
+# Subtest: foreign or unsupported databases are rejected without wiping existing tables
+ok 2 - foreign or unsupported databases are rejected without wiping existing tables
+  ---
+  duration_ms: 8.525959
+  type: 'test'
+  ...
+# Subtest: duplicate submission keys return the same run; changed inputs and concurrent tasks fail
+ok 3 - duplicate submission keys return the same run; changed inputs and concurrent tasks fail
+  ---
+  duration_ms: 8.161958
+  type: 'test'
+  ...
+# Subtest: workspace lease collision rolls back the entire task/run/event claim
+ok 4 - workspace lease collision rolls back the entire task/run/event claim
+  ---
+  duration_ms: 12.624041
+  type: 'test'
+  ...
+# Subtest: turn intents require the task binding and cannot borrow a different project thread
+ok 5 - turn intents require the task binding and cannot borrow a different project thread
+  ---
+  duration_ms: 10.224167
+  type: 'test'
+  ...
+# Subtest: sending is durable once only, input hashes are stable and RPC correlation is persisted
+ok 6 - sending is durable once only, input hashes are stable and RPC correlation is persisted
+  ---
+  duration_ms: 8.937541
+  type: 'test'
+  ...
+# Subtest: invalid acceptance cannot partially bind a thread or clear an uncertain intent
+ok 7 - invalid acceptance cannot partially bind a thread or clear an uncertain intent
+  ---
+  duration_ms: 8.451542
+  type: 'test'
+  ...
+# Subtest: restart retains unknown work, rejects stale grants and never creates a replacement run
+ok 8 - restart retains unknown work, rejects stale grants and never creates a replacement run
+  ---
+  duration_ms: 10.692958
+  type: 'test'
+  ...
+# Subtest: prepared but unsent intents are marked rejected on restart, with no dispatch authorization
+ok 9 - prepared but unsent intents are marked rejected on restart, with no dispatch authorization
+  ---
+  duration_ms: 8.886834
+  type: 'test'
+  ...
+# Subtest: completion ends the run but keeps the task awaiting verification
+ok 10 - completion ends the run but keeps the task awaiting verification
+  ---
+  duration_ms: 13.035125
+  type: 'test'
+  ...
+# Subtest: snapshot caches are scope checked and do not turn an unfinished run into success
+ok 11 - snapshot caches are scope checked and do not turn an unfinished run into success
+  ---
+  duration_ms: 11.364042
+  type: 'test'
+  ...
+# Subtest: directory replacement and expired leases prevent further dispatch
+ok 12 - directory replacement and expired leases prevent further dispatch
+  ---
+  duration_ms: 8.5865
+  type: 'test'
+  ...
+# Subtest: task events and outbox entries share a committed sequence and omit raw task input
+ok 13 - task events and outbox entries share a committed sequence and omit raw task input
+  ---
+  duration_ms: 8.751542
+  type: 'test'
+  ...
+1..13
+# tests 13
+# suites 0
+# pass 13
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 215.087834
