@@ -64,23 +64,36 @@ async function boot(): Promise<void> {
   await window.loadFile(documentPath);
   if (process.argv.includes('--m0-window-smoke')) {
     // Fixed test-only evaluation; no Renderer API accepts JS or a command string.
-    const result: unknown = await window.webContents.executeJavaScript(`(async () => ({
+    const result: unknown = await window.webContents.executeJavaScript(`(async () => {
+      const connection = await window.personalAgent.inspect();
+      document.querySelector('button')?.click();
+      const deadline = Date.now() + 20000;
+      while (Date.now() < deadline && !document.querySelector('[role="status"]')?.textContent.startsWith('已连接')) {
+        await new Promise(resolve => setTimeout(resolve, 50));
+      }
+      return {
       title: document.title,
       rendered: document.body.textContent.includes('Personal Agent'),
       hasRequire: typeof require !== 'undefined',
       bridgeKeys: Object.keys(window.personalAgent).sort(),
       sandboxed: window.personalAgent.security.sandboxed,
       isolated: window.personalAgent.security.isolated,
-      connection: await window.personalAgent.inspect()
-    }))()`);
+      connection,
+      uiConnected: document.querySelector('[role="status"]')?.textContent.startsWith('已连接') === true
+    }; })()`);
+    const r = result as Record<string, unknown>;
+    const passed = r.rendered === true && r.hasRequire === false && r.sandboxed === true && r.isolated === true
+      && r.uiConnected === true && !app.commandLine.hasSwitch('no-sandbox')
+      && (r.connection as ConnectionInfo)?.status === 'connected'
+      && JSON.stringify(r.bridgeKeys) === JSON.stringify(['inspect', 'runSmoke', 'security']);
     const evidence = { observedAt: new Date().toISOString(), kind: 'real_electron_window_smoke',
+      status: passed ? 'passed' : 'blocked',
       browserSandbox: app.commandLine.hasSwitch('no-sandbox') ? 'disabled' : 'enabled', result };
     mkdirSync(resolve(root, 'docs/progress/evidence'), { recursive: true });
     writeFileSync(resolve(root, 'docs/progress/evidence/M0-desktop-smoke.json'), JSON.stringify(evidence, null, 2) + '\n');
-    const r = result as Record<string, unknown>;
-    app.exit(r.rendered === true && r.hasRequire === false && r.sandboxed === true && r.isolated === true
-      && evidence.browserSandbox === 'enabled' && (r.connection as ConnectionInfo)?.status === 'connected'
-      && JSON.stringify(r.bridgeKeys) === JSON.stringify(['inspect', 'runSmoke', 'security']) ? 0 : 1);
+    writeFileSync(resolve(root, '.local/M0-desktop-smoke.png'), (await window.webContents.capturePage()).toPNG());
+    // Use Electron's normal shutdown lifecycle before the wrapper releases its display.
+    app.quit();
   }
 }
 app.on('window-all-closed', () => { if (!active) app.quit(); });

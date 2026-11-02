@@ -1,0 +1,28 @@
+{
+  "observedAt": "2026-11-02T13:22:17.632Z",
+  "kind": "real_electron_window_smoke",
+  "status": "passed",
+  "browserSandbox": "enabled",
+  "result": {
+    "title": "Personal Agent",
+    "rendered": true,
+    "hasRequire": false,
+    "bridgeKeys": [
+      "inspect",
+      "runSmoke",
+      "security"
+    ],
+    "sandboxed": true,
+    "isolated": true,
+    "connection": {
+      "status": "connected",
+      "models": 8,
+      "defaultModel": "gpt-6.1-sol"
+    },
+    "uiConnected": true
+  },
+  "display": "authenticated_xvfb",
+  "exitCode": 0,
+  "signal": null,
+  "timedOut": false
+}

@@ -1,0 +1,111 @@
+Verified 747 generated types against codex-cli 0.163.0.
+TAP version 13
+# Subtest: out-of-order responses retain the correct request identity
+ok 1 - out-of-order responses retain the correct request identity
+  ---
+  duration_ms: 99.594266
+  type: 'test'
+  ...
+# Subtest: server request with a colliding numeric ID is denied without resolving the client request
+ok 2 - server request with a colliding numeric ID is denied without resolving the client request
+  ---
+  duration_ms: 90.189888
+  type: 'test'
+  ...
+# Subtest: an unsupported server request fails closed
+ok 3 - an unsupported server request fails closed
+  ---
+  duration_ms: 87.362401
+  type: 'test'
+  ...
+# Subtest: UTF-8 frames split inside a code point preserve repeated text
+ok 4 - UTF-8 frames split inside a code point preserve repeated text
+  ---
+  duration_ms: 90.538751
+  type: 'test'
+  ...
+# Subtest: malformed input closes the connection and rejects pending execution as unknown
+ok 5 - malformed input closes the connection and rejects pending execution as unknown
+  ---
+  duration_ms: 76.415622
+  type: 'test'
+  ...
+# Subtest: oversize input closes the connection and rejects pending execution as unknown
+ok 6 - oversize input closes the connection and rejects pending execution as unknown
+  ---
+  duration_ms: 80.255779
+  type: 'test'
+  ...
+# Subtest: utf8 input closes the connection and rejects pending execution as unknown
+ok 7 - utf8 input closes the connection and rejects pending execution as unknown
+  ---
+  duration_ms: 76.086664
+  type: 'test'
+  ...
+# Subtest: a response deadline does not automatically resubmit an uncertain request
+ok 8 - a response deadline does not automatically resubmit an uncertain request
+  ---
+  duration_ms: 133.113966
+  type: 'test'
+  ...
+# Subtest: process exit rejects all outstanding requests and is not a successful empty result
+ok 9 - process exit rejects all outstanding requests and is not a successful empty result
+  ---
+  duration_ms: 84.212993
+  type: 'test'
+  ...
+# Subtest: closed clients reject new work and cleanup can be awaited more than once
+ok 10 - closed clients reject new work and cleanup can be awaited more than once
+  ---
+  duration_ms: 81.857709
+  type: 'test'
+  ...
+# Subtest: owner cancellation rejects pending work and waits for its child process to stop
+ok 11 - owner cancellation rejects pending work and waits for its child process to stop
+  ---
+  duration_ms: 77.320019
+  type: 'test'
+  ...
+# Subtest: the trusted runtime preserves injected guards but excludes unrelated application secrets
+ok 12 - the trusted runtime preserves injected guards but excludes unrelated application secrets
+  ---
+  duration_ms: 0.780028
+  type: 'test'
+  ...
+1..12
+# tests 12
+# suites 0
+# pass 12
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1104.571167
+PASS single_schema_initialization_and_foreign_keys
+PASS sql_typescript_status_consistency
+PASS task_transition_guards_shape
+PASS single_active_run_and_nonreused_fence
+PASS orphan_and_cross_dot_references_rejected
+PASS stale_fence_cas_rejected
+PASS stop_requested_task_blocks_new_claims
+PASS task_event_sequence_and_run_scope
+PASS active_thread_and_workspace_writer_uniqueness
+PASS intent_ordering_and_idempotency
+PASS per_operation_identity_and_dependency
+PASS immutable_source_and_per_task_delivery
+PASS occurrence_dedup_and_schedule_version_guard
+PASS single_use_hash_bound_action_receipt
+PASS budget_admission_and_actual_overrun_accounting
+PASS privacy_tombstone_dependency_lookup
+PASS stage_document_navigation_requirements_and_protocol_evidence
+17 design checks passed. Application E2E and runtime security are not verified.
+vite v8.3.5 building client environment for production...
+transforming...
+✓ 15 modules transformed.
+rendering chunks...
+computing gzip size...
+build/desktop/renderer/index.html                   0.62 kB │ gzip:  0.37 kB
+build/desktop/renderer/assets/index-CryuUMtO.css    0.97 kB │ gzip:  0.51 kB
+build/desktop/renderer/assets/index-D9YRgMQg.js   221.36 kB │ gzip: 69.61 kB
+
+✓ built in 275ms

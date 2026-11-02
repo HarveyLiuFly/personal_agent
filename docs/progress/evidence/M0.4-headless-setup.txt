@@ -1,0 +1,11 @@
+Get:1 https://deb.debian.org/debian trixie InRelease [140 kB]
+Get:2 https://security.debian.org/debian-security trixie-security InRelease [43.4 kB]
+Get:3 https://deb.debian.org/debian trixie-updates InRelease [47.3 kB]
+Get:4 https://security.debian.org/debian-security trixie-security/main amd64 Packages [293 kB]
+Get:5 https://deb.debian.org/debian trixie/main amd64 Packages [9678 kB]
+Get:6 https://deb.debian.org/debian trixie-updates/main amd64 Packages [1108 B]
+Fetched 10.2 MB in 2s (6265 kB/s)
+Reading package lists...
+Get:1 https://deb.debian.org/debian trixie/main amd64 xauth amd64 1:1.1.2-1.1 [35.9 kB]
+Fetched 35.9 kB in 0s (159 kB/s)
+Verified and extracted four pinned Debian packages into .local/system. No system configuration changed.

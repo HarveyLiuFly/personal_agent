@@ -1,0 +1,13 @@
+{
+  "observedAt": "2026-11-02T13:26:05.292516+00:00",
+  "status": "saved",
+  "requiresPublish": true,
+  "savedFields": [
+    "install_script",
+    "start_skill"
+  ],
+  "networkPolicyChanged": false,
+  "credentialsRequested": false,
+  "appliedToRuntime": false,
+  "newTaskRestorationVerified": false
+}

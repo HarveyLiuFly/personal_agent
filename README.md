@@ -24,6 +24,7 @@ Electron 45 使用显式安装器下载运行时；安装器保留官方发行�
 
 ```bash
 pnpm smoke:codex
+pnpm setup:headless # 无 DISPLAY 的 Debian 13 x86_64 云环境
 pnpm smoke:desktop
 ```
 
@@ -32,3 +33,5 @@ pnpm smoke:desktop
 运行状态写入独立 `sqlite_home/log_dir`，认证仍由 Codex 支持的路径处理，不复制 Token。`.local/`、依赖和构建输出不进入 Git。每次进展点完成后，先更新文档和证据，再提交、推送并同步提交号。
 
 协议升级需重新审查二进制/Schema 指纹和契约结果；生成目录由 `pnpm protocol:generate` 管理，禁止手改类型。
+
+`smoke:connection` 只运行原生握手与模型目录查询，不发起推理。`smoke:desktop` 无 DISPLAY 时使用带 Xauthority 的本地 Xvfb，并在结束后回收显示进程；保留 Electron 沙箱。`setup:headless` 只在 `.local/` 内解压四个锁版 Debian 包，首次下载使用官方签名索引和固定 SHA-256，不需要 sudo。缺少其他系统动态库的平台仍需先准备相应依赖。

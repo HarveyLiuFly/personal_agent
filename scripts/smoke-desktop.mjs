@@ -3,31 +3,41 @@ import { readFile, mkdir, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import electron from 'electron';
+import { openDisplay } from './virtual-display.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const file = resolve(root, 'docs/progress/evidence/M0-desktop-smoke.json');
 await mkdir(dirname(file), { recursive: true });
 // Replace old evidence before starting so an unsuccessful new run cannot reuse a past success.
 await writeFile(file, JSON.stringify({ status: 'running', observedAt: new Date().toISOString(), kind: 'real_electron_window_smoke' }, null, 2) + '\n');
-const child = spawn(electron, ['.', '--m0-window-smoke'], { cwd: root, stdio: 'inherit', env: process.env });
-let timedOut = false;
-const timer = setTimeout(() => { timedOut = true; child.kill('SIGTERM'); }, 40_000);
-child.once('error', async () => {
-  clearTimeout(timer);
-  await writeFile(file, JSON.stringify({ status: 'blocked', code: 'ELECTRON_SPAWN_FAILED', observedAt: new Date().toISOString() }, null, 2) + '\n');
-  process.exitCode = 1;
-});
-child.once('exit', async (code, signal) => {
-  clearTimeout(timer);
-  if (code !== 0) {
-    const current = JSON.parse(await readFile(file, 'utf8'));
-    await writeFile(file, JSON.stringify({ ...current, status: 'blocked', exitCode: code, signal, timedOut,
-      code: 'ELECTRON_VALIDATION_FAILED' }, null, 2) + '\n');
-    process.exitCode = 1;
-  } else {
-    const current = JSON.parse(await readFile(file, 'utf8'));
-    if (!current.result) { process.exitCode = 1; return; }
-    await writeFile(file, JSON.stringify({ ...current, status: 'passed' }, null, 2) + '\n');
-    console.log('Real Electron render, isolated sandboxed Preload, and model-catalog IPC passed.');
-  }
-});
+let display;
+let evidence;
+try {
+  display = await openDisplay(root);
+  const child = spawn(electron, ['.', '--m0-window-smoke'], { cwd: root, stdio: 'inherit', env: display.env });
+  let timedOut = false;
+  let killTimer;
+  const timer = setTimeout(() => {
+    timedOut = true;
+    child.kill('SIGTERM');
+    killTimer = setTimeout(() => child.kill('SIGKILL'), 3_000);
+  }, 40_000);
+  let outcome;
+  try {
+    outcome = await new Promise((resolveOutcome, reject) => {
+      child.once('error', () => reject(new Error('ELECTRON_SPAWN_FAILED')));
+      child.once('close', (exitCode, signal) => resolveOutcome({ exitCode, signal }));
+    });
+  } finally { clearTimeout(timer); clearTimeout(killTimer); }
+  const current = JSON.parse(await readFile(file, 'utf8'));
+  evidence = { ...current, observedAt: new Date().toISOString(), display: display.kind, ...outcome, timedOut,
+    status: outcome.exitCode === 0 && current.status === 'passed' && current.result ? 'passed' : 'blocked' };
+  if (evidence.status !== 'passed') evidence.code = 'ELECTRON_VALIDATION_FAILED';
+} catch (error) {
+  const code = error instanceof Error && /^[A-Z0-9_a-z]+$/.test(error.message) ? error.message : 'HOST_ERROR';
+  evidence = { status: 'blocked', observedAt: new Date().toISOString(), kind: 'real_electron_window_smoke', code };
+} finally { await display?.close(); }
+await writeFile(file, JSON.stringify(evidence, null, 2) + '\n');
+await writeFile(file.replace('.json', `-${evidence.observedAt.replaceAll(':', '-').replaceAll('.', '-')}.json`), JSON.stringify(evidence, null, 2) + '\n');
+console.log(JSON.stringify(evidence, null, 2));
+if (evidence.status !== 'passed') process.exitCode = 1;
