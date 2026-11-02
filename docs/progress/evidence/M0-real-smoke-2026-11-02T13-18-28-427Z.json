@@ -1,0 +1,132 @@
+{
+  "observedAt": "2026-11-02T13:18:28.427Z",
+  "cliVersion": "codex-cli 0.163.0",
+  "status": "blocked",
+  "kind": "real_app_server_model_smoke",
+  "code": "TURN_NOT_COMPLETED",
+  "outcomeUnknown": true,
+  "details": {
+    "phase": "turn/completed",
+    "threadId": "01a19c68-c0e6-7583-87fe-a094781c12f6",
+    "turnId": "01a19c68-cc97-71f3-9786-812b58062a08",
+    "notificationCounts": {
+      "remoteControl/status/changed": 1,
+      "thread/started": 1,
+      "mcpServer/startupStatus/updated": 2,
+      "thread/status/changed": 2,
+      "turn/started": 1,
+      "item/started": 1,
+      "item/completed": 1,
+      "error": 10,
+      "warning": 1,
+      "turn/completed": 1
+    },
+    "notificationShapes": {
+      "remoteControl/status/changed": [
+        "environmentId",
+        "installationId",
+        "serverName",
+        "status"
+      ],
+      "thread/started": [
+        "thread"
+      ],
+      "mcpServer/startupStatus/updated": [
+        "error",
+        "failureReason",
+        "name",
+        "status",
+        "threadId"
+      ],
+      "thread/status/changed": [
+        "status",
+        "threadId"
+      ],
+      "turn/started": [
+        "threadId",
+        "turn"
+      ],
+      "item/started": [
+        "item",
+        "startedAtMs",
+        "threadId",
+        "turnId"
+      ],
+      "item/completed": [
+        "completedAtMs",
+        "item",
+        "threadId",
+        "turnId"
+      ],
+      "error": [
+        "error",
+        "threadId",
+        "turnId",
+        "willRetry"
+      ],
+      "warning": [
+        "message",
+        "threadId"
+      ],
+      "turn/completed": [
+        "threadId",
+        "turn"
+      ]
+    },
+    "upstreamErrors": [
+      {
+        "kind": "responseStreamDisconnected",
+        "willRetry": true,
+        "httpStatusCode": null
+      },
+      {
+        "kind": "responseStreamDisconnected",
+        "willRetry": true,
+        "httpStatusCode": null
+      },
+      {
+        "kind": "responseStreamDisconnected",
+        "willRetry": true,
+        "httpStatusCode": null
+      },
+      {
+        "kind": "responseStreamDisconnected",
+        "willRetry": true,
+        "httpStatusCode": null
+      },
+      {
+        "kind": "responseStreamDisconnected",
+        "willRetry": true,
+        "httpStatusCode": null
+      },
+      {
+        "kind": "responseStreamDisconnected",
+        "willRetry": true,
+        "httpStatusCode": null
+      },
+      {
+        "kind": "responseStreamDisconnected",
+        "willRetry": true,
+        "httpStatusCode": null
+      },
+      {
+        "kind": "responseStreamDisconnected",
+        "willRetry": true,
+        "httpStatusCode": null
+      },
+      {
+        "kind": "responseStreamDisconnected",
+        "willRetry": true,
+        "httpStatusCode": null
+      },
+      {
+        "kind": "httpConnectionFailed",
+        "classification": "connection",
+        "willRetry": false,
+        "httpStatusCode": null
+      }
+    ],
+    "serverRequestsDenied": 0,
+    "toolItems": 0
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "observedAt": "2026-11-02T12:54:23.485Z",
+  "cliVersion": "codex-cli 0.163.0",
+  "status": "blocked",
+  "kind": "real_app_server_model_smoke",
+  "code": "TURN_TIMEOUT",
+  "outcomeUnknown": true
+}

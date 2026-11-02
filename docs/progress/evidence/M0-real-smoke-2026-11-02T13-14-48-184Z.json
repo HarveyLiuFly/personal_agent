@@ -1,0 +1,108 @@
+{
+  "observedAt": "2026-11-02T13:14:48.184Z",
+  "cliVersion": "codex-cli 0.163.0",
+  "status": "blocked",
+  "kind": "real_app_server_model_smoke",
+  "code": "REMOTE_-32600",
+  "outcomeUnknown": false,
+  "details": {
+    "phase": "thread/read",
+    "threadId": "01a19c64-82b9-7ab1-a6d1-5860407ee805",
+    "turnId": "01a19c64-8e3c-7ac3-8d6c-5e3673c9f1fb",
+    "notificationCounts": {
+      "remoteControl/status/changed": 1,
+      "mcpServer/startupStatus/updated": 2,
+      "thread/started": 1,
+      "thread/status/changed": 1,
+      "turn/started": 1,
+      "item/started": 1,
+      "item/completed": 1,
+      "error": 8,
+      "warning": 1
+    },
+    "notificationShapes": {
+      "remoteControl/status/changed": [
+        "environmentId",
+        "installationId",
+        "serverName",
+        "status"
+      ],
+      "mcpServer/startupStatus/updated": [
+        "error",
+        "failureReason",
+        "name",
+        "status",
+        "threadId"
+      ],
+      "thread/started": [
+        "thread"
+      ],
+      "thread/status/changed": [
+        "status",
+        "threadId"
+      ],
+      "turn/started": [
+        "threadId",
+        "turn"
+      ],
+      "item/started": [
+        "item",
+        "startedAtMs",
+        "threadId",
+        "turnId"
+      ],
+      "item/completed": [
+        "completedAtMs",
+        "item",
+        "threadId",
+        "turnId"
+      ],
+      "error": [
+        "error",
+        "threadId",
+        "turnId",
+        "willRetry"
+      ],
+      "warning": [
+        "message",
+        "threadId"
+      ]
+    },
+    "upstreamErrors": [
+      {
+        "kind": "responseStreamDisconnected",
+        "httpStatusCode": null
+      },
+      {
+        "kind": "responseStreamDisconnected",
+        "httpStatusCode": null
+      },
+      {
+        "kind": "responseStreamDisconnected",
+        "httpStatusCode": null
+      },
+      {
+        "kind": "responseStreamDisconnected",
+        "httpStatusCode": null
+      },
+      {
+        "kind": "responseStreamDisconnected",
+        "httpStatusCode": null
+      },
+      {
+        "kind": "responseStreamDisconnected",
+        "httpStatusCode": null
+      },
+      {
+        "kind": "responseStreamDisconnected",
+        "httpStatusCode": null
+      },
+      {
+        "kind": "responseStreamDisconnected",
+        "httpStatusCode": null
+      }
+    ],
+    "serverRequestsDenied": 0,
+    "toolItems": 0
+  }
+}

@@ -76,12 +76,20 @@ export async function runRealSmoke(executable: string, stateDirectory: string, s
       if (!isObject(message.params) || message.params.threadId !== activeThreadId) return;
       const params = message.params;
       if (method === 'error' && isObject(params.error)) {
+        const message = typeof params.error.message === 'string' ? params.error.message : '';
+        const transport = /websocket/i.test(message) ? 'websocket' : /\bSSE\b|event.?stream/i.test(message) ? 'sse' : undefined;
+        const httpStatus = message.match(/\b(?:status(?: code)?[: ]+|HTTP[\/\d. ]*)([45]\d{2})\b/i)?.[1];
+        // Record only fixed classifications, never arbitrary error text, URLs, headers or credentials.
+        const classification = /certificate|\bTLS\b/i.test(message) ? 'tls' : /unauthorized|authentication|\b401\b|\b403\b/i.test(message) ? 'authorization'
+          : /timed? out|timeout/i.test(message) ? 'timeout' : /connection (?:refused|reset)|error sending request/i.test(message) ? 'connection' : undefined;
+        const safeDiagnostic = { transport, classification, statusFromMessage: httpStatus ? Number(httpStatus) : undefined,
+          willRetry: params.willRetry === true };
         const info = params.error.codexErrorInfo;
-        if (typeof info === 'string' && /^[a-zA-Z0-9_-]{1,80}$/.test(info)) upstreamErrors.push({ kind: info });
+        if (typeof info === 'string' && /^[a-zA-Z0-9_-]{1,80}$/.test(info)) upstreamErrors.push({ kind: info, ...safeDiagnostic });
         else if (isObject(info)) {
           const kind = Object.keys(info)[0];
           const value = kind ? info[kind] : undefined;
-          if (kind && /^[a-zA-Z0-9_-]{1,80}$/.test(kind)) upstreamErrors.push({ kind,
+          if (kind && /^[a-zA-Z0-9_-]{1,80}$/.test(kind)) upstreamErrors.push({ kind, ...safeDiagnostic,
             httpStatusCode: isObject(value) && typeof value.httpStatusCode === 'number' ? value.httpStatusCode : null });
         }
       }
@@ -129,7 +137,9 @@ export async function runRealSmoke(executable: string, stateDirectory: string, s
     })]);
     if (final === null) {
       phase = 'thread/read';
-      const snapshot = await rpc.request<ThreadReadResponse>('thread/read', { threadId: activeThreadId, includeTurns: true });
+      let snapshot: ThreadReadResponse;
+      try { snapshot = await rpc.request<ThreadReadResponse>('thread/read', { threadId: activeThreadId, includeTurns: true }); }
+      catch { throw new RpcFailure('TURN_TIMEOUT', true); } // A failed reconciliation cannot make an accepted Turn known-safe to repeat.
       const turn = snapshot.thread.turns.find(item => item.id === activeTurnId);
       lastKnownStatus = turn?.status;
       if (!turn || turn.status !== 'completed') throw new RpcFailure('TURN_TIMEOUT', true);
@@ -137,7 +147,9 @@ export async function runRealSmoke(executable: string, stateDirectory: string, s
       final = { id: turn.id, status: turn.status };
       completionSource = 'snapshot';
     }
-    if (final.id !== accepted.turn.id || final.status !== 'completed') throw new RpcFailure('TURN_NOT_COMPLETED', true);
+    lastKnownStatus = typeof final.status === 'string' ? final.status : undefined;
+    if (final.id !== accepted.turn.id) throw new RpcFailure('TURN_ID_MISMATCH', true);
+    if (final.status !== 'completed') throw new RpcFailure(final.status === 'failed' ? 'TURN_FAILED' : 'TURN_NOT_COMPLETED', final.status !== 'failed' && final.status !== 'interrupted');
     const finalText = [...textByItem.values()].join('').trim();
     if (finalText !== expectedText) throw new RpcFailure('SMOKE_CONTENT_MISMATCH');
     if (toolItems !== 0 || serverRequestsDenied !== 0) throw new RpcFailure('UNEXPECTED_TOOL_ACTIVITY');

@@ -1,0 +1,17 @@
+{
+  "observedAt": "2026-11-02T13:20:09.805761+00:00",
+  "status": "blocked",
+  "kind": "proxy_connect_probe",
+  "command": "curl --head --max-time 20 https://chatgpt.com/backend-api/codex/responses (through inherited proxy, no application credentials)",
+  "curlExitCode": 56,
+  "proxyConnectStatus": 403,
+  "destinationHttpStatus": null,
+  "targetHost": "chatgpt.com",
+  "desiredDraftPolicy": "unrestricted",
+  "runtimePolicyState": "unknown",
+  "inferenceErrorKinds": [
+    "responseStreamDisconnected",
+    "httpConnectionFailed"
+  ],
+  "conclusion": "The endpoint is not reachable from this instance through its proxy. This probe does not establish whether existing model credentials would be accepted after connectivity is restored."
+}

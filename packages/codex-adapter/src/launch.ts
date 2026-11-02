@@ -35,5 +35,6 @@ export function launchArguments(stateDirectory: string): string[] {
   mkdirSync(join(root, 'logs'), { recursive: true, mode: 0o700 });
   return ['-c', `sqlite_home=${JSON.stringify(join(root, 'db'))}`,
     '-c', `log_dir=${JSON.stringify(join(root, 'logs'))}`,
-    '-c', 'history.persistence="none"', '-c', 'analytics.enabled=false', 'app-server', '--stdio'];
+    '-c', 'history.persistence="none"', '-c', 'analytics.enabled=false',
+    '-c', 'features.unbounded_connection_retries=false', 'app-server', '--stdio'];
 }
