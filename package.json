@@ -17,6 +17,8 @@
     "smoke:codex": "node --disable-warning=ExperimentalWarning scripts/smoke-codex.ts",
     "smoke:connection": "node --disable-warning=ExperimentalWarning scripts/probe-codex.ts",
     "smoke:desktop": "node scripts/smoke-desktop.mjs",
+    "smoke:history:local": "node --disable-warning=ExperimentalWarning scripts/probe-history.ts",
+    "smoke:history:desktop": "node scripts/smoke-desktop.mjs --history",
     "setup:headless": "node scripts/setup-headless.mjs",
     "check": "node scripts/check.mjs"
   },

@@ -23,3 +23,10 @@ export interface ThreadView {
   turns: TurnView[];
   items: ItemView[];
 }
+export interface ProjectView { id: string; name: string; directory: string }
+export interface ThreadSummary { id: string; title: string; updatedAt: number; status: string }
+export interface Page<T> { items: T[]; nextCursor: string | null; mode: 'paginated' | 'legacy'; truncated: boolean }
+export type HostResult<T> = { ok: true; value: T } | { ok: false; errorCode: string };
+export interface ProjectQuery { projectId: string; cursor?: string }
+export interface ThreadQuery extends ProjectQuery { threadId: string }
+export interface ItemQuery extends ThreadQuery { turnId: string }

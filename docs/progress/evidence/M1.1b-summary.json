@@ -1,0 +1,17 @@
+{
+  "observedAt": "2026-11-02T14:26:02.463906+00:00",
+  "checkpoint": "M1.1b",
+  "status": "passed",
+  "tests": 39,
+  "passed": 39,
+  "failed": 0,
+  "skipped": 0,
+  "newHistoryBoundaryCases": 13,
+  "projectionCases": 13,
+  "rpcCases": 13,
+  "nativeHistoryScope": "Isolated local metadata and empty pages only; browser restart list remains empty without a model-backed Turn.",
+  "desktopScope": "Real sandboxed Electron with local stdio synthetic history; folder dialog selection substituted.",
+  "populatedModelHistoryVerified": false,
+  "realNativeFolderDialogSelectionVerified": false,
+  "phaseGatePassed": false
+}

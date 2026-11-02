@@ -61,6 +61,10 @@ codex app-server generate-ts --experimental --out "$protocol_tmp/experimental"
 
 Composer 在 Idle 时创建 Turn，运行中按锁版能力 Steer/Interrupt，断开时保留草稿且不自动重发。任务列表、完整 Item 与错误状态由服务端结果/持久账本重建。大型历史分页、长日志限制和渲染背压从 M1 实现。
 
+只读历史先经 Host 原生目录选择注册真实路径及目录身份，Renderer 仅用项目 ID 请求。Thread 必须来自该项目的已校验列表，Turn 必须来自该 Thread 的列表；读取内容前再次核对元数据 cwd。分页游标由 Host 兑换为绑定项目/Thread/Turn 的不透明句柄，不接受任意路径、原始 RPC 或跨范围游标。
+
+历史读取按 `historyMode` 选择：`paginated` 使用 `thread/turns/list` 与 `thread/items/list`；`legacy` 只在范围校验后读取有界完整快照并本地分页。完整帧上限 1 MiB，超限明确拒绝；禁止用 Resume 隐式迁移或执行。新空 Thread 可能尚未物化，服务端拒绝时保留“暂不可读取”，不能推断没有执行过。只读浏览的可用性与真实模型恢复验收分别记录；开放创建/发送之前必须接入下述最小账本。
+
 最小存储使用共用 Schema 中的 Profile/Dot、Project/Workspace、Task/Run、Thread Binding、ExecutionIntent、审批映射和验证相关表；尚未实现的 Goal/Source/Memory 服务关闭。Run/Intent 的状态语义由 Runtime 方案定义，M1 只实现前台单任务所需路径，不另造一种临时恢复语义。
 
 每次服务端 Request 绑定 Runtime Epoch、Connection Epoch、RPC ID 与 Thread/Turn。连接已失效的审批不在新进程重新放行。发送请求前保存 Intent；接收结果丢失时按 Runtime 的核查合同处理，无法证实就保留 Unknown。

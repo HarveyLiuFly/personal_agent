@@ -1,10 +1,11 @@
 # Personal Agent
 
-Electron/React 桌面宿主，通过锁版 Codex App Server 驱动执行。当前开发 M0；完整聊天工作流、个人记忆与长期自治按阶段交付。
+Electron/React 桌面宿主，通过锁版 Codex App Server 驱动执行。当前具备安全窗口、流事件投影与只读项目历史浏览；M0 真实模型闭环仍受网络阻塞，完整任务发送、个人记忆与长期自治按阶段交付。
 
 - [总体规划与技术专题](docs/design/00_总体架构与开发规划.md)
 - [M0–M5 进展点与同步规则](docs/progress/README.md)
 - [当前 M0 执行记录](docs/progress/M0.md)
+- [M1 独立基础组件进展](docs/progress/M1.md)
 
 ## 环境与依赖
 
@@ -35,3 +36,14 @@ pnpm smoke:desktop
 协议升级需重新审查二进制/Schema 指纹和契约结果；生成目录由 `pnpm protocol:generate` 管理，禁止手改类型。
 
 `smoke:connection` 只运行原生握手与模型目录查询，不发起推理。`smoke:desktop` 无 DISPLAY 时使用带 Xauthority 的本地 Xvfb，并在结束后回收显示进程；保留 Electron 沙箱。`setup:headless` 只在 `.local/` 内解压四个锁版 Debian 包，首次下载使用官方签名索引和固定 SHA-256，不需要 sudo。缺少其他系统动态库的平台仍需先准备相应依赖。
+
+## 只读历史浏览
+
+`pnpm dev` 启动后选择项目目录，按项目查看 Codex 已保存的会话、轮次与消息/工具记录。每页最多 20 项；大文本明确截断，HTML 按纯文本展示。项目选择仅在当前启动期间保留，重新启动后需再选择；跨重启的项目目录与执行账本由后续存储工作包实现。新任务发送暂未开放。
+
+```bash
+pnpm smoke:history:local
+pnpm smoke:history:desktop
+```
+
+`smoke:history:local` 在独立空白 Codex Home 验证原生元数据和空历史分页；不复制凭据、不调用模型。`smoke:history:desktop` 验证真实沙箱窗口与本地 stdio 合成 Fixture 的完整浏览路径，并替代原生目录对话框的选择结果，证据明确记录这一区别。这两项不能代替有内容的真实模型历史恢复与 M1 Gate。

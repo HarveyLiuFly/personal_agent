@@ -3,7 +3,7 @@
   "cli_version": "codex-cli 0.163.0",
   "executable_sha256": "399ff69c431c066e40de318fba45c2b07f45a76b19939d247ee4828fc70c4215",
   "binary_source_commit": null,
-  "evidence_scope": "Pinned generated schema; initialize/initialized/model/list verified against the real local App Server. Model inference, approvals and other methods remain subject to their own runtime gates.",
+  "evidence_scope": "Pinned generated schema plus scoped native probes. Handshake/catalog passed; thread/start/read/list and history paging passed only for isolated local metadata and empty pages. Populated model history, inference, approvals and recovery still require their own runtime gates.",
   "methods": [
     {
       "method": "initialize",
@@ -28,8 +28,10 @@
       "first_milestone": "M0",
       "requirement": "required",
       "schema_observed": true,
-      "runtime_verification": "pending",
-      "fallback": "block execution"
+      "runtime_verification": "passed",
+      "fallback": "block execution",
+      "runtime_evidence": "docs/progress/evidence/M1.1b-native-history.json",
+      "runtime_scope": "Isolated local fixture metadata and empty history pages; not populated model history or recovery."
     },
     {
       "method": "turn/start",
@@ -44,16 +46,20 @@
       "first_milestone": "M1",
       "requirement": "required",
       "schema_observed": true,
-      "runtime_verification": "pending",
-      "fallback": "block history gate"
+      "runtime_verification": "passed",
+      "fallback": "block history gate",
+      "runtime_evidence": "docs/progress/evidence/M1.1b-native-history.json",
+      "runtime_scope": "Isolated local fixture metadata and empty history pages; not populated model history or recovery."
     },
     {
       "method": "thread/read",
       "first_milestone": "M1",
       "requirement": "required",
       "schema_observed": true,
-      "runtime_verification": "pending",
-      "fallback": "block history and reconciliation gate"
+      "runtime_verification": "passed",
+      "fallback": "block history and reconciliation gate",
+      "runtime_evidence": "docs/progress/evidence/M1.1b-native-history.json",
+      "runtime_scope": "Isolated local fixture metadata and empty history pages; not populated model history or recovery."
     },
     {
       "method": "thread/resume",
@@ -68,16 +74,20 @@
       "first_milestone": "M1",
       "requirement": "required",
       "schema_observed": true,
-      "runtime_verification": "pending",
-      "fallback": "require explicitly tested older history adapter"
+      "runtime_verification": "passed",
+      "fallback": "require explicitly tested older history adapter",
+      "runtime_evidence": "docs/progress/evidence/M1.1b-native-history.json",
+      "runtime_scope": "Isolated local fixture metadata and empty history pages; not populated model history or recovery."
     },
     {
       "method": "thread/items/list",
       "first_milestone": "M1",
       "requirement": "required",
       "schema_observed": true,
-      "runtime_verification": "pending",
-      "fallback": "require explicitly tested older history adapter"
+      "runtime_verification": "passed",
+      "fallback": "require explicitly tested older history adapter",
+      "runtime_evidence": "docs/progress/evidence/M1.1b-native-history.json",
+      "runtime_scope": "Isolated local fixture metadata and empty history pages; not populated model history or recovery."
     },
     {
       "method": "turn/interrupt",

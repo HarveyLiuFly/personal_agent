@@ -27,6 +27,8 @@ export interface RpcOptions {
   maximumFrameBytes?: number;
   signal?: AbortSignal;
   onNotification?(message: JsonObject): void;
+  /** Trusted Host diagnostics only. Consumers must classify/redact before persisting any field. */
+  onRemoteError?(error: unknown): void;
   onServerRequest?(message: JsonObject): Promise<unknown>;
 }
 
@@ -131,6 +133,7 @@ export class StdioRpcClient {
     clearTimeout(pending.timer);
     this.pending.delete(id);
     if ('error' in message) {
+      try { this.options.onRemoteError?.(message.error); } catch {}
       const code = isObject(message.error) && typeof message.error.code === 'number' ? message.error.code : 'UNKNOWN';
       pending.reject(new RpcFailure(`REMOTE_${code}`));
     } else pending.resolve(message.result);

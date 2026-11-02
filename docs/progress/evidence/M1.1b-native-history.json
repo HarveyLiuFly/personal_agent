@@ -1,0 +1,28 @@
+{
+  "status": "passed",
+  "observedAt": "2026-11-02T14:19:54.785Z",
+  "cliVersion": "codex-cli 0.163.0",
+  "kind": "real_app_server_empty_history_probe",
+  "isolatedCodexHome": true,
+  "copiedCredentials": false,
+  "inferenceRequested": false,
+  "threadId": "01a19ca1-8945-7013-bfd3-2dba0deed89a",
+  "verifiedMethods": [
+    "initialize",
+    "initialized",
+    "thread/start",
+    "thread/read",
+    "thread/list",
+    "thread/turns/list",
+    "thread/items/list"
+  ],
+  "observations": {
+    "syntheticItemsInjected": true,
+    "historyMode": "paginated",
+    "listedThreads": 0,
+    "pagedTurns": 0,
+    "pagedItems": 0,
+    "browserThreadsAfterRestart": 0
+  },
+  "scope": "Empty local fixture metadata and empty history pages only; does not verify model inference or populated history recovery."
+}

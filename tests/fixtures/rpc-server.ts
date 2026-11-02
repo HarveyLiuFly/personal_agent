@@ -27,6 +27,7 @@ lines.on('line', line => {
     process.stdout.write(bytes.subarray(0, split));
     setTimeout(() => { process.stdout.write(bytes.subarray(split)); send({ id: message.id, result: true }); }, 10);
   } else if (mode === 'malformed') process.stdout.write('not-json\n');
+  else if (mode === 'remote-error' && method === 'test/fail') send({ id: message.id, error: { code: -32600, message: 'fixture-private-diagnostic' } });
   else if (mode === 'oversize') process.stdout.write('x'.repeat(2048));
   else if (mode === 'utf8') process.stdout.write(Buffer.from([123, 34, 120, 34, 58, 34, 255, 34, 125, 10]));
   else if (mode === 'crash') process.exit(7);

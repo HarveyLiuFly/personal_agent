@@ -81,7 +81,7 @@
     },
     {
       "path": "docs/design/01_M0_M1_Codex接入与桌面交互.md",
-      "sha256": "3fb9b3a6be5faff45b31932ba48ebccce9059b66ff3f9382362c5eb097ea17d0"
+      "sha256": "85a33869c02cb55d6664fc9877c88ca768f1e0082b21f46a19cbf067c46a103a"
     },
     {
       "path": "docs/design/02_M2_工作台与持久执行.md",
@@ -117,23 +117,11 @@
     },
     {
       "path": "docs/design/contracts/protocol-capabilities.json",
-      "sha256": "4f8d0b2b52ecf32112ab38f59fea9917a370647b52f99d068e556709368ed13d"
+      "sha256": "6e39dd5c54bdb254c1a001a8facd5f404a7f8ae524453097c90f46f8fac94b2c"
     },
     {
       "path": "docs/design/contracts/validate_contracts.py",
-      "sha256": "9c42a5e7974e0d88ba1513419898a2648b1d9cf7d28e0013b676a4686840ab99"
+      "sha256": "277047323dcdddc2d49a1733ccab7eca3047f0522ee291860c71b31eedf09c6d"
     }
-  ],
-  "typescript_validation": {
-    "syntax": "passed",
-    "typecheck": "not_executed",
-    "command": "node --experimental-strip-types docs/design/contracts/domain.ts",
-    "file_unchanged_since_syntax_check": true
-  },
-  "validated_date": "2026-11-02",
-  "documentation_organization": {
-    "overview": "docs/design/00_总体架构与开发规划.md",
-    "technical_documents": 7,
-    "verification_scope": "Requirements only; detailed cases, fixtures and runners are to be planned alongside actual feature development."
-  }
+  ]
 }

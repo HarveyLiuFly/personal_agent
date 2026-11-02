@@ -89,3 +89,11 @@ test('the trusted runtime preserves injected guards but excludes unrelated appli
     if (originalGuard === undefined) delete process.env.CODEX_M0_TEST_GUARD; else process.env.CODEX_M0_TEST_GUARD = originalGuard;
   }
 });
+test('a diagnostic consumer failure does not break RPC error correlation or expose private error text', async () => {
+  const rpc = client('remote-error', { onRemoteError: () => { throw new Error('fixture-consumer-error'); } });
+  try {
+    await assert.rejects(rpc.request('test/fail', {}), error => error instanceof RpcFailure
+      && error.code === 'REMOTE_-32600' && !JSON.stringify(error).includes('fixture-private-diagnostic'));
+    assert.deepEqual(await rpc.request('test/count', {}), { 'test/fail': 1, 'test/count': 1 });
+  } finally { await rpc.close(); }
+});

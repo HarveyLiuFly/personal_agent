@@ -1,0 +1,16 @@
+{
+  "status": "blocked",
+  "observedAt": "2026-11-02T13:58:57.073Z",
+  "cliVersion": "codex-cli 0.163.0",
+  "kind": "real_app_server_empty_history_probe",
+  "phase": "thread/turns/list",
+  "verifiedMethods": [
+    "initialize",
+    "initialized",
+    "thread/start",
+    "thread/read",
+    "thread/list"
+  ],
+  "code": "REMOTE_-32600",
+  "inferenceRequested": false
+}
