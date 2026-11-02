@@ -1,0 +1,14 @@
+{
+  "status": "passed",
+  "observedAt": "2026-11-02T23:47:27.168442+00:00",
+  "kind": "authoritative_git_ls_remote_after_gate_delivery",
+  "gateCommit": "4d0105c87f96452e081715c9cf9e9e9d4719afa3",
+  "remoteHeadAtGateDelivery": "4d0105c87f96452e081715c9cf9e9e9d4719afa3",
+  "verifiedRefs": {
+    "refs/heads/main": "4d0105c87f96452e081715c9cf9e9e9d4719afa3",
+    "refs/tags/checkpoint/M1": "4d0105c87f96452e081715c9cf9e9e9d4719afa3",
+    "refs/tags/checkpoint/M1.4": "4d0105c87f96452e081715c9cf9e9e9d4719afa3",
+    "refs/tags/checkpoint/M1.4b": "4d0105c87f96452e081715c9cf9e9e9d4719afa3"
+  },
+  "note": "This observation is captured immediately after the feature push. A subsequent documentation-only commit records it without moving the Gate tags."
+}

@@ -55,5 +55,7 @@
     "Background ownership, broad concurrency/crash recovery, scheduler, memory, devices and release distribution remain future phases."
   ],
   "nextMilestone": "M2",
-  "commitLocator": "checkpoint/M1"
+  "commitLocator": "checkpoint/M1",
+  "deliveryCommit": "4d0105c87f96452e081715c9cf9e9e9d4719afa3",
+  "remoteVerificationEvidence": "M1-remote-sync.json"
 }
