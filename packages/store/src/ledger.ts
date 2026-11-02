@@ -21,6 +21,11 @@ export interface RunRecord extends RunToken {
   threadId: string | null; turnId: string | null; blocked: boolean; snapshot: ThreadView | null;
   mode: 'readOnly' | 'workspaceWrite'; errorCode?: string;
 }
+export interface ReconciliationClaim {
+  runId:string;taskId:string;workspaceId:string;threadId:string;turnId:string|null;
+  taskVersion:number;runtimeEpoch:number;connectionEpoch:number;taskFence:number;userHash:string;
+  priorTurnIds:string[];
+}
 
 /** Host-only local store. startOwner requires the caller to hold the OS single-instance lock. */
 export class ExecutionLedger {
@@ -174,6 +179,33 @@ export class ExecutionLedger {
       return { token: { runId, epoch: this.#epoch, taskFence: 1 }, created: true };
     });
   }
+  beginContinuation(workspaceId:string,sourceRunId:string,text:string,key:string):{token:RunToken;created:boolean;threadId:string;mode:'readOnly'|'workspaceWrite'} {
+    if(!id(key)||!id(sourceRunId)||typeof text!=='string'||!text.trim()||text.length>32768)return fail('INVALID_TASK_INPUT');
+    this.workspace(workspaceId);
+    return this.tx(()=>{
+      this.owner();const source=this.runForHost(sourceRunId);
+      if(source.workspaceId!==workspaceId||!source.threadId)return fail('RUN_NOT_CONTINUABLE');
+      const inputHash=hashInput([workspaceId,text,source.mode,'continuation',sourceRunId]);
+      const previous=this.one('SELECT * FROM task_runs WHERE idempotency_key=? AND dot_id=?',key,this.dotId);
+      if(previous){const manifest=JSON.parse(String(this.one('SELECT module_hashes_json FROM prompt_manifests WHERE run_id=?',previous.run_id!)!.module_hashes_json));if(manifest.submission!==inputHash)return fail('IDEMPOTENCY_CONFLICT');return{token:{runId:String(previous.run_id),epoch:Number(previous.runtime_epoch),taskFence:Number(previous.task_fence)},created:false,threadId:source.threadId,mode:source.mode};}
+      const task=this.one('SELECT * FROM tasks WHERE task_id=?',source.taskId)!;
+      if(!['completed','failed'].includes(source.status)||!['needs_review','failed'].includes(String(task.status))||source.blocked||task.write_fence!==source.taskFence)return fail('RUN_NOT_CONTINUABLE');
+      if(this.one(`SELECT run_id FROM task_runs WHERE dot_id=? AND status IN ${active}`,this.dotId))return fail('RUNTIME_BUSY');
+      if(source.mode==='workspaceWrite'&&!this.verificationPlan(sourceRunId))return fail('VERIFICATION_NOT_CONFIGURED');
+      this.transition(source.taskId,'queued');this.transition(source.taskId,'running');this.exec('UPDATE tasks SET write_fence=write_fence+1 WHERE task_id=?',source.taskId);
+      const current=this.one('SELECT version,write_fence FROM tasks WHERE task_id=?',source.taskId)!,runId=randomUUID(),fence=Number(current.write_fence);
+      this.exec("INSERT INTO task_runs(run_id,task_id,dot_id,idempotency_key,executor_kind,status,task_snapshot_version,task_fence,runtime_epoch,policy_epoch,privacy_epoch,worker_id,lease_until_ms,started_at_ms) VALUES (?,?,?,?,'codex','preparing',?,?,?,1,1,?,?,?)",runId,source.taskId,this.dotId,key,current.version!,fence,this.#epoch,this.#instance,Date.now()+60000,Date.now());
+      if(source.mode==='workspaceWrite'){
+        if(this.one('SELECT run_id FROM workspace_write_leases WHERE workspace_id=?',workspaceId))return fail('WORKSPACE_BUSY');
+        this.exec("UPDATE workspaces SET write_fence=write_fence+1,state='busy' WHERE workspace_id=?",workspaceId);
+        const workspace=this.one('SELECT write_fence FROM workspaces WHERE workspace_id=?',workspaceId)!;
+        this.exec('INSERT INTO workspace_write_leases VALUES (?,?,?,?)',workspaceId,runId,workspace.write_fence!,Date.now()+60000);
+      }
+      this.exec("INSERT INTO prompt_manifests VALUES (?,?,'coding',?,?,?,1,1,'[]',NULL)",randomUUID(),runId,source.mode==='readOnly'?'read-only':'execution',JSON.stringify({submission:inputHash,user:hashInput(text)}),hashInput({mode:source.mode}));
+      this.event(source.taskId,runId,'run_continued',{sourceRunId,threadId:source.threadId,taskFence:fence});
+      return{token:{runId,epoch:this.#epoch,taskFence:fence},created:true,threadId:source.threadId,mode:source.mode};
+    });
+  }
   private guard(token: RunToken, allowBlocked = false, allowUnknown = false): Row {
     this.owner();
     const row = this.one('SELECT r.*,t.workspace_id,t.write_fence,t.dispatch_blocked,t.constraints_json,t.status AS task_status,d.policy_epoch AS current_policy,d.privacy_epoch AS current_privacy FROM task_runs r JOIN tasks t USING(task_id) JOIN dots d ON d.dot_id=r.dot_id WHERE r.run_id=? AND r.dot_id=?', token.runId, this.dotId);
@@ -295,11 +327,14 @@ export class ExecutionLedger {
     this.tx(() => {
       this.owner(); const run = this.one('SELECT * FROM task_runs WHERE run_id=? AND runtime_epoch=?', token.runId, token.epoch);
       if (!run || token.epoch !== this.#epoch || run.task_fence !== token.taskFence || !this.one('SELECT binding_id FROM thread_bindings WHERE task_id=? AND execution_thread_id=?', run.task_id!, view.threadId)) return fail('THREAD_NOT_BOUND');
-      const checkpointId = `display-${token.runId}`;
-      const task = this.one('SELECT version FROM tasks WHERE task_id=?', run.task_id!)!;
-      this.exec('INSERT INTO task_checkpoints VALUES (?,?,?,?,1,?,?) ON CONFLICT(checkpoint_id) DO UPDATE SET task_version=excluded.task_version,summary_json=excluded.summary_json,content_sha256=excluded.content_sha256', checkpointId, run.task_id!, token.runId, task.version!, json, hashInput(view));
-      this.exec('UPDATE task_runs SET result_ref=? WHERE run_id=?', checkpointId, token.runId);
+      this.persistSnapshot(token.runId,String(run.task_id),view);
     });
+  }
+  private persistSnapshot(runId:string,taskId:string,view:ThreadView):void {
+    const json=JSON.stringify(view);if(json.length>300000||view.items.length>512||view.turns.length>64)return fail('SNAPSHOT_TOO_LARGE');
+    const checkpointId=`display-${runId}`,task=this.one('SELECT version FROM tasks WHERE task_id=?',taskId)!;
+    this.exec('INSERT INTO task_checkpoints VALUES (?,?,?,?,1,?,?) ON CONFLICT(checkpoint_id) DO UPDATE SET task_version=excluded.task_version,summary_json=excluded.summary_json,content_sha256=excluded.content_sha256',checkpointId,taskId,runId,task.version!,json,hashInput(view));
+    this.exec('UPDATE task_runs SET result_ref=? WHERE run_id=?',checkpointId,runId);
   }
   runs(workspaceId: string, options: { snapshots?: boolean; runId?: string } = {}): RunRecord[] {
     if (!id(workspaceId)) return fail('UNKNOWN_PROJECT');
@@ -367,6 +402,39 @@ export class ExecutionLedger {
   matchesUserInput(runId: string, text: string): boolean {
     this.runForHost(runId);const row=this.one('SELECT module_hashes_json FROM prompt_manifests WHERE run_id=?',runId);
     return Boolean(row && JSON.parse(String(row.module_hashes_json)).user===hashInput(text));
+  }
+  reconciliationClaim(runId:string):ReconciliationClaim {
+    this.owner();const run=this.runForHost(runId),task=this.one('SELECT * FROM tasks WHERE task_id=?',run.taskId)!;
+    if(run.status!=='outcome_unknown'||task.status!=='outcome_unknown'||!run.blocked||task.write_fence!==run.taskFence||!run.threadId)return fail('RUN_NOT_RECONCILABLE');
+    this.workspace(run.workspaceId);
+    const intent=this.one("SELECT * FROM execution_intents WHERE run_id=? AND kind='turn_start' AND state IN ('accepted','outcome_unknown','sending')",runId);
+    if(!intent||intent.execution_thread_id!==run.threadId)return fail('NO_RECONCILABLE_TURN');
+    if(!this.one("SELECT event_id FROM task_events WHERE run_id=? AND event_type='executor_closed' AND json_extract(payload_json,'$.runtimeEpoch')=? AND json_extract(payload_json,'$.connectionEpoch')=?",runId,run.epoch,intent.connection_epoch!))return fail('EXECUTOR_CLOSURE_UNPROVEN');
+    if(this.one("SELECT request_id FROM runtime_requests WHERE run_id=? AND state IN ('pending','responding','outcome_unknown')",runId))return fail('UNRESOLVED_SERVER_REQUEST');
+    if(this.one("SELECT intent_id FROM execution_intents WHERE run_id=? AND kind IN ('thread_start','thread_resume') AND state<>'accepted'",runId))return fail('THREAD_RECEIPT_UNCONFIRMED');
+    const manifest=JSON.parse(String(this.one('SELECT module_hashes_json FROM prompt_manifests WHERE run_id=?',runId)!.module_hashes_json));
+    if(typeof manifest.user!=='string')return fail('USER_INPUT_HASH_UNAVAILABLE');
+    const epochs=this.one('SELECT r.policy_epoch,r.privacy_epoch,d.policy_epoch AS current_policy,d.privacy_epoch AS current_privacy FROM task_runs r JOIN dots d USING(dot_id) WHERE run_id=?',runId)!;
+    if(epochs.policy_epoch!==epochs.current_policy||epochs.privacy_epoch!==epochs.current_privacy)return fail('RUN_GRANT_EXPIRED');
+    return{runId,taskId:run.taskId,workspaceId:run.workspaceId,threadId:run.threadId,turnId:run.turnId,taskVersion:Number(task.version),runtimeEpoch:run.epoch,connectionEpoch:Number(intent.connection_epoch),taskFence:run.taskFence,userHash:manifest.user,
+      priorTurnIds:this.all("SELECT i.execution_turn_id FROM execution_intents i JOIN task_runs r USING(run_id) WHERE r.task_id=? AND r.run_id<>? AND i.kind='turn_start' AND i.execution_turn_id IS NOT NULL",run.taskId,runId).map(row=>String(row.execution_turn_id))};
+  }
+  reconcile(claim:ReconciliationClaim,result:{turnId:string;status:'completed'|'failed'|'interrupted';userHash:string;snapshot:ThreadView;evidenceHash:string}):void {
+    this.tx(()=>{
+      const fresh=this.reconciliationClaim(claim.runId);
+      if(hashInput(fresh)!==hashInput(claim))return fail('STALE_RECONCILIATION');
+      if(!id(result.turnId)||result.userHash!==claim.userHash||(claim.turnId&&claim.turnId!==result.turnId)||claim.priorTurnIds.includes(result.turnId)||result.snapshot.threadId!==claim.threadId||result.snapshot.needsSnapshot||result.snapshot.truncated||result.snapshot.unsupportedItems||result.snapshot.turns.length!==1||result.snapshot.turns[0]?.id!==result.turnId||result.snapshot.turns[0]?.status!==result.status||!/^[a-f0-9]{64}$/.test(result.evidenceHash))return fail('INVALID_RECONCILIATION');
+      if(!['completed','failed','interrupted'].includes(result.status))return fail('INVALID_RECONCILIATION');
+      const outcome=result.status==='interrupted'?'cancelled':result.status;
+      this.exec("UPDATE execution_intents SET state='reconciled',execution_turn_id=COALESCE(execution_turn_id,?),response_ref=? WHERE run_id=? AND kind IN ('turn_start','turn_interrupt') AND state IN ('sending','accepted','outcome_unknown')",result.turnId,`history:${result.evidenceHash}`,claim.runId);
+      this.transition(claim.taskId,outcome==='completed'?'needs_review':'failed');
+      this.exec('UPDATE tasks SET dispatch_blocked=0 WHERE task_id=?',claim.taskId);
+      this.exec('UPDATE task_runs SET status=?,finished_at_ms=? WHERE run_id=?',outcome,Date.now(),claim.runId);
+      this.exec('DELETE FROM workspace_write_leases WHERE run_id=?',claim.runId);
+      this.exec("UPDATE workspaces SET state='ready' WHERE workspace_id=? AND NOT EXISTS(SELECT 1 FROM workspace_write_leases WHERE workspace_id=?)",claim.workspaceId,claim.workspaceId);
+      this.persistSnapshot(claim.runId,claim.taskId,result.snapshot);
+      this.event(claim.taskId,claim.runId,'history_reconciled',{turnId:result.turnId,status:result.status,evidenceHash:result.evidenceHash,verification:'pending'});
+    });
   }
   installVerification(token: RunToken, plan: VerificationPlan): void {
     this.tx(() => {

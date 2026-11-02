@@ -1,0 +1,10 @@
+{
+  "status": "blocked",
+  "code": "HOST_ERROR",
+  "observedAt": "2026-11-02T17:15:47.567Z",
+  "display": "native_desktop",
+  "exitCode": 1,
+  "signal": null,
+  "timedOut": false,
+  "platform": "darwin-arm64"
+}

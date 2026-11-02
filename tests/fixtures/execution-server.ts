@@ -17,15 +17,15 @@ for await (const line of createInterface({ input: process.stdin })) {
   if (m.method === 'initialize') { write({ id: m.id, result: {} }); continue; }
   if (m.method === 'model/list') { write({ id: m.id, result: { data: [{ id: 'synthetic-model', isDefault: true, hidden: false, supportedReasoningEfforts: [{ reasoningEffort: 'low' }], defaultReasoningEffort: 'low' }] } }); continue; }
   if (m.method === 'mcpServerStatus/list') { write({ id: m.id, result: { data: !m.params.threadId || mode === 'external-mcp' ? [{ name: 'fixture-external', pluginId: null }] : mode === 'disabled-list' ? [{ name: 'fixture-external', runtimeStatus: 'disabled', tools: {} }] : [], nextCursor: null } }); continue; }
-  if (database && ['thread/start','turn/start'].includes(m.method)) {
+  if (database && ['thread/start','thread/resume','turn/start'].includes(m.method)) {
     const db = new DatabaseSync(database, { readOnly: true });
     const intent = db.prepare('SELECT state FROM execution_intents WHERE rpc_request_id=?').get(m.id); db.close();
     if (intent?.state !== 'sending') { write({ id: m.id, error: { code: -32600, message: 'fixture intent was not durable before receipt' } }); continue; }
     if (receipts) appendFileSync(receipts, m.method + '\n');
   }
-  if (m.method === 'thread/start') {
+  if (m.method === 'thread/start'||m.method==='thread/resume') {
     if (m.params.config?.['mcp_servers.fixture-external.enabled'] !== false) { write({ id: m.id, error: { code: -32602, message: 'fixture MCP was not disabled' } }); continue; }
-    cwd = m.params.cwd; threadId = 'fixture-thread-' + String(m.id).slice(-12); write({ id: m.id, result: { thread: { id: threadId, cwd } } }); continue;
+    cwd = m.params.cwd; threadId = m.method==='thread/resume'?m.params.threadId:'fixture-thread-' + String(m.id).slice(-12); write({ id: m.id, result: { thread: { id: threadId, cwd,status:{type:'idle'} } } }); continue;
   }
   if (m.method === 'turn/start') {
     if (mode === 'reject') { write({ id: m.id, error: { code: -32602, message: 'fixture rejection' } }); continue; }

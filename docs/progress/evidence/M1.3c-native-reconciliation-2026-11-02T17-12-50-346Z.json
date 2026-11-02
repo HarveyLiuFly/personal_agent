@@ -1,0 +1,33 @@
+{
+  "status": "passed",
+  "observedAt": "2026-11-02T17:12:50.346Z",
+  "kind": "real_native_model_receipt_loss_and_read_only_reconciliation",
+  "platform": "darwin-arm64",
+  "cliVersion": "codex-cli 0.163.0",
+  "inferenceRequested": false,
+  "totalOriginalModelTurns": 1,
+  "recoveryOf": "M1.3c-native-reconciliation-2026-11-02T17-07-49-575Z.json",
+  "correction": "Read-only history uses the original configured sqlite_home. Initial probe accidentally selected another empty native database. Same original Run; zero additional model requests.",
+  "runId": "0fb6c036-b93e-496f-860c-e70cd9cec8c1",
+  "threadId": "01a19d3a-f61a-79b2-beb7-ae460635f76b",
+  "turnId": "01a19d3a-f66d-7d41-a7be-5681cf04ea4e",
+  "marker": "M1_RECONCILED_68594404",
+  "before": {
+    "runStatus": "outcome_unknown",
+    "blocked": true,
+    "turnId": null
+  },
+  "after": {
+    "runStatus": "completed",
+    "taskStatus": "needs_review",
+    "blocked": false,
+    "needsSnapshot": false,
+    "markerMatched": true
+  },
+  "reconciliationMethods": [
+    "thread/read",
+    "thread/turns/list",
+    "thread/items/list",
+    "thread/read"
+  ]
+}

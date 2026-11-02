@@ -90,6 +90,19 @@ export class NodeVerification {
   this.store.installVerification(token,plan);
  }
  plan(projectId:string,runId:string):VerificationPlan|null{this.store.workspace(projectId);const run=this.store.runForHost(runId);if(run.workspaceId!==projectId)throw new LedgerError('RUN_NOT_IN_PROJECT');return this.store.verificationPlan(runId);}
+ async prepareContinuation(token:RunToken,sourceRunId:string,signal?:AbortSignal):Promise<void>{
+  const run=this.store.runForHost(token.runId),source=this.store.runForHost(sourceRunId),plan=this.plan(run.workspaceId,sourceRunId);
+  if(!plan||run.taskId!==source.taskId||token.taskFence!==source.taskFence+1)throw new LedgerError('INVALID_VERIFICATION_CONTINUATION');
+  const cwd=this.store.workspace(run.workspaceId).directory,current=workspaceFiles(cwd);
+  if(fileHash(this.options.node)!==plan.nodeHash||fileHash(this.options.reporter)!==plan.reporterHash||fileHash(this.options.cli)!==plan.cliHash||fileHash(import.meta.filename)!==plan.verifierHash)throw new LedgerError('VERIFIER_CHANGED');
+  if(fileHash(join(cwd,plan.target))!==plan.testHash)throw new LedgerError('TEST_MODIFIED');
+  const changed=[...new Set([...Object.keys(plan.files),...Object.keys(current)])].filter(p=>plan.files[p]!==current[p]);
+  if(changed.some(p=>!plan.allowedPaths.includes(p)))throw new LedgerError('CHANGES_OUTSIDE_CONTRACT');
+  const baseline=await this.tests(cwd,plan.target,signal),executed=baseline.cases.filter(c=>!c.skipped).map(caseKey);
+  if(signal?.aborted||baseline.timedOut||baseline.exitCode===null||plan.requiredCases.some(key=>!executed.includes(key))||baseline.cases.some(c=>!plan.knownCases.includes(caseKey(c))))throw new LedgerError('BASELINE_TEST_EXECUTION_REQUIRED');
+  if(JSON.stringify(current)!==JSON.stringify(workspaceFiles(cwd)))throw new LedgerError('BASELINE_WORKSPACE_CHANGED');
+  this.store.installVerification(token,{...plan,specId:randomUUID(),runId:token.runId,createdAt:Date.now()});
+ }
  diff(projectId:string,runId:string):{changedFiles:string[];text:string;profile:VerificationPlan|null}{
   const plan=this.plan(projectId,runId);if(!plan)return{changedFiles:[],text:'',profile:null};const cwd=this.store.workspace(projectId).directory,current=workspaceFiles(cwd);
   const changedFiles=[...new Set([...Object.keys(plan.files),...Object.keys(current)])].filter(p=>plan.files[p]!==current[p]).sort();

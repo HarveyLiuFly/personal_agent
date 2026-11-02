@@ -61,7 +61,7 @@ codex app-server generate-ts --experimental --out "$protocol_tmp/experimental"
 
 Composer 在 Idle 时创建 Turn，运行中按锁版能力 Steer/Interrupt，断开时保留草稿且不自动重发。任务列表、完整 Item 与错误状态由服务端结果/持久账本重建。大型历史分页、长日志限制和渲染背压从 M1 实现。
 
-当前每条新消息建立一个持久 Task/Run/Thread，默认只读；代码任务显式选择固定 Node 测试入口与允许文件，Host 在任何模型发送前运行基线并冻结验证合同后才授予工作区写入。执行结束先确认执行进程关闭、释放写租约，再进入待验证；既有 Thread 的续接在对应交互/恢复工作包验收后开放。Renderer 仅传项目 ID、正文、稳定提交键及受限验证参数；Host 先写入 Intent/RPC ID，再发送 stdio。项目选择和任务导航持久化，目录身份每次派发复核；任务列表只传摘要，按所选 Run 获取单个有界显示快照，不逐帧传原始 RPC。
+当前每条新消息建立一个持久 Task/Run/Thread，默认只读；代码任务显式选择固定 Node 测试入口与允许文件，Host 在任何模型发送前运行基线并冻结验证合同后才授予工作区写入。执行结束先确认执行进程关闭、释放写租约，再进入待验证。已知结束且待审查/失败的最新 Run 可显式继续：同 Task/Thread、新 Run/Fence、持久 Resume 回执后才发送新 Turn；代码续接继承原基线、允许范围、验证器与必要 Case，禁止放宽合同。已完成、已取消、Unknown 或过期 Run 不作为续接入口。Renderer 仅传项目 ID、正文、稳定提交键及受限验证参数；Host 先写入 Intent/RPC ID，再发送 stdio。项目选择和任务导航持久化，目录身份每次派发复核；任务列表只传摘要，按所选 Run 获取单个有界显示快照，不逐帧传原始 RPC。
 
 产品 UI 的所有模型发送都走账本，M0 无账本调试按钮不作为产品入口保留。M1 运行进程关闭 Apps/Plugins/Hooks/自治与 Browser/Computer 功能；继承的手动 MCP 通过线程配置逐项 disabled。工具目录可以保留配置行，只有空目录或每行都明确 disabled 且 tools 为空时才允许 Turn；未知连接状态或任何可用外部工具均阻断。本阶段不因此宣称外部 Connector 可安全使用。
 
@@ -76,6 +76,8 @@ Composer 在 Idle 时创建 Turn，运行中按锁版能力 Steer/Interrupt，�
 Electron Main 取得 OS 单实例锁后才提升 Owner Epoch；数据库 Epoch 仅拒绝旧写入，不能替代进程互斥。新 Owner 将旧活跃 Run 保留为 Unknown 并阻止派发：`sending` Intent 转 Unknown，`prepared` Intent 标记尚未发送的拒绝，已接受回执保留。接收 ID 前不发下一请求，重复提交键仅返回原 Run；Unknown 不生成替代 Run。显示快照存于已有 Checkpoint 表，仅是有界缓存，Run 结束后 Task 仍等待独立完成验证。
 
 每次服务端 Request 绑定 Runtime Epoch、Connection Epoch、RPC ID 与 Thread/Turn。连接已失效的审批不在新进程重新放行。发送请求前保存 Intent；接收结果丢失时按 Runtime 的核查合同处理，无法证实就保留 Unknown。
+
+显式历史核对只使用原执行配置的原生 SQLite 命名空间与 Thread 绑定，不 Resume 或发送 Turn。Host 先确认执行器关闭事件、原始用户输入 Hash、任务 Fence/版本、策略/隐私 Epoch 和没有未确认审批回复，再从有界 paginated 历史查找唯一完整终态 Turn，复核 cwd、输入、Turn/Item 范围和前后元数据；有歧义、活动状态、截断/未知 Item 或缺少关闭证据均保留 Unknown。核对收据、Intent reconciled、显示快照替换和释放旧写租约在同一事务提交；Task 最多恢复到待审查，代码成功仍需独立验证。Legacy 当前不支持核对，明确拒绝而非隐式执行或推断成功。
 
 实现顺序：版本与环境探测 → 安全窗口/IPC → 双向 RPC → 第一条真实 Turn → 最小执行账本 → 流式 Reducer/历史 → 审批/停止 → Diff/验证 → 故障恢复。协议 Stub 用于确定性故障用例，真实模型闭环单独执行。
 

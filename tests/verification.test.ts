@@ -64,3 +64,25 @@ test('a receipt file altered after publication is rejected by its stored hash',a
 test('profile paths reject traversal, test editing and arbitrary command fields',()=>{
  for(const input of [{profile:'shell',target:'test.mjs',allowedPaths:['src.mjs']},{profile:'node-test',target:'../escape',allowedPaths:['src.mjs']},{profile:'node-test',target:'test.mjs',allowedPaths:['test.mjs']},{profile:'node-test',target:'test.mjs',allowedPaths:['src.mjs'],command:'touch /tmp/x'}])assert.throws(()=>codeInput(input));
 });
+test('continuation inherits the original file/test/case contract and verifies accumulated allowed changes',async t=>{
+ const f=await fixture(t);f.finish();writeFileSync(join(f.cwd,'src/math.mjs'),'export const sum=(a,b)=>a-b-1;\n');
+ const before=f.service.plan(f.p.id,f.token.runId)!;
+ const next=f.store.beginContinuation(f.p.id,f.token.runId,'continue fixed synthetic task','follow-up');
+ await f.service.prepareContinuation(next.token,f.token.runId);
+ const after=f.service.plan(f.p.id,next.token.runId)!;
+ for(const key of ['baselineCommit','files','testHash','nodeHash','reporterHash','cliHash','verifierHash','requiredCases','knownCases','allowedPaths','target'] as const)assert.deepEqual(after[key],before[key]);
+ assert.notEqual(before.specId,after.specId);assert.equal(after.runId,next.token.runId);
+ const resume=f.store.prepare(next.token,'resume','thread_resume',{},'thread');f.store.sending(next.token,resume.intentId,2);f.store.accepted(next.token,resume.intentId,{threadId:'thread'});
+ const turn=f.store.prepare(next.token,'next-turn','turn_start',{},'thread');f.store.sending(next.token,turn.intentId,2);f.store.accepted(next.token,turn.intentId,{turnId:'next-turn'});
+ f.fix();f.store.finish(next.token,'completed');const result=await f.service.verify(f.p.id,next.token.runId);assert.equal(result.status,'passed');
+ await assert.rejects(f.service.verify(f.p.id,f.token.runId),/RUN_NOT_VERIFIABLE/);
+ assert.throws(()=>f.store.beginContinuation(f.p.id,next.token.runId,'cannot reopen completed task','closed'),/RUN_NOT_CONTINUABLE/);
+});
+test('continuation cannot silently accept changed tests or missing required cases as a weaker baseline',async t=>{
+ for(const kind of ['test_modified','case_missing']){
+  const f=await fixture(t);f.finish();const next=f.store.beginContinuation(f.p.id,f.token.runId,'same contract','next');
+  if(kind==='test_modified')writeFileSync(join(f.cwd,'test/math.test.mjs'),'// erased test\n');else f.setResult({exitCode:0,timedOut:false,cases:[]});
+  await assert.rejects(f.service.prepareContinuation(next.token,f.token.runId),/TEST_MODIFIED|BASELINE_TEST_EXECUTION_REQUIRED/);
+  assert.equal(f.service.plan(f.p.id,next.token.runId),null);
+ }
+});

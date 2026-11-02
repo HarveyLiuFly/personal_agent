@@ -1,0 +1,37 @@
+{
+  "status": "passed",
+  "observedAt": "2026-11-02T17:14:03.958Z",
+  "kind": "real_native_thread_resume_and_fenced_continuation",
+  "platform": "darwin-arm64",
+  "cliVersion": "codex-cli 0.163.0",
+  "inferenceRequested": true,
+  "scope": "CLI component probe in the original controlled workspace; one new real model turn, no Electron restart claim.",
+  "sourceRunId": "0fb6c036-b93e-496f-860c-e70cd9cec8c1",
+  "runId": "2b831e03-93c2-419c-ba6d-0abb43f3f3fc",
+  "threadId": "01a19d3a-f61a-79b2-beb7-ae460635f76b",
+  "sourceTurnId": "01a19d3a-f66d-7d41-a7be-5681cf04ea4e",
+  "turnId": "01a19d40-e7b6-7040-be5b-9576b72e7d6a",
+  "sameTask": true,
+  "sameThread": true,
+  "newRun": true,
+  "newTurn": true,
+  "priorContextMarkerMatched": true,
+  "taskStatus": "needs_review",
+  "diagnostics": {
+    "clientThreadStarts": 0,
+    "clientThreadResumes": 1,
+    "clientTurnStarts": 1,
+    "notificationCount": 24,
+    "serverRequestsDenied": 0,
+    "selectedModel": "gpt-6.1-sol",
+    "externalMcpServers": 0,
+    "disabledInheritedMcpServers": 2,
+    "failureCode": "",
+    "remoteFailureCategory": "",
+    "phase": "turn/completed"
+  },
+  "verifiedMethods": [
+    "thread/resume",
+    "turn/start"
+  ]
+}

@@ -1,5 +1,5 @@
 import type { HostResult, ProjectView, ThreadSummary, TurnView, ItemView, Page, ProjectQuery, ThreadQuery, ItemQuery } from '../../../packages/contracts/src/views.ts';
-import type { InteractionView, ReplyInteraction, VerificationView, RunQuery, RunSummary, RunView, SubmitMessage } from '../../../packages/contracts/src/views.ts';
+import type { ContinueMessage, InteractionView, ReplyInteraction, VerificationView, RunQuery, RunSummary, RunView, SubmitMessage } from '../../../packages/contracts/src/views.ts';
 export interface ConnectionInfo {
   status: 'connected' | 'error';
   models?: number;
@@ -16,8 +16,10 @@ export interface DesktopApi {
   listItems(query: ItemQuery): Promise<HostResult<Page<ItemView>>>;
   workspaceState(): Promise<HostResult<{ projects: ProjectView[]; canSubmit: boolean; canCode: boolean; mode: 'readOnly' | 'workspaceWrite' }>>;
   submitMessage(input: SubmitMessage): Promise<HostResult<RunSummary>>;
+  continueRun(input:ContinueMessage):Promise<HostResult<RunSummary>>;
   listRuns(query: { projectId: string }): Promise<HostResult<RunSummary[]>>;
   getRun(query: RunQuery): Promise<HostResult<RunView>>;
+  reconcileRun(query: RunQuery): Promise<HostResult<RunView>>;
   listInteractions(query: RunQuery): Promise<HostResult<InteractionView[]>>;
   replyInteraction(input: ReplyInteraction): Promise<HostResult<{ state: 'submitted' }>>;
   getVerification(query: RunQuery): Promise<HostResult<VerificationView>>;

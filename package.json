@@ -21,6 +21,7 @@
     "smoke:history:desktop": "node scripts/smoke-desktop.mjs --history",
     "smoke:code:desktop": "node scripts/smoke-desktop.mjs --native-code",
     "smoke:verification": "node --disable-warning=ExperimentalWarning scripts/smoke-verification.ts",
+    "smoke:continuation:desktop":"node scripts/smoke-desktop.mjs --continuation",
     "smoke:interactions:desktop": "node scripts/smoke-desktop.mjs --interactions",
     "smoke:execution:desktop": "node scripts/smoke-desktop.mjs --execution",
     "smoke:execution": "node --disable-warning=ExperimentalWarning scripts/smoke-execution.ts",

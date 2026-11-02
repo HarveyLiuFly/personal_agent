@@ -1,0 +1,21 @@
+{
+  "status": "blocked",
+  "observedAt": "2026-11-02T17:07:49.575Z",
+  "kind": "real_native_model_receipt_loss_and_read_only_reconciliation",
+  "inferenceRequested": true,
+  "code": "HISTORY_MATCH_NOT_FOUND",
+  "discardedReceipts": 1,
+  "nativeTerminalStatus": "completed",
+  "diagnostics": {
+    "clientThreadStarts": 1,
+    "clientTurnStarts": 1,
+    "notificationCount": 23,
+    "serverRequestsDenied": 0,
+    "selectedModel": "gpt-6.1-sol",
+    "externalMcpServers": 0,
+    "disabledInheritedMcpServers": 2,
+    "failureCode": "INJECTED_TURN_RECEIPT_LOSS",
+    "remoteFailureCategory": "",
+    "phase": "turn/start"
+  }
+}

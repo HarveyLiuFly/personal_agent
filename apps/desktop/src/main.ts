@@ -7,6 +7,7 @@ import { randomUUID } from 'node:crypto';
 import { ExecutionLedger, LedgerError } from '../../../packages/store/src/ledger.ts';
 import { NodeVerification } from '../../../packages/verification/src/verification.ts';
 import { ForegroundExecution } from '../../../packages/runtime/src/execution.ts';
+import { HistoryReconciliation } from '../../../packages/runtime/src/reconciliation.ts';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { inspectConnection } from '../../../packages/codex-adapter/src/smoke.ts';
@@ -35,7 +36,8 @@ const nativeCodeSmoke=process.argv.includes('--m1-native-code-smoke');
 let nativeCodeWorkspace:string|undefined;
 if(nativeCodeSmoke){mkdirSync(resolve(root,'.local'),{recursive:true});app.setPath('userData',mkdtempSync(resolve(root,'.local/desktop-native-code-')));}
 const interactionSmoke = process.argv.includes('--m1-interaction-smoke');
-const executionSmoke = process.argv.includes('--m1-execution-smoke') || interactionSmoke;
+const continuationSmoke=process.argv.includes('--m1-continuation-smoke');
+const executionSmoke = process.argv.includes('--m1-execution-smoke') || interactionSmoke || continuationSmoke;
 const historySmoke = process.argv.includes('--m1-history-smoke');
 let fixtureDirectory: string | undefined;
   if (process.argv.includes('--m0-window-smoke')) app.setPath('userData', resolve(root, '.local/desktop-smoke-data'));
@@ -47,7 +49,7 @@ else void boot().catch(async error => {
   console.error('DESKTOP_BOOT_FAILED', code);
   if (nativeCodeSmoke || executionSmoke || historySmoke || process.argv.includes('--m0-window-smoke')) {
     if (window) { try { writeFileSync(resolve(root, '.local/desktop-failure.png'), (await window.webContents.capturePage()).toPNG()); } catch {} }
-    const file = nativeCodeSmoke ? 'M1-native-code-desktop' : interactionSmoke ? 'M1.2-desktop' : executionSmoke ? 'M1.1c-desktop' : historySmoke ? 'M1.1b-desktop' : 'M0-desktop-smoke';
+    const file = nativeCodeSmoke ? 'M1-native-code-desktop' : continuationSmoke?'M1.3c-desktop':interactionSmoke ? 'M1.2-desktop' : executionSmoke ? 'M1.1c-desktop' : historySmoke ? 'M1.1b-desktop' : 'M0-desktop-smoke';
     writeFileSync(resolve(root, `docs/progress/evidence/${file}.json`), JSON.stringify({ status: 'blocked', code, observedAt: new Date().toISOString() }) + '\n');
   }
   try { await execution?.close(); ledger?.close(); } catch {}
@@ -89,6 +91,7 @@ async function boot(): Promise<void> {
     }
     execution = new ForegroundExecution(ledger, { executable: executionSmoke ? resolveExecutable('node') : executable(), stateDirectory: state, mode: interactionSmoke ? 'workspaceWrite' : 'readOnly',
       ...(verifier ? { prepareCode: (token, code, signal) => verifier!.prepare(token,code,signal) } : {}),
+      ...(verifier ? {prepareContinuation:(token,sourceRunId,signal)=>verifier!.prepareContinuation(token,sourceRunId,signal)} : {}),
       ...(executionSmoke ? { connect: callbacks => new StdioRpcClient({ executable: resolveExecutable('node'),
         args: [resolve(root, 'tests/fixtures/execution-server.ts'), interactionSmoke ? 'approval-accept' : 'slow', resolve(fixtureDirectory!, 'execution/ledger.db'), resolve(fixtureDirectory!, 'execution-receipts')], env: runtimeEnvironment(), ...callbacks }) } : {}) });
   }
@@ -128,11 +131,19 @@ async function boot(): Promise<void> {
   ipcMain.handle('execution:submit', (event, ...args: unknown[]) => executionCommand(event, args, 1, () => {
     if (!execution || active) throw new LedgerError('RUNTIME_BUSY'); return execution.submit(args[0]);
   }));
+  ipcMain.handle('execution:continue',(event,...args:unknown[])=>executionCommand(event,args,1,()=>{
+    if(!execution||active)throw new LedgerError('RUNTIME_BUSY');return execution.continueRun(args[0]);
+  }));
   ipcMain.handle('execution:list', (event, ...args: unknown[]) => executionCommand(event, args, 1, () => {
     if (!execution) throw new LedgerError('EXECUTION_UNAVAILABLE'); return execution.list(args[0]);
   }));
   ipcMain.handle('execution:view', (event, ...args: unknown[]) => executionCommand(event, args, 1, () => {
     if (!execution) throw new LedgerError('EXECUTION_UNAVAILABLE'); return execution.view(args[0]);
+  }));
+  const reconciliation=ledger?new HistoryReconciliation(ledger,read=>readConnection(executable(),state,controller?.signal)(read)):undefined;
+  ipcMain.handle('execution:reconcile',(event,...args:unknown[])=>historyCommand(event,args,1,async()=>{
+    if(!execution||!reconciliation)throw new LedgerError('EXECUTION_UNAVAILABLE');
+    execution.view(args[0]);await reconciliation.reconcile(args[0]);return execution.view(args[0]);
   }));
   ipcMain.handle('execution:interactions', (event, ...args: unknown[]) => executionCommand(event, args, 1, () => {
     if (!execution) throw new LedgerError('EXECUTION_UNAVAILABLE'); return execution.interactions(args[0]);
@@ -205,7 +216,7 @@ async function boot(): Promise<void> {
     const passed = r.rendered === true && r.hasRequire === false && r.sandboxed === true && r.isolated === true
       && r.uiConnected === true && !app.commandLine.hasSwitch('no-sandbox')
       && (r.connection as ConnectionInfo)?.status === 'connected'
-      && JSON.stringify(r.bridgeKeys) === JSON.stringify(['chooseProject', 'getRun', 'getVerification', 'inspect', 'interruptRun', 'listInteractions', 'listItems', 'listRuns', 'listThreads', 'listTurns', 'replyInteraction', 'security', 'submitMessage', 'verifyRun', 'workspaceState']);
+      && JSON.stringify(r.bridgeKeys) === JSON.stringify(['chooseProject', 'continueRun', 'getRun', 'getVerification', 'inspect', 'interruptRun', 'listInteractions', 'listItems', 'listRuns', 'listThreads', 'listTurns', 'reconcileRun', 'replyInteraction', 'security', 'submitMessage', 'verifyRun', 'workspaceState']);
     const evidence = { observedAt: new Date().toISOString(), kind: 'real_electron_window_smoke',
       status: passed ? 'passed' : 'blocked',
       browserSandbox: app.commandLine.hasSwitch('no-sandbox') ? 'disabled' : 'enabled', result };
@@ -257,7 +268,7 @@ async function boot(): Promise<void> {
     writeFileSync(resolve(root, '.local/M1-history-desktop.png'), (await window.webContents.capturePage()).toPNG());
     app.quit();
   }
-  if (executionSmoke && !interactionSmoke) {
+  if (executionSmoke && !interactionSmoke && !continuationSmoke) {
     const result = await window.webContents.executeJavaScript(`(async () => {
       const wait = async (check) => {
         const deadline = Date.now() + 15000;
@@ -332,6 +343,22 @@ async function boot(): Promise<void> {
     writeFileSync(resolve(root,'.local/M1-interactions-desktop.png'),(await window.webContents.capturePage()).toPNG());app.quit();
   }
 
+  if(continuationSmoke){
+    const result=await window.webContents.executeJavaScript(`(async()=>{
+      const wait=async check=>{const deadline=Date.now()+15000;while(!check()){if(Date.now()>deadline)throw new Error('CONTINUATION_UI_TIMEOUT');await new Promise(r=>setTimeout(r,50));}};
+      const fill=text=>{const input=document.querySelector('[data-task-draft]');Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(input,text);input.dispatchEvent(new Event('input',{bubbles:true}));};
+      document.querySelector('[data-action="choose-project"]').click();await wait(()=>document.querySelector('[data-task-draft]'));fill('Synthetic first task');await wait(()=>!document.querySelector('[data-action="send"]').disabled);document.querySelector('[data-action="send"]').click();await wait(()=>document.querySelector('[data-run-status="completed"]'));
+      const state=await window.personalAgent.workspaceState(),projectId=state.value.projects[0].id,first=(await window.personalAgent.listRuns({projectId})).value[0];
+      document.querySelector('[data-action="continue-run"]').click();await wait(()=>document.querySelector('[data-continuation-banner]'));fill('Synthetic explicit follow up');await wait(()=>!document.querySelector('[data-action="send"]').disabled);document.querySelector('[data-action="send"]').click();
+      await wait(()=>document.querySelectorAll('[data-run-id]').length===2);await wait(()=>document.querySelector('[data-run-status="completed"]'));
+      const last=(await window.personalAgent.listRuns({projectId})).value[0],view=(await window.personalAgent.getRun({projectId,runId:last.runId})).value;
+      return{sameTask:first.taskId===last.taskId,sameThread:first.threadId===last.threadId,newRun:first.runId!==last.runId,status:view.status,taskStatus:view.taskStatus,finalText:view.snapshot.items.find(i=>i.role==='assistant').text,
+        sandboxed:window.personalAgent.security.sandboxed,isolated:window.personalAgent.security.isolated,hasRequire:typeof require!=='undefined'};
+    })()`);
+    const r=result as Record<string,unknown>,passed=r.sameTask===true&&r.sameThread===true&&r.newRun===true&&r.status==='completed'&&r.taskStatus==='needs_review'&&r.finalText==='aab'&&r.sandboxed===true&&r.isolated===true&&r.hasRequire===false;
+    writeFileSync(resolve(root,'docs/progress/evidence/M1.3c-desktop.json'),JSON.stringify({status:passed?'passed':'blocked',observedAt:new Date().toISOString(),kind:'real_electron_explicit_continuation_with_synthetic_stdio',inferenceRequested:false,folderDialogSelection:'fixed_fixture_substitution',result},null,2)+'\n');
+    writeFileSync(resolve(root,'.local/M1-continuation-desktop.png'),(await window.webContents.capturePage()).toPNG());app.quit();
+  }
   if(nativeCodeSmoke){
     const result=await window.webContents.executeJavaScript(`(async()=>{
       const wait=async check=>{const deadline=Date.now()+210000;while(!check()){if(Date.now()>deadline)throw new Error('NATIVE_CODE_UI_TIMEOUT');await new Promise(r=>setTimeout(r,100));}};

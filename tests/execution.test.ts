@@ -13,8 +13,8 @@ function fixture(t: { after(fn: () => void | Promise<void>): void }, mode = 'ok'
   const file = join(root, 'store.db'), receipts = join(root, 'receipts.txt');
   const store = new ExecutionLedger(file, readFileSync('docs/design/contracts/schema.sql', 'utf8')); store.startOwner('execution-fixture', true);
   const project = store.registerWorkspace(workspace);
-  const runtime = new ForegroundExecution(store, { executable: process.execPath, stateDirectory: root, timeoutMs: 400, ...(prepareCode ? {prepareCode} : {}),
-    connect: callbacks => new StdioRpcClient({ executable: process.execPath, args: ['--disable-warning=ExperimentalWarning', resolve('tests/fixtures/execution-server.ts'), mode, file, receipts], requestTimeoutMs: 200, ...callbacks }) });
+  const runtime = new ForegroundExecution(store, { executable: process.execPath, stateDirectory: root, timeoutMs: 2000, ...(prepareCode ? {prepareCode} : {}),
+    connect: callbacks => new StdioRpcClient({ executable: process.execPath, args: ['--disable-warning=ExperimentalWarning', resolve('tests/fixtures/execution-server.ts'), mode, file, receipts], requestTimeoutMs: 1500, ...callbacks }) });
   t.after(async () => { await runtime.close(); store.close(); rmSync(root, { recursive: true, force: true }); });
   const input = { projectId: project.id, submissionKey: 'fixture-submission', text: 'Synthetic question, not a model request.' };
   return { root, store, project, runtime, input, file, receipts };
@@ -22,7 +22,7 @@ function fixture(t: { after(fn: () => void | Promise<void>): void }, mode = 'ok'
 test('real stdio fixture sees committed intents before both requests and final projection preserves repeated deltas', async t => {
   const f = fixture(t), run = f.runtime.submit(f.input); await f.runtime.wait();
   const view = f.runtime.view({ projectId: f.project.id, runId: run.runId });
-  assert.equal(view.status, 'completed'); assert.equal(view.taskStatus, 'needs_review');
+  assert.equal(view.status, 'completed',JSON.stringify(f.runtime.diagnostics)); assert.equal(view.taskStatus, 'needs_review');
   assert.equal(view.snapshot!.items.find(item => item.role === 'assistant')!.text, 'aab');
   assert.equal(view.snapshot!.needsSnapshot, false);
   assert.deepEqual(readFileSync(f.receipts, 'utf8').trim().split('\n'), ['thread/start','turn/start']);
@@ -68,7 +68,8 @@ test('concurrent different submission cannot create an orphan ledger run', async
 });
 test('closing owner while running records Unknown and waits for the child process shutdown', async t => {
   const f = fixture(t, 'silent'), run = f.runtime.submit(f.input);
-  await new Promise(resolve => setTimeout(resolve, 120)); await f.runtime.close();
+  const deadline=Date.now()+3000;while(!f.runtime.view({projectId:f.project.id,runId:run.runId}).turnId){assert.ok(Date.now()<deadline,'fixture turn must be accepted before close');await new Promise(resolve=>setTimeout(resolve,10));}
+  await f.runtime.close();
   assert.equal(f.runtime.busy, false); assert.equal(f.runtime.view({ projectId: f.project.id, runId: run.runId }).status, 'outcome_unknown');
 });
 test('nonempty thread MCP inventory blocks a model turn even if disable overrides were supplied', async t => {
@@ -102,4 +103,19 @@ test('a changed code contract cannot reuse a submission key while preparation is
   assert.equal(f.runtime.submit({...f.input,code}).runId,run.runId);
   assert.throws(()=>f.runtime.submit({...f.input,code:{...code,allowedPaths:['src/other.mjs']}}),/IDEMPOTENCY_CONFLICT/);
   release();await f.runtime.wait();assert.equal(f.runtime.diagnostics.clientTurnStarts,0);
+});
+test('known ended tasks continue with a fenced new Run and durable resume before sending, retaining the original binding',async t=>{
+ const f=fixture(t),first=f.runtime.submit(f.input);await f.runtime.wait();
+ const continued=f.runtime.continueRun({projectId:f.project.id,runId:first.runId,text:'Follow up synthetic prompt',submissionKey:'continuation'});await f.runtime.wait();
+ assert.notEqual(continued.runId,first.runId);assert.equal(continued.taskId,first.taskId);assert.equal(f.runtime.view({projectId:f.project.id,runId:continued.runId}).threadId,f.runtime.view({projectId:f.project.id,runId:first.runId}).threadId);
+ assert.equal(f.runtime.diagnostics.clientThreadStarts,1);assert.equal(f.runtime.diagnostics.clientThreadResumes,1);assert.equal(f.runtime.diagnostics.clientTurnStarts,2);
+ assert.deepEqual(readFileSync(f.receipts,'utf8').trim().split('\n'),['thread/start','turn/start','thread/resume','turn/start']);
+ assert.equal(f.runtime.continueRun({projectId:f.project.id,runId:first.runId,text:'Follow up synthetic prompt',submissionKey:'continuation'}).runId,continued.runId);
+ assert.throws(()=>f.runtime.continueRun({projectId:f.project.id,runId:first.runId,text:'different',submissionKey:'continuation'}),/IDEMPOTENCY_CONFLICT/);
+ assert.throws(()=>f.runtime.continueRun({projectId:f.project.id,runId:first.runId,text:'stale source',submissionKey:'another'}),/RUN_NOT_CONTINUABLE/);
+});
+test('Unknown tasks never become a new continuation',async t=>{
+ const f=fixture(t,'drop-response'),run=f.runtime.submit(f.input);await f.runtime.wait();
+ assert.throws(()=>f.runtime.continueRun({projectId:f.project.id,runId:run.runId,text:'must not resend',submissionKey:'blocked'}),/RUN_NOT_CONTINUABLE/);
+ assert.equal(f.runtime.diagnostics.clientThreadResumes,0);assert.equal(f.store.runs(f.project.id).length,1);
 });

@@ -1,0 +1,20 @@
+$ python3 docs/design/contracts/validate_contracts.py
+Traceback (most recent call last):
+  File "/Users/harveyliu/ARWorkspace/personal_agent/docs/design/contracts/validate_contracts.py", line 350, in <module>
+    main()
+    ~~~~^^
+  File "/Users/harveyliu/ARWorkspace/personal_agent/docs/design/contracts/validate_contracts.py", line 330, in main
+    check(name, fn)
+    ~~~~~^^^^^^^^^^
+  File "/Users/harveyliu/ARWorkspace/personal_agent/docs/design/contracts/validate_contracts.py", line 18, in check
+    function()
+    ~~~~~~~~^^
+  File "/Users/harveyliu/ARWorkspace/personal_agent/docs/design/contracts/validate_contracts.py", line 302, in check_document_and_matrix
+    require(method['method'] in evidence.get('verifiedMethods', []),
+    ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+            f'Method not covered by runtime evidence: {method["method"]}')
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/harveyliu/ARWorkspace/personal_agent/docs/design/contracts/validate_contracts.py", line 24, in require
+    raise AssertionError(message)
+AssertionError: Method not covered by runtime evidence: thread/resume
+[ELIFECYCLE] Command failed with exit code 1.

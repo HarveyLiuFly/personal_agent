@@ -1,0 +1,50 @@
+{
+  "checkpoint": "M1.3c",
+  "status": "passed_in_scope",
+  "platform": "darwin-arm64",
+  "checks": {
+    "tests": 107,
+    "passed": 107,
+    "failed": 0,
+    "skipped": 0,
+    "designContracts": 17,
+    "generatedTypes": 747,
+    "typecheck": "passed",
+    "productionBuild": "passed"
+  },
+  "nativeReconciliation": {
+    "originalModelTurns": 1,
+    "additionalModelTurnsForRecovery": 0,
+    "injection": "native receipt discarded at adapter-to-Runtime boundary",
+    "sameRunRecovered": true,
+    "taskStatus": "needs_review",
+    "firstAttempt": "empty alternate sqlite_home, Unknown preserved",
+    "correction": "read original native sqlite_home"
+  },
+  "nativeContinuation": {
+    "newModelTurns": 1,
+    "sameTask": true,
+    "sameThread": true,
+    "newRunAndTurn": true,
+    "priorContextMarkerMatched": true,
+    "taskStatus": "needs_review"
+  },
+  "codeContinuationContract": "real Git/SQLite and synthetic test event cases; original baseline/hash/scope/required cases inherited, not a native model code-continuation acceptance",
+  "desktop": {
+    "backend": "synthetic stdio in real native Electron",
+    "explicitContinueButton": "passed",
+    "firstFailure": "stale previous Run projection after continuation; corrected",
+    "sandbox": true,
+    "contextIsolation": true,
+    "rendererNode": false,
+    "preloadMethods": 17
+  },
+  "M1Gate": "open",
+  "remaining": [
+    "native approvals accept/reject",
+    "native interrupt and process-effect proof",
+    "Electron restart and history reconstruction",
+    "native directory dialog",
+    "OS single-instance ownership"
+  ]
+}

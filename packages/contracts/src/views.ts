@@ -33,6 +33,7 @@ export interface ItemQuery extends ThreadQuery { turnId: string }
 export interface RunQuery { projectId: string; runId: string }
 export interface CodeTaskSpec { profile: 'node-test'; target: string; allowedPaths: string[] }
 export interface SubmitMessage { projectId: string; text: string; submissionKey: string; code?: CodeTaskSpec }
+export interface ContinueMessage extends RunQuery {text:string;submissionKey:string}
 export interface RunSummary {
   runId: string; taskId: string; title: string; status: string; taskStatus: string;
   threadId: string | null; turnId: string | null; blocked: boolean;
