@@ -6,6 +6,7 @@ Electron/React 桌面宿主，通过锁版 Codex App Server 驱动执行。当�
 - [M0–M5 进展点与同步规则](docs/progress/README.md)
 - [当前 M0 执行记录](docs/progress/M0.md)
 - [M1 独立基础组件进展](docs/progress/M1.md)
+- [本地 Codex 接手指南](docs/progress/LOCAL_HANDOFF.md)（当前接手入口，含平台差异与下一步）
 
 ## 环境与依赖
 

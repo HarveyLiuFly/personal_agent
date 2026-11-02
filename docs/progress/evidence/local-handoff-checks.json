@@ -1,0 +1,24 @@
+{
+  "date": "2026-11-02",
+  "status": "passed",
+  "scope": "Local handoff documents, relative links, archived non-secret setup fields and inspected screenshots; application source unchanged.",
+  "documentsChecked": 6,
+  "relativeLinksChecked": 64,
+  "screenshots": [
+    {
+      "path": "docs/progress/evidence/screenshots/M0-native-catalog.png",
+      "bytes": 47530,
+      "sha256": "3f2fa4a98d9e7d187a4b3be37bbd3cb7facf0cf12a7ae0c44783e0853a02056d"
+    },
+    {
+      "path": "docs/progress/evidence/screenshots/M1-history-fixture.png",
+      "bytes": 66121,
+      "sha256": "6ec9c18ba0196f60e87eba2612e04f89da52b645ae68b07229e0ef183db1191d"
+    }
+  ],
+  "sourceBaseline": "d9f39423dc65121177a94c6eff5fc05c0593cad2",
+  "functionalEvidenceReused": "docs/progress/evidence/M1.1b-summary.json",
+  "applicationTestsRerun": false,
+  "localPlatformTested": false,
+  "handoffTag": "handoff/local-codex-2026-11-02"
+}

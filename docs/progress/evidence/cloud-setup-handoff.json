@@ -1,0 +1,14 @@
+{
+  "observedDate": "2026-11-02",
+  "kind": "cloud_setup_instructions_archive",
+  "scope": "Reference for the former Linux cloud environment; not a local-machine setup script.",
+  "name": "personal_agent",
+  "networkPolicy": {
+    "type": "unrestricted"
+  },
+  "installScript": "set -eu\ncd /workspace/personal_agent\nnode --version\npnpm --version\npnpm install --frozen-lockfile\nELECTRON_GET_USE_PROXY=1 pnpm exec install-electron\npnpm setup:headless\npnpm check\n",
+  "startInstructions": "工作目录 /workspace/personal_agent。本任务已经运行在隔离云环境，沿用当前 checkout；除非用户明确要求，不创建 Git worktree。\n先读适用的 AGENTS.md、README.md、docs/progress/README.md 和 docs/progress/M0.md，检查本地修改后继续工作，不重置用户文件。\n要求 Node 24.19.x、pnpm 11.25.0；Codex CLI 必须与 codex-version.lock.json 的版本和二进制 SHA-256 一致，使用 pnpm protocol:verify 检查。锁文件安装和构建按 install_script 执行，不能通过修改版本指纹跳过失败。\n快照仅保留文件，不假设服务仍在运行。基础回归运行 pnpm check。桌面开发在有效 DISPLAY 下运行 pnpm dev；无 DISPLAY 的 Debian 13 x86_64 使用 pnpm setup:headless，再运行 pnpm smoke:desktop，脚本启动并回收带 Xauthority 的本地 Xvfb，保持 Electron Sandbox 与 Context Isolation。不要使用 --no-sandbox，不创建 localhost 预览链接。\n在用户授权的开发验证中运行 pnpm smoke:connection 和 pnpm smoke:desktop，并记录它们写入 docs/progress/evidence 的结果。真实模型验证单独执行 pnpm smoke:codex，可能使用模型额度；它不能由握手或静态检查替代。\n保留继承的代理、CA 信任和注入认证。不得打印环境变量值、读取或复制凭据内容。已有 Codex ChatGPT 登录，是否可推理必须由真实请求证明。\n当前已知阻塞：M0.3 模型响应流断开，官方 chatgpt.com 目标经代理 CONNECT 返回 403；配置草稿 unrestricted 不代表实例已生效。通过受支持环境设置保存/发布并恢复网络后，先核对运行实例策略和实际连通性，再重跑一次只读模型 Smoke。仍受阻时记录实际证据，不自动重发未知实际任务，不在聊天索取 Token。\n每完成进展点，先更新 docs/progress 阶段总结与脱敏证据，再提交、推送 origin main 并核对远程 SHA。不使用强制推送。M0.3 未通过之前，整个 M0 Gate 保持未通过。\n",
+  "published": null,
+  "publicationVerified": false,
+  "source": "Read from the bound cloud configuration draft; only non-secret instruction fields archived."
+}
