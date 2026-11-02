@@ -2,7 +2,7 @@
   "observed_at": "2026-11-02",
   "cli_version": "codex-cli 0.163.0",
   "binary_source_commit": null,
-  "evidence_scope": "Per-method evidence is platform-scoped: legacy evidence without a platform field is Linux x86_64. macOS arm64 schema, catalog and empty local history probes are recorded separately. No inference or populated history/recovery claim from metadata probes.",
+  "evidence_scope": "macOS arm64 M0 gate passed with reviewed native binary/schema, sandboxed Electron and one complete real read-only zero-tool model turn. Legacy evidence without a platform field is Linux x86_64, whose model probe remains blocked historically. Empty history probes do not establish populated history or recovery; M1 remains open.",
   "methods": [
     {
       "method": "initialize",
@@ -29,16 +29,18 @@
       "schema_observed": true,
       "runtime_verification": "passed",
       "fallback": "block execution",
-      "runtime_evidence": "docs/progress/evidence/M1.1b-native-history.json",
-      "runtime_scope": "Isolated local fixture metadata and empty history pages; not populated model history or recovery."
+      "runtime_evidence": "docs/progress/evidence/M0-real-smoke-2026-11-02T15-02-06-121Z.json",
+      "runtime_scope": "macOS arm64: isolated ephemeral read-only real model turn, complete matching final content and zero tool activity. No durable task execution or populated history recovery claim."
     },
     {
       "method": "turn/start",
       "first_milestone": "M0",
       "requirement": "required",
       "schema_observed": true,
-      "runtime_verification": "pending",
-      "fallback": "block execution"
+      "runtime_verification": "passed",
+      "fallback": "block execution",
+      "runtime_evidence": "docs/progress/evidence/M0-real-smoke-2026-11-02T15-02-06-121Z.json",
+      "runtime_scope": "macOS arm64: isolated ephemeral read-only real model turn, complete matching final content and zero tool activity. No durable task execution or populated history recovery claim."
     },
     {
       "method": "thread/list",
@@ -262,7 +264,8 @@
   "platform_runtime_evidence": {
     "darwin-arm64": [
       "docs/progress/evidence/M0-catalog-probe-darwin-arm64.json",
-      "docs/progress/evidence/M1.1b-native-history-darwin-arm64.json"
+      "docs/progress/evidence/M1.1b-native-history-darwin-arm64.json",
+      "docs/progress/evidence/M0-real-smoke-2026-11-02T15-02-06-121Z.json"
     ]
   }
 }

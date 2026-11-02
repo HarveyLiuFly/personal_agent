@@ -1,0 +1,39 @@
+{
+  "observedAt": "2026-11-02T15:02:06.121Z",
+  "cliVersion": "codex-cli 0.163.0",
+  "platform": "darwin-arm64",
+  "status": "passed",
+  "model": "gpt-6.1-sol",
+  "threadId": "01a19cc8-3c63-70d3-8541-6572b379b123",
+  "turnId": "01a19cc8-3d23-71c1-9bd5-0d051c596f81",
+  "finalText": "M0_READY_c77b7a52f30e",
+  "expectedText": "M0_READY_c77b7a52f30e",
+  "serverRequestsDenied": 0,
+  "toolItems": 0,
+  "notificationCounts": {
+    "remoteControl/status/changed": 1,
+    "account/updated": 1,
+    "thread/started": 1,
+    "mcpServer/startupStatus/updated": 6,
+    "thread/status/changed": 2,
+    "turn/started": 1,
+    "item/started": 2,
+    "item/completed": 2,
+    "item/agentMessage/delta": 12,
+    "thread/tokenUsage/updated": 1,
+    "account/rateLimits/updated": 1,
+    "turn/completed": 1
+  },
+  "completionSource": "notification",
+  "kind": "real_app_server_model_smoke",
+  "executableSha256": "8813367285524ac798dd96d1b071aea30d58708c7226fd236cd275cf1cfdee31",
+  "schemaFingerprint": "d3bb2d6b3aba976aecaa62eab4f0496f3cccd4bfc5b355190b23bd14c1bb545c",
+  "verifiedMethods": [
+    "initialize",
+    "initialized",
+    "model/list",
+    "thread/start",
+    "turn/start"
+  ],
+  "scope": "One client turn/start in an isolated ephemeral read-only workspace; no tools permitted or task Composer enabled."
+}

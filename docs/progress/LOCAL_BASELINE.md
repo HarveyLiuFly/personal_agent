@@ -2,6 +2,8 @@
 
 日期：2026-11-02（Asia/Shanghai）。进展点：M0.local（平台适配），随后单独验收 M0.3。开始提交 `ea623ce`，分支 `main`，初始工作区干净。
 
+当前结论：M0.local 与 M0.3 均已完成，macOS arm64 的 M0 Gate 已通过；下一进展点为 M1.3 最小持久账本。以下按规划与实际执行顺序保留结果及失败修正。
+
 ## 规划与验收范围
 
 1. 盘点本机工具链和受支持登录；取得官方锁版 CLI 的 macOS arm64 发行物，不更改全局 Codex，不复制凭据。
@@ -32,3 +34,16 @@ M0.local 平台子项完成，提交定位 `checkpoint/M0.local`。本点不关�
 - 真实 Electron + 合成 stdio 历史 Fixture：实际分页/刷新/选会话/选轮次，3 个 Item、HTML 作为文本、无脚本/图片注入、无私有工具字段、发送禁用通过。[历史窗口](evidence/M1.1b-desktop-2026-11-02T14-58-36-925Z.json)、[截图](evidence/screenshots/M1-macos-history-fixture.png)。原生目录人工选择未运行，不能以固定 Fixture 替代验收。
 - 外部前提已解决：网络执行上下文可取得官方依赖，使用项目独立 npm 缓存避开本机 EACCES。未运行 Linux 重验、其他 CPU/Windows、有内容历史、真实代码任务及完整进程/发布验收。
 - 下一步：M0.3 在本机现有受支持登录下运行一次只读零工具模型 Smoke；根据真实结果更新 Gate。此后实现 M1.3 最小持久账本及 ExecutionIntent，账本完成前发送任务仍关闭。
+
+## M0.3 本机真实模型计划
+
+平台进展点已提交为 `c4135b0`（`checkpoint/M0.local`），远程 SHA 核验结果将在本节随执行结果落盘。仅执行一次已有 `pnpm smoke:codex`：本机受支持登录、隔离临时目录、只读 Sandbox、禁止工具、随机标记完整最终回复；目录与 Thread/Turn 接收不能代替最终内容通过。超时/断线保留 Unknown，不自动重发；凭据与原始 stderr/运行库不进入证据。该点通过前 M0 Gate 保持未通过。
+
+## M0.3 实际结果与下一步
+
+- 状态：完成，定位 `checkpoint/M0.3`；macOS arm64 的 M0 Gate 已通过。执行时间为 2026-11-02 23:02（Asia/Shanghai），仅运行一次 `pnpm smoke:codex`，无重发。
+- 真实模型 `gpt-6.1-sol`；指定 Thread/Turn 的最终助手内容完整匹配随机标记，12 个文字 Delta、一次 `turn/completed`，`completionSource=notification`，工具 Item 与服务端请求均为 0。[成功证据](evidence/M0-real-smoke-2026-11-02T15-02-06-121Z.json)。原云失败时间戳文件保留。
+- Smoke 输出增加与已验证平台绑定的 CLI/Schema 哈希、实际已完成方法和范围。类型检查通过；矩阵及文档更新后的常规回归见 [M0.3-checks.txt](evidence/M0.3-checks.txt)。真实推理不由这份静态/Fixture 回归替代，也没有因回归再次调用模型。
+- 上一进展点远程核验：`main` 和 `checkpoint/M0.local` 均为 `c4135b0b83ece0ffbb294c4e1d833892274a67f9`。
+- M1.3 之前仍没有产品任务账本、可信审批/停止或发送 Composer；本次 ephemeral 协议 Smoke 不宣称持久任务可恢复。未运行有内容历史恢复、真实编码任务和其他平台模型验收。
+- 后续开发从 M1.3 最小持久化/Intent 开始，复用共用 SQL/领域状态；先细化并实现状态 Guard、发送前落盘、Thread/Turn 绑定和崩溃 Unknown 用例，再开放 M1.1c。M1 阶段记录保持未通过，原生目录人工选择仍待实际验收。

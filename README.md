@@ -1,6 +1,6 @@
 # Personal Agent
 
-Electron/React 桌面宿主，通过锁版 Codex App Server 驱动执行。当前具备安全窗口、流事件投影与只读项目历史浏览；M0 真实模型闭环仍受网络阻塞，完整任务发送、个人记忆与长期自治按阶段交付。
+Electron/React 桌面宿主，通过锁版 Codex App Server 驱动执行。当前具备安全窗口、流事件投影与只读项目历史浏览；macOS arm64 的 M0 真实模型闭环与平台 Gate 已通过，完整任务发送、个人记忆与长期自治按阶段交付。
 
 - [总体规划与技术专题](docs/design/00_总体架构与开发规划.md)
 - [M0–M5 进展点与同步规则](docs/progress/README.md)

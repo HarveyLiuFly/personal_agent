@@ -11,7 +11,10 @@ await mkdir(directory, { recursive: true });
 let evidence: Record<string, unknown>;
 try {
   evidence = { observedAt: new Date().toISOString(), cliVersion: lock.cliVersion, platform,
-    ...await runRealSmoke(executable, resolve(root, '.local/codex-state')), kind: 'real_app_server_model_smoke' };
+    ...await runRealSmoke(executable, resolve(root, '.local/codex-state')), kind: 'real_app_server_model_smoke',
+    executableSha256: lock.platforms[platform]!.executableSha256, schemaFingerprint: lock.schemaFingerprint,
+    verifiedMethods: ['initialize', 'initialized', 'model/list', 'thread/start', 'turn/start'],
+    scope: 'One client turn/start in an isolated ephemeral read-only workspace; no tools permitted or task Composer enabled.' };
 } catch (error) {
   evidence = { observedAt: new Date().toISOString(), cliVersion: lock.cliVersion, platform, status: 'blocked',
     kind: 'real_app_server_model_smoke', code: error instanceof RpcFailure ? error.code : 'HOST_ERROR',
