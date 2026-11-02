@@ -1,0 +1,160 @@
+TAP version 13
+# Subtest: repeated deltas are appended and the authoritative final item calibrates them
+ok 1 - repeated deltas are appended and the authoritative final item calibrates them
+  ---
+  duration_ms: 2.788617
+  type: 'test'
+  ...
+# Subtest: a late item/started does not erase text or reopen a completed item
+ok 2 - a late item/started does not erase text or reopen a completed item
+  ---
+  duration_ms: 0.380749
+  type: 'test'
+  ...
+# Subtest: thread, turn and item identity remain separate even with equal IDs and delimiter-like strings
+ok 3 - thread, turn and item identity remain separate even with equal IDs and delimiter-like strings
+  ---
+  duration_ms: 1.325757
+  type: 'test'
+  ...
+# Subtest: duplicate receive identities do not duplicate text, while a gap requires reconciliation
+ok 4 - duplicate receive identities do not duplicate text, while a gap requires reconciliation
+  ---
+  duration_ms: 0.890984
+  type: 'test'
+  ...
+# Subtest: reconnection requires a fresh snapshot and replaces old partial text rather than concatenating it
+ok 5 - reconnection requires a fresh snapshot and replaces old partial text rather than concatenating it
+  ---
+  duration_ms: 4.082001
+  type: 'test'
+  ...
+# Subtest: disconnect leaves partial content explicitly stale and blocks additional updates
+ok 6 - disconnect leaves partial content explicitly stale and blocks additional updates
+  ---
+  duration_ms: 0.457165
+  type: 'test'
+  ...
+# Subtest: turn completion uses full items and a late start or delta cannot reopen it
+ok 7 - turn completion uses full items and a late start or delta cannot reopen it
+  ---
+  duration_ms: 0.536915
+  type: 'test'
+  ...
+# Subtest: failed turns retain failure and unknown item types remain explicit without exposing arguments
+ok 8 - failed turns retain failure and unknown item types remain explicit without exposing arguments
+  ---
+  duration_ms: 0.35034
+  type: 'test'
+  ...
+# Subtest: text limits are bounded, do not split emoji, and a final item can replace a clipped prefix
+ok 9 - text limits are bounded, do not split emoji, and a final item can replace a clipped prefix
+  ---
+  duration_ms: 0.377584
+  type: 'test'
+  ...
+# Subtest: aggregate text, item and turn budgets bound growth and visibly signal missing data
+ok 10 - aggregate text, item and turn budgets bound growth and visibly signal missing data
+  ---
+  duration_ms: 0.879862
+  type: 'test'
+  ...
+# Subtest: snapshot replacement drops orphaned old items and rejects a stale sequence
+ok 11 - snapshot replacement drops orphaned old items and rejects a stale sequence
+  ---
+  duration_ms: 0.416343
+  type: 'test'
+  ...
+# Subtest: plain-text views keep markup inert and hide reasoning, tool secrets and local image paths
+ok 12 - plain-text views keep markup inert and hide reasoning, tool secrets and local image paths
+  ---
+  duration_ms: 1.328239
+  type: 'test'
+  ...
+# Subtest: view consumers cannot mutate the next projection or advance an old epoch
+ok 13 - view consumers cannot mutate the next projection or advance an old epoch
+  ---
+  duration_ms: 0.342536
+  type: 'test'
+  ...
+# Subtest: out-of-order responses retain the correct request identity
+ok 14 - out-of-order responses retain the correct request identity
+  ---
+  duration_ms: 102.863234
+  type: 'test'
+  ...
+# Subtest: server request with a colliding numeric ID is denied without resolving the client request
+ok 15 - server request with a colliding numeric ID is denied without resolving the client request
+  ---
+  duration_ms: 89.724051
+  type: 'test'
+  ...
+# Subtest: an unsupported server request fails closed
+ok 16 - an unsupported server request fails closed
+  ---
+  duration_ms: 91.374262
+  type: 'test'
+  ...
+# Subtest: UTF-8 frames split inside a code point preserve repeated text
+ok 17 - UTF-8 frames split inside a code point preserve repeated text
+  ---
+  duration_ms: 93.468551
+  type: 'test'
+  ...
+# Subtest: malformed input closes the connection and rejects pending execution as unknown
+ok 18 - malformed input closes the connection and rejects pending execution as unknown
+  ---
+  duration_ms: 79.791709
+  type: 'test'
+  ...
+# Subtest: oversize input closes the connection and rejects pending execution as unknown
+ok 19 - oversize input closes the connection and rejects pending execution as unknown
+  ---
+  duration_ms: 84.112068
+  type: 'test'
+  ...
+# Subtest: utf8 input closes the connection and rejects pending execution as unknown
+ok 20 - utf8 input closes the connection and rejects pending execution as unknown
+  ---
+  duration_ms: 104.075326
+  type: 'test'
+  ...
+# Subtest: a response deadline does not automatically resubmit an uncertain request
+ok 21 - a response deadline does not automatically resubmit an uncertain request
+  ---
+  duration_ms: 143.168401
+  type: 'test'
+  ...
+# Subtest: process exit rejects all outstanding requests and is not a successful empty result
+ok 22 - process exit rejects all outstanding requests and is not a successful empty result
+  ---
+  duration_ms: 85.248847
+  type: 'test'
+  ...
+# Subtest: closed clients reject new work and cleanup can be awaited more than once
+ok 23 - closed clients reject new work and cleanup can be awaited more than once
+  ---
+  duration_ms: 105.445017
+  type: 'test'
+  ...
+# Subtest: owner cancellation rejects pending work and waits for its child process to stop
+ok 24 - owner cancellation rejects pending work and waits for its child process to stop
+  ---
+  duration_ms: 86.85872
+  type: 'test'
+  ...
+# Subtest: the trusted runtime preserves injected guards but excludes unrelated application secrets
+ok 25 - the trusted runtime preserves injected guards but excludes unrelated application secrets
+  ---
+  duration_ms: 0.760133
+  type: 'test'
+  ...
+1..25
+# tests 25
+# suites 0
+# pass 25
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1248.177066

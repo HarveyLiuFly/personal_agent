@@ -1,0 +1,12 @@
+{
+  "observedAt": "2026-11-02T13:57:52.178876+00:00",
+  "status": "passed",
+  "checkpoint": "M1.1a",
+  "scope": "13 stream projection unit cases plus 12 local RPC transport cases; protocol fingerprint/typecheck/design contracts/build",
+  "tests": 25,
+  "passed": 25,
+  "failed": 0,
+  "skipped": 0,
+  "modelInferenceVerified": false,
+  "phaseGatePassed": false
+}

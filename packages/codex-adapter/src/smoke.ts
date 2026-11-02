@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { StdioRpcClient, RpcFailure, isObject } from './rpc.ts';
 import { launchArguments, runtimeEnvironment } from './launch.ts';
+import { ThreadProjection } from './projection.ts';
 import type { InitializeResponse } from './generated/InitializeResponse.ts';
 import type { ModelListResponse } from './generated/v2/ModelListResponse.ts';
 import type { ThreadStartParams } from './generated/v2/ThreadStartParams.ts';
@@ -50,7 +51,8 @@ export async function runRealSmoke(executable: string, stateDirectory: string, s
   const notificationCounts: Record<string, number> = {};
   const notificationShapes: Record<string, string[]> = {};
   const upstreamErrors: unknown[] = [];
-  const textByItem = new Map<string, string>();
+  let projection: ThreadProjection | undefined;
+  let projectionSequence = 0;
   let serverRequestsDenied = 0;
   let toolItems = 0;
   let activeThreadId: string | undefined;
@@ -70,6 +72,7 @@ export async function runRealSmoke(executable: string, stateDirectory: string, s
       throw new RpcFailure('UNSUPPORTED_SERVER_REQUEST');
     },
     onNotification: message => {
+      projection?.receive(1, ++projectionSequence, message);
       const method = String(message.method);
       notificationCounts[method] = (notificationCounts[method] ?? 0) + 1;
       if (isObject(message.params)) notificationShapes[method] = Object.keys(message.params).sort();
@@ -93,15 +96,9 @@ export async function runRealSmoke(executable: string, stateDirectory: string, s
             httpStatusCode: isObject(value) && typeof value.httpStatusCode === 'number' ? value.httpStatusCode : null });
         }
       }
-      if (method === 'item/agentMessage/delta' && typeof params.itemId === 'string' && typeof params.delta === 'string') {
-        textByItem.set(params.itemId, (textByItem.get(params.itemId) ?? '') + params.delta);
-      }
       if ((method === 'item/started' || method === 'item/completed') && isObject(params.item)) {
         const item = params.item;
         if (method === 'item/started' && !['userMessage', 'agentMessage', 'reasoning', 'plan', 'contextCompaction'].includes(String(item.type))) toolItems++;
-        if (method === 'item/completed' && item.type === 'agentMessage' && typeof item.id === 'string' && typeof item.text === 'string') {
-          textByItem.set(item.id, item.text);
-        }
       }
       if (method === 'turn/completed' && isObject(params.turn)) resolveCompletion(params.turn);
     },
@@ -121,6 +118,8 @@ export async function runRealSmoke(executable: string, stateDirectory: string, s
     const thread = await rpc.request<ThreadStartResponse>('thread/start', params);
     if (!thread.thread || typeof thread.thread.id !== 'string') throw new RpcFailure('INVALID_THREAD_RESPONSE');
     activeThreadId = thread.thread.id;
+    projection = new ThreadProjection(activeThreadId);
+    projectionSequence = 0;
     const turnParams: TurnStartParams = { threadId: activeThreadId,
       input: [{ type: 'text', text: `Return exactly ${expectedText}`, text_elements: [] }],
       sandboxPolicy: { type: 'readOnly', networkAccess: false }, approvalPolicy: 'on-request',
@@ -143,14 +142,18 @@ export async function runRealSmoke(executable: string, stateDirectory: string, s
       const turn = snapshot.thread.turns.find(item => item.id === activeTurnId);
       lastKnownStatus = turn?.status;
       if (!turn || turn.status !== 'completed') throw new RpcFailure('TURN_TIMEOUT', true);
-      for (const item of turn.items) if (item.type === 'agentMessage') textByItem.set(item.id, item.text);
+      if (turn.itemsView !== 'full') throw new RpcFailure('TURN_SNAPSHOT_INCOMPLETE', true);
+      projection.replaceSnapshot(1, projectionSequence, snapshot.thread.turns);
       final = { id: turn.id, status: turn.status };
       completionSource = 'snapshot';
     }
     lastKnownStatus = typeof final.status === 'string' ? final.status : undefined;
     if (final.id !== accepted.turn.id) throw new RpcFailure('TURN_ID_MISMATCH', true);
     if (final.status !== 'completed') throw new RpcFailure(final.status === 'failed' ? 'TURN_FAILED' : 'TURN_NOT_COMPLETED', final.status !== 'failed' && final.status !== 'interrupted');
-    const finalText = [...textByItem.values()].join('').trim();
+    const view = projection.view();
+    if (view.needsSnapshot || view.truncated || view.unsupportedItems) throw new RpcFailure('INCOMPLETE_PROJECTION', true);
+    const finalText = view.items.filter(item => item.turnId === accepted.turn.id && item.role === 'assistant' && item.status === 'complete')
+      .map(item => item.text).join('').trim();
     if (finalText !== expectedText) throw new RpcFailure('SMOKE_CONTENT_MISMATCH');
     if (toolItems !== 0 || serverRequestsDenied !== 0) throw new RpcFailure('UNEXPECTED_TOOL_ACTIVITY');
     return { status: 'passed', model: model.id, threadId: activeThreadId, turnId: accepted.turn.id,

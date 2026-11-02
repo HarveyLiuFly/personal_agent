@@ -1,0 +1,117 @@
+TAP version 13
+# node:internal/modules/run_main:107
+#     triggerUncaughtException(
+#     ^
+# file:///workspace/personal_agent/packages/codex-adapter/src/projection.ts:59
+#   private limits: ProjectionLimits;
+#   constructor(readonly threadId: string, epoch = 1, limits: Partial<ProjectionLimits> = {}) {
+#                        ^^^^^^^^^^^^^^^^
+#     if (!identity(threadId) || !Number.isSafeInteger(epoch) || epoch < 1) throw new Error('INVALID_PROJECTION_IDENTITY');
+# SyntaxError [ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX]: TypeScript parameter property is not supported in strip-only mode
+#     at parseTypeScript (node:internal/modules/typescript:68:40)
+#     at processTypeScriptCode (node:internal/modules/typescript:146:42)
+#     at stripTypeScriptModuleTypes (node:internal/modules/typescript:215:22)
+#     at ModuleLoader.<anonymous> (node:internal/modules/esm/translators:680:29)
+#     at \#translate (node:internal/modules/esm/loader:434:20)
+#     at afterLoad (node:internal/modules/esm/loader:502:29)
+#     at ModuleLoader.loadAndTranslate (node:internal/modules/esm/loader:507:12)
+#     at \#getOrCreateModuleJobAfterResolve (node:internal/modules/esm/loader:560:36)
+#     at afterResolve (node:internal/modules/esm/loader:607:52)
+#     at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:613:12) {
+#   code: 'ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX'
+# }
+# Node.js v24.19.0
+# Subtest: tests/projection.test.ts
+not ok 1 - tests/projection.test.ts
+  ---
+  duration_ms: 155.027699
+  type: 'test'
+  location: '/workspace/personal_agent/tests/projection.test.ts:1:1'
+  failureType: 'testCodeFailure'
+  exitCode: 1
+  signal: ~
+  error: 'test failed'
+  code: 'ERR_TEST_FAILURE'
+  ...
+# Subtest: out-of-order responses retain the correct request identity
+ok 2 - out-of-order responses retain the correct request identity
+  ---
+  duration_ms: 88.983241
+  type: 'test'
+  ...
+# Subtest: server request with a colliding numeric ID is denied without resolving the client request
+ok 3 - server request with a colliding numeric ID is denied without resolving the client request
+  ---
+  duration_ms: 88.192886
+  type: 'test'
+  ...
+# Subtest: an unsupported server request fails closed
+ok 4 - an unsupported server request fails closed
+  ---
+  duration_ms: 84.952098
+  type: 'test'
+  ...
+# Subtest: UTF-8 frames split inside a code point preserve repeated text
+ok 5 - UTF-8 frames split inside a code point preserve repeated text
+  ---
+  duration_ms: 99.871799
+  type: 'test'
+  ...
+# Subtest: malformed input closes the connection and rejects pending execution as unknown
+ok 6 - malformed input closes the connection and rejects pending execution as unknown
+  ---
+  duration_ms: 91.316148
+  type: 'test'
+  ...
+# Subtest: oversize input closes the connection and rejects pending execution as unknown
+ok 7 - oversize input closes the connection and rejects pending execution as unknown
+  ---
+  duration_ms: 80.904983
+  type: 'test'
+  ...
+# Subtest: utf8 input closes the connection and rejects pending execution as unknown
+ok 8 - utf8 input closes the connection and rejects pending execution as unknown
+  ---
+  duration_ms: 111.157474
+  type: 'test'
+  ...
+# Subtest: a response deadline does not automatically resubmit an uncertain request
+ok 9 - a response deadline does not automatically resubmit an uncertain request
+  ---
+  duration_ms: 143.620043
+  type: 'test'
+  ...
+# Subtest: process exit rejects all outstanding requests and is not a successful empty result
+ok 10 - process exit rejects all outstanding requests and is not a successful empty result
+  ---
+  duration_ms: 119.464523
+  type: 'test'
+  ...
+# Subtest: closed clients reject new work and cleanup can be awaited more than once
+ok 11 - closed clients reject new work and cleanup can be awaited more than once
+  ---
+  duration_ms: 102.853967
+  type: 'test'
+  ...
+# Subtest: owner cancellation rejects pending work and waits for its child process to stop
+ok 12 - owner cancellation rejects pending work and waits for its child process to stop
+  ---
+  duration_ms: 80.97603
+  type: 'test'
+  ...
+# Subtest: the trusted runtime preserves injected guards but excludes unrelated application secrets
+ok 13 - the trusted runtime preserves injected guards but excludes unrelated application secrets
+  ---
+  duration_ms: 0.788936
+  type: 'test'
+  ...
+1..13
+# tests 13
+# suites 0
+# pass 12
+# fail 1
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1272.501988
+[ELIFECYCLE] Test failed. See above for more details.

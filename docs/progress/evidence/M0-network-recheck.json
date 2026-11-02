@@ -1,0 +1,12 @@
+{
+  "observedAt": "2026-11-02T13:57:52.179079+00:00",
+  "status": "blocked",
+  "kind": "proxy_connect_recheck",
+  "host": "chatgpt.com",
+  "proxyConnectStatus": 403,
+  "curlExitCode": 56,
+  "desiredPolicy": "unrestricted",
+  "observedPolicyState": "unknown",
+  "startupPolicy": "restricted",
+  "modelRequestRepeated": false
+}
