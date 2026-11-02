@@ -1,0 +1,94 @@
+TAP version 13
+# Subtest: real stdio accept/decline controls one synthetic side effect and replies cannot be replayed
+ok 1 - real stdio accept/decline controls one synthetic side effect and replies cannot be replayed
+  ---
+  duration_ms: 205.458791
+  type: 'test'
+  ...
+# Subtest: real stdio question receives only supplied question-ID answers and resumes the same run
+ok 2 - real stdio question receives only supplied question-ID answers and resumes the same run
+  ---
+  duration_ms: 95.894083
+  type: 'test'
+  ...
+# Subtest: interrupt acknowledgment plus authoritative interrupted turn cancels the run exactly once
+ok 3 - interrupt acknowledgment plus authoritative interrupted turn cancels the run exactly once
+  ---
+  duration_ms: 130.648792
+  type: 'test'
+  ...
+# Subtest: interrupt acceptance without final confirmation and lost acceptance both remain Unknown
+ok 4 - interrupt acceptance without final confirmation and lost acceptance both remain Unknown
+  ---
+  duration_ms: 407.627042
+  type: 'test'
+  ...
+# Subtest: single approval is persisted before reply and only its exact connection may respond
+ok 5 - single approval is persisted before reply and only its exact connection may respond
+  ---
+  duration_ms: 32.022167
+  type: 'test'
+  ...
+# Subtest: read-only grants and session/policy decisions cannot expand approval authority
+ok 6 - read-only grants and session/policy decisions cannot expand approval authority
+  ---
+  duration_ms: 25.218375
+  type: 'test'
+  ...
+# Subtest: foreign thread/turn, stale connection and unsupported requests do not enter pending state
+ok 7 - foreign thread/turn, stale connection and unsupported requests do not enter pending state
+  ---
+  duration_ms: 22.524042
+  type: 'test'
+  ...
+# Subtest: timeout returns a refusal, persists expiry and does not grant a late approval
+ok 8 - timeout returns a refusal, persists expiry and does not grant a late approval
+  ---
+  duration_ms: 49.151625
+  type: 'test'
+  ...
+# Subtest: input answers use question IDs, reject extras and persist only the response hash
+ok 9 - input answers use question IDs, reject extras and persist only the response hash
+  ---
+  duration_ms: 25.857625
+  type: 'test'
+  ...
+# Subtest: secret questions and files without a trusted diff cannot be silently authorized
+ok 10 - secret questions and files without a trusted diff cannot be silently authorized
+  ---
+  duration_ms: 24.218084
+  type: 'test'
+  ...
+# Subtest: stop blocks acceptance while pending; cancellation still sends a refusal
+ok 11 - stop blocks acceptance while pending; cancellation still sends a refusal
+  ---
+  duration_ms: 24.617833
+  type: 'test'
+  ...
+# Subtest: lost response write preserves Unknown and prevents another foreground run
+ok 12 - lost response write preserves Unknown and prevents another foreground run
+  ---
+  duration_ms: 25.931
+  type: 'test'
+  ...
+# Subtest: new owner cancels pending requests and the old broker cannot grant them
+ok 13 - new owner cancels pending requests and the old broker cannot grant them
+  ---
+  duration_ms: 25.865208
+  type: 'test'
+  ...
+# Subtest: revision 2 migration creates a verified private snapshot including WAL data and preserves old records
+ok 14 - revision 2 migration creates a verified private snapshot including WAL data and preserves old records
+  ---
+  duration_ms: 14.284209
+  type: 'test'
+  ...
+1..14
+# tests 14
+# suites 0
+# pass 14
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 946.680666

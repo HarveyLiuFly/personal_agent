@@ -18,6 +18,7 @@ async function value<T>(request: Promise<HostResult<T>>): Promise<T> {
   return result.value;
 }
 export function HistoryApp({ children }: { children: React.ReactNode }) {
+  const [mode, setMode] = useState<'readOnly' | 'workspaceWrite'>('readOnly');
   const [canSubmit, setCanSubmit] = useState(false);
   const [projects, setProjects] = useState<ProjectView[]>([]);
   const [executionMode, setExecutionMode] = useState(true);
@@ -40,7 +41,7 @@ export function HistoryApp({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let stopped = false;
     void value(window.personalAgent.workspaceState()).then(state => {
-      if (stopped) return; setCanSubmit(state.canSubmit); setProjects(state.projects);
+      if (stopped) return; setCanSubmit(state.canSubmit); setMode(state.mode); setProjects(state.projects);
       if (state.projects[0]) { setProject(state.projects[0]); }
     }).catch(() => { if (!stopped) setError('HOST_DISCONNECTED'); });
     return () => { stopped = true; };
@@ -95,7 +96,7 @@ export function HistoryApp({ children }: { children: React.ReactNode }) {
       <header className="toolbar"><div><span className="eyebrow">PERSONAL WORKSPACE</span><h1>{project?.name ?? '我的工作区'}</h1></div>{children}</header>
       <div className="connection-status">已有会话保留在本机，选择项目后即可浏览。</div>
       {error && <div role="alert" className="notice error">{errorText(error)}</div>}
-      {executionMode && project && canSubmit ? <ExecutionPanel key={project.id} project={project} disabled={busy}/> : !thread ? <section className="welcome"><span className="welcome-mark">⌘</span><h2>{project ? '继续查看你的工作' : '从一个项目开始'}</h2>
+      {executionMode && project && canSubmit ? <ExecutionPanel key={project.id} project={project} disabled={busy} mode={mode}/> : !thread ? <section className="welcome"><span className="welcome-mark">⌘</span><h2>{project ? '继续查看你的工作' : '从一个项目开始'}</h2>
         <p>{project ? '从左侧选择一个会话，查看消息、命令和文件变更记录。' : '选择本机的项目目录，打开属于这个项目的会话历史。'}</p>
         <div className="welcome-note">当前为只读浏览，发送新任务暂未开放。</div>
       </section> : <section className="history-panel">

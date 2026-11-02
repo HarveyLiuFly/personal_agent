@@ -30,6 +30,7 @@ export interface RpcOptions {
   /** Trusted Host diagnostics only. Consumers must classify/redact before persisting any field. */
   onRemoteError?(error: unknown): void;
   onServerRequest?(message: JsonObject): Promise<unknown>;
+  onServerResponse?(message: JsonObject, sent: boolean): void;
 }
 
 /** Trusted Host transport. Never expose request() or executable selection over Renderer IPC. */
@@ -45,6 +46,7 @@ export class StdioRpcClient {
   private options: RpcOptions;
   private exitPromise: Promise<void>;
   private serverRequests = new Set<RequestId>();
+  private usedServerIds = new Set<RequestId>();
 
   constructor(options: RpcOptions) {
     this.options = options;
@@ -129,7 +131,9 @@ export class StdioRpcClient {
         try { this.options.onNotification?.(message); } catch {}
       } else if (validId) {
         if (this.serverRequests.size >= 32) return this.protocolFailure('SERVER_REQUEST_LIMIT');
-        if (this.serverRequests.has(id)) return this.protocolFailure('DUPLICATE_SERVER_REQUEST');
+        if (this.usedServerIds.has(id)) return this.protocolFailure('DUPLICATE_SERVER_REQUEST');
+        if (this.usedServerIds.size >= 4096) return this.protocolFailure('SERVER_REQUEST_LIMIT');
+        this.usedServerIds.add(id);
         this.serverRequests.add(id);
         void this.answerServerRequest(id, message);
       } else this.protocolFailure('INVALID_REQUEST_ID');
@@ -148,16 +152,22 @@ export class StdioRpcClient {
   }
 
   private async answerServerRequest(id: RequestId, request: JsonObject): Promise<void> {
+    let sent = false;
     try {
       if (!this.options.onServerRequest) {
         await this.write({ id, error: { code: -32601, message: 'Unsupported server request; execution remains blocked' } });
+        sent = true;
       } else {
         const result = await this.options.onServerRequest(request);
         await this.write({ id, result });
+        sent = true;
       }
     } catch {
-      await this.write({ id, error: { code: -32603, message: 'Host rejected server request' } }).catch(() => {});
-    } finally { this.serverRequests.delete(id); }
+      await this.write({ id, error: { code: -32603, message: 'Host rejected server request' } }).then(() => { sent = true; }).catch(() => {});
+    } finally {
+      this.serverRequests.delete(id);
+      try { this.options.onServerResponse?.(request, sent); } catch {}
+    }
   }
 
   private protocolFailure(code: string): void {

@@ -1,0 +1,102 @@
+TAP version 13
+# Subtest: single approval is persisted before reply and only its exact connection may respond
+ok 1 - single approval is persisted before reply and only its exact connection may respond
+  ---
+  duration_ms: 35.867792
+  type: 'test'
+  ...
+# Subtest: read-only grants and session/policy decisions cannot expand approval authority
+ok 2 - read-only grants and session/policy decisions cannot expand approval authority
+  ---
+  duration_ms: 21.388875
+  type: 'test'
+  ...
+# Subtest: foreign thread/turn, stale connection and unsupported requests do not enter pending state
+ok 3 - foreign thread/turn, stale connection and unsupported requests do not enter pending state
+  ---
+  duration_ms: 24.334208
+  type: 'test'
+  ...
+# Subtest: timeout returns a refusal, persists expiry and does not grant a late approval
+ok 4 - timeout returns a refusal, persists expiry and does not grant a late approval
+  ---
+  duration_ms: 44.181417
+  type: 'test'
+  ...
+# Subtest: input answers use question IDs, reject extras and persist only the response hash
+ok 5 - input answers use question IDs, reject extras and persist only the response hash
+  ---
+  duration_ms: 24.048833
+  type: 'test'
+  ...
+# Subtest: secret questions and files without a trusted diff cannot be silently authorized
+ok 6 - secret questions and files without a trusted diff cannot be silently authorized
+  ---
+  duration_ms: 23.387
+  type: 'test'
+  ...
+# Subtest: stop blocks acceptance while pending; cancellation still sends a refusal
+ok 7 - stop blocks acceptance while pending; cancellation still sends a refusal
+  ---
+  duration_ms: 23.116
+  type: 'test'
+  ...
+# Subtest: lost response write preserves Unknown and prevents another foreground run
+ok 8 - lost response write preserves Unknown and prevents another foreground run
+  ---
+  duration_ms: 23.266375
+  type: 'test'
+  ...
+# Subtest: new owner cancels pending requests and the old broker cannot grant them
+not ok 9 - new owner cancels pending requests and the old broker cannot grant them
+  ---
+  duration_ms: 24.144625
+  type: 'test'
+  location: '<repo>/tests/interactions.test.ts:74:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    The input did not match the regular expression /STALE_RUNTIME_OWNER/. Input:
+    
+    'Error: RUN_DISPATCH_BLOCKED'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+  actual:
+  error: 'RUN_DISPATCH_BLOCKED'
+  stack: |-
+    InteractionBroker.resolve (file://<repo>/packages/runtime/src/interactions.ts:54:69)
+    InteractionBroker.reply (file://<repo>/packages/runtime/src/interactions.ts:48:72)
+    file://<repo>/tests/interactions.test.ts:77:111
+    getActual (node:assert:611:5)
+    strict.throws (node:assert:759:24)
+    TestContext.<anonymous> (file://<repo>/tests/interactions.test.ts:77:91)
+    Test.runInAsyncScope (node:async_hooks:227:14)
+    Test.run (node:internal/test_runner/test:1382:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+    Test.postRun (node:internal/test_runner/test:1522:19)
+  operator: 'throws'
+  stack: |-
+    TestContext.<anonymous> (file://<repo>/tests/interactions.test.ts:77:91)
+    Test.runInAsyncScope (node:async_hooks:227:14)
+    Test.run (node:internal/test_runner/test:1382:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+    Test.postRun (node:internal/test_runner/test:1522:19)
+    Test.run (node:internal/test_runner/test:1447:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:960:7)
+  ...
+# Subtest: revision 2 migration creates a verified private snapshot including WAL data and preserves old records
+ok 10 - revision 2 migration creates a verified private snapshot including WAL data and preserves old records
+  ---
+  duration_ms: 11.4565
+  type: 'test'
+  ...
+1..10
+# tests 10
+# suites 0
+# pass 9
+# fail 1
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 346.242667

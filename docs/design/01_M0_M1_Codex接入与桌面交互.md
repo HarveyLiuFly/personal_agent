@@ -71,7 +71,7 @@ Composer 在 Idle 时创建 Turn，运行中按锁版能力 Steer/Interrupt，�
 
 最小存储使用共用 Schema 中的 Profile/Dot、Project/Workspace、Task/Run、Thread Binding、ExecutionIntent、审批映射和验证相关表；尚未实现的 Goal/Source/Memory 服务关闭。Run/Intent 的状态语义由 Runtime 方案定义，M1 只实现前台单任务所需路径，不另造一种临时恢复语义。
 
-前台账本采用 Node/Electron 内置 SQLite，直接初始化共用 SQL（当前 Revision 2），启用外键、WAL、FULL 同步与有界 busy timeout。已有未知/旧版非空库明确拒绝，不覆盖初始化。目录身份保存设备号/inode，重新派发前复核；任务/Run/Intent 状态变更、Thread 绑定、单任务事件序号与 Outbox 在同一短事务提交。暂不启用后台 Outbox 投递服务。
+前台账本采用 Node/Electron 内置 SQLite，直接初始化共用 SQL（当前 Revision 3），启用外键、WAL、FULL 同步与有界 busy timeout。Revision 2 先经 SQLite VACUUM INTO 一致性备份并检查完整性/外键，再在事务中增加审批映射；其他未知旧版非空库明确拒绝，不覆盖初始化。目录身份保存设备号/inode，重新派发前复核；任务/Run/Intent 状态变更、Thread 绑定、单任务事件序号与 Outbox 在同一短事务提交。暂不启用后台 Outbox 投递服务。
 
 Electron Main 取得 OS 单实例锁后才提升 Owner Epoch；数据库 Epoch 仅拒绝旧写入，不能替代进程互斥。新 Owner 将旧活跃 Run 保留为 Unknown 并阻止派发：`sending` Intent 转 Unknown，`prepared` Intent 标记尚未发送的拒绝，已接受回执保留。接收 ID 前不发下一请求，重复提交键仅返回原 Run；Unknown 不生成替代 Run。显示快照存于已有 Checkpoint 表，仅是有界缓存，Run 结束后 Task 仍等待独立完成验证。
 
@@ -110,3 +110,5 @@ Electron Main 取得 OS 单实例锁后才提升 Owner Epoch；数据库 Epoch �
 | M1 恢复与完成 | 发送后丢响应、重启、真实代码任务、错误 Target/零测试/陈旧结果 | 最小账本、Unknown/对账与可信完成收据 |
 
 每项实际验证记录正常/失败/拒绝/恢复结果，区分真实组件、Stub、模拟器和外部阻塞；执行状态与证据格式遵循[总体规划](00_总体架构与开发规划.md)的开发验证规则。
+
+当前交互支持单连接服务端请求的持久映射、单次命令决定、补问与停止。回复先保存 responding/Hash，再写 stdio；旧 Owner/连接请求不复活，超时或关闭默认拒绝。只读模式不放行命令升级；会话永久批准/策略修改未开放，文件批准须先具备可信 Diff，当前只支持拒绝。Interrupt 先持久阻止新派发，再落盘请求，只有权威 Turn interrupted 才确认取消；只有 RPC 接收或超时均保留 Unknown 并停止本地进程。

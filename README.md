@@ -48,7 +48,7 @@ pnpm smoke:desktop
 
 ## 只读历史浏览
 
-`pnpm dev` 启动后选择项目目录，按项目查看 Codex 已保存的会话、轮次与消息/工具记录。每页最多 20 项；大文本明确截断，HTML 按纯文本展示。项目目录与任务记录保存到本机私有 SQLite，重启后复核目录身份；选择“项目任务”可发送新的只读消息。每条消息当前创建独立 Task/Thread；运行结束仍为待验证，结果未知时禁止重发。写入、会话续接、审批和停止按后续 M1 进展点开放。
+`pnpm dev` 启动后选择项目目录，按项目查看 Codex 已保存的会话、轮次与消息/工具记录。每页最多 20 项；大文本明确截断，HTML 按纯文本展示。项目目录与任务记录保存到本机私有 SQLite，重启后复核目录身份；选择“项目任务”可发送新的只读消息。每条消息当前创建独立 Task/Thread；运行结束仍为待验证，结果未知时禁止重发。已接入只读任务的补问、拒绝与停止，原生交互验收继续推进；工作区写入、会话续接及可信验证按后续 M1 进展点开放。
 
 ```bash
 pnpm smoke:history:local
@@ -62,3 +62,5 @@ pnpm smoke:history:desktop
 `pnpm smoke:execution` 通过产品 Runtime 和持久 Intent 执行一次只读零工具模型请求，读取该 Thread 的真实有内容历史并重开本地账本验证缓存。`pnpm smoke:execution:desktop` 使用真实沙箱 Electron 与合成 stdio Fixture 验证发送、流式中间态和 IPC 范围；后者不调用模型，目录选择由固定 Fixture 代替。结果与未验收范围见 [M1 进展](docs/progress/M1.md)。
 
 产品发送路径统一经过账本。M0 的无账本模型调试按钮已移除；独立协议 Smoke 仍作为显式开发诊断命令保留。M1 关闭外部 Apps/MCP/Plugins/Hooks/自治扩展，并在派发前检查线程内全部 MCP 均已明确禁用且无可用工具。
+
+`pnpm smoke:interactions:desktop` 使用真实沙箱窗口与合成 stdio 后端测试单次命令允许、越权/永久批准/重放拒绝；它不调用模型。M1.2a 的组件和迁移结果见阶段记录，原生模型交互不由该 Fixture 替代。

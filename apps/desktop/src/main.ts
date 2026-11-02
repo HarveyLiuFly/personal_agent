@@ -27,7 +27,8 @@ let quitting = false;
 let window: BrowserWindow | undefined;
 let ledger: ExecutionLedger | undefined;
 let execution: ForegroundExecution | undefined;
-const executionSmoke = process.argv.includes('--m1-execution-smoke');
+const interactionSmoke = process.argv.includes('--m1-interaction-smoke');
+const executionSmoke = process.argv.includes('--m1-execution-smoke') || interactionSmoke;
 const historySmoke = process.argv.includes('--m1-history-smoke');
 let fixtureDirectory: string | undefined;
   if (process.argv.includes('--m0-window-smoke')) app.setPath('userData', resolve(root, '.local/desktop-smoke-data'));
@@ -39,7 +40,7 @@ else void boot().catch(async error => {
   console.error('DESKTOP_BOOT_FAILED', code);
   if (executionSmoke || historySmoke || process.argv.includes('--m0-window-smoke')) {
     if (window) { try { writeFileSync(resolve(root, '.local/desktop-failure.png'), (await window.webContents.capturePage()).toPNG()); } catch {} }
-    const file = executionSmoke ? 'M1.1c-desktop' : historySmoke ? 'M1.1b-desktop' : 'M0-desktop-smoke';
+    const file = interactionSmoke ? 'M1.2-desktop' : executionSmoke ? 'M1.1c-desktop' : historySmoke ? 'M1.1b-desktop' : 'M0-desktop-smoke';
     writeFileSync(resolve(root, `docs/progress/evidence/${file}.json`), JSON.stringify({ status: 'blocked', code, observedAt: new Date().toISOString() }) + '\n');
   }
   try { await execution?.close(); ledger?.close(); } catch {}
@@ -75,9 +76,9 @@ async function boot(): Promise<void> {
   if (!historySmoke) {
     ledger = new ExecutionLedger(resolve(fixtureDirectory ?? app.getPath('userData'), 'execution/ledger.db'), readFileSync(resolve(directory, 'schema.sql'), 'utf8'));
     ledger.startOwner(randomUUID(), true); // OS single-instance lock was acquired before boot().
-    execution = new ForegroundExecution(ledger, { executable: executionSmoke ? resolveExecutable('node') : executable(), stateDirectory: state,
+    execution = new ForegroundExecution(ledger, { executable: executionSmoke ? resolveExecutable('node') : executable(), stateDirectory: state, mode: interactionSmoke ? 'workspaceWrite' : 'readOnly',
       ...(executionSmoke ? { connect: callbacks => new StdioRpcClient({ executable: resolveExecutable('node'),
-        args: [resolve(root, 'tests/fixtures/execution-server.ts'), 'slow', resolve(fixtureDirectory!, 'execution/ledger.db')], env: runtimeEnvironment(), ...callbacks }) } : {}) });
+        args: [resolve(root, 'tests/fixtures/execution-server.ts'), interactionSmoke ? 'approval-accept' : 'slow', resolve(fixtureDirectory!, 'execution/ledger.db'), resolve(fixtureDirectory!, 'execution-receipts')], env: runtimeEnvironment(), ...callbacks }) } : {}) });
   }
   const history = new HistoryBrowser(async read => {
     if (!historySmoke && !executionSmoke) return readConnection(executable(), state, controller?.signal)(read);
@@ -106,7 +107,7 @@ async function boot(): Promise<void> {
     try { return { ok: true, value: operation() }; }
     catch (error) { return { ok: false, errorCode: error instanceof LedgerError || error instanceof RpcFailure ? error.code : 'HOST_ERROR' }; }
   }
-  ipcMain.handle('execution:workspaceState', (event, ...args: unknown[]) => executionCommand(event, args, 0, () => ({ projects: ledger?.projects() ?? [], canSubmit: Boolean(execution) })));
+  ipcMain.handle('execution:workspaceState', (event, ...args: unknown[]) => executionCommand(event, args, 0, () => ({ projects: ledger?.projects() ?? [], canSubmit: Boolean(execution), mode: interactionSmoke ? 'workspaceWrite' as const : 'readOnly' as const })));
   // Re-register persisted grants in the read-only browser; invalid directories remain blocked by Store.
   for (const project of ledger?.projects() ?? []) {
     try { ledger!.workspace(project.id); await history.registerDirectory(project.directory); } catch {}
@@ -120,6 +121,18 @@ async function boot(): Promise<void> {
   ipcMain.handle('execution:view', (event, ...args: unknown[]) => executionCommand(event, args, 1, () => {
     if (!execution) throw new LedgerError('EXECUTION_UNAVAILABLE'); return execution.view(args[0]);
   }));
+  ipcMain.handle('execution:interactions', (event, ...args: unknown[]) => executionCommand(event, args, 1, () => {
+    if (!execution) throw new LedgerError('EXECUTION_UNAVAILABLE'); return execution.interactions(args[0]);
+  }));
+  ipcMain.handle('execution:reply', (event, ...args: unknown[]) => executionCommand(event, args, 1, () => {
+    if (!execution) throw new LedgerError('EXECUTION_UNAVAILABLE'); execution.reply(args[0]); return { state: 'submitted' as const };
+  }));
+  ipcMain.handle('execution:interrupt', async (event, ...args: unknown[]) => {
+    authorized(event);
+    if (args.length !== 1) return { ok: false, errorCode: 'UNEXPECTED_ARGUMENTS' };
+    try { if (!execution) throw new LedgerError('EXECUTION_UNAVAILABLE'); await execution.interrupt(args[0]); return { ok: true, value: { state: 'requested' } }; }
+    catch (error) { return { ok: false, errorCode: error instanceof LedgerError || error instanceof RpcFailure ? error.code : 'HOST_ERROR' }; }
+  });
   ipcMain.handle('runtime:inspect', async (event, ...args: unknown[]): Promise<ConnectionInfo> => {
     authorized(event);
     if (args.length) throw new Error('UNEXPECTED_ARGUMENTS');
@@ -162,7 +175,7 @@ async function boot(): Promise<void> {
     const passed = r.rendered === true && r.hasRequire === false && r.sandboxed === true && r.isolated === true
       && r.uiConnected === true && !app.commandLine.hasSwitch('no-sandbox')
       && (r.connection as ConnectionInfo)?.status === 'connected'
-      && JSON.stringify(r.bridgeKeys) === JSON.stringify(['chooseProject', 'getRun', 'inspect', 'listItems', 'listRuns', 'listThreads', 'listTurns', 'security', 'submitMessage', 'workspaceState']);
+      && JSON.stringify(r.bridgeKeys) === JSON.stringify(['chooseProject', 'getRun', 'inspect', 'interruptRun', 'listInteractions', 'listItems', 'listRuns', 'listThreads', 'listTurns', 'replyInteraction', 'security', 'submitMessage', 'workspaceState']);
     const evidence = { observedAt: new Date().toISOString(), kind: 'real_electron_window_smoke',
       status: passed ? 'passed' : 'blocked',
       browserSandbox: app.commandLine.hasSwitch('no-sandbox') ? 'disabled' : 'enabled', result };
@@ -214,7 +227,7 @@ async function boot(): Promise<void> {
     writeFileSync(resolve(root, '.local/M1-history-desktop.png'), (await window.webContents.capturePage()).toPNG());
     app.quit();
   }
-  if (executionSmoke) {
+  if (executionSmoke && !interactionSmoke) {
     const result = await window.webContents.executeJavaScript(`(async () => {
       const wait = async (check) => {
         const deadline = Date.now() + 15000;
@@ -257,6 +270,36 @@ async function boot(): Promise<void> {
       diagnostics: execution!.diagnostics, result }, null, 2) + '\n');
     writeFileSync(resolve(root, '.local/M1-execution-desktop.png'), (await window.webContents.capturePage()).toPNG());
     app.quit();
+  }
+
+  if (interactionSmoke) {
+    const result = await window.webContents.executeJavaScript(`(async () => {
+      const wait = async check => { const deadline=Date.now()+15000;while(!check()){if(Date.now()>deadline)throw new Error('INTERACTION_UI_TIMEOUT');await new Promise(r=>setTimeout(r,30));} };
+      document.querySelector('[data-action="choose-project"]').click();await wait(()=>document.querySelector('[data-task-draft]'));
+      const fill = text => { const input=document.querySelector('[data-task-draft]');Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(input,text);input.dispatchEvent(new Event('input',{bubbles:true})); };
+      fill('Synthetic approval UI fixture.');await wait(()=>!document.querySelector('[data-action="send"]').disabled);document.querySelector('[data-action="send"]').click();
+      await wait(()=>document.querySelector('[data-action="accept-request"]'));
+      const awaitingApproval=document.querySelector('[data-run-status]').getAttribute('data-run-status')==='waiting_approval';
+      const shownCommand=document.body.textContent.includes('node --test');
+      const state=await window.personalAgent.workspaceState(),projectId=state.value.projects[0].id;
+      const rows=await window.personalAgent.listRuns({projectId}),runId=rows.value[0].runId;
+      const pending=await window.personalAgent.listInteractions({projectId,runId}),requestId=pending.value[0].requestId;
+      const foreign=await window.personalAgent.replyInteraction({projectId,runId:'foreign',requestId,decision:'accept'});
+      const invalid=await window.personalAgent.replyInteraction({projectId,runId,requestId,decision:'acceptForSession'});
+      document.querySelector('[data-action="accept-request"]').click();await wait(()=>document.querySelector('[data-run-status="completed"]'));
+      const replay=await window.personalAgent.replyInteraction({projectId,runId,requestId,decision:'accept'});
+      const final=await window.personalAgent.getRun({projectId,runId});
+      return { sandboxed:window.personalAgent.security.sandboxed, isolated:window.personalAgent.security.isolated, hasRequire:typeof require!=='undefined',awaitingApproval,shownCommand,
+        foreignRejected:foreign.ok===false,sessionApprovalRejected:invalid.ok===false,replayRejected:replay.ok===false,
+        finalText:final.value.snapshot.items.find(item=>item.role==='assistant').text,taskStatus:final.value.taskStatus };
+    })()`);
+    const r=result as Record<string,unknown>;
+    const passed=r.sandboxed===true&&r.isolated===true&&r.hasRequire===false&&r.awaitingApproval===true&&r.shownCommand===true
+      &&r.foreignRejected===true&&r.sessionApprovalRejected===true&&r.replayRejected===true&&r.finalText==='accept'&&r.taskStatus==='needs_review';
+    writeFileSync(resolve(root,'docs/progress/evidence/M1.2-desktop.json'),JSON.stringify({status:passed?'passed':'blocked',observedAt:new Date().toISOString(),
+      kind:'real_electron_approval_with_synthetic_stdio',backend:'synthetic_stdio_fixture',folderDialogSelection:'fixed_fixture_substitution',inferenceRequested:false,
+      syntheticEffectCreated:readFileSync(resolve(fixtureDirectory!,'execution-receipts.effect'),'utf8')==='accepted-once',result},null,2)+'\n');
+    writeFileSync(resolve(root,'.local/M1-interactions-desktop.png'),(await window.webContents.capturePage()).toPNG());app.quit();
   }
 
 }

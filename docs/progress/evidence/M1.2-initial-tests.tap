@@ -1,0 +1,166 @@
+TAP version 13
+# Subtest: real stdio fixture sees committed intents before both requests and final projection preserves repeated deltas
+ok 1 - real stdio fixture sees committed intents before both requests and final projection preserves repeated deltas
+  ---
+  duration_ms: 126.510167
+  type: 'test'
+  ...
+# Subtest: duplicate keys after completion return the stored result without another transport
+ok 2 - duplicate keys after completion return the stored result without another transport
+  ---
+  duration_ms: 117.287375
+  type: 'test'
+  ...
+# Subtest: lost acceptance remains unknown even when a completed event was observed; no automatic resend
+ok 3 - lost acceptance remains unknown even when a completed event was observed; no automatic resend
+  ---
+  duration_ms: 290.672125
+  type: 'test'
+  ...
+# Subtest: a disconnected server and a silent turn preserve Unknown and mark the snapshot stale
+ok 4 - a disconnected server and a silent turn preserve Unknown and mark the snapshot stale
+  ---
+  duration_ms: 582.002917
+  type: 'test'
+  ...
+# Subtest: confirmed invalid protocol parameters reject once and do not leave a sending intent
+ok 5 - confirmed invalid protocol parameters reject once and do not leave a sending intent
+  ---
+  duration_ms: 103.863667
+  type: 'test'
+  ...
+# Subtest: queries reject arbitrary keys, raw paths and foreign run IDs before exporting content
+ok 6 - queries reject arbitrary keys, raw paths and foreign run IDs before exporting content
+  ---
+  duration_ms: 113.167
+  type: 'test'
+  ...
+# Subtest: concurrent different submission cannot create an orphan ledger run
+ok 7 - concurrent different submission cannot create an orphan ledger run
+  ---
+  duration_ms: 889.048083
+  type: 'test'
+  ...
+# Subtest: closing owner while running records Unknown and waits for the child process shutdown
+ok 8 - closing owner while running records Unknown and waits for the child process shutdown
+  ---
+  duration_ms: 150.871459
+  type: 'test'
+  ...
+# Subtest: nonempty thread MCP inventory blocks a model turn even if disable overrides were supplied
+ok 9 - nonempty thread MCP inventory blocks a model turn even if disable overrides were supplied
+  ---
+  duration_ms: 87.513541
+  type: 'test'
+  ...
+# Subtest: configured servers explicitly disabled with zero tools are accepted as a closed inventory
+ok 10 - configured servers explicitly disabled with zero tools are accepted as a closed inventory
+  ---
+  duration_ms: 113.776542
+  type: 'test'
+  ...
+# Subtest: initializes common schema, persists workspace identity and protects local database permissions
+ok 11 - initializes common schema, persists workspace identity and protects local database permissions
+  ---
+  duration_ms: 40.669833
+  type: 'test'
+  ...
+# Subtest: foreign or unsupported databases are rejected without wiping existing tables
+ok 12 - foreign or unsupported databases are rejected without wiping existing tables
+  ---
+  duration_ms: 20.18325
+  type: 'test'
+  ...
+# Subtest: importing a Git subdirectory keeps the canonical repository and actual workspace separate
+ok 13 - importing a Git subdirectory keeps the canonical repository and actual workspace separate
+  ---
+  duration_ms: 53.945584
+  type: 'test'
+  ...
+# Subtest: duplicate submission keys return the same run; changed inputs and concurrent tasks fail
+ok 14 - duplicate submission keys return the same run; changed inputs and concurrent tasks fail
+  ---
+  duration_ms: 21.130792
+  type: 'test'
+  ...
+# Subtest: workspace lease collision rolls back the entire task/run/event claim
+ok 15 - workspace lease collision rolls back the entire task/run/event claim
+  ---
+  duration_ms: 23.434458
+  type: 'test'
+  ...
+# Subtest: turn intents require the task binding and cannot borrow a different project thread
+ok 16 - turn intents require the task binding and cannot borrow a different project thread
+  ---
+  duration_ms: 20.319458
+  type: 'test'
+  ...
+# Subtest: sending is durable once only, input hashes are stable and RPC correlation is persisted
+ok 17 - sending is durable once only, input hashes are stable and RPC correlation is persisted
+  ---
+  duration_ms: 23.750666
+  type: 'test'
+  ...
+# Subtest: invalid acceptance cannot partially bind a thread or clear an uncertain intent
+ok 18 - invalid acceptance cannot partially bind a thread or clear an uncertain intent
+  ---
+  duration_ms: 21.1365
+  type: 'test'
+  ...
+# Subtest: restart retains unknown work, rejects stale grants and never creates a replacement run
+ok 19 - restart retains unknown work, rejects stale grants and never creates a replacement run
+  ---
+  duration_ms: 21.401375
+  type: 'test'
+  ...
+# Subtest: prepared but unsent intents are marked rejected on restart, with no dispatch authorization
+ok 20 - prepared but unsent intents are marked rejected on restart, with no dispatch authorization
+  ---
+  duration_ms: 23.512125
+  type: 'test'
+  ...
+# Subtest: completion ends the run but keeps the task awaiting verification
+ok 21 - completion ends the run but keeps the task awaiting verification
+  ---
+  duration_ms: 23.079333
+  type: 'test'
+  ...
+# Subtest: snapshot caches are scope checked and do not turn an unfinished run into success
+ok 22 - snapshot caches are scope checked and do not turn an unfinished run into success
+  ---
+  duration_ms: 25.302417
+  type: 'test'
+  ...
+# Subtest: directory replacement and expired leases prevent further dispatch
+ok 23 - directory replacement and expired leases prevent further dispatch
+  ---
+  duration_ms: 19.444833
+  type: 'test'
+  ...
+# Subtest: workspace fence or lease expiry blocks writes even while the run lease is valid
+ok 24 - workspace fence or lease expiry blocks writes even while the run lease is valid
+  ---
+  duration_ms: 20.8865
+  type: 'test'
+  ...
+# Subtest: task events and outbox entries share a committed sequence and omit raw task input
+ok 25 - task events and outbox entries share a committed sequence and omit raw task input
+  ---
+  duration_ms: 19.431833
+  type: 'test'
+  ...
+# Subtest: real worker SIGKILL after sending commit survives reopen without authorizing a resend
+ok 26 - real worker SIGKILL after sending commit survives reopen without authorizing a resend
+  ---
+  duration_ms: 111.940125
+  type: 'test'
+  ...
+1..26
+# tests 26
+# suites 0
+# pass 26
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 2673.759709

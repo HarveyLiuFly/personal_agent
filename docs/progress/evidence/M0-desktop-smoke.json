@@ -1,5 +1,5 @@
 {
-  "observedAt": "2026-11-02T15:41:05.720Z",
+  "observedAt": "2026-11-02T16:02:01.049Z",
   "kind": "real_electron_window_smoke",
   "status": "passed",
   "browserSandbox": "enabled",
@@ -11,10 +11,13 @@
       "chooseProject",
       "getRun",
       "inspect",
+      "interruptRun",
+      "listInteractions",
       "listItems",
       "listRuns",
       "listThreads",
       "listTurns",
+      "replyInteraction",
       "security",
       "submitMessage",
       "workspaceState"

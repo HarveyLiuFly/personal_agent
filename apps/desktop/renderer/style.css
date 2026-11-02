@@ -66,3 +66,8 @@ pre { white-space: pre-wrap; overflow-wrap: anywhere; font-family: ui-monospace,
 @media (max-width: 850px) { .shell { grid-template-columns: 218px minmax(0, 1fr); } .toolbar, .history-panel { padding-left: 22px; padding-right: 22px; } .connection-actions { gap: 0; } .connection-status { padding-left: 22px; } }
 
 .project-select { margin-top: 12px; padding: 8px; background: #142033; color: #b9c8da; border: 1px solid #304057; border-radius: 8px; width: 100%; }
+
+.approval { border-color: #a89461; margin: 14px 0; }
+.approval-actions { display: flex; gap: 10px; margin-top: 12px; }
+.input-question { display: grid; gap: 8px; margin-top: 14px; font-size: 12px; }
+.input-question input, .input-question select { background: #0f1c2c; border: 1px solid #465c72; padding: 8px; color: #e7edf6; border-radius: 6px; }

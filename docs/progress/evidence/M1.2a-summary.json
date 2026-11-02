@@ -1,0 +1,33 @@
+{
+  "observedAt": "2026-11-02T16:05:48.252364+00:00",
+  "milestone": "M1.2a",
+  "status": "passed_component_and_desktop_fixture_scope",
+  "nodeTests": {
+    "discovered": 87,
+    "executed": 87,
+    "passed": 87,
+    "failed": 0,
+    "skipped": 0,
+    "newInteractionCases": 14
+  },
+  "designChecks": 17,
+  "realModelRequests": 0,
+  "realComponents": [
+    "SQLite WAL backup and revision 2->3 migration",
+    "Electron sandbox UI and Preload",
+    "stdio subprocess lifecycle"
+  ],
+  "fixtures": [
+    "approval side effect",
+    "input question",
+    "interrupt acknowledgment/final/loss"
+  ],
+  "notRun": [
+    "native model approval/input/interrupt",
+    "trusted diff-based file approval",
+    "full code task and reconciliation",
+    "manual/native folder selection",
+    "OS double startup"
+  ],
+  "next": "M1.3b verification and continuation; M1.4 real E2E"
+}

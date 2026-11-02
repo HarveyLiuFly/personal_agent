@@ -12,7 +12,7 @@ CREATE TABLE schema_metadata (
   singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
   schema_revision INTEGER NOT NULL CHECK (schema_revision > 0)
 );
-INSERT INTO schema_metadata VALUES (1, 2);
+INSERT INTO schema_metadata VALUES (1, 3);
 
 CREATE TABLE profiles (
   profile_id TEXT PRIMARY KEY,
@@ -295,6 +295,22 @@ CREATE TABLE execution_intents (
 );
 CREATE UNIQUE INDEX one_initial_intent_per_run ON execution_intents(run_id,kind)
 WHERE kind IN ('thread_start','thread_resume','turn_start');
+
+CREATE TABLE runtime_requests (
+  request_id TEXT PRIMARY KEY,
+  run_id TEXT NOT NULL REFERENCES task_runs(run_id),
+  runtime_epoch INTEGER NOT NULL,
+  connection_epoch INTEGER NOT NULL,
+  rpc_request_id TEXT NOT NULL,
+  execution_thread_id TEXT NOT NULL,
+  execution_turn_id TEXT NOT NULL,
+  kind TEXT NOT NULL CHECK (kind IN ('command','files','input')),
+  state TEXT NOT NULL CHECK (state IN ('pending','responding','responded','expired','cancelled','outcome_unknown')),
+  payload_json TEXT NOT NULL CHECK (json_valid(payload_json)),
+  response_hash TEXT,
+  expires_at_ms INTEGER NOT NULL,
+  UNIQUE(runtime_epoch,connection_epoch,rpc_request_id)
+);
 
 CREATE TABLE task_events (
   event_id TEXT PRIMARY KEY,

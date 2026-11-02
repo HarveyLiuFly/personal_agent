@@ -5,7 +5,7 @@ import { basename, dirname } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { taskTransitions } from '../../../docs/design/contracts/domain.ts';
 import type { TaskStatus } from '../../../docs/design/contracts/domain.ts';
-import type { ProjectView, ThreadView } from '../../contracts/src/views.ts';
+import type { InteractionView, ProjectView, ThreadView } from '../../contracts/src/views.ts';
 
 export class LedgerError extends Error { readonly code: string; constructor(code: string) { super(code); this.code = code; } }
 const fail = (code: string): never => { throw new LedgerError(code); };
@@ -38,7 +38,18 @@ export class ExecutionLedger {
       const tables = this.#db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'").all();
       if (tables.length === 0) this.#db.exec(schemaSql);
       else if (!tables.some(row => row.name === 'schema_metadata')) fail('LEDGER_SCHEMA_UNSUPPORTED');
-      if (this.one('SELECT schema_revision FROM schema_metadata WHERE singleton=1')?.schema_revision !== 2) fail('LEDGER_SCHEMA_UNSUPPORTED');
+      const revision = this.one('SELECT schema_revision FROM schema_metadata WHERE singleton=1')?.schema_revision;
+      if (revision === 2) {
+        const ddl = schemaSql.match(/CREATE TABLE runtime_requests \([\s\S]*?\n\);/)?.[0] ?? fail('LEDGER_MIGRATION_UNAVAILABLE');
+        if (path !== ':memory:') {
+          const backupPath = `${path}.revision2-${randomUUID()}.backup`;
+          this.#db.prepare('VACUUM INTO ?').run(backupPath); chmodSync(backupPath, 0o600);
+          const backup = new DatabaseSync(backupPath, { readOnly: true });
+          try { if (backup.prepare('PRAGMA quick_check').get()?.quick_check !== 'ok' || backup.prepare('PRAGMA foreign_key_check').all().length) fail('LEDGER_BACKUP_INVALID'); }
+          finally { backup.close(); }
+        }
+        this.tx(() => { this.#db.exec(ddl); this.exec('UPDATE schema_metadata SET schema_revision=3 WHERE singleton=1'); });
+      } else if (revision !== 3) fail('LEDGER_SCHEMA_UNSUPPORTED');
       if (path !== ':memory:') chmodSync(path, 0o600);
     } catch (error) { this.#db.close(); throw error; }
   }
@@ -73,6 +84,7 @@ export class ExecutionLedger {
       this.exec('INSERT OR IGNORE INTO dots(dot_id,profile_id,display_name) VALUES (?,?,?)', this.dotId, this.profileId, 'Personal Agent');
       const next = Number(this.one('SELECT runtime_epoch FROM runtime_owners WHERE profile_id=?', this.profileId)?.runtime_epoch ?? 0) + 1;
       this.exec("INSERT INTO runtime_owners VALUES (?,?,?,'main','ready',?) ON CONFLICT(profile_id) DO UPDATE SET runtime_epoch=excluded.runtime_epoch,instance_id=excluded.instance_id,state='ready',updated_at_ms=excluded.updated_at_ms", this.profileId, next, instanceId, Date.now());
+      this.exec("UPDATE runtime_requests SET state=CASE WHEN state='responding' THEN 'outcome_unknown' ELSE 'cancelled' END WHERE state IN ('pending','responding')");
       for (const run of this.all(`SELECT * FROM task_runs WHERE status IN ${active} AND dot_id=?`, this.dotId)) {
         this.exec("UPDATE execution_intents SET state='outcome_unknown' WHERE run_id=? AND state='sending'", run.run_id!);
         this.exec("UPDATE execution_intents SET state='rejected',response_ref='owner_stopped_before_send' WHERE run_id=? AND state='prepared'", run.run_id!);
@@ -259,7 +271,11 @@ export class ExecutionLedger {
     this.tx(() => {
       const run = this.guard(token, true);
       if (this.one("SELECT intent_id FROM execution_intents WHERE run_id=? AND state IN ('sending','outcome_unknown')", token.runId)) return fail('UNRESOLVED_INTENT');
+      if (this.one("SELECT request_id FROM runtime_requests WHERE run_id=? AND state IN ('responding','outcome_unknown')", token.runId)) return fail('UNRESOLVED_SERVER_REQUEST');
       if (outcome === 'completed' && !this.one("SELECT intent_id FROM execution_intents WHERE run_id=? AND kind='turn_start' AND state='accepted'", token.runId)) return fail('TURN_NOT_ACCEPTED');
+      this.exec("UPDATE runtime_requests SET state='cancelled' WHERE run_id=? AND state='pending'", token.runId);
+      this.exec("UPDATE execution_intents SET state='rejected',response_ref='run_finished_before_send' WHERE run_id=? AND state='prepared'", token.runId);
+      if (['waiting_input','waiting_approval'].includes(String(run.task_status))) this.transition(String(run.task_id), 'running');
       this.transition(String(run.task_id), outcome === 'completed' ? 'needs_review' : outcome);
       this.exec('UPDATE task_runs SET status=?,finished_at_ms=? WHERE run_id=?', outcome, Date.now(), token.runId);
       this.exec('DELETE FROM workspace_write_leases WHERE run_id=?', token.runId);
@@ -286,6 +302,47 @@ export class ExecutionLedger {
       threadId: row.execution_thread_id as string | null, turnId: this.one("SELECT execution_turn_id FROM execution_intents WHERE run_id=? AND kind='turn_start' AND execution_turn_id IS NOT NULL", row.run_id!)?.execution_turn_id as string ?? null,
       snapshot: row.summary_json ? JSON.parse(String(row.summary_json)) as ThreadView : null,
     }));
+  }
+  addRequest(token: RunToken, connectionEpoch: number, rpcId: string, threadId: string, turnId: string, payload: Omit<InteractionView, 'requestId' | 'state'>, expiresAt: number): string {
+    if (JSON.stringify(payload).length > 24_000 || !id(rpcId) || !Number.isSafeInteger(connectionEpoch) || connectionEpoch < 1) return fail('INVALID_SERVER_REQUEST');
+    return this.tx(() => {
+      const run = this.guard(token);
+      if (!this.one("SELECT intent_id FROM execution_intents WHERE run_id=? AND kind='turn_start' AND state='accepted' AND execution_thread_id=? AND execution_turn_id=? AND connection_epoch=?", token.runId, threadId, turnId, connectionEpoch)) return fail('TURN_NOT_BOUND');
+      const requestId = randomUUID();
+      this.exec("INSERT INTO runtime_requests VALUES (?,?,?,?,?,?,?,?,'pending',?,NULL,?)", requestId, token.runId, token.epoch, connectionEpoch, rpcId, threadId, turnId, payload.kind, JSON.stringify(payload), expiresAt);
+      const target = payload.kind === 'input' ? 'waiting_input' : 'waiting_approval';
+      if (run.task_status !== target) {
+        if (run.task_status !== 'running') this.transition(String(run.task_id), 'running');
+        this.transition(String(run.task_id), target);
+      }
+      this.exec('UPDATE task_runs SET status=? WHERE run_id=?', target, token.runId);
+      this.event(String(run.task_id), token.runId, 'server_request_pending', { requestId, kind: payload.kind, connectionEpoch });
+      return requestId;
+    });
+  }
+  requests(workspaceId: string, runId: string): InteractionView[] {
+    return this.all("SELECT q.* FROM runtime_requests q JOIN task_runs r USING(run_id) JOIN tasks t USING(task_id) WHERE q.run_id=? AND t.workspace_id=? AND t.dot_id=? ORDER BY (q.state='pending') DESC,q.rowid DESC LIMIT 32", runId, workspaceId, this.dotId).map(row => ({ ...JSON.parse(String(row.payload_json)) as Omit<InteractionView,'requestId'|'state'>, requestId: String(row.request_id), state: String(row.state) }));
+  }
+  responding(token: RunToken, requestId: string, epoch: number, response: unknown, expired: boolean | 'cancelled' = false): void {
+    this.tx(() => {
+      const run = this.guard(token, true), request = this.one('SELECT * FROM runtime_requests WHERE request_id=? AND run_id=?', requestId, token.runId);
+      if (!request || request.runtime_epoch !== token.epoch || request.connection_epoch !== epoch || request.state !== 'pending') return fail('STALE_SERVER_REQUEST');
+      if (!expired && Number(request.expires_at_ms) <= Date.now()) return fail('SERVER_REQUEST_EXPIRED');
+      this.exec('UPDATE runtime_requests SET state=?,response_hash=? WHERE request_id=?', expired === 'cancelled' ? 'cancelled' : expired ? 'expired' : 'responding', hashInput(response), requestId);
+      this.event(String(run.task_id), token.runId, expired === 'cancelled' ? 'server_request_cancelled' : expired ? 'server_request_expired' : 'server_response_prepared', { requestId, responseHash: hashInput(response) });
+    });
+  }
+  responseWritten(token: RunToken, requestId: string, sent: boolean): void {
+    this.tx(() => {
+      const run = this.guard(token, true), request = this.one('SELECT * FROM runtime_requests WHERE request_id=? AND run_id=?', requestId, token.runId);
+      if (!request || request.runtime_epoch !== token.epoch || !['responding','expired','cancelled'].includes(String(request.state))) return;
+      if (request.state === 'responding') this.exec('UPDATE runtime_requests SET state=? WHERE request_id=?', sent ? 'responded' : 'outcome_unknown', requestId);
+      if (!this.one("SELECT request_id FROM runtime_requests WHERE run_id=? AND state IN ('pending','responding')", token.runId) && ['waiting_input','waiting_approval'].includes(String(run.task_status))) {
+        this.transition(String(run.task_id), 'running'); this.exec("UPDATE task_runs SET status='running' WHERE run_id=?", token.runId);
+      }
+      this.event(String(run.task_id), token.runId, sent ? 'server_response_written' : 'server_response_unknown', { requestId });
+    });
+    if (!sent) this.uncertain(token);
   }
   close(): void {
     if (this.#epoch) this.exec("UPDATE runtime_owners SET state='stopped',updated_at_ms=? WHERE profile_id=? AND runtime_epoch=? AND instance_id=?", Date.now(), this.profileId, this.#epoch, this.#instance);

@@ -37,3 +37,9 @@ export interface RunSummary {
   threadId: string | null; turnId: string | null; blocked: boolean;
 }
 export interface RunView extends RunSummary { snapshot: ThreadView | null }
+export interface InputQuestion { id: string; header: string; question: string; options: string[] }
+export interface InteractionView {
+  requestId: string; kind: 'command' | 'files' | 'input'; state: string;
+  title: string; detail: string; canAccept: boolean; questions: InputQuestion[];
+}
+export interface ReplyInteraction extends RunQuery { requestId: string; decision: 'accept' | 'decline'; answers?: Record<string, string> }
