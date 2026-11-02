@@ -1,0 +1,34 @@
+{
+  "status": "blocked",
+  "observedAt": "2026-11-02T16:58:47.994Z",
+  "kind": "real_native_sandbox_negative_verification",
+  "platform": "darwin-arm64",
+  "cliVersion": "codex-cli 0.163.0",
+  "inferenceRequested": false,
+  "modelMetadata": "synthetic_only",
+  "results": [
+    {
+      "name": "zero_baseline",
+      "status": "passed",
+      "expectedCode": "BASELINE_TEST_EXECUTION_REQUIRED",
+      "modelRequests": 0
+    },
+    {
+      "name": "all_skipped_baseline",
+      "status": "passed",
+      "expectedCode": "BASELINE_TEST_EXECUTION_REQUIRED",
+      "modelRequests": 0
+    },
+    {
+      "name": "wrong_target",
+      "status": "passed",
+      "expectedCode": "BASELINE_TEST_EXECUTION_REQUIRED",
+      "modelRequests": 0
+    },
+    {
+      "name": "probe_failure",
+      "status": "failed",
+      "code": "PROBE_ASSERTION_FAILED"
+    }
+  ]
+}

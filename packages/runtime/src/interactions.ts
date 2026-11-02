@@ -22,7 +22,7 @@ export class InteractionBroker {
       const command = text(p.command,4096), cwd = text(p.cwd,4096);
       const canAccept = context.canWrite && (p.kind === undefined || p.kind === 'command') && cwd === context.cwd
         && typeof p.command === 'string' && Boolean(p.command.trim()) && p.command.length <= 4096 && !/[\x00-\x08\x0b-\x1f]/.test(p.command);
-      payload = { kind: 'command', title: '单次命令批准（可能超出沙箱）', detail: `${command}\n目录：${cwd}\n${text(p.reason,2000)}`, canAccept, questions: [] };
+      payload = { kind: 'command', title: '单次命令批准（可能超出沙箱）', detail: `${command}\n目录：${cwd}\n${text(p.reason,2000)}`, command, canAccept, questions: [] };
     } else if (message.method === 'item/fileChange/requestApproval') {
       payload = { kind: 'files', title: '文件修改审批', detail: `当前缺少可信 Diff 预览，仅可拒绝。\n${text(p.reason,2000)}`, canAccept: false, questions: [] };
     } else if (message.method === 'item/tool/requestUserInput') {

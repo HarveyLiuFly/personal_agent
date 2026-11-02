@@ -5,14 +5,15 @@ import { resolve, join } from 'node:path';
 import { test } from 'node:test';
 import { ExecutionLedger, LedgerError } from '../packages/store/src/ledger.ts';
 import { ForegroundExecution } from '../packages/runtime/src/execution.ts';
+import type { ExecutionOptions } from '../packages/runtime/src/execution.ts';
 import { StdioRpcClient } from '../packages/codex-adapter/src/rpc.ts';
 import { DatabaseSync } from 'node:sqlite';
-function fixture(t: { after(fn: () => void | Promise<void>): void }, mode = 'ok') {
+function fixture(t: { after(fn: () => void | Promise<void>): void }, mode = 'ok', prepareCode?: ExecutionOptions['prepareCode']) {
   const root = realpathSync(mkdtempSync(join(tmpdir(), 'personal-agent-execution-'))), workspace = join(root, 'workspace'); mkdirSync(workspace);
   const file = join(root, 'store.db'), receipts = join(root, 'receipts.txt');
   const store = new ExecutionLedger(file, readFileSync('docs/design/contracts/schema.sql', 'utf8')); store.startOwner('execution-fixture', true);
   const project = store.registerWorkspace(workspace);
-  const runtime = new ForegroundExecution(store, { executable: process.execPath, stateDirectory: root, timeoutMs: 400,
+  const runtime = new ForegroundExecution(store, { executable: process.execPath, stateDirectory: root, timeoutMs: 400, ...(prepareCode ? {prepareCode} : {}),
     connect: callbacks => new StdioRpcClient({ executable: process.execPath, args: ['--disable-warning=ExperimentalWarning', resolve('tests/fixtures/execution-server.ts'), mode, file, receipts], requestTimeoutMs: 200, ...callbacks }) });
   t.after(async () => { await runtime.close(); store.close(); rmSync(root, { recursive: true, force: true }); });
   const input = { projectId: project.id, submissionKey: 'fixture-submission', text: 'Synthetic question, not a model request.' };
@@ -80,4 +81,25 @@ test('configured servers explicitly disabled with zero tools are accepted as a c
   const f = fixture(t, 'disabled-list'), run = f.runtime.submit(f.input); await f.runtime.wait();
   assert.equal(f.runtime.view({ projectId: f.project.id, runId: run.runId }).status, 'completed');
   assert.equal(f.runtime.diagnostics.externalMcpServers, 0);
+});
+const code = {profile:'node-test' as const,target:'test/math.test.mjs',allowedPaths:['src/math.mjs']};
+test('code execution requires a successful frozen contract before any RPC connection or model request', async t => {
+  const f=fixture(t,'ok',async()=>{throw new LedgerError('BASELINE_TEST_EXECUTION_REQUIRED');});
+  const run=f.runtime.submit({...f.input,code});await f.runtime.wait();
+  assert.equal(f.runtime.view({projectId:f.project.id,runId:run.runId}).status,'failed');
+  assert.equal(f.runtime.diagnostics.clientThreadStarts,0);assert.equal(f.runtime.diagnostics.clientTurnStarts,0);
+  assert.equal(f.runtime.diagnostics.failureCode,'BASELINE_TEST_EXECUTION_REQUIRED');
+});
+test('stopping during contract preparation aborts without starting the native executor', async t => {
+  const f=fixture(t,'ok',async(_token,_code,signal)=>{await new Promise<void>(done=>signal.addEventListener('abort',()=>done(),{once:true}));});
+  const run=f.runtime.submit({...f.input,code});await f.runtime.interrupt({projectId:f.project.id,runId:run.runId});await f.runtime.wait();
+  assert.equal(f.runtime.view({projectId:f.project.id,runId:run.runId}).status,'cancelled');
+  assert.equal(f.runtime.diagnostics.clientThreadStarts,0);assert.equal(f.runtime.diagnostics.clientTurnStarts,0);
+});
+test('a changed code contract cannot reuse a submission key while preparation is in progress',async t=>{
+  let release!:()=>void;const f=fixture(t,'ok',async()=>{await new Promise<void>(done=>{release=done;});throw new LedgerError('FIXTURE_PREPARATION_STOP');});
+  const run=f.runtime.submit({...f.input,code});
+  assert.equal(f.runtime.submit({...f.input,code}).runId,run.runId);
+  assert.throws(()=>f.runtime.submit({...f.input,code:{...code,allowedPaths:['src/other.mjs']}}),/IDEMPOTENCY_CONFLICT/);
+  release();await f.runtime.wait();assert.equal(f.runtime.diagnostics.clientTurnStarts,0);
 });

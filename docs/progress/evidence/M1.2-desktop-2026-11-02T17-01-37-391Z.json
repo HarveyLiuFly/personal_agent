@@ -1,0 +1,26 @@
+{
+  "status": "passed",
+  "observedAt": "2026-11-02T17:01:37.391Z",
+  "kind": "real_electron_approval_with_synthetic_stdio",
+  "backend": "synthetic_stdio_fixture",
+  "folderDialogSelection": "fixed_fixture_substitution",
+  "inferenceRequested": false,
+  "syntheticEffectCreated": true,
+  "result": {
+    "sandboxed": true,
+    "isolated": true,
+    "hasRequire": false,
+    "awaitingApproval": true,
+    "shownCommand": true,
+    "foreignRejected": true,
+    "sessionApprovalRejected": true,
+    "replayRejected": true,
+    "finalText": "accept",
+    "taskStatus": "needs_review"
+  },
+  "display": "native_desktop",
+  "exitCode": 0,
+  "signal": null,
+  "timedOut": false,
+  "platform": "darwin-arm64"
+}

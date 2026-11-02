@@ -1,0 +1,63 @@
+{
+  "status": "passed",
+  "observedAt": "2026-11-02T16:59:36.674Z",
+  "kind": "real_native_sandbox_negative_verification",
+  "platform": "darwin-arm64",
+  "cliVersion": "codex-cli 0.163.0",
+  "inferenceRequested": false,
+  "modelMetadata": "synthetic_only",
+  "results": [
+    {
+      "name": "zero_baseline",
+      "status": "passed",
+      "expectedCode": "BASELINE_TEST_EXECUTION_REQUIRED",
+      "modelRequests": 0
+    },
+    {
+      "name": "all_skipped_baseline",
+      "status": "passed",
+      "expectedCode": "BASELINE_TEST_EXECUTION_REQUIRED",
+      "modelRequests": 0
+    },
+    {
+      "name": "wrong_target",
+      "status": "passed",
+      "expectedCode": "BASELINE_TEST_EXECUTION_REQUIRED",
+      "modelRequests": 0
+    },
+    {
+      "name": "zero_final",
+      "status": "passed",
+      "receiptCode": "REQUIRED_CASES_NOT_EXECUTED",
+      "discovered": 0,
+      "executed": 0,
+      "exitCode": 0,
+      "taskStatus": "needs_review"
+    },
+    {
+      "name": "failing_final",
+      "status": "passed",
+      "receiptCode": "TESTS_FAILED",
+      "discovered": 1,
+      "executed": 1,
+      "exitCode": 1,
+      "taskStatus": "needs_review"
+    },
+    {
+      "name": "modified_tests",
+      "status": "passed",
+      "receiptCode": "TEST_MODIFIED",
+      "discovered": 0,
+      "executed": 0,
+      "exitCode": null,
+      "taskStatus": "needs_review"
+    },
+    {
+      "name": "native_sandbox_permissions",
+      "status": "passed",
+      "executed": 3,
+      "workspaceWriteDenied": true,
+      "externalReadDenied": true
+    }
+  ]
+}

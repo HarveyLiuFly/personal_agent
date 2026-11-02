@@ -1,0 +1,52 @@
+{
+  "status": "passed",
+  "observedAt": "2026-11-02T16:56:08.651Z",
+  "kind": "real_electron_real_model_code_task_and_trusted_sandbox_verification",
+  "backend": "native_locked_app_server",
+  "inferenceRequested": true,
+  "folderDialogSelection": "fixed_fixture_substitution",
+  "cliVersion": "codex-cli 0.163.0",
+  "platform": "darwin-arm64",
+  "diagnostics": {
+    "clientThreadStarts": 1,
+    "clientTurnStarts": 1,
+    "notificationCount": 104,
+    "serverRequestsDenied": 0,
+    "selectedModel": "gpt-6.1-sol",
+    "externalMcpServers": 0,
+    "disabledInheritedMcpServers": 2,
+    "failureCode": "",
+    "remoteFailureCategory": "",
+    "phase": "turn/completed"
+  },
+  "result": {
+    "runId": "7bf0700d-6762-4eae-904b-ccec6209b721",
+    "threadId": "01a19d30-2f16-73b0-9fb9-ac9f9b324f10",
+    "turnId": "01a19d30-2f89-7d13-afed-d2ccddd1f107",
+    "runStatus": "completed",
+    "taskStatus": "completed",
+    "mode": "workspaceWrite",
+    "diffShown": true,
+    "changedFiles": [
+      "src/math.mjs"
+    ],
+    "receipt": {
+      "status": "passed",
+      "code": "VERIFIED",
+      "discovered": 4,
+      "executed": 4,
+      "skipped": 0,
+      "exitCode": 0,
+      "observedAt": "2026-11-02T16:56:07.493Z"
+    },
+    "requiredCases": 4,
+    "approvalDecisions": 0,
+    "sandboxed": true,
+    "isolated": true,
+    "hasRequire": false
+  },
+  "display": "native_desktop",
+  "exitCode": 0,
+  "signal": null,
+  "timedOut": false
+}

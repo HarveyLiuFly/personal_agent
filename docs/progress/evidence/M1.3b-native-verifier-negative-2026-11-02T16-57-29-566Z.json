@@ -1,0 +1,16 @@
+{
+  "status": "blocked",
+  "observedAt": "2026-11-02T16:57:29.566Z",
+  "kind": "real_native_sandbox_negative_verification",
+  "platform": "darwin-arm64",
+  "cliVersion": "codex-cli 0.163.0",
+  "inferenceRequested": false,
+  "modelMetadata": "synthetic_only",
+  "results": [
+    {
+      "name": "probe_failure",
+      "status": "failed",
+      "code": "PROBE_ASSERTION_FAILED"
+    }
+  ]
+}

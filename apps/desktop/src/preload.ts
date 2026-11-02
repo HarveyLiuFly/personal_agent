@@ -14,6 +14,8 @@ const api: DesktopApi = Object.freeze<DesktopApi>({
   getRun: query => ipcRenderer.invoke('execution:view', query),
   listInteractions: query => ipcRenderer.invoke('execution:interactions', query),
   replyInteraction: input => ipcRenderer.invoke('execution:reply', input),
+  getVerification: query => ipcRenderer.invoke('execution:review', query),
+  verifyRun: query => ipcRenderer.invoke('execution:verify', query),
   interruptRun: query => ipcRenderer.invoke('execution:interrupt', query),
 });
 contextBridge.exposeInMainWorld('personalAgent', api);

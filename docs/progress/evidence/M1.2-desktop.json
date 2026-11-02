@@ -1,6 +1,6 @@
 {
   "status": "passed",
-  "observedAt": "2026-11-02T16:00:29.047Z",
+  "observedAt": "2026-11-02T17:01:37.391Z",
   "kind": "real_electron_approval_with_synthetic_stdio",
   "backend": "synthetic_stdio_fixture",
   "folderDialogSelection": "fixed_fixture_substitution",

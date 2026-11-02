@@ -1,0 +1,17 @@
+{
+  "status": "passed",
+  "observedAt": "2026-11-02T16:28:41.718Z",
+  "kind": "real_sandbox_node_verifier_with_synthetic_model_metadata",
+  "cliVersion": "codex-cli 0.163.0",
+  "platform": "darwin-arm64",
+  "inferenceRequested": false,
+  "modelExecution": "synthetic_metadata_only",
+  "scope": "Real CLI minimal filesystem/network permission profile, real Node test event reporter and real Git/SQLite/artifact receipt. Math edit performed by the Host fixture; not a model code task or M1 gate.",
+  "requiredCases": 2,
+  "discovered": 2,
+  "executed": 2,
+  "skipped": 0,
+  "exitCode": 0,
+  "taskStatus": "completed",
+  "receiptHashVerified": true
+}

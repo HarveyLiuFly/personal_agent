@@ -1,8 +1,8 @@
 {
-  "observed_at": "2026-11-02",
+  "observed_at": "2026-11-03",
   "cli_version": "codex-cli 0.163.0",
   "binary_source_commit": null,
-  "evidence_scope": "macOS arm64 M0 passed. M1.3a ledger and M1.1c initial read-only message are verified, including one populated native thread/turn/items history and reopened display cache. Approvals, interrupt/resume, code verification and crash reconciliation remain open; M1 gate is not closed.",
+  "evidence_scope": "macOS arm64 M0 passed. M1 ledger, initial read-only message, populated native history, interaction fixtures and one real desktop code task with independent frozen Node verification are verified. Native approval/interrupt/resume and crash reconciliation remain open; M1 gate is not closed.",
   "methods": [
     {
       "method": "initialize",

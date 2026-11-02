@@ -79,7 +79,7 @@ export class StdioRpcClient {
   requestWithId<T = unknown>(id: RequestId, method: string, params: unknown, timeoutMs = this.options.requestTimeoutMs ?? 15_000): Promise<T> {
     if (this.closed || this.stopRequested) return Promise.reject(new RpcFailure('DISCONNECTED'));
     if (this.pending.size >= 32) return Promise.reject(new RpcFailure('PENDING_LIMIT'));
-    if ((typeof id !== 'string' && !Number.isSafeInteger(id)) || this.usedClientIds.has(id)) return Promise.reject(new RpcFailure('INVALID_CLIENT_REQUEST_ID'));
+    if ((typeof id === 'string' ? !id || id.length > 200 : !Number.isSafeInteger(id)) || this.usedClientIds.has(id)) return Promise.reject(new RpcFailure('INVALID_CLIENT_REQUEST_ID'));
     if (this.usedClientIds.size >= 4096) return Promise.reject(new RpcFailure('CONNECTION_REQUEST_LIMIT'));
     this.usedClientIds.add(id);
     return new Promise<T>((resolve, reject) => {
@@ -124,7 +124,7 @@ export class StdioRpcClient {
 
   private dispatch(message: JsonObject): void {
     const id = message.id;
-    const validId = typeof id === 'string' || (typeof id === 'number' && Number.isSafeInteger(id));
+    const validId = (typeof id === 'string' && id.length > 0 && id.length <= 200) || (typeof id === 'number' && Number.isSafeInteger(id));
     if (typeof message.method === 'string') {
       if (id === undefined) {
         // Consumer failures are not protocol errors and must not corrupt the transport.

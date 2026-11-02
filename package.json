@@ -19,6 +19,8 @@
     "smoke:desktop": "node scripts/smoke-desktop.mjs",
     "smoke:history:local": "node --disable-warning=ExperimentalWarning scripts/probe-history.ts",
     "smoke:history:desktop": "node scripts/smoke-desktop.mjs --history",
+    "smoke:code:desktop": "node scripts/smoke-desktop.mjs --native-code",
+    "smoke:verification": "node --disable-warning=ExperimentalWarning scripts/smoke-verification.ts",
     "smoke:interactions:desktop": "node scripts/smoke-desktop.mjs --interactions",
     "smoke:execution:desktop": "node scripts/smoke-desktop.mjs --execution",
     "smoke:execution": "node --disable-warning=ExperimentalWarning scripts/smoke-execution.ts",

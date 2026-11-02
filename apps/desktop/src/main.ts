@@ -1,13 +1,16 @@
 import { app, BrowserWindow, ipcMain, dialog } from 'electron';
-import { readFileSync, mkdirSync, writeFileSync } from 'node:fs';
+import { readFileSync, mkdirSync, writeFileSync, mkdtempSync, realpathSync } from 'node:fs';
 import { mkdtemp, mkdir, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { createCodeFixture } from '../../../tests/fixtures/code-project.ts';
 import { randomUUID } from 'node:crypto';
 import { ExecutionLedger, LedgerError } from '../../../packages/store/src/ledger.ts';
+import { NodeVerification } from '../../../packages/verification/src/verification.ts';
 import { ForegroundExecution } from '../../../packages/runtime/src/execution.ts';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { inspectConnection } from '../../../packages/codex-adapter/src/smoke.ts';
-import { resolveExecutable } from '../../../packages/codex-adapter/src/launch.ts';
+import { resolveExecutable, resolveVerifierNode } from '../../../packages/codex-adapter/src/launch.ts';
 import { verifiedCodex } from '../../../packages/codex-adapter/src/binary.ts';
 import { RpcFailure, StdioRpcClient } from '../../../packages/codex-adapter/src/rpc.ts';
 import { HistoryBrowser } from '../../../packages/codex-adapter/src/history.ts';
@@ -27,6 +30,10 @@ let quitting = false;
 let window: BrowserWindow | undefined;
 let ledger: ExecutionLedger | undefined;
 let execution: ForegroundExecution | undefined;
+let verifier: NodeVerification | undefined;
+const nativeCodeSmoke=process.argv.includes('--m1-native-code-smoke');
+let nativeCodeWorkspace:string|undefined;
+if(nativeCodeSmoke){mkdirSync(resolve(root,'.local'),{recursive:true});app.setPath('userData',mkdtempSync(resolve(root,'.local/desktop-native-code-')));}
 const interactionSmoke = process.argv.includes('--m1-interaction-smoke');
 const executionSmoke = process.argv.includes('--m1-execution-smoke') || interactionSmoke;
 const historySmoke = process.argv.includes('--m1-history-smoke');
@@ -38,9 +45,9 @@ if (!app.requestSingleInstanceLock()) app.quit();
 else void boot().catch(async error => {
   const code = error instanceof Error && /^[A-Z0-9_]{1,100}$/.test(error.message) ? error.message : 'HOST_ERROR';
   console.error('DESKTOP_BOOT_FAILED', code);
-  if (executionSmoke || historySmoke || process.argv.includes('--m0-window-smoke')) {
+  if (nativeCodeSmoke || executionSmoke || historySmoke || process.argv.includes('--m0-window-smoke')) {
     if (window) { try { writeFileSync(resolve(root, '.local/desktop-failure.png'), (await window.webContents.capturePage()).toPNG()); } catch {} }
-    const file = interactionSmoke ? 'M1.2-desktop' : executionSmoke ? 'M1.1c-desktop' : historySmoke ? 'M1.1b-desktop' : 'M0-desktop-smoke';
+    const file = nativeCodeSmoke ? 'M1-native-code-desktop' : interactionSmoke ? 'M1.2-desktop' : executionSmoke ? 'M1.1c-desktop' : historySmoke ? 'M1.1b-desktop' : 'M0-desktop-smoke';
     writeFileSync(resolve(root, `docs/progress/evidence/${file}.json`), JSON.stringify({ status: 'blocked', code, observedAt: new Date().toISOString() }) + '\n');
   }
   try { await execution?.close(); ledger?.close(); } catch {}
@@ -66,6 +73,7 @@ async function historyCommand<T>(event: Electron.IpcMainInvokeEvent, args: unkno
 async function boot(): Promise<void> {
   await app.whenReady();
   const state = resolve(app.getPath('userData'), 'codex-state');
+  if(nativeCodeSmoke){nativeCodeWorkspace=realpathSync(await mkdtemp(resolve(tmpdir(),'personal-agent-code-')));createCodeFixture(nativeCodeWorkspace);}
   let fixtureWorkspace: string | undefined;
   const fixtureMethods = new Set<string>();
   if (historySmoke || executionSmoke) {
@@ -76,7 +84,11 @@ async function boot(): Promise<void> {
   if (!historySmoke) {
     ledger = new ExecutionLedger(resolve(fixtureDirectory ?? app.getPath('userData'), 'execution/ledger.db'), readFileSync(resolve(directory, 'schema.sql'), 'utf8'));
     ledger.startOwner(randomUUID(), true); // OS single-instance lock was acquired before boot().
+    if (!executionSmoke && process.platform === 'darwin' && process.arch === 'arm64') {
+      try { verifier = new NodeVerification(ledger,{node:resolveVerifierNode(root),cli:executable(),reporter:resolve(directory,'verification-reporter.mjs'),stateDirectory:resolve(app.getPath('userData'),'verification')}); } catch {}
+    }
     execution = new ForegroundExecution(ledger, { executable: executionSmoke ? resolveExecutable('node') : executable(), stateDirectory: state, mode: interactionSmoke ? 'workspaceWrite' : 'readOnly',
+      ...(verifier ? { prepareCode: (token, code, signal) => verifier!.prepare(token,code,signal) } : {}),
       ...(executionSmoke ? { connect: callbacks => new StdioRpcClient({ executable: resolveExecutable('node'),
         args: [resolve(root, 'tests/fixtures/execution-server.ts'), interactionSmoke ? 'approval-accept' : 'slow', resolve(fixtureDirectory!, 'execution/ledger.db'), resolve(fixtureDirectory!, 'execution-receipts')], env: runtimeEnvironment(), ...callbacks }) } : {}) });
   }
@@ -95,6 +107,7 @@ async function boot(): Promise<void> {
   }, ledger ? path => ledger!.registerWorkspace(path) : undefined);
   ipcMain.handle('history:chooseProject', (event, ...args: unknown[]) => historyCommand(event, args, 0, async () => {
     if (fixtureWorkspace) return history.registerDirectory(fixtureWorkspace);
+    if (nativeCodeWorkspace) return history.registerDirectory(nativeCodeWorkspace);
     const selection = await dialog.showOpenDialog(window!, { title: '选择项目目录', properties: ['openDirectory'] });
     return selection.canceled || !selection.filePaths[0] ? null : history.registerDirectory(selection.filePaths[0]);
   }));
@@ -107,7 +120,7 @@ async function boot(): Promise<void> {
     try { return { ok: true, value: operation() }; }
     catch (error) { return { ok: false, errorCode: error instanceof LedgerError || error instanceof RpcFailure ? error.code : 'HOST_ERROR' }; }
   }
-  ipcMain.handle('execution:workspaceState', (event, ...args: unknown[]) => executionCommand(event, args, 0, () => ({ projects: ledger?.projects() ?? [], canSubmit: Boolean(execution), mode: interactionSmoke ? 'workspaceWrite' as const : 'readOnly' as const })));
+  ipcMain.handle('execution:workspaceState', (event, ...args: unknown[]) => executionCommand(event, args, 0, () => ({ projects: ledger?.projects() ?? [], canSubmit: Boolean(execution), canCode: Boolean(verifier), mode: interactionSmoke ? 'workspaceWrite' as const : 'readOnly' as const })));
   // Re-register persisted grants in the read-only browser; invalid directories remain blocked by Store.
   for (const project of ledger?.projects() ?? []) {
     try { ledger!.workspace(project.id); await history.registerDirectory(project.directory); } catch {}
@@ -132,6 +145,23 @@ async function boot(): Promise<void> {
     if (args.length !== 1) return { ok: false, errorCode: 'UNEXPECTED_ARGUMENTS' };
     try { if (!execution) throw new LedgerError('EXECUTION_UNAVAILABLE'); await execution.interrupt(args[0]); return { ok: true, value: { state: 'requested' } }; }
     catch (error) { return { ok: false, errorCode: error instanceof LedgerError || error instanceof RpcFailure ? error.code : 'HOST_ERROR' }; }
+  });
+  function review(input: unknown) {
+    if (!execution || !verifier) throw new LedgerError('VERIFICATION_UNAVAILABLE');
+    execution.view(input); const q=input as {projectId:string;runId:string};
+    const data=verifier.diff(q.projectId,q.runId),receipt=verifier.result(q.projectId,q.runId);
+    return {target:data.profile?.target??null,allowedPaths:data.profile?.allowedPaths??[],requiredCases:data.profile?.requiredCases.length??0,baselineCommit:data.profile?.baselineCommit??null,
+      changedFiles:data.changedFiles,diff:data.text,diffTruncated:data.text.length>=65536,
+      receipt:receipt?{status:receipt.status,code:receipt.code,discovered:receipt.discovered,executed:receipt.executed,skipped:receipt.skipped,exitCode:receipt.exitCode,observedAt:receipt.observedAt}:null};
+  }
+  ipcMain.handle('execution:review',(event,...args:unknown[])=>executionCommand(event,args,1,()=>review(args[0])));
+  ipcMain.handle('execution:verify',async(event,...args:unknown[])=>{
+    authorized(event);if(args.length!==1)return{ok:false,errorCode:'UNEXPECTED_ARGUMENTS'};
+    if(active||execution?.busy)return{ok:false,errorCode:'RUNTIME_BUSY'};
+    active=true;controller=new AbortController();
+    try{if(!execution||!verifier)throw new LedgerError('VERIFICATION_UNAVAILABLE');execution.view(args[0]);const q=args[0] as {projectId:string;runId:string};await verifier.verify(q.projectId,q.runId,controller.signal);return{ok:true,value:review(args[0])};}
+    catch(error){return{ok:false,errorCode:error instanceof LedgerError?error.code:'HOST_ERROR'};}
+    finally{active=false;controller=undefined;if(quitting||BrowserWindow.getAllWindows().length===0)app.quit();}
   });
   ipcMain.handle('runtime:inspect', async (event, ...args: unknown[]): Promise<ConnectionInfo> => {
     authorized(event);
@@ -175,7 +205,7 @@ async function boot(): Promise<void> {
     const passed = r.rendered === true && r.hasRequire === false && r.sandboxed === true && r.isolated === true
       && r.uiConnected === true && !app.commandLine.hasSwitch('no-sandbox')
       && (r.connection as ConnectionInfo)?.status === 'connected'
-      && JSON.stringify(r.bridgeKeys) === JSON.stringify(['chooseProject', 'getRun', 'inspect', 'interruptRun', 'listInteractions', 'listItems', 'listRuns', 'listThreads', 'listTurns', 'replyInteraction', 'security', 'submitMessage', 'workspaceState']);
+      && JSON.stringify(r.bridgeKeys) === JSON.stringify(['chooseProject', 'getRun', 'getVerification', 'inspect', 'interruptRun', 'listInteractions', 'listItems', 'listRuns', 'listThreads', 'listTurns', 'replyInteraction', 'security', 'submitMessage', 'verifyRun', 'workspaceState']);
     const evidence = { observedAt: new Date().toISOString(), kind: 'real_electron_window_smoke',
       status: passed ? 'passed' : 'blocked',
       browserSandbox: app.commandLine.hasSwitch('no-sandbox') ? 'disabled' : 'enabled', result };
@@ -300,6 +330,41 @@ async function boot(): Promise<void> {
       kind:'real_electron_approval_with_synthetic_stdio',backend:'synthetic_stdio_fixture',folderDialogSelection:'fixed_fixture_substitution',inferenceRequested:false,
       syntheticEffectCreated:readFileSync(resolve(fixtureDirectory!,'execution-receipts.effect'),'utf8')==='accepted-once',result},null,2)+'\n');
     writeFileSync(resolve(root,'.local/M1-interactions-desktop.png'),(await window.webContents.capturePage()).toPNG());app.quit();
+  }
+
+  if(nativeCodeSmoke){
+    const result=await window.webContents.executeJavaScript(`(async()=>{
+      const wait=async check=>{const deadline=Date.now()+210000;while(!check()){if(Date.now()>deadline)throw new Error('NATIVE_CODE_UI_TIMEOUT');await new Promise(r=>setTimeout(r,100));}};
+      document.querySelector('[data-action="choose-project"]').click();await wait(()=>document.querySelector('[data-code-profile]'));
+      document.querySelector('[data-code-profile]').click();
+      const fill=(selector,text)=>{const element=document.querySelector(selector);const prototype=element.tagName==='TEXTAREA'?HTMLTextAreaElement.prototype:HTMLInputElement.prototype;Object.getOwnPropertyDescriptor(prototype,'value').set.call(element,text);element.dispatchEvent(new Event('input',{bubbles:true}));};
+      await wait(()=>document.querySelector('[data-code-target]'));fill('[data-code-target]','test/math.test.mjs');fill('[data-code-paths]','src/math.mjs');
+      fill('[data-task-draft]','Fix the sum(a,b) bug in src/math.mjs. Modify only that file. The four frozen Node tests must pass. Do not modify tests, run Git, use network, or create other files.');
+      await wait(()=>!document.querySelector('[data-action="send"]').disabled);document.querySelector('[data-action="send"]').click();
+      const state=await window.personalAgent.workspaceState(),projectId=state.value.projects[0].id;
+      let runId,view,approvalDecisions=0;const deadline=Date.now()+200000;
+      while(Date.now()<deadline){const rows=await window.personalAgent.listRuns({projectId});runId=rows.value[0]?.runId;if(runId){
+        const r=await window.personalAgent.getRun({projectId,runId});view=r.value;
+        if(['completed','failed','cancelled','outcome_unknown'].includes(view.status))break;
+        const pending=await window.personalAgent.listInteractions({projectId,runId});
+        for(const request of pending.value.filter(r=>r.state==='pending')){const safe=request.canAccept&&request.kind==='command'&&['node --test','node --test test/math.test.mjs'].includes(request.command);await window.personalAgent.replyInteraction({projectId,runId,requestId:request.requestId,decision:safe?'accept':'decline'});approvalDecisions++;}
+      }await new Promise(r=>setTimeout(r,300));}
+      if(!view||view.status!=='completed')return{runStatus:view?.status,taskStatus:view?.taskStatus,errorCode:view?.errorCode,approvalDecisions};
+      document.querySelector('[data-action="review-run"]').click();await wait(()=>document.querySelector('[data-run-diff]'));
+      const diffShown=document.querySelector('[data-run-diff]').textContent.includes('src/math.mjs');
+      document.querySelector('[data-action="verify-run"]').click();await wait(()=>document.querySelector('[data-verification-status="passed"]'));
+      const final=await window.personalAgent.getRun({projectId,runId}),review=await window.personalAgent.getVerification({projectId,runId});
+      return{runId,threadId:final.value.threadId,turnId:final.value.turnId,runStatus:final.value.status,taskStatus:final.value.taskStatus,mode:final.value.mode,
+        diffShown,changedFiles:review.value.changedFiles,receipt:review.value.receipt,requiredCases:review.value.requiredCases,approvalDecisions,
+        sandboxed:window.personalAgent.security.sandboxed,isolated:window.personalAgent.security.isolated,hasRequire:typeof require!=='undefined'};
+    })()`);
+    const r=result as Record<string,unknown>,receipt=r.receipt as Record<string,unknown>|undefined;
+    const passed=r.runStatus==='completed'&&r.taskStatus==='completed'&&r.mode==='workspaceWrite'&&r.diffShown===true&&r.requiredCases===4
+      &&r.sandboxed===true&&r.isolated===true&&r.hasRequire===false&&receipt?.status==='passed'&&receipt.executed===4&&receipt.skipped===0
+      &&JSON.stringify(r.changedFiles)===JSON.stringify(['src/math.mjs']);
+    writeFileSync(resolve(root,'docs/progress/evidence/M1-native-code-desktop.json'),JSON.stringify({status:passed?'passed':'blocked',observedAt:new Date().toISOString(),kind:'real_electron_real_model_code_task_and_trusted_sandbox_verification',
+      backend:'native_locked_app_server',inferenceRequested:true,folderDialogSelection:'fixed_fixture_substitution',cliVersion:verifiedCodex(root).lock.cliVersion,platform:process.platform+'-'+process.arch,diagnostics:execution!.diagnostics,result},null,2)+'\n');
+    writeFileSync(resolve(root,'.local/M1-native-code-desktop.png'),(await window.webContents.capturePage()).toPNG());app.quit();
   }
 
 }

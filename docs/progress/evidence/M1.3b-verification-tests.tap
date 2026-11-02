@@ -1,0 +1,52 @@
+TAP version 13
+# Subtest: trusted verification ends review only after required cases pass and publishes a hash-bound receipt
+ok 1 - trusted verification ends review only after required cases pass and publishes a hash-bound receipt
+  ---
+  duration_ms: 147.995708
+  type: 'test'
+  ...
+# Subtest: tests that fail keep the task awaiting review, with real attempt identity rather than cached success
+ok 2 - tests that fail keep the task awaiting review, with real attempt identity rather than cached success
+  ---
+  duration_ms: 137.228834
+  type: 'test'
+  ...
+# Subtest: zero cases, all skipped cases, wrong targets and missing necessary cases cannot complete a task
+ok 3 - zero cases, all skipped cases, wrong targets and missing necessary cases cannot complete a task
+  ---
+  duration_ms: 495.124083
+  type: 'test'
+  ...
+# Subtest: modified tests, changed verifiers and edits outside scope fail before running the new tests
+ok 4 - modified tests, changed verifiers and edits outside scope fail before running the new tests
+  ---
+  duration_ms: 371.131083
+  type: 'test'
+  ...
+# Subtest: unknown model outcome and foreign runs cannot obtain a trusted completion claim
+ok 5 - unknown model outcome and foreign runs cannot obtain a trusted completion claim
+  ---
+  duration_ms: 100.02525
+  type: 'test'
+  ...
+# Subtest: a receipt file altered after publication is rejected by its stored hash
+ok 6 - a receipt file altered after publication is rejected by its stored hash
+  ---
+  duration_ms: 118.560625
+  type: 'test'
+  ...
+# Subtest: profile paths reject traversal, test editing and arbitrary command fields
+ok 7 - profile paths reject traversal, test editing and arbitrary command fields
+  ---
+  duration_ms: 0.160708
+  type: 'test'
+  ...
+1..7
+# tests 7
+# suites 0
+# pass 7
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1462.751541

@@ -9,6 +9,7 @@ await rm(resolve(root, 'build/desktop'), { recursive: true, force: true });
 await bundle({ entryPoints: [resolve(root, 'apps/desktop/src/main.ts')], outfile: resolve(root, 'build/desktop/main.js'),
   bundle: true, platform: 'node', format: 'esm', target: 'node22', external: ['electron'] });
 await copyFile(resolve(root, 'docs/design/contracts/schema.sql'), resolve(root, 'build/desktop/schema.sql'));
+await copyFile(resolve(root, 'packages/verification/src/reporter.mjs'), resolve(root, 'build/desktop/verification-reporter.mjs'));
 await bundle({ entryPoints: [resolve(root, 'apps/desktop/src/preload.ts')], outfile: resolve(root, 'build/desktop/preload.cjs'),
   bundle: true, platform: 'node', format: 'cjs', target: 'node22', external: ['electron'] });
 await buildRenderer({ configFile: false, root: resolve(root, 'apps/desktop/renderer'), base: './',

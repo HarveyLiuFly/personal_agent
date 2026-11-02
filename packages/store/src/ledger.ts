@@ -5,6 +5,7 @@ import { basename, dirname } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { taskTransitions } from '../../../docs/design/contracts/domain.ts';
 import type { TaskStatus } from '../../../docs/design/contracts/domain.ts';
+import type { VerificationPlan, VerificationReceipt } from '../../verification/src/verification.ts';
 import type { InteractionView, ProjectView, ThreadView } from '../../contracts/src/views.ts';
 
 export class LedgerError extends Error { readonly code: string; constructor(code: string) { super(code); this.code = code; } }
@@ -18,6 +19,7 @@ export interface Intent { intentId: string; kind: string; state: string; inputHa
 export interface RunRecord extends RunToken {
   taskId: string; workspaceId: string; title: string; taskStatus: string; status: string;
   threadId: string | null; turnId: string | null; blocked: boolean; snapshot: ThreadView | null;
+  mode: 'readOnly' | 'workspaceWrite'; errorCode?: string;
 }
 
 /** Host-only local store. startOwner requires the caller to hold the OS single-instance lock. */
@@ -142,15 +144,17 @@ export class ExecutionLedger {
       return { id: workspaceId, name: basename(cwd), directory: cwd };
     } catch (error) { if (error instanceof LedgerError) throw error; return fail('PROJECT_UNAVAILABLE'); }
   }
-  beginRun(workspaceId: string, text: string, key: string, mode: 'readOnly' | 'workspaceWrite'): { token: RunToken; created: boolean } {
+  beginRun(workspaceId: string, text: string, key: string, mode: 'readOnly' | 'workspaceWrite', contextHash?: string): { token: RunToken; created: boolean } {
     if (!id(key) || typeof text !== 'string' || !text.trim() || text.length > 32_768 || !['readOnly','workspaceWrite'].includes(mode)) return fail('INVALID_TASK_INPUT');
     this.workspace(workspaceId);
-    const inputHash = hashInput([workspaceId, text, mode]);
+    const inputHash = hashInput(contextHash ? [workspaceId, text, mode, contextHash] : [workspaceId, text, mode]);
     return this.tx(() => {
       this.owner();
       const previous = this.one('SELECT r.*,t.constraints_json FROM task_runs r JOIN tasks t USING(task_id) WHERE r.idempotency_key=? AND r.dot_id=?', key, this.dotId);
       if (previous) {
-        if (JSON.parse(String(previous.constraints_json)).inputHash !== inputHash) return fail('IDEMPOTENCY_CONFLICT');
+        const manifest=this.one('SELECT module_hashes_json FROM prompt_manifests WHERE run_id=?',previous.run_id!);
+        const savedHash=manifest ? JSON.parse(String(manifest.module_hashes_json)).submission ?? JSON.parse(String(previous.constraints_json)).inputHash : JSON.parse(String(previous.constraints_json)).inputHash;
+        if (savedHash !== inputHash) return fail('IDEMPOTENCY_CONFLICT');
         return { token: { runId: String(previous.run_id), epoch: Number(previous.runtime_epoch), taskFence: Number(previous.task_fence) }, created: false };
       }
       if (this.one(`SELECT run_id FROM task_runs WHERE dot_id=? AND status IN ${active}`, this.dotId)) return fail('RUNTIME_BUSY');
@@ -165,7 +169,7 @@ export class ExecutionLedger {
         const ws = this.one('SELECT write_fence FROM workspaces WHERE workspace_id=?', workspaceId)!;
         this.exec('INSERT INTO workspace_write_leases VALUES (?,?,?,?)', workspaceId, runId, ws.write_fence!, Date.now() + 60_000);
       }
-      this.exec("INSERT INTO prompt_manifests VALUES (?,?,'coding',?,'{}',?,1,1,'[]',NULL)", randomUUID(), runId, mode === 'readOnly' ? 'read-only' : 'execution', hashInput({ mode }));
+      this.exec("INSERT INTO prompt_manifests VALUES (?,?,'coding',?,?,?,1,1,'[]',NULL)", randomUUID(), runId, mode === 'readOnly' ? 'read-only' : 'execution', JSON.stringify({ submission: inputHash, user: hashInput(text) }), hashInput({ mode }));
       this.event(taskId, runId, 'run_claimed', { mode });
       return { token: { runId, epoch: this.#epoch, taskFence: 1 }, created: true };
     });
@@ -190,7 +194,9 @@ export class ExecutionLedger {
     this.tx(() => {
       const run = this.guard(token);
       if (this.one('SELECT intent_id FROM execution_intents WHERE run_id=?', token.runId)) return fail('MANIFEST_ALREADY_BOUND');
-      this.exec('UPDATE prompt_manifests SET module_hashes_json=?,tool_snapshot_hash=? WHERE run_id=?', JSON.stringify(moduleHashes), toolProfileHash, token.runId);
+      if ('user' in moduleHashes || 'submission' in moduleHashes) return fail('INVALID_MANIFEST');
+      const previous=JSON.parse(String(this.one('SELECT module_hashes_json FROM prompt_manifests WHERE run_id=?',token.runId)!.module_hashes_json)) as Record<string,string>;
+      this.exec('UPDATE prompt_manifests SET module_hashes_json=?,tool_snapshot_hash=? WHERE run_id=?', JSON.stringify({ ...previous, ...moduleHashes }), toolProfileHash, token.runId);
       this.event(String(run.task_id), token.runId, 'manifest_bound', { moduleHashes, toolProfileHash });
     });
   }
@@ -297,10 +303,12 @@ export class ExecutionLedger {
   }
   runs(workspaceId: string, options: { snapshots?: boolean; runId?: string } = {}): RunRecord[] {
     if (!id(workspaceId)) return fail('UNKNOWN_PROJECT');
-    return this.all(`SELECT r.*,t.workspace_id,t.title,t.status AS task_status,t.dispatch_blocked,b.execution_thread_id,CASE WHEN ? THEN c.summary_json ELSE NULL END AS summary_json FROM task_runs r JOIN tasks t USING(task_id) LEFT JOIN thread_bindings b ON b.task_id=t.task_id AND b.state='active' LEFT JOIN task_checkpoints c ON c.checkpoint_id=r.result_ref WHERE t.workspace_id=? AND t.dot_id=? AND (? IS NULL OR r.run_id=?) ORDER BY r.started_at_ms DESC,r.rowid DESC LIMIT 50`, options.snapshots === false ? 0 : 1, workspaceId, this.dotId, options.runId ?? null, options.runId ?? null).map(row => ({
+    return this.all(`SELECT r.*,t.workspace_id,t.title,t.constraints_json,t.status AS task_status,t.dispatch_blocked,b.execution_thread_id,CASE WHEN ? THEN c.summary_json ELSE NULL END AS summary_json FROM task_runs r JOIN tasks t USING(task_id) LEFT JOIN thread_bindings b ON b.task_id=t.task_id AND b.state='active' LEFT JOIN task_checkpoints c ON c.checkpoint_id=r.result_ref WHERE t.workspace_id=? AND t.dot_id=? AND (? IS NULL OR r.run_id=?) ORDER BY r.started_at_ms DESC,r.rowid DESC LIMIT 50`, options.snapshots === false ? 0 : 1, workspaceId, this.dotId, options.runId ?? null, options.runId ?? null).map(row => ({
       runId: String(row.run_id), taskId: String(row.task_id), workspaceId, title: String(row.title), status: String(row.status), taskStatus: String(row.task_status), epoch: Number(row.runtime_epoch), taskFence: Number(row.task_fence), blocked: row.dispatch_blocked === 1,
       threadId: row.execution_thread_id as string | null, turnId: this.one("SELECT execution_turn_id FROM execution_intents WHERE run_id=? AND kind='turn_start' AND execution_turn_id IS NOT NULL", row.run_id!)?.execution_turn_id as string ?? null,
       snapshot: row.summary_json ? JSON.parse(String(row.summary_json)) as ThreadView : null,
+      mode: JSON.parse(String(row.constraints_json)).mode as 'readOnly' | 'workspaceWrite',
+      errorCode: this.one("SELECT json_extract(payload_json,'$.code') AS code FROM task_events WHERE run_id=? AND event_type='run_diagnostic' ORDER BY sequence DESC LIMIT 1", row.run_id!)?.code as string | undefined,
     }));
   }
   addRequest(token: RunToken, connectionEpoch: number, rpcId: string, threadId: string, turnId: string, payload: Omit<InteractionView, 'requestId' | 'state'>, expiresAt: number): string {
@@ -343,6 +351,70 @@ export class ExecutionLedger {
       this.event(String(run.task_id), token.runId, sent ? 'server_response_written' : 'server_response_unknown', { requestId });
     });
     if (!sent) this.uncertain(token);
+  }
+  runForHost(runId: string): RunRecord {
+    const row = this.one('SELECT t.workspace_id FROM task_runs r JOIN tasks t USING(task_id) WHERE r.run_id=? AND r.dot_id=?', runId, this.dotId);
+    if (!row) return fail('UNKNOWN_RUN');
+    return this.runs(String(row.workspace_id), { snapshots: false, runId })[0]!;
+  }
+  diagnostic(token: RunToken, code: string): void {
+    if (!/^[A-Z0-9_-]{1,100}$/.test(code)) return fail('INVALID_DIAGNOSTIC');
+    this.tx(() => { this.owner(); const run=this.runForHost(token.runId);if(run.epoch!==token.epoch||token.epoch!==this.#epoch)return fail('STALE_RUN');this.event(run.taskId,run.runId,'run_diagnostic',{code}); });
+  }
+  executorClosed(token: RunToken, connectionEpoch: number): void {
+    this.tx(()=>{this.owner();const run=this.runForHost(token.runId);if(run.epoch!==token.epoch||token.epoch!==this.#epoch)return fail('STALE_RUN');this.event(run.taskId,run.runId,'executor_closed',{connectionEpoch,runtimeEpoch:token.epoch});});
+  }
+  matchesUserInput(runId: string, text: string): boolean {
+    this.runForHost(runId);const row=this.one('SELECT module_hashes_json FROM prompt_manifests WHERE run_id=?',runId);
+    return Boolean(row && JSON.parse(String(row.module_hashes_json)).user===hashInput(text));
+  }
+  installVerification(token: RunToken, plan: VerificationPlan): void {
+    this.tx(() => {
+      const run = this.guard(token);
+      if (plan.runId !== token.runId || this.one('SELECT intent_id FROM execution_intents WHERE run_id=?', token.runId)) return fail('VERIFICATION_CONTRACT_TOO_LATE');
+      const revision=Number(this.one('SELECT COALESCE(MAX(revision),0) AS n FROM verification_specs WHERE task_id=?',run.task_id!)!.n)+1;
+      this.exec('INSERT INTO verification_specs VALUES (?,?,?,?,?,?,?,?)', plan.specId, run.task_id!, revision, plan.baselineCommit,
+        JSON.stringify(plan.commandArgv), JSON.stringify([plan.target]), JSON.stringify(plan), plan.verifierHash);
+      this.event(String(run.task_id), token.runId, 'verification_contract_frozen', { specId: plan.specId, target: plan.target, requiredCases: plan.requiredCases.length });
+    });
+  }
+  verificationPlan(runId: string): VerificationPlan | null {
+    const row = this.one("SELECT v.expectation_json FROM verification_specs v JOIN task_runs r ON r.task_id=v.task_id WHERE r.run_id=? AND r.dot_id=? AND json_extract(v.expectation_json,'$.runId')=? ORDER BY v.revision DESC LIMIT 1", runId, this.dotId, runId);
+    return row ? JSON.parse(String(row.expectation_json)) as VerificationPlan : null;
+  }
+  claimVerification(runId: string): { runId: string; epoch: number; workspaceFence: number; taskVersion: number } {
+    return this.tx(() => {
+      this.owner(); const run = this.runForHost(runId), task = this.one('SELECT * FROM tasks WHERE task_id=?', run.taskId)!;
+      if (run.status !== 'completed' || task.status !== 'needs_review' || task.write_fence !== run.taskFence || task.dispatch_blocked === 1) return fail('RUN_NOT_VERIFIABLE');
+      if (this.one('SELECT run_id FROM workspace_write_leases WHERE workspace_id=?', run.workspaceId)) return fail('WORKSPACE_BUSY');
+      this.workspace(run.workspaceId);
+      this.exec('UPDATE workspaces SET write_fence=write_fence+1 WHERE workspace_id=?', run.workspaceId);
+      const fence = Number(this.one('SELECT write_fence FROM workspaces WHERE workspace_id=?', run.workspaceId)!.write_fence);
+      this.exec('INSERT INTO workspace_write_leases VALUES (?,?,?,?)', run.workspaceId, runId, fence, Date.now()+60000);
+      return { runId, epoch: this.#epoch, workspaceFence: fence, taskVersion: Number(task.version) };
+    });
+  }
+  recordVerification(claim: { runId: string; epoch: number; workspaceFence: number; taskVersion: number }, plan: VerificationPlan, receipt: VerificationReceipt, artifact: { storageKey: string; hash: string; bytes: number }): void {
+    this.tx(() => {
+      this.owner(); const run = this.runForHost(claim.runId), task = this.one('SELECT * FROM tasks WHERE task_id=?', run.taskId)!;
+      this.workspace(run.workspaceId);
+      const lease = this.one('SELECT * FROM workspace_write_leases WHERE run_id=?', claim.runId);
+      if (claim.epoch !== this.#epoch || !lease || lease.workspace_fence !== claim.workspaceFence || Number(lease.lease_until_ms)<=Date.now() || task.version !== claim.taskVersion || task.status !== 'needs_review') return fail('STALE_VERIFICATION');
+      if (plan.specId !== this.verificationPlan(claim.runId)?.specId || receipt.runId !== claim.runId || receipt.specId !== plan.specId) return fail('VERIFICATION_SCOPE_MISMATCH');
+      if (receipt.status === 'passed' && (receipt.code !== 'VERIFIED' || receipt.exitCode !== 0 || receipt.executed < 1 || plan.requiredCases.some(key => !receipt.passedCases.includes(key)))) return fail('INVALID_VERIFICATION_RECEIPT');
+      this.exec("INSERT INTO artifacts(artifact_id,dot_id,task_id,content_sha256,relative_storage_key,state,sensitivity,privacy_epoch,size_bytes) VALUES (?,?,?,?,?,'published','private',1,?)", receipt.verificationId, this.dotId, run.taskId, artifact.hash, artifact.storageKey, artifact.bytes);
+      this.exec('INSERT INTO verification_results VALUES (?,?,?,?,?,?,?,?,?)', receipt.verificationId, claim.runId, plan.specId, receipt.status, receipt.discovered, receipt.executed, receipt.skipped, receipt.verificationId, Date.now());
+      if (receipt.status === 'passed') this.transition(run.taskId, 'completed');
+      this.event(run.taskId, run.runId, 'verification_recorded', { verificationId: receipt.verificationId, status: receipt.status, code: receipt.code, workspaceHash: receipt.workspaceHash });
+    });
+  }
+  releaseVerification(claim: { runId: string; epoch: number; workspaceFence: number }): void {
+    this.tx(() => { this.owner(); if (claim.epoch !== this.#epoch) return fail('STALE_RUNTIME_OWNER'); this.exec('DELETE FROM workspace_write_leases WHERE run_id=? AND workspace_fence=?', claim.runId, claim.workspaceFence); });
+  }
+  latestVerification(runId: string): { artifactId: string; storageKey: string; hash: string } | null {
+    this.runForHost(runId);
+    const row = this.one("SELECT a.* FROM verification_results v JOIN artifacts a ON a.artifact_id=v.evidence_ref WHERE v.run_id=? AND a.dot_id=? AND a.state='published' ORDER BY v.observed_at_ms DESC,v.rowid DESC LIMIT 1", runId, this.dotId);
+    return row ? { artifactId: String(row.artifact_id), storageKey: String(row.relative_storage_key), hash: String(row.content_sha256) } : null;
   }
   close(): void {
     if (this.#epoch) this.exec("UPDATE runtime_owners SET state='stopped',updated_at_ms=? WHERE profile_id=? AND runtime_epoch=? AND instance_id=?", Date.now(), this.profileId, this.#epoch, this.#instance);

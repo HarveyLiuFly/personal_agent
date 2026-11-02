@@ -61,7 +61,7 @@ codex app-server generate-ts --experimental --out "$protocol_tmp/experimental"
 
 Composer 在 Idle 时创建 Turn，运行中按锁版能力 Steer/Interrupt，断开时保留草稿且不自动重发。任务列表、完整 Item 与错误状态由服务端结果/持久账本重建。大型历史分页、长日志限制和渲染背压从 M1 实现。
 
-当前首次发送路径为只读消息，每条新消息建立一个持久 Task/Run/Thread，结束只进入待验证；既有 Thread 的续接在对应交互/恢复工作包验收后开放。Renderer 仅传项目 ID、正文及稳定提交键；Host 先写入 Intent/RPC ID，再发送 stdio。项目选择和任务导航持久化，目录身份每次派发复核；任务列表只传摘要，按所选 Run 获取单个有界显示快照，不逐帧传原始 RPC。
+当前每条新消息建立一个持久 Task/Run/Thread，默认只读；代码任务显式选择固定 Node 测试入口与允许文件，Host 在任何模型发送前运行基线并冻结验证合同后才授予工作区写入。执行结束先确认执行进程关闭、释放写租约，再进入待验证；既有 Thread 的续接在对应交互/恢复工作包验收后开放。Renderer 仅传项目 ID、正文、稳定提交键及受限验证参数；Host 先写入 Intent/RPC ID，再发送 stdio。项目选择和任务导航持久化，目录身份每次派发复核；任务列表只传摘要，按所选 Run 获取单个有界显示快照，不逐帧传原始 RPC。
 
 产品 UI 的所有模型发送都走账本，M0 无账本调试按钮不作为产品入口保留。M1 运行进程关闭 Apps/Plugins/Hooks/自治与 Browser/Computer 功能；继承的手动 MCP 通过线程配置逐项 disabled。工具目录可以保留配置行，只有空目录或每行都明确 disabled 且 tools 为空时才允许 Turn；未知连接状态或任何可用外部工具均阻断。本阶段不因此宣称外部 Connector 可安全使用。
 
@@ -82,6 +82,8 @@ Electron Main 取得 OS 单实例锁后才提升 Owner Epoch；数据库 Epoch �
 ## 4. VerificationSpec 与完成收据
 
 任务开始时创建可审计验证合同：基线 Commit、目标、命令 argv、允许修改范围、验证器哈希、必要 Target/Case、实际运行要求及证据。可信 Host 负责运行与收集，Agent 不能通过改验证命令或自述完成直接取得通过。
+
+当前固定验证配置支持干净 Git 工作区内的 Node 测试文件：冻结完整文件清单、测试/Node/CLI/Reporter/Host Hash、基线 Commit 与具名 Case。Host 经锁版 CLI 权限档在空白 Home、无网络、只读工作区运行固定 argv，私有 Scratch 可写；只读取公开运行库与验证依赖，不复制认证。Reporter 过滤任意输出与文件包装事件，零 Case、全跳过、错误目标、必要 Case 缺失、修改测试/验证器、越界修改或运行中工作区变更都不能通过。Diff 从基线生成并显式标记截断；收据经文件 fsync、原子发布、内容 Hash 和数据库提交后生效，只有可信通过收据使 Task completed。未知模型结果不能申领完成验证。
 
 - 代码：保留真实退出码、测试发现/执行/跳过/失败数、Target、时间和当前 Run 结果引用；零测试、全跳过、错误 Target、陈旧缓存均不能替代必要执行。测试修改是否允许由任务合同明确决定。
 - 文档/研究：覆盖清单、可访问来源与产物完整性；模型评分可作辅助，必要时进入 `needs_review`。

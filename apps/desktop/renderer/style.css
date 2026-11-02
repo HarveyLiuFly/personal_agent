@@ -71,3 +71,8 @@ pre { white-space: pre-wrap; overflow-wrap: anywhere; font-family: ui-monospace,
 .approval-actions { display: flex; gap: 10px; margin-top: 12px; }
 .input-question { display: grid; gap: 8px; margin-top: 14px; font-size: 12px; }
 .input-question input, .input-question select { background: #0f1c2c; border: 1px solid #465c72; padding: 8px; color: #e7edf6; border-radius: 6px; }
+
+.code-contract { margin: 6px 32px 0; font-size: 11px; color: #a6b9cc; }
+.code-options { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 10px; }
+.code-options label { display: grid; gap: 6px; }
+.code-options input { width: 100%; border: 1px solid #3a4b61; border-radius: 6px; padding: 7px; background: #142033; color: #e7edf6; font: inherit; }
