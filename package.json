@@ -15,6 +15,7 @@
     "protocol:generate": "node scripts/generate-protocol.mjs",
     "protocol:verify": "node scripts/generate-protocol.mjs --verify",
     "smoke:codex": "node --disable-warning=ExperimentalWarning scripts/smoke-codex.ts",
+    "smoke:connection": "node --disable-warning=ExperimentalWarning scripts/probe-codex.ts",
     "smoke:desktop": "node scripts/smoke-desktop.mjs",
     "check": "node scripts/check.mjs"
   },

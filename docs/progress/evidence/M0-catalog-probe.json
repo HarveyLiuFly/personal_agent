@@ -1,0 +1,13 @@
+{
+  "status": "passed",
+  "observedAt": "2026-11-02T13:09:54.985Z",
+  "kind": "real_app_server_catalog_probe",
+  "cliVersion": "codex-cli 0.163.0",
+  "verifiedMethods": [
+    "initialize",
+    "initialized",
+    "model/list"
+  ],
+  "models": 8,
+  "defaultModel": "gpt-6.1-sol"
+}

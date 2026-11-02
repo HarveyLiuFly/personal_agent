@@ -271,7 +271,17 @@ def check_document_and_matrix():
     require(len(package_ids) == len(set(package_ids)), 'Repeated milestone package ID')
     matrix = json.loads((HERE / 'protocol-capabilities.json').read_text())
     require(all(x['schema_observed'] for x in matrix['methods'] if x['requirement']=='required'), 'Required schema is unavailable')
-    require(all(x['runtime_verification']=='pending' for x in matrix['methods']), 'Unexecuted runtime verification claimed')
+    for method in matrix['methods']:
+        status = method['runtime_verification']
+        require(status in ('pending', 'passed'), 'Unknown runtime verification status')
+        if status == 'passed':
+            evidence_path = ROOT / method.get('runtime_evidence', '')
+            require(evidence_path.is_file(), f'Missing runtime evidence: {method["method"]}')
+            evidence = json.loads(evidence_path.read_text())
+            require(evidence.get('status') == 'passed', 'Runtime evidence did not pass')
+            require(evidence.get('cliVersion') == matrix['cli_version'], 'Runtime evidence uses another CLI')
+            require(method['method'] in evidence.get('verifiedMethods', []),
+                    f'Method not covered by runtime evidence: {method["method"]}')
     require(len({x['method'] for x in matrix['methods']}) == len(matrix['methods']), 'Duplicate RPC matrix entry')
 
 

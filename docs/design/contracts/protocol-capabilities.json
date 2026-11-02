@@ -3,23 +3,25 @@
   "cli_version": "codex-cli 0.163.0",
   "executable_sha256": "399ff69c431c066e40de318fba45c2b07f45a76b19939d247ee4828fc70c4215",
   "binary_source_commit": null,
-  "evidence_scope": "Generated schema shapes only; application handshake, model inference, sandbox, approvals and runtime compatibility remain to be verified.",
+  "evidence_scope": "Pinned generated schema; initialize/initialized/model/list verified against the real local App Server. Model inference, approvals and other methods remain subject to their own runtime gates.",
   "methods": [
     {
       "method": "initialize",
       "first_milestone": "M0",
       "requirement": "required",
       "schema_observed": true,
-      "runtime_verification": "pending",
-      "fallback": "block protocol startup"
+      "runtime_verification": "passed",
+      "fallback": "block protocol startup",
+      "runtime_evidence": "docs/progress/evidence/M0-catalog-probe.json"
     },
     {
       "method": "initialized",
       "first_milestone": "M0",
       "requirement": "required",
       "schema_observed": true,
-      "runtime_verification": "pending",
-      "fallback": "block protocol startup"
+      "runtime_verification": "passed",
+      "fallback": "block protocol startup",
+      "runtime_evidence": "docs/progress/evidence/M0-catalog-probe.json"
     },
     {
       "method": "thread/start",
@@ -98,8 +100,9 @@
       "first_milestone": "M0",
       "requirement": "required",
       "schema_observed": true,
-      "runtime_verification": "pending",
-      "fallback": "block model-selection gate; do not invent model names"
+      "runtime_verification": "passed",
+      "fallback": "block model-selection gate; do not invent model names",
+      "runtime_evidence": "docs/progress/evidence/M0-catalog-probe.json"
     },
     {
       "method": "skills/list",
