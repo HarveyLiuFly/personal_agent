@@ -1,0 +1,8 @@
+{
+  "cliVersion": "codex-cli 0.163.0",
+  "executableSha256": "399ff69c431c066e40de318fba45c2b07f45a76b19939d247ee4828fc70c4215",
+  "sourceCommit": null,
+  "generationMode": "stable",
+  "generatedTypes": 747,
+  "schemaFingerprint": "d3bb2d6b3aba976aecaa62eab4f0496f3cccd4bfc5b355190b23bd14c1bb545c"
+}

@@ -1,0 +1,33 @@
+{
+  "checkpoint": "M0.1",
+  "status": "completed",
+  "scope": "Reproducible source/dependency baseline and build; real model/window Gate remains separate.",
+  "cliVersion": "0.163.0",
+  "node": "24.19.0",
+  "pnpm": "11.25.0",
+  "checks": {
+    "protocol": "passed",
+    "typecheck": "passed",
+    "rpcTests": {
+      "executed": 12,
+      "passed": 12,
+      "failed": 0,
+      "skipped": 0
+    },
+    "desktopBuild": "passed"
+  },
+  "files": [
+    {
+      "path": "package.json",
+      "sha256": "707040fe40126be02fd8f3f9d55580fc62079d0472bf42e611cbd8a3ad791df7"
+    },
+    {
+      "path": "pnpm-lock.yaml",
+      "sha256": "0656b7bca8ba1fba9e77d92cabcf08445c5510876369bad36665a84b0178945a"
+    },
+    {
+      "path": "codex-version.lock.json",
+      "sha256": "51a97d3f35e2bf2efd4e39808437192b6f2754ca3cc6906b32678854572adbbb"
+    }
+  ]
+}

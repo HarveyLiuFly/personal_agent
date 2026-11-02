@@ -1,0 +1,10 @@
+node_modules/
+build/
+.local/
+.cache/
+coverage/
+*.log
+.env
+.env.*
+!.env.example
+__pycache__/

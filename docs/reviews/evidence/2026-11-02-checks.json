@@ -1,0 +1,258 @@
+{
+  "review_date": "2026-11-02",
+  "repository_commit": "c67fbf8c6805b4586ad2288caecd3fcc96eb7cc1",
+  "sqlite_version": "3.53.1",
+  "source_documents": [
+    {
+      "path": "docs/design/Codex_Core_桌面Codex_Personal_Dot_技术方案与开发路线_v1.1.md",
+      "sha256": "366725e35c35e9b30d43271d2f30dfcd525ff3d7c8e22602e76bb8612ebf246e",
+      "lines": 2391
+    },
+    {
+      "path": "docs/design/Codex_Dot_动态SystemPrompt与ComputerUse完整集成_子系统技术设计_v1.1.md",
+      "sha256": "9325b7a6a85122ffb3293c396b3fa7551773b45538d89f3fbdf1818f09c0cb03",
+      "lines": 1952
+    },
+    {
+      "path": "docs/design/Dot_单一主对话与多任务上下文管理_子系统技术设计_v1.1.md",
+      "sha256": "f910df3513fe537b768d6262866aeb2e10ea10cf0e8447c1dbd7b61c8e7c2898",
+      "lines": 1975
+    },
+    {
+      "path": "docs/design/muse类personal agent产品和技术总结.md",
+      "sha256": "30cd46e6cc6c5ed9eabf2ea528763d7f3c864969d6ae8c61fbe2f7f4ae3d40d3",
+      "lines": 1456
+    },
+    {
+      "path": "docs/design/复原的技术架构设计文档.md",
+      "sha256": "025cdbbfd544ab016391449af5c62b5c319bdbad45cca1bf5a9492a9c1413872",
+      "lines": 2832
+    }
+  ],
+  "checks": [
+    {
+      "id": "E01",
+      "observation": "Main SQLite example initializes independently."
+    },
+    {
+      "id": "E02",
+      "observation": "Context SQLite example initializes independently."
+    },
+    {
+      "id": "E03",
+      "observation": "Concatenating the two examples is not a migration.",
+      "sqlite_error": "no such column: dot_id"
+    },
+    {
+      "id": "E04",
+      "observation": "Prose RESUMING state is not accepted by the context tasks CHECK.",
+      "sqlite_error": "CHECK constraint failed: status IN (\n      'created','queued','running','waiting_input','waiting_approval',\n      'waiting_trigger','paused','completed','failed','cancelled',\n      'outcome_unknown'\n    )"
+    },
+    {
+      "id": "E05",
+      "observation": "Context schema alone permits two running rows for one task and trigger.",
+      "rows": 2,
+      "limitation": "This does not execute or disprove a future service-level claim transaction."
+    },
+    {
+      "id": "E06",
+      "observation": "Incremental schema permits an assignment referencing a nonexistent task.",
+      "foreign_keys_enabled": 1
+    },
+    {
+      "id": "E07",
+      "observation": "Key columns diverge between the two examples.",
+      "main": {
+        "tasks": [
+          "task_id",
+          "goal_id",
+          "title",
+          "description",
+          "status",
+          "priority",
+          "version",
+          "current_run_id",
+          "context_summary",
+          "next_wake_at",
+          "created_at",
+          "updated_at"
+        ],
+        "task_runs": [
+          "run_id",
+          "task_id",
+          "codex_thread_id",
+          "codex_turn_id",
+          "attempt",
+          "status",
+          "trigger_kind",
+          "idempotency_key",
+          "lease_owner",
+          "lease_expires_at",
+          "fencing_token",
+          "started_at",
+          "finished_at",
+          "result_ref"
+        ],
+        "task_events": [
+          "event_id",
+          "task_id",
+          "sequence",
+          "event_type",
+          "correlation_id",
+          "causation_id",
+          "payload_json",
+          "occurred_at"
+        ]
+      },
+      "context": {
+        "tasks": [
+          "task_id",
+          "dot_id",
+          "goal_id",
+          "parent_task_id",
+          "title",
+          "aliases_json",
+          "summary",
+          "constraints_json",
+          "criteria_json",
+          "status",
+          "version",
+          "active_run_id",
+          "current_thread_id",
+          "last_user_mentioned_at",
+          "created_at",
+          "updated_at"
+        ],
+        "task_runs": [
+          "run_id",
+          "task_id",
+          "trigger_id",
+          "task_snapshot_version",
+          "codex_thread_id",
+          "codex_turn_id",
+          "status",
+          "lease_owner",
+          "lease_epoch",
+          "lease_until",
+          "started_at",
+          "finished_at",
+          "result_ref"
+        ],
+        "task_events": [
+          "event_id",
+          "task_id",
+          "run_id",
+          "event_type",
+          "causation_id",
+          "correlation_id",
+          "task_version",
+          "payload_json",
+          "created_at"
+        ]
+      }
+    },
+    {
+      "id": "E08",
+      "observation": "Applying the documented item tuple as event deduplication loses legitimate deltas.",
+      "expected_text": "aab",
+      "observed_text": "a",
+      "limitation": "This is a literal-rule simulation, not a test of application code."
+    },
+    {
+      "id": "E09",
+      "observation": "Local codex-cli 0.163.0 protocol generated in stable and experimental modes.",
+      "developerInstructions": [
+        "thread/start",
+        "thread/resume"
+      ],
+      "developerInstructions_on_turn_start": false,
+      "dynamicTools_on_thread_start": "experimental output only",
+      "initialize_response_supportedMethods": false,
+      "delta_fields": [
+        "threadId",
+        "turnId",
+        "itemId",
+        "delta"
+      ],
+      "limitation": "Generated types establish schema shape, not server behavior or model availability."
+    }
+  ],
+  "application_tests_executed": false,
+  "upstream_observations": [
+    {
+      "repository": "openai/codex",
+      "branch": "main",
+      "commit": "3026a8e54e0f48c4d8074cd700f35b0697abc329",
+      "scope": "App Server README downloaded; this SHA is not established as the installed binary source"
+    },
+    {
+      "repository": "deepseek-ai/dsh-superagent-prototype",
+      "branch": "main",
+      "commit": "6337fc823ce20251c8de8085948165c81aaa701e",
+      "scope": "README and docs/001,002,003,007 downloaded; not built or run"
+    },
+    {
+      "repository": "deepseek-ai/deepseek-harness",
+      "branch": "master",
+      "commit": "ce7073d51254c26cd63b22a60835b8f948deb447",
+      "scope": "Read-only HEAD and default branch verification only"
+    }
+  ],
+  "local_protocol_observation": {
+    "cli_version": "codex-cli 0.163.0",
+    "generation_modes": [
+      "stable",
+      "--experimental"
+    ],
+    "selected_file_hashes": [
+      {
+        "file": "stable/InitializeCapabilities.ts",
+        "sha256": "dee58273861971585e0615804eaf50ba4690cd4846f02ed352ed211887a022a5"
+      },
+      {
+        "file": "stable/InitializeResponse.ts",
+        "sha256": "4feabcb66d4bf01869d2780beaec1838d41b30213cdf57de175298aed01f5379"
+      },
+      {
+        "file": "stable/v2/ThreadStartParams.ts",
+        "sha256": "0303dcced2de5d056ba552a810dde3cf5d5cf699da9353abdfc788599829881c"
+      },
+      {
+        "file": "stable/v2/ThreadResumeParams.ts",
+        "sha256": "ceeedf2cfda691faf97432ee29135837f4cc0e7a9f3e9dc97db2379c63f73aa4"
+      },
+      {
+        "file": "stable/v2/TurnStartParams.ts",
+        "sha256": "abaede48b0df0c0c597dc120331b88558bf000630ddca49901cf015208bfff08"
+      },
+      {
+        "file": "stable/v2/AgentMessageDeltaNotification.ts",
+        "sha256": "bb538862f093bd22278bea3b3343037525a9218fbddef534e37e048347c10805"
+      },
+      {
+        "file": "experimental/InitializeCapabilities.ts",
+        "sha256": "dee58273861971585e0615804eaf50ba4690cd4846f02ed352ed211887a022a5"
+      },
+      {
+        "file": "experimental/InitializeResponse.ts",
+        "sha256": "4feabcb66d4bf01869d2780beaec1838d41b30213cdf57de175298aed01f5379"
+      },
+      {
+        "file": "experimental/v2/ThreadStartParams.ts",
+        "sha256": "dc8bebec4181a5502fc141b0122cc48e066b3b5c77d9fd2a4de875fcd6d66a68"
+      },
+      {
+        "file": "experimental/v2/ThreadResumeParams.ts",
+        "sha256": "6ea6561448792277f9b52ac9d920d71ef8c9be6e43621ee6329fb948329e8ff7"
+      },
+      {
+        "file": "experimental/v2/TurnStartParams.ts",
+        "sha256": "849401f5c04842391cb2838c5bfa315b92c6ce85a059a8f032201ce83baa07ed"
+      },
+      {
+        "file": "experimental/v2/AgentMessageDeltaNotification.ts",
+        "sha256": "bb538862f093bd22278bea3b3343037525a9218fbddef534e37e048347c10805"
+      }
+    ]
+  }
+}

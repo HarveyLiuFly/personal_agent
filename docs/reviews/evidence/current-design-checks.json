@@ -1,0 +1,139 @@
+{
+  "scope": "Design SQL constraints, DTO consistency and documented conditional statements only.",
+  "sqlite_version": "3.53.1",
+  "checks": [
+    {
+      "check": "single_schema_initialization_and_foreign_keys",
+      "status": "passed"
+    },
+    {
+      "check": "sql_typescript_status_consistency",
+      "status": "passed"
+    },
+    {
+      "check": "task_transition_guards_shape",
+      "status": "passed"
+    },
+    {
+      "check": "single_active_run_and_nonreused_fence",
+      "status": "passed"
+    },
+    {
+      "check": "orphan_and_cross_dot_references_rejected",
+      "status": "passed"
+    },
+    {
+      "check": "stale_fence_cas_rejected",
+      "status": "passed"
+    },
+    {
+      "check": "stop_requested_task_blocks_new_claims",
+      "status": "passed"
+    },
+    {
+      "check": "task_event_sequence_and_run_scope",
+      "status": "passed"
+    },
+    {
+      "check": "active_thread_and_workspace_writer_uniqueness",
+      "status": "passed"
+    },
+    {
+      "check": "intent_ordering_and_idempotency",
+      "status": "passed"
+    },
+    {
+      "check": "per_operation_identity_and_dependency",
+      "status": "passed"
+    },
+    {
+      "check": "immutable_source_and_per_task_delivery",
+      "status": "passed"
+    },
+    {
+      "check": "occurrence_dedup_and_schedule_version_guard",
+      "status": "passed"
+    },
+    {
+      "check": "single_use_hash_bound_action_receipt",
+      "status": "passed"
+    },
+    {
+      "check": "budget_admission_and_actual_overrun_accounting",
+      "status": "passed"
+    },
+    {
+      "check": "privacy_tombstone_dependency_lookup",
+      "status": "passed"
+    },
+    {
+      "check": "stage_document_navigation_requirements_and_protocol_evidence",
+      "status": "passed"
+    }
+  ],
+  "passed": 17,
+  "application_e2e_executed": false,
+  "runtime_security_verified": false,
+  "files": [
+    {
+      "path": "docs/design/00_总体架构与开发规划.md",
+      "sha256": "da655a6ef6ce1ce9c53252c23b099b4e389ab06c8efb4eae2e7886ba9b26eb6e"
+    },
+    {
+      "path": "docs/design/01_M0_M1_Codex接入与桌面交互.md",
+      "sha256": "3fb9b3a6be5faff45b31932ba48ebccce9059b66ff3f9382362c5eb097ea17d0"
+    },
+    {
+      "path": "docs/design/02_M2_工作台与持久执行.md",
+      "sha256": "4d146d8670645c0798b501a18babf7dff92cc486f1ee60525e3df110db1c74ef"
+    },
+    {
+      "path": "docs/design/03_M3_单主聊天_上下文与个人记忆.md",
+      "sha256": "410180921bb7d1c559b4ce5fd121a78f15af67c3a3ba57cef9f2cf4c314c5863"
+    },
+    {
+      "path": "docs/design/04_M2_M3_事件调度与长期自治.md",
+      "sha256": "9af5f383ce9f617beb7b78771a2dbf553dc6a0e0c1cae66986889d95d6bba513"
+    },
+    {
+      "path": "docs/design/05_M2_M3_可信执行与ComputerUse.md",
+      "sha256": "68876b22aa433cea62c9a35e094a32b65c3d69dddeb8e2341c56d4138a021959"
+    },
+    {
+      "path": "docs/design/06_M4_M5_多设备与产品化.md",
+      "sha256": "1aae09c73bffc666faed27246a90215628dd6b8102c6d6d4d580efd1a9c68ade"
+    },
+    {
+      "path": "docs/design/07_可选_DeepSeek执行器适配.md",
+      "sha256": "ce715ab6acf0b930710f2469cb32d8eb24e0b14fedb7a870c208e91e9d599048"
+    },
+    {
+      "path": "docs/design/contracts/schema.sql",
+      "sha256": "0a8f8308ab64e862810917626f8c1ddfe9047935ed0fe622fae5ad1972f850c8"
+    },
+    {
+      "path": "docs/design/contracts/domain.ts",
+      "sha256": "80f670f364562f0c91430b8114b96430cea2dd9aa7cf8c96d602b30c23b29c5f"
+    },
+    {
+      "path": "docs/design/contracts/protocol-capabilities.json",
+      "sha256": "4f8d0b2b52ecf32112ab38f59fea9917a370647b52f99d068e556709368ed13d"
+    },
+    {
+      "path": "docs/design/contracts/validate_contracts.py",
+      "sha256": "9c42a5e7974e0d88ba1513419898a2648b1d9cf7d28e0013b676a4686840ab99"
+    }
+  ],
+  "typescript_validation": {
+    "syntax": "passed",
+    "typecheck": "not_executed",
+    "command": "node --experimental-strip-types docs/design/contracts/domain.ts",
+    "file_unchanged_since_syntax_check": true
+  },
+  "validated_date": "2026-11-02",
+  "documentation_organization": {
+    "overview": "docs/design/00_总体架构与开发规划.md",
+    "technical_documents": 7,
+    "verification_scope": "Requirements only; detailed cases, fixtures and runners are to be planned alongside actual feature development."
+  }
+}

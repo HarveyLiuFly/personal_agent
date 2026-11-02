@@ -1,0 +1,15 @@
+:root { color-scheme: dark; font-family: Inter, ui-sans-serif, system-ui, sans-serif; color: #e8edf7; background: #0c1221; }
+* { box-sizing: border-box; }
+body { margin: 0; }
+main { max-width: 920px; margin: 0 auto; padding: 80px 40px; }
+.eyebrow { font-size: 12px; letter-spacing: .18em; color: #7edbc9; }
+h1 { font-size: 48px; letter-spacing: -.04em; margin: 16px 0; font-weight: 650; }
+p { color: #a5b2c8; line-height: 1.8; }
+.card { margin-top: 44px; padding: 32px; border: 1px solid #283449; border-radius: 18px; background: #121c2e; }
+h2 { margin-top: 0; font-size: 22px; }
+.actions { display: flex; gap: 12px; margin: 24px 0; }
+button { background: #a2eedc; color: #092d2a; border: 1px solid #a2eedc; border-radius: 9px; padding: 11px 20px; font: inherit; cursor: pointer; }
+button.secondary { background: transparent; color: #e8edf7; border-color: #42516b; }
+button:disabled { opacity: .5; cursor: wait; }
+pre { white-space: pre-wrap; overflow-wrap: anywhere; background: #0c1221; border-radius: 8px; padding: 16px; }
+footer { margin-top: 32px; color: #708098; font-size: 13px; }

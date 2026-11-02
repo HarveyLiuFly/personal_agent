@@ -1,0 +1,82 @@
+TAP version 13
+# Subtest: out-of-order responses retain the correct request identity
+ok 1 - out-of-order responses retain the correct request identity
+  ---
+  duration_ms: 85.715031
+  type: 'test'
+  ...
+# Subtest: server request with a colliding numeric ID is denied without resolving the client request
+ok 2 - server request with a colliding numeric ID is denied without resolving the client request
+  ---
+  duration_ms: 84.595481
+  type: 'test'
+  ...
+# Subtest: an unsupported server request fails closed
+ok 3 - an unsupported server request fails closed
+  ---
+  duration_ms: 79.550489
+  type: 'test'
+  ...
+# Subtest: UTF-8 frames split inside a code point preserve repeated text
+ok 4 - UTF-8 frames split inside a code point preserve repeated text
+  ---
+  duration_ms: 92.357419
+  type: 'test'
+  ...
+# Subtest: malformed input closes the connection and rejects pending execution as unknown
+ok 5 - malformed input closes the connection and rejects pending execution as unknown
+  ---
+  duration_ms: 79.724975
+  type: 'test'
+  ...
+# Subtest: oversize input closes the connection and rejects pending execution as unknown
+ok 6 - oversize input closes the connection and rejects pending execution as unknown
+  ---
+  duration_ms: 82.190244
+  type: 'test'
+  ...
+# Subtest: utf8 input closes the connection and rejects pending execution as unknown
+ok 7 - utf8 input closes the connection and rejects pending execution as unknown
+  ---
+  duration_ms: 87.092316
+  type: 'test'
+  ...
+# Subtest: a response deadline does not automatically resubmit an uncertain request
+ok 8 - a response deadline does not automatically resubmit an uncertain request
+  ---
+  duration_ms: 131.193589
+  type: 'test'
+  ...
+# Subtest: process exit rejects all outstanding requests and is not a successful empty result
+ok 9 - process exit rejects all outstanding requests and is not a successful empty result
+  ---
+  duration_ms: 81.363081
+  type: 'test'
+  ...
+# Subtest: closed clients reject new work and cleanup can be awaited more than once
+ok 10 - closed clients reject new work and cleanup can be awaited more than once
+  ---
+  duration_ms: 90.087488
+  type: 'test'
+  ...
+# Subtest: owner cancellation rejects pending work and waits for its child process to stop
+ok 11 - owner cancellation rejects pending work and waits for its child process to stop
+  ---
+  duration_ms: 78.652888
+  type: 'test'
+  ...
+# Subtest: the trusted runtime preserves injected guards but excludes unrelated application secrets
+ok 12 - the trusted runtime preserves injected guards but excludes unrelated application secrets
+  ---
+  duration_ms: 0.707446
+  type: 'test'
+  ...
+1..12
+# tests 12
+# suites 0
+# pass 12
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1107.332529
