@@ -32,6 +32,7 @@ try {
   } finally { clearTimeout(timer); clearTimeout(killTimer); }
   const current = JSON.parse(await readFile(file, 'utf8'));
   evidence = { ...current, observedAt: new Date().toISOString(), display: display.kind, ...outcome, timedOut,
+    platform: `${process.platform}-${process.arch}`,
     status: outcome.exitCode === 0 && current.status === 'passed' && current.result ? 'passed' : 'blocked' };
   if (evidence.status !== 'passed') evidence.code = 'ELECTRON_VALIDATION_FAILED';
 } catch (error) {

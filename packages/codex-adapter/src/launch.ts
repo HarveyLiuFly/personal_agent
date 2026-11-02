@@ -1,5 +1,4 @@
-import { createHash } from 'node:crypto';
-import { readFileSync, realpathSync, statSync, mkdirSync } from 'node:fs';
+import { realpathSync, statSync, mkdirSync } from 'node:fs';
 import { delimiter, join, resolve } from 'node:path';
 
 export function resolveExecutable(name: string): string {
@@ -9,12 +8,6 @@ export function resolveExecutable(name: string): string {
     try { if (statSync(file).isFile()) return realpathSync(file); } catch {}
   }
   throw new Error('CODEX_EXECUTABLE_MISSING');
-}
-
-export function verifyExecutable(executable: string, expectedSha256: string): void {
-  if (createHash('sha256').update(readFileSync(executable)).digest('hex') !== expectedSha256) {
-    throw new Error('CODEX_BINARY_MISMATCH');
-  }
 }
 
 /** Preserve injected authentication/proxy guards for the trusted Runtime; no values are logged. */

@@ -1,0 +1,29 @@
+{
+  "status": "passed",
+  "observedAt": "2026-11-02T14:57:00.361Z",
+  "cliVersion": "codex-cli 0.163.0",
+  "platform": "darwin-arm64",
+  "kind": "real_app_server_empty_history_probe",
+  "isolatedCodexHome": true,
+  "copiedCredentials": false,
+  "inferenceRequested": false,
+  "threadId": "01a19cc3-7f21-7ab2-9e11-31b74651844b",
+  "verifiedMethods": [
+    "initialize",
+    "initialized",
+    "thread/start",
+    "thread/read",
+    "thread/list",
+    "thread/turns/list",
+    "thread/items/list"
+  ],
+  "observations": {
+    "syntheticItemsInjected": true,
+    "historyMode": "paginated",
+    "listedThreads": 0,
+    "pagedTurns": 0,
+    "pagedItems": 0,
+    "browserThreadsAfterRestart": 0
+  },
+  "scope": "Empty local fixture metadata and empty history pages only; does not verify model inference or populated history recovery."
+}

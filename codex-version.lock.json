@@ -1,8 +1,19 @@
 {
   "cliVersion": "codex-cli 0.163.0",
-  "executableSha256": "399ff69c431c066e40de318fba45c2b07f45a76b19939d247ee4828fc70c4215",
   "sourceCommit": null,
   "generationMode": "stable",
   "generatedTypes": 747,
-  "schemaFingerprint": "d3bb2d6b3aba976aecaa62eab4f0496f3cccd4bfc5b355190b23bd14c1bb545c"
+  "schemaFingerprint": "d3bb2d6b3aba976aecaa62eab4f0496f3cccd4bfc5b355190b23bd14c1bb545c",
+  "platforms": {
+    "linux-x64": {
+      "executableSha256": "399ff69c431c066e40de318fba45c2b07f45a76b19939d247ee4828fc70c4215",
+      "source": "Existing reviewed Linux x86_64 CLI 0.163.0 baseline; source commit unknown.",
+      "protocolEvidence": "docs/progress/evidence/M0-protocol-verification.txt"
+    },
+    "darwin-arm64": {
+      "executableSha256": "8813367285524ac798dd96d1b071aea30d58708c7226fd236cd275cf1cfdee31",
+      "source": "https://registry.npmjs.org/@openai/codex/-/codex-0.163.0-darwin-arm64.tgz",
+      "protocolEvidence": "docs/progress/evidence/M0-local-platform-schema.json"
+    }
+  }
 }

@@ -270,6 +270,25 @@ def check_document_and_matrix():
     package_ids = re.findall(r'\| M[^|]* / ([A-Z]+-\d+) \|', text)
     require(len(package_ids) == len(set(package_ids)), 'Repeated milestone package ID')
     matrix = json.loads((HERE / 'protocol-capabilities.json').read_text())
+    lock = json.loads((ROOT / matrix['binary_lock']).read_text())
+    require(lock['cliVersion'] == matrix['cli_version'], 'Binary lock and matrix versions differ')
+    require('linux-x64' in lock['platforms'], 'Original Linux binary baseline lost')
+    for pin in lock['platforms'].values():
+        require(re.fullmatch(r'[0-9a-f]{64}', pin['executableSha256']) is not None, 'Invalid binary pin')
+        require((ROOT / pin['protocolEvidence']).is_file(), 'Missing platform protocol evidence')
+    for platform, path in matrix.get('platform_schema_evidence', {}).items():
+        evidence = json.loads((ROOT / path).read_text())
+        require(evidence['status'] == 'passed' and evidence['platform'] == platform, 'Platform schema not verified')
+        require(evidence['cliVersion'] == lock['cliVersion'], 'Platform CLI version differs')
+        require(evidence['executableSha256'] == lock['platforms'][platform]['executableSha256'], 'Platform binary differs')
+        require(evidence['schemaFingerprint'] == lock['schemaFingerprint'], 'Platform schema differs')
+    for platform, paths in matrix.get('platform_runtime_evidence', {}).items():
+        require(platform in lock['platforms'], 'Runtime platform is not pinned')
+        for path in paths:
+            evidence = json.loads((ROOT / path).read_text())
+            require(evidence['status'] == 'passed' and evidence['platform'] == platform, 'Platform runtime did not pass')
+            require(evidence['cliVersion'] == lock['cliVersion'], 'Platform runtime CLI differs')
+            require(bool(evidence.get('verifiedMethods')), 'Platform runtime has no verified methods')
     require(all(x['schema_observed'] for x in matrix['methods'] if x['requirement']=='required'), 'Required schema is unavailable')
     for method in matrix['methods']:
         status = method['runtime_verification']

@@ -1,9 +1,8 @@
 {
   "observed_at": "2026-11-02",
   "cli_version": "codex-cli 0.163.0",
-  "executable_sha256": "399ff69c431c066e40de318fba45c2b07f45a76b19939d247ee4828fc70c4215",
   "binary_source_commit": null,
-  "evidence_scope": "Pinned generated schema plus scoped native probes. Handshake/catalog passed; thread/start/read/list and history paging passed only for isolated local metadata and empty pages. Populated model history, inference, approvals and recovery still require their own runtime gates.",
+  "evidence_scope": "Per-method evidence is platform-scoped: legacy evidence without a platform field is Linux x86_64. macOS arm64 schema, catalog and empty local history probes are recorded separately. No inference or populated history/recovery claim from metadata probes.",
   "methods": [
     {
       "method": "initialize",
@@ -255,5 +254,15 @@
       "file": "v2/AgentMessageDeltaNotification.ts",
       "sha256": "bb538862f093bd22278bea3b3343037525a9218fbddef534e37e048347c10805"
     }
-  ]
+  ],
+  "binary_lock": "codex-version.lock.json",
+  "platform_schema_evidence": {
+    "darwin-arm64": "docs/progress/evidence/M0-local-platform-schema.json"
+  },
+  "platform_runtime_evidence": {
+    "darwin-arm64": [
+      "docs/progress/evidence/M0-catalog-probe-darwin-arm64.json",
+      "docs/progress/evidence/M1.1b-native-history-darwin-arm64.json"
+    ]
+  }
 }

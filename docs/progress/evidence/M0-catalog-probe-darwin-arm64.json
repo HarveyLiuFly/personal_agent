@@ -1,0 +1,14 @@
+{
+  "status": "passed",
+  "observedAt": "2026-11-02T14:56:58.958Z",
+  "kind": "real_app_server_catalog_probe",
+  "cliVersion": "codex-cli 0.163.0",
+  "platform": "darwin-arm64",
+  "verifiedMethods": [
+    "initialize",
+    "initialized",
+    "model/list"
+  ],
+  "models": 8,
+  "defaultModel": "gpt-6.1-sol"
+}

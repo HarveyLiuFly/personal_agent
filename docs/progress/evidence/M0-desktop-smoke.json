@@ -1,5 +1,5 @@
 {
-  "observedAt": "2026-11-02T14:19:21.590Z",
+  "observedAt": "2026-11-02T14:58:18.543Z",
   "kind": "real_electron_window_smoke",
   "status": "passed",
   "browserSandbox": "enabled",
@@ -25,8 +25,9 @@
     },
     "uiConnected": true
   },
-  "display": "authenticated_xvfb",
+  "display": "native_desktop",
   "exitCode": 0,
   "signal": null,
-  "timedOut": false
+  "timedOut": false,
+  "platform": "darwin-arm64"
 }

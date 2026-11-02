@@ -1,10 +1,11 @@
 import { app, BrowserWindow, ipcMain, dialog } from 'electron';
-import { readFileSync, mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { mkdtemp, mkdir, rm } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { inspectConnection, runRealSmoke } from '../../../packages/codex-adapter/src/smoke.ts';
-import { resolveExecutable, verifyExecutable } from '../../../packages/codex-adapter/src/launch.ts';
+import { resolveExecutable } from '../../../packages/codex-adapter/src/launch.ts';
+import { verifiedCodex } from '../../../packages/codex-adapter/src/binary.ts';
 import { RpcFailure, StdioRpcClient } from '../../../packages/codex-adapter/src/rpc.ts';
 import { HistoryBrowser } from '../../../packages/codex-adapter/src/history.ts';
 import type { ReadPort } from '../../../packages/codex-adapter/src/history.ts';
@@ -31,10 +32,7 @@ function authorized(event: Electron.IpcMainInvokeEvent): void {
       || event.senderFrame.url !== documentUrl) throw new Error('UNAUTHORIZED_IPC');
 }
 function executable(): string {
-  const binary = resolveExecutable('codex');
-  const lock = JSON.parse(readFileSync(resolve(root, 'codex-version.lock.json'), 'utf8')) as { executableSha256: string };
-  verifyExecutable(binary, lock.executableSha256);
-  return binary;
+  return verifiedCodex(root).executable;
 }
 async function historyCommand<T>(event: Electron.IpcMainInvokeEvent, args: unknown[], count: number, operation: () => Promise<T>): Promise<HostResult<T>> {
   authorized(event);

@@ -2,6 +2,8 @@
 
 交接日期：2026-11-02（Asia/Shanghai）。用户决定停止在当前云环境中推进，改用本地电脑的 Codex 继续开发。本文件是接手入口，详细执行历史保留在阶段记录中。
 
+本机后续状态以[本机平台接续](LOCAL_BASELINE.md)与[阶段总览](README.md)为准：macOS arm64 平台子项已完成，原云交接事实保留在本文；M0.3 正待本机实际模型验收。
+
 ## 1. Git 与交付范围
 
 - 仓库：`https://github.com/HarveyLiuFly/personal_agent`，远程分支 `main`。

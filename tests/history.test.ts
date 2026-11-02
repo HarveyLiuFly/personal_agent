@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, rm, symlink, rename } from 'node:fs/promises';
+import { mkdtemp, mkdir, rm, symlink, rename, realpath } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { HistoryBrowser } from '../packages/codex-adapter/src/history.ts';
@@ -9,7 +9,9 @@ import { RpcFailure } from '../packages/codex-adapter/src/rpc.ts';
 
 type Override = (method: string, params: Record<string, unknown>, normal: unknown) => unknown;
 async function fixture(t: { after(fn: () => Promise<void>): void }, override?: Override, mode = 'paginated') {
-  const directory = await mkdtemp(join(tmpdir(), 'personal-agent-history-test-'));
+  // macOS tmpdir can itself be a /var -> /private/var symlink. Backend fixtures
+  // must use the canonical cwd that the Host actually grants.
+  const directory = await realpath(await mkdtemp(join(tmpdir(), 'personal-agent-history-test-')));
   t.after(() => rm(directory, { recursive: true, force: true }));
   const root = join(directory, 'project'); const other = join(directory, 'other'); await mkdir(root); await mkdir(other);
   const calls: Array<{ method: string; params: Record<string, unknown> }> = [];

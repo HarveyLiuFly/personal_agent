@@ -1,6 +1,6 @@
 {
   "status": "passed",
-  "observedAt": "2026-11-02T14:18:46.428Z",
+  "observedAt": "2026-11-02T14:58:36.925Z",
   "kind": "real_electron_with_local_rpc_fixture",
   "backend": "synthetic_stdio_fixture",
   "folderDialogSelection": "fixed_fixture_substitution",
@@ -23,8 +23,9 @@
     "sendingDisabled": true,
     "paginationWorked": true
   },
-  "display": "authenticated_xvfb",
+  "display": "native_desktop",
   "exitCode": 0,
   "signal": null,
-  "timedOut": false
+  "timedOut": false,
+  "platform": "darwin-arm64"
 }

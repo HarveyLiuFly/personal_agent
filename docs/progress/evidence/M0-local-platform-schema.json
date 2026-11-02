@@ -1,0 +1,135 @@
+{
+  "status": "passed",
+  "observedAt": "2026-11-02T14:55:40.022377+00:00",
+  "kind": "native_platform_schema_comparison",
+  "platform": "darwin-arm64",
+  "cliVersion": "codex-cli 0.163.0",
+  "executableSha256": "8813367285524ac798dd96d1b071aea30d58708c7226fd236cd275cf1cfdee31",
+  "schemaFingerprint": "d3bb2d6b3aba976aecaa62eab4f0496f3cccd4bfc5b355190b23bd14c1bb545c",
+  "generatedTypes": 747,
+  "stableFilesCompared": 747,
+  "changedFiles": [],
+  "experimentalPinnedFilesCompared": 8,
+  "pinnedFileComparisons": [
+    {
+      "mode": "stable",
+      "file": "ClientRequest.ts",
+      "expectedSha256": "7a2f5a78ca401473fab1cdeb7fd43fe9e3e2c6ad49a52a1a70ea7e4983b69e22",
+      "actualSha256": "7a2f5a78ca401473fab1cdeb7fd43fe9e3e2c6ad49a52a1a70ea7e4983b69e22"
+    },
+    {
+      "mode": "stable",
+      "file": "ClientNotification.ts",
+      "expectedSha256": "96692c191ff9ac32c2688b46a0a04f23d15646937adc352f2adcc8211c6d17a0",
+      "actualSha256": "96692c191ff9ac32c2688b46a0a04f23d15646937adc352f2adcc8211c6d17a0"
+    },
+    {
+      "mode": "stable",
+      "file": "InitializeCapabilities.ts",
+      "expectedSha256": "dee58273861971585e0615804eaf50ba4690cd4846f02ed352ed211887a022a5",
+      "actualSha256": "dee58273861971585e0615804eaf50ba4690cd4846f02ed352ed211887a022a5"
+    },
+    {
+      "mode": "stable",
+      "file": "InitializeResponse.ts",
+      "expectedSha256": "4feabcb66d4bf01869d2780beaec1838d41b30213cdf57de175298aed01f5379",
+      "actualSha256": "4feabcb66d4bf01869d2780beaec1838d41b30213cdf57de175298aed01f5379"
+    },
+    {
+      "mode": "stable",
+      "file": "v2/ThreadStartParams.ts",
+      "expectedSha256": "0303dcced2de5d056ba552a810dde3cf5d5cf699da9353abdfc788599829881c",
+      "actualSha256": "0303dcced2de5d056ba552a810dde3cf5d5cf699da9353abdfc788599829881c"
+    },
+    {
+      "mode": "stable",
+      "file": "v2/ThreadResumeParams.ts",
+      "expectedSha256": "ceeedf2cfda691faf97432ee29135837f4cc0e7a9f3e9dc97db2379c63f73aa4",
+      "actualSha256": "ceeedf2cfda691faf97432ee29135837f4cc0e7a9f3e9dc97db2379c63f73aa4"
+    },
+    {
+      "mode": "stable",
+      "file": "v2/TurnStartParams.ts",
+      "expectedSha256": "abaede48b0df0c0c597dc120331b88558bf000630ddca49901cf015208bfff08",
+      "actualSha256": "abaede48b0df0c0c597dc120331b88558bf000630ddca49901cf015208bfff08"
+    },
+    {
+      "mode": "stable",
+      "file": "v2/AgentMessageDeltaNotification.ts",
+      "expectedSha256": "bb538862f093bd22278bea3b3343037525a9218fbddef534e37e048347c10805",
+      "actualSha256": "bb538862f093bd22278bea3b3343037525a9218fbddef534e37e048347c10805"
+    },
+    {
+      "mode": "experimental",
+      "file": "ClientRequest.ts",
+      "expectedSha256": "9ff8dcc6e37782a0d95cddf329e0b29a6f5e834f005cfa4f21c77a564e10e40b",
+      "actualSha256": "9ff8dcc6e37782a0d95cddf329e0b29a6f5e834f005cfa4f21c77a564e10e40b"
+    },
+    {
+      "mode": "experimental",
+      "file": "ClientNotification.ts",
+      "expectedSha256": "96692c191ff9ac32c2688b46a0a04f23d15646937adc352f2adcc8211c6d17a0",
+      "actualSha256": "96692c191ff9ac32c2688b46a0a04f23d15646937adc352f2adcc8211c6d17a0"
+    },
+    {
+      "mode": "experimental",
+      "file": "InitializeCapabilities.ts",
+      "expectedSha256": "dee58273861971585e0615804eaf50ba4690cd4846f02ed352ed211887a022a5",
+      "actualSha256": "dee58273861971585e0615804eaf50ba4690cd4846f02ed352ed211887a022a5"
+    },
+    {
+      "mode": "experimental",
+      "file": "InitializeResponse.ts",
+      "expectedSha256": "4feabcb66d4bf01869d2780beaec1838d41b30213cdf57de175298aed01f5379",
+      "actualSha256": "4feabcb66d4bf01869d2780beaec1838d41b30213cdf57de175298aed01f5379"
+    },
+    {
+      "mode": "experimental",
+      "file": "v2/ThreadStartParams.ts",
+      "expectedSha256": "dc8bebec4181a5502fc141b0122cc48e066b3b5c77d9fd2a4de875fcd6d66a68",
+      "actualSha256": "dc8bebec4181a5502fc141b0122cc48e066b3b5c77d9fd2a4de875fcd6d66a68"
+    },
+    {
+      "mode": "experimental",
+      "file": "v2/ThreadResumeParams.ts",
+      "expectedSha256": "6ea6561448792277f9b52ac9d920d71ef8c9be6e43621ee6329fb948329e8ff7",
+      "actualSha256": "6ea6561448792277f9b52ac9d920d71ef8c9be6e43621ee6329fb948329e8ff7"
+    },
+    {
+      "mode": "experimental",
+      "file": "v2/TurnStartParams.ts",
+      "expectedSha256": "849401f5c04842391cb2838c5bfa315b92c6ce85a059a8f032201ce83baa07ed",
+      "actualSha256": "849401f5c04842391cb2838c5bfa315b92c6ce85a059a8f032201ce83baa07ed"
+    },
+    {
+      "mode": "experimental",
+      "file": "v2/AgentMessageDeltaNotification.ts",
+      "expectedSha256": "bb538862f093bd22278bea3b3343037525a9218fbddef534e37e048347c10805",
+      "actualSha256": "bb538862f093bd22278bea3b3343037525a9218fbddef534e37e048347c10805"
+    }
+  ],
+  "officialPackages": [
+    {
+      "name": "@openai/codex",
+      "version": "0.163.0",
+      "resolved": "https://registry.npmjs.org/@openai/codex/-/codex-0.163.0.tgz",
+      "integrity": "sha512-HNd7vR9oTK6M2ikxFnvNDCdYUgAsyo9VVnd5KnEd2ON0GYI++7MiX9XNPUkhtdgGKFPsWS+CEppQ1UU63uVhUw=="
+    },
+    {
+      "name": "@openai/codex-darwin-arm64",
+      "version": "0.163.0-darwin-arm64",
+      "resolved": "https://registry.npmjs.org/@openai/codex/-/codex-0.163.0-darwin-arm64.tgz",
+      "integrity": "sha512-i7Dzk2a5aGmuGM9aNZgaUVTojZ/4bc5lRfosz++Y7X2BGhDkz+cySgbD+NYS1pOxfm0VEbLi9PZ3pAulI4kchw=="
+    }
+  ],
+  "sourceCommit": null,
+  "authentication": "supported local ChatGPT login status; no credential file read or copied",
+  "toolchain": {
+    "node": "24.19.0",
+    "pnpm": "11.25.0",
+    "python": "3.14.4",
+    "nodeDistribution": "https://nodejs.org/dist/v24.19.0/node-v24.19.0-darwin-arm64.tar.gz",
+    "nodeArchiveSha256": "8294b7aa9b03997481c06babf1e8b270c859358f27da57a11509afe537ac381d"
+  },
+  "scope": "Schema compatibility only; runtime/inference/desktop evidence recorded separately."
+}

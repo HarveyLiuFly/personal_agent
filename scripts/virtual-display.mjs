@@ -17,6 +17,11 @@ function executable(root, name) {
 
 /** Uses an existing display or an authenticated, local-only Xvfb owned by this invocation. */
 export async function openDisplay(root) {
+  // Native desktop platforms do not use DISPLAY or X11 dependencies.
+  if (process.platform === 'darwin' || process.platform === 'win32') {
+    return { env: process.env, kind: 'native_desktop', close: async () => {} };
+  }
+  if (process.platform !== 'linux') throw new Error('DISPLAY_PLATFORM_UNSUPPORTED');
   if (process.env.DISPLAY) return { env: process.env, kind: 'existing_display', close: async () => {} };
   const xvfb = executable(root, 'Xvfb');
   const xauth = executable(root, 'xauth');

@@ -1,7 +1,8 @@
-import { readFile, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { resolve, join } from 'node:path';
 import { StdioRpcClient, RpcFailure, isObject } from '../packages/codex-adapter/src/rpc.ts';
-import { launchArguments, runtimeEnvironment, resolveExecutable, verifyExecutable } from '../packages/codex-adapter/src/launch.ts';
+import { launchArguments, runtimeEnvironment } from '../packages/codex-adapter/src/launch.ts';
+import { verifiedCodex } from '../packages/codex-adapter/src/binary.ts';
 import type { ThreadStartResponse } from '../packages/codex-adapter/src/generated/v2/ThreadStartResponse.ts';
 import type { ThreadReadResponse } from '../packages/codex-adapter/src/generated/v2/ThreadReadResponse.ts';
 import type { ThreadListResponse } from '../packages/codex-adapter/src/generated/v2/ThreadListResponse.ts';
@@ -11,8 +12,7 @@ import { HistoryBrowser } from '../packages/codex-adapter/src/history.ts';
 import { readConnection } from '../packages/codex-adapter/src/read-connection.ts';
 
 const root = resolve(import.meta.dirname, '..');
-const lock = JSON.parse(await readFile(join(root, 'codex-version.lock.json'), 'utf8')) as { executableSha256: string; cliVersion: string };
-const executable = resolveExecutable('codex'); verifyExecutable(executable, lock.executableSha256);
+const { executable, lock, platform } = verifiedCodex(root);
 await mkdir(join(root, '.local'), { recursive: true });
 const temporary = await mkdtemp(join(root, '.local/history-probe-'));
 const workspace = join(temporary, 'workspace');
@@ -72,14 +72,14 @@ try {
   const project = await browser.registerDirectory(workspace);
   const browserPage = await browser.listThreads({ projectId: project.id });
   observations.browserThreadsAfterRestart = browserPage.items.length;
-  evidence = { status: 'passed', observedAt: new Date().toISOString(), cliVersion: lock.cliVersion, kind: 'real_app_server_empty_history_probe',
+  evidence = { status: 'passed', observedAt: new Date().toISOString(), cliVersion: lock.cliVersion, platform, kind: 'real_app_server_empty_history_probe',
     isolatedCodexHome: true, copiedCredentials: false, inferenceRequested: false, threadId: started.thread.id,
     verifiedMethods, observations,
     scope: 'Empty local fixture metadata and empty history pages only; does not verify model inference or populated history recovery.' };
 } catch (error) {
-  evidence = { status: 'blocked', observedAt: new Date().toISOString(), cliVersion: lock.cliVersion, kind: 'real_app_server_empty_history_probe',
+  evidence = { status: 'blocked', observedAt: new Date().toISOString(), cliVersion: lock.cliVersion, platform, kind: 'real_app_server_empty_history_probe',
     phase, verifiedMethods, observations, diagnostics, code: error instanceof RpcFailure ? error.code : 'HOST_ERROR', inferenceRequested: false };
   process.exitCode = 1;
 } finally { await rpc.close(); await rm(temporary, { recursive: true, force: true }); }
-await writeFile(join(root, 'docs/progress/evidence/M1.1b-native-history.json'), JSON.stringify(evidence, null, 2) + '\n');
+await writeFile(join(root, 'docs/progress/evidence/M1.1b-local-native-history.json'), JSON.stringify(evidence, null, 2) + '\n');
 console.log(JSON.stringify(evidence, null, 2));

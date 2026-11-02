@@ -1,0 +1,388 @@
+$ node scripts/check.mjs
+$ node scripts/generate-protocol.mjs --verify
+Verified 747 generated types from codex-cli 0.163.0 (darwin-arm64) against pinned schema and repository.
+$ tsc --noEmit
+$ node --disable-warning=ExperimentalWarning --test --test-reporter=tap tests/*.test.ts
+TAP version 13
+# Subtest: official npm optional package resolves native file without running wrapper
+ok 1 - official npm optional package resolves native file without running wrapper
+  ---
+  duration_ms: 3.563917
+  type: 'test'
+  ...
+# Subtest: legacy official npm vendor layout resolves the same target
+ok 2 - legacy official npm vendor layout resolves the same target
+  ---
+  duration_ms: 2.887083
+  type: 'test'
+  ...
+# Subtest: unrecognized wrappers and platform targets fail closed
+ok 3 - unrecognized wrappers and platform targets fail closed
+  ---
+  duration_ms: 3.644166
+  type: 'test'
+  ...
+# Subtest: native PATH entries retain their real executable identity
+ok 4 - native PATH entries retain their real executable identity
+  ---
+  duration_ms: 0.1935
+  type: 'test'
+  ...
+# Subtest: reviewed hash and version must both match before a binary is usable
+ok 5 - reviewed hash and version must both match before a binary is usable
+  ---
+  duration_ms: 272.560083
+  type: 'test'
+  ...
+# Subtest: a mismatched hash rejects an unexecutable fixture before launch
+ok 6 - a mismatched hash rejects an unexecutable fixture before launch
+  ---
+  duration_ms: 72.99825
+  type: 'test'
+  ...
+# Subtest: configured old/mismatched binaries cannot fall through to a different candidate
+ok 7 - configured old/mismatched binaries cannot fall through to a different candidate
+  ---
+  duration_ms: 321.152083
+  type: 'test'
+  ...
+# Subtest: folder grants canonicalize symlinks, deduplicate roots and export detached view objects
+not ok 8 - folder grants canonicalize symlinks, deduplicate roots and export detached view objects
+  ---
+  duration_ms: 7.305125
+  type: 'test'
+  location: '<repo>/tests/history.test.ts:37:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    + actual - expected
+    
+    + '<canonical-tmp>/personal-agent-history-test-po5MRf/project'
+    - '<tmp-alias>/personal-agent-history-test-po5MRf/project'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: '<tmp-alias>/personal-agent-history-test-po5MRf/project'
+  actual: '<canonical-tmp>/personal-agent-history-test-po5MRf/project'
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file://<repo>/tests/history.test.ts:39:101)
+    async Test.run (node:internal/test_runner/test:1389:7)
+    async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3)
+  ...
+# Subtest: unknown project IDs and arbitrary path or extra RPC parameters fail before accessing the backend
+ok 9 - unknown project IDs and arbitrary path or extra RPC parameters fail before accessing the backend
+  ---
+  duration_ms: 4.877333
+  type: 'test'
+  ...
+# Subtest: thread queries fix cwd and page size, and export bounded summaries without raw metadata
+not ok 10 - thread queries fix cwd and page size, and export bounded summaries without raw metadata
+  ---
+  duration_ms: 1.843667
+  type: 'test'
+  location: '<repo>/tests/history.test.ts:50:1'
+  failureType: 'testCodeFailure'
+  error: 'HISTORY_SCOPE_MISMATCH'
+  code: 'HISTORY_SCOPE_MISMATCH'
+  name: 'RpcFailure'
+  stack: |-
+    fail (file://<repo>/packages/codex-adapter/src/history.ts:18:47)
+    HistoryBrowser.checkThread (file://<repo>/packages/codex-adapter/src/history.ts:85:93)
+    file://<repo>/packages/codex-adapter/src/history.ts:115:56
+    Array.map (<anonymous>)
+    file://<repo>/packages/codex-adapter/src/history.ts:115:37
+  ...
+# Subtest: a mixed-scope server page is rejected atomically and grants no thread navigation authority
+ok 11 - a mixed-scope server page is rejected atomically and grants no thread navigation authority
+  ---
+  duration_ms: 2.085917
+  type: 'test'
+  ...
+# Subtest: thread IDs seen under one folder cannot be read under another folder grant
+not ok 12 - thread IDs seen under one folder cannot be read under another folder grant
+  ---
+  duration_ms: 3.45925
+  type: 'test'
+  location: '<repo>/tests/history.test.ts:65:1'
+  failureType: 'testCodeFailure'
+  error: 'HISTORY_SCOPE_MISMATCH'
+  code: 'HISTORY_SCOPE_MISMATCH'
+  name: 'RpcFailure'
+  stack: |-
+    fail (file://<repo>/packages/codex-adapter/src/history.ts:18:47)
+    HistoryBrowser.checkThread (file://<repo>/packages/codex-adapter/src/history.ts:85:93)
+    file://<repo>/packages/codex-adapter/src/history.ts:115:56
+    Array.map (<anonymous>)
+    file://<repo>/packages/codex-adapter/src/history.ts:115:37
+  ...
+# Subtest: fresh thread metadata is checked before reading message history
+not ok 13 - fresh thread metadata is checked before reading message history
+  ---
+  duration_ms: 3.161666
+  type: 'test'
+  location: '<repo>/tests/history.test.ts:71:1'
+  failureType: 'testCodeFailure'
+  error: 'HISTORY_SCOPE_MISMATCH'
+  code: 'HISTORY_SCOPE_MISMATCH'
+  name: 'RpcFailure'
+  stack: |-
+    fail (file://<repo>/packages/codex-adapter/src/history.ts:18:47)
+    HistoryBrowser.checkThread (file://<repo>/packages/codex-adapter/src/history.ts:85:93)
+    file://<repo>/packages/codex-adapter/src/history.ts:115:56
+    Array.map (<anonymous>)
+    file://<repo>/packages/codex-adapter/src/history.ts:115:37
+  ...
+# Subtest: native pagination cursors are replaced with scoped handles and refresh invalidates old handles
+not ok 14 - native pagination cursors are replaced with scoped handles and refresh invalidates old handles
+  ---
+  duration_ms: 2.165833
+  type: 'test'
+  location: '<repo>/tests/history.test.ts:77:1'
+  failureType: 'testCodeFailure'
+  error: 'HISTORY_SCOPE_MISMATCH'
+  code: 'HISTORY_SCOPE_MISMATCH'
+  name: 'RpcFailure'
+  stack: |-
+    fail (file://<repo>/packages/codex-adapter/src/history.ts:18:47)
+    HistoryBrowser.checkThread (file://<repo>/packages/codex-adapter/src/history.ts:85:93)
+    file://<repo>/packages/codex-adapter/src/history.ts:115:56
+    Array.map (<anonymous>)
+    file://<repo>/packages/codex-adapter/src/history.ts:115:37
+  ...
+# Subtest: turn authority and every returned item entry are checked before content export
+not ok 15 - turn authority and every returned item entry are checked before content export
+  ---
+  duration_ms: 1.6375
+  type: 'test'
+  location: '<repo>/tests/history.test.ts:89:1'
+  failureType: 'testCodeFailure'
+  error: 'HISTORY_SCOPE_MISMATCH'
+  code: 'HISTORY_SCOPE_MISMATCH'
+  name: 'RpcFailure'
+  stack: |-
+    fail (file://<repo>/packages/codex-adapter/src/history.ts:18:47)
+    HistoryBrowser.checkThread (file://<repo>/packages/codex-adapter/src/history.ts:85:93)
+    file://<repo>/packages/codex-adapter/src/history.ts:115:56
+    Array.map (<anonymous>)
+    file://<repo>/packages/codex-adapter/src/history.ts:115:37
+  ...
+# Subtest: large tool/message output stays within per-item and aggregate budgets and excludes private tool fields
+not ok 16 - large tool/message output stays within per-item and aggregate budgets and excludes private tool fields
+  ---
+  duration_ms: 1.879625
+  type: 'test'
+  location: '<repo>/tests/history.test.ts:97:1'
+  failureType: 'testCodeFailure'
+  error: 'HISTORY_SCOPE_MISMATCH'
+  code: 'HISTORY_SCOPE_MISMATCH'
+  name: 'RpcFailure'
+  stack: |-
+    fail (file://<repo>/packages/codex-adapter/src/history.ts:18:47)
+    HistoryBrowser.checkThread (file://<repo>/packages/codex-adapter/src/history.ts:85:93)
+    file://<repo>/packages/codex-adapter/src/history.ts:115:56
+    Array.map (<anonymous>)
+    file://<repo>/packages/codex-adapter/src/history.ts:115:37
+  ...
+# Subtest: oversized server pages fail closed rather than silently dropping unexpected rows
+ok 17 - oversized server pages fail closed rather than silently dropping unexpected rows
+  ---
+  duration_ms: 1.551042
+  type: 'test'
+  ...
+# Subtest: legacy history uses bounded read-only snapshots and local paging without Resume or paginated RPC calls
+not ok 18 - legacy history uses bounded read-only snapshots and local paging without Resume or paginated RPC calls
+  ---
+  duration_ms: 1.352917
+  type: 'test'
+  location: '<repo>/tests/history.test.ts:112:1'
+  failureType: 'testCodeFailure'
+  error: 'HISTORY_SCOPE_MISMATCH'
+  code: 'HISTORY_SCOPE_MISMATCH'
+  name: 'RpcFailure'
+  stack: |-
+    fail (file://<repo>/packages/codex-adapter/src/history.ts:18:47)
+    HistoryBrowser.checkThread (file://<repo>/packages/codex-adapter/src/history.ts:85:93)
+    file://<repo>/packages/codex-adapter/src/history.ts:115:56
+    Array.map (<anonymous>)
+    file://<repo>/packages/codex-adapter/src/history.ts:115:37
+  ...
+# Subtest: replacing an authorized project directory invalidates its grant before any history read
+ok 19 - replacing an authorized project directory invalidates its grant before any history read
+  ---
+  duration_ms: 1.745208
+  type: 'test'
+  ...
+# Subtest: read errors propagate without automatic retries or fallback execution methods
+ok 20 - read errors propagate without automatic retries or fallback execution methods
+  ---
+  duration_ms: 1.394958
+  type: 'test'
+  ...
+# Subtest: repeated deltas are appended and the authoritative final item calibrates them
+ok 21 - repeated deltas are appended and the authoritative final item calibrates them
+  ---
+  duration_ms: 1.030708
+  type: 'test'
+  ...
+# Subtest: a late item/started does not erase text or reopen a completed item
+ok 22 - a late item/started does not erase text or reopen a completed item
+  ---
+  duration_ms: 0.126
+  type: 'test'
+  ...
+# Subtest: thread, turn and item identity remain separate even with equal IDs and delimiter-like strings
+ok 23 - thread, turn and item identity remain separate even with equal IDs and delimiter-like strings
+  ---
+  duration_ms: 1.1455
+  type: 'test'
+  ...
+# Subtest: duplicate receive identities do not duplicate text, while a gap requires reconciliation
+ok 24 - duplicate receive identities do not duplicate text, while a gap requires reconciliation
+  ---
+  duration_ms: 0.127709
+  type: 'test'
+  ...
+# Subtest: reconnection requires a fresh snapshot and replaces old partial text rather than concatenating it
+ok 25 - reconnection requires a fresh snapshot and replaces old partial text rather than concatenating it
+  ---
+  duration_ms: 0.471667
+  type: 'test'
+  ...
+# Subtest: disconnect leaves partial content explicitly stale and blocks additional updates
+ok 26 - disconnect leaves partial content explicitly stale and blocks additional updates
+  ---
+  duration_ms: 0.5765
+  type: 'test'
+  ...
+# Subtest: turn completion uses full items and a late start or delta cannot reopen it
+ok 27 - turn completion uses full items and a late start or delta cannot reopen it
+  ---
+  duration_ms: 0.12025
+  type: 'test'
+  ...
+# Subtest: failed turns retain failure and unknown item types remain explicit without exposing arguments
+ok 28 - failed turns retain failure and unknown item types remain explicit without exposing arguments
+  ---
+  duration_ms: 0.330083
+  type: 'test'
+  ...
+# Subtest: text limits are bounded, do not split emoji, and a final item can replace a clipped prefix
+ok 29 - text limits are bounded, do not split emoji, and a final item can replace a clipped prefix
+  ---
+  duration_ms: 0.110375
+  type: 'test'
+  ...
+# Subtest: aggregate text, item and turn budgets bound growth and visibly signal missing data
+ok 30 - aggregate text, item and turn budgets bound growth and visibly signal missing data
+  ---
+  duration_ms: 0.2135
+  type: 'test'
+  ...
+# Subtest: snapshot replacement drops orphaned old items and rejects a stale sequence
+ok 31 - snapshot replacement drops orphaned old items and rejects a stale sequence
+  ---
+  duration_ms: 0.127333
+  type: 'test'
+  ...
+# Subtest: plain-text views keep markup inert and hide reasoning, tool secrets and local image paths
+ok 32 - plain-text views keep markup inert and hide reasoning, tool secrets and local image paths
+  ---
+  duration_ms: 0.099292
+  type: 'test'
+  ...
+# Subtest: view consumers cannot mutate the next projection or advance an old epoch
+ok 33 - view consumers cannot mutate the next projection or advance an old epoch
+  ---
+  duration_ms: 0.087917
+  type: 'test'
+  ...
+# Subtest: out-of-order responses retain the correct request identity
+ok 34 - out-of-order responses retain the correct request identity
+  ---
+  duration_ms: 88.337709
+  type: 'test'
+  ...
+# Subtest: server request with a colliding numeric ID is denied without resolving the client request
+ok 35 - server request with a colliding numeric ID is denied without resolving the client request
+  ---
+  duration_ms: 74.640959
+  type: 'test'
+  ...
+# Subtest: an unsupported server request fails closed
+ok 36 - an unsupported server request fails closed
+  ---
+  duration_ms: 64.694625
+  type: 'test'
+  ...
+# Subtest: UTF-8 frames split inside a code point preserve repeated text
+ok 37 - UTF-8 frames split inside a code point preserve repeated text
+  ---
+  duration_ms: 75.588583
+  type: 'test'
+  ...
+# Subtest: malformed input closes the connection and rejects pending execution as unknown
+ok 38 - malformed input closes the connection and rejects pending execution as unknown
+  ---
+  duration_ms: 62.377875
+  type: 'test'
+  ...
+# Subtest: oversize input closes the connection and rejects pending execution as unknown
+ok 39 - oversize input closes the connection and rejects pending execution as unknown
+  ---
+  duration_ms: 71.165625
+  type: 'test'
+  ...
+# Subtest: utf8 input closes the connection and rejects pending execution as unknown
+ok 40 - utf8 input closes the connection and rejects pending execution as unknown
+  ---
+  duration_ms: 66.53225
+  type: 'test'
+  ...
+# Subtest: a response deadline does not automatically resubmit an uncertain request
+ok 41 - a response deadline does not automatically resubmit an uncertain request
+  ---
+  duration_ms: 125.387625
+  type: 'test'
+  ...
+# Subtest: process exit rejects all outstanding requests and is not a successful empty result
+ok 42 - process exit rejects all outstanding requests and is not a successful empty result
+  ---
+  duration_ms: 59.700458
+  type: 'test'
+  ...
+# Subtest: closed clients reject new work and cleanup can be awaited more than once
+ok 43 - closed clients reject new work and cleanup can be awaited more than once
+  ---
+  duration_ms: 57.398125
+  type: 'test'
+  ...
+# Subtest: owner cancellation rejects pending work and waits for its child process to stop
+ok 44 - owner cancellation rejects pending work and waits for its child process to stop
+  ---
+  duration_ms: 58.923167
+  type: 'test'
+  ...
+# Subtest: the trusted runtime preserves injected guards but excludes unrelated application secrets
+ok 45 - the trusted runtime preserves injected guards but excludes unrelated application secrets
+  ---
+  duration_ms: 0.4815
+  type: 'test'
+  ...
+# Subtest: a diagnostic consumer failure does not break RPC error correlation or expose private error text
+ok 46 - a diagnostic consumer failure does not break RPC error correlation or expose private error text
+  ---
+  duration_ms: 137.663458
+  type: 'test'
+  ...
+1..46
+# tests 46
+# suites 0
+# pass 38
+# fail 8
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1063.841042
+[ELIFECYCLE] Test failed. See above for more details.
+[ELIFECYCLE] Command failed with exit code 1.

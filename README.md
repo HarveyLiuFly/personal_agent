@@ -10,7 +10,15 @@ Electron/React 桌面宿主，通过锁版 Codex App Server 驱动执行。当�
 
 ## 环境与依赖
 
-Linux x86_64、Node 24.19.x、pnpm 11.25.0；使用 Codex CLI 0.163.0，二进制与生成协议指纹见 `codex-version.lock.json`。
+已验证 Linux x86_64 与 macOS arm64、Node 24.19.x、pnpm 11.25.0；使用 Codex CLI 0.163.0。各平台原生二进制与共用生成协议指纹见 `codex-version.lock.json`；其他平台尚未验收。
+
+本机接续已在 `.local/` 安装匹配工具链。新终端先启用本机 Node，再运行下面的命令（该路径只适用于本次 macOS arm64 安装）：
+
+```bash
+export PATH="$PWD/.local/node-v24.19.0-darwin-arm64/bin:$PATH"
+```
+
+Codex 优先使用 Host 配置 `PERSONAL_AGENT_CODEX_PATH`，其次使用项目内 `.local/codex-install`，最后查找 PATH。官方 npm 包装入口会解析到平台原生文件，先校验平台哈希再核对版本，不执行未验证的包装脚本。项目内安装方式为 `npm install --prefix .local/codex-install --cache .local/npm-cache --no-audit --no-fund --save-exact @openai/codex@0.163.0`；本机全局 CLI 保持原状。详细来源和验证见[本机基线](docs/progress/LOCAL_BASELINE.md)。
 
 ```bash
 pnpm install --frozen-lockfile
@@ -36,7 +44,7 @@ pnpm smoke:desktop
 
 协议升级需重新审查二进制/Schema 指纹和契约结果；生成目录由 `pnpm protocol:generate` 管理，禁止手改类型。
 
-`smoke:connection` 只运行原生握手与模型目录查询，不发起推理。`smoke:desktop` 无 DISPLAY 时使用带 Xauthority 的本地 Xvfb，并在结束后回收显示进程；保留 Electron 沙箱。`setup:headless` 只在 `.local/` 内解压四个锁版 Debian 包，首次下载使用官方签名索引和固定 SHA-256，不需要 sudo。缺少其他系统动态库的平台仍需先准备相应依赖。
+`smoke:connection` 只运行原生握手与模型目录查询，不发起推理。`smoke:desktop` 在 macOS 使用原生桌面；Linux 无 DISPLAY 时使用带 Xauthority 的本地 Xvfb，并在结束后回收显示进程；保留 Electron 沙箱。`setup:headless` 只在 `.local/` 内解压四个锁版 Debian 包，首次下载使用官方签名索引和固定 SHA-256，不需要 sudo。缺少其他系统动态库的平台仍需先准备相应依赖。
 
 ## 只读历史浏览
 
