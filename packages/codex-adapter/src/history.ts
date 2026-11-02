@@ -41,7 +41,8 @@ export class HistoryBrowser {
   private projects = new Map<string, Project>();
   private cursors = new Map<string, Cursor>();
   private withPort: WithReadPort;
-  constructor(withPort: WithReadPort) { this.withPort = withPort; }
+  private register?: (directory: string) => ProjectView;
+  constructor(withPort: WithReadPort, register?: (directory: string) => ProjectView) { this.withPort = withPort; this.register = register; }
   async registerDirectory(directory: string): Promise<ProjectView> {
     const canonical = await realpath(directory);
     const info = await stat(canonical);
@@ -49,7 +50,7 @@ export class HistoryBrowser {
     const existing = [...this.projects.values()].find(project => project.view.directory === canonical && project.dev === info.dev && project.ino === info.ino);
     if (existing) return { ...existing.view };
     if (this.projects.size >= 16) return fail('PROJECT_LIMIT');
-    const view = { id: randomUUID(), name: basename(canonical) || canonical, directory: canonical };
+    const view = this.register?.(canonical) ?? { id: randomUUID(), name: basename(canonical) || canonical, directory: canonical };
     this.projects.set(view.id, { view, dev: info.dev, ino: info.ino, threads: new Map() });
     return { ...view };
   }

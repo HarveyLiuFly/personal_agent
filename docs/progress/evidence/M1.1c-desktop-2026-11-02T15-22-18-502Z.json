@@ -1,0 +1,11 @@
+{
+  "status": "blocked",
+  "observedAt": "2026-11-02T15:22:18.502Z",
+  "kind": "real_electron_window_smoke",
+  "display": "native_desktop",
+  "exitCode": 1,
+  "signal": null,
+  "timedOut": false,
+  "platform": "darwin-arm64",
+  "code": "ELECTRON_VALIDATION_FAILED"
+}

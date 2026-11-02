@@ -1,0 +1,32 @@
+{
+  "observedAt": "2026-11-02T15:33:19.790Z",
+  "kind": "real_thread_mcp_preflight_no_inference",
+  "platform": "darwin-arm64",
+  "cliVersion": "codex-cli 0.163.0",
+  "runId": "86875949-6bc6-4913-8618-d762bbf08a49",
+  "diagnostics": {
+    "clientThreadStarts": 1,
+    "clientTurnStarts": 0,
+    "notificationCount": 2,
+    "serverRequestsDenied": 0,
+    "selectedModel": "gpt-6.1-sol",
+    "externalMcpServers": -1,
+    "disabledInheritedMcpServers": 2,
+    "failureCode": "PREFLIGHT_DIAGNOSTIC_COMPLETE",
+    "remoteFailureCategory": "",
+    "phase": "mcpServerStatus/list"
+  },
+  "observed": [
+    {
+      "runtimeStatus": "disabled",
+      "tools": 0,
+      "toolDiscoveryFailed": false
+    },
+    {
+      "runtimeStatus": "disabled",
+      "tools": 0,
+      "toolDiscoveryFailed": false
+    }
+  ],
+  "scope": "Trusted diagnostic intercepted inventory response and stopped before turn/start. Thread context creation used durable Intent."
+}

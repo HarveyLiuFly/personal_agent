@@ -1,6 +1,6 @@
 {
   "status": "passed",
-  "observedAt": "2026-11-02T14:58:36.925Z",
+  "observedAt": "2026-11-02T15:27:28.279Z",
   "kind": "real_electron_with_local_rpc_fixture",
   "backend": "synthetic_stdio_fixture",
   "folderDialogSelection": "fixed_fixture_substitution",

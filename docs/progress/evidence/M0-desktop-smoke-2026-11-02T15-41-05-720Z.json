@@ -1,0 +1,36 @@
+{
+  "observedAt": "2026-11-02T15:41:05.720Z",
+  "kind": "real_electron_window_smoke",
+  "status": "passed",
+  "browserSandbox": "enabled",
+  "result": {
+    "title": "Personal Agent",
+    "rendered": true,
+    "hasRequire": false,
+    "bridgeKeys": [
+      "chooseProject",
+      "getRun",
+      "inspect",
+      "listItems",
+      "listRuns",
+      "listThreads",
+      "listTurns",
+      "security",
+      "submitMessage",
+      "workspaceState"
+    ],
+    "sandboxed": true,
+    "isolated": true,
+    "connection": {
+      "status": "connected",
+      "models": 8,
+      "defaultModel": "gpt-6.1-sol"
+    },
+    "uiConnected": true
+  },
+  "display": "native_desktop",
+  "exitCode": 0,
+  "signal": null,
+  "timedOut": false,
+  "platform": "darwin-arm64"
+}

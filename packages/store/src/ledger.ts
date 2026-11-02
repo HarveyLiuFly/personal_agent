@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
+import { execFileSync } from 'node:child_process';
 import { chmodSync, existsSync, lstatSync, mkdirSync, readFileSync, realpathSync, statSync } from 'node:fs';
 import { basename, dirname } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
@@ -85,10 +86,15 @@ export class ExecutionLedger {
     });
     this.#epoch = epoch; this.#instance = instanceId; return epoch;
   }
-  registerWorkspace(directory: string, gitRoot = directory): ProjectView {
+  registerWorkspace(directory: string, gitRoot?: string): ProjectView {
     this.owner();
-    const cwd = realpathSync(directory), root = realpathSync(gitRoot), info = statSync(cwd, { bigint: true });
+    const cwd = realpathSync(directory), info = statSync(cwd, { bigint: true });
     if (!info.isDirectory()) return fail('PROJECT_NOT_DIRECTORY');
+    let detected = gitRoot;
+    if (!detected) {
+      try { detected = execFileSync('git', ['-C', cwd, 'rev-parse', '--show-toplevel'], { encoding: 'utf8', timeout: 3000, maxBuffer: 8192, stdio: ['ignore','pipe','ignore'] }).trim(); } catch {}
+    }
+    const root = realpathSync(detected || cwd);
     return this.tx(() => {
       this.owner();
       let project = this.one('SELECT * FROM projects WHERE dot_id=? AND canonical_git_root=?', this.dotId, root);
@@ -99,8 +105,9 @@ export class ExecutionLedger {
       }
       let workspace = this.one('SELECT * FROM workspaces WHERE dot_id=? AND canonical_cwd=?', this.dotId, cwd);
       if (!workspace) {
+        if (Number(this.one('SELECT COUNT(*) AS n FROM workspaces WHERE dot_id=?', this.dotId)!.n) >= 16) return fail('PROJECT_LIMIT');
         const workspaceId = randomUUID();
-        this.exec("INSERT INTO workspaces(workspace_id,project_id,dot_id,canonical_cwd,kind,state) VALUES (?,?,?,?,'main','ready')", workspaceId, project.project_id!, this.dotId, cwd);
+        this.exec("INSERT INTO workspaces(workspace_id,project_id,dot_id,canonical_cwd,kind,state) VALUES (?,?,?,?,?,'ready')", workspaceId, project.project_id!, this.dotId, cwd, detected ? 'main' : 'external');
         this.exec('INSERT INTO workspace_identities VALUES (?,?,?)', workspaceId, String(info.dev), String(info.ino));
         workspace = this.one('SELECT * FROM workspaces WHERE workspace_id=?', workspaceId)!;
       }
@@ -166,6 +173,15 @@ export class ExecutionLedger {
   heartbeat(token: RunToken): void {
     this.tx(() => { const run = this.guard(token, true); this.exec('UPDATE task_runs SET lease_until_ms=? WHERE run_id=?', Date.now() + 60_000, token.runId); this.exec('UPDATE workspace_write_leases SET lease_until_ms=? WHERE run_id=?', Date.now() + 60_000, token.runId); this.exec('UPDATE runtime_owners SET updated_at_ms=? WHERE profile_id=?', Date.now(), this.profileId); void run; });
   }
+  configureManifest(token: RunToken, moduleHashes: Record<string, string>, toolProfileHash: string): void {
+    if (Object.keys(moduleHashes).length > 16 || [...Object.values(moduleHashes),toolProfileHash].some(value => !/^[0-9a-f]{64}$/.test(value))) return fail('INVALID_MANIFEST');
+    this.tx(() => {
+      const run = this.guard(token);
+      if (this.one('SELECT intent_id FROM execution_intents WHERE run_id=?', token.runId)) return fail('MANIFEST_ALREADY_BOUND');
+      this.exec('UPDATE prompt_manifests SET module_hashes_json=?,tool_snapshot_hash=? WHERE run_id=?', JSON.stringify(moduleHashes), toolProfileHash, token.runId);
+      this.event(String(run.task_id), token.runId, 'manifest_bound', { moduleHashes, toolProfileHash });
+    });
+  }
   prepare(token: RunToken, key: string, kind: 'thread_start' | 'thread_resume' | 'turn_start' | 'turn_interrupt', params: unknown, threadId: string | null = null, turnId: string | null = null): Intent {
     if (!id(key) || !['thread_start','thread_resume','turn_start','turn_interrupt'].includes(kind) || (kind !== 'thread_start' && !id(threadId))) return fail('INVALID_INTENT');
     return this.tx(() => {
@@ -230,6 +246,14 @@ export class ExecutionLedger {
       this.event(String(run.task_id), token.runId, 'run_outcome_unknown');
     });
   }
+  rejected(token: RunToken, intentId: string): void {
+    this.tx(() => {
+      const run = this.guard(token, true);
+      if (this.one("SELECT run_id FROM execution_intents WHERE intent_id=? AND state='sending'", intentId)?.run_id !== token.runId) return fail('INTENT_NOT_SENDING');
+      this.exec("UPDATE execution_intents SET state='rejected',response_ref='confirmed_protocol_rejection' WHERE intent_id=?", intentId);
+      this.event(String(run.task_id), token.runId, 'intent_rejected', { intentId });
+    });
+  }
   block(token: RunToken): void { this.tx(() => { const run = this.guard(token); this.exec('UPDATE tasks SET dispatch_blocked=1,version=version+1 WHERE task_id=?', run.task_id!); this.event(String(run.task_id), token.runId, 'stop_requested'); }); }
   finish(token: RunToken, outcome: 'completed' | 'failed' | 'cancelled'): void {
     this.tx(() => {
@@ -255,9 +279,9 @@ export class ExecutionLedger {
       this.exec('UPDATE task_runs SET result_ref=? WHERE run_id=?', checkpointId, token.runId);
     });
   }
-  runs(workspaceId: string): RunRecord[] {
+  runs(workspaceId: string, options: { snapshots?: boolean; runId?: string } = {}): RunRecord[] {
     if (!id(workspaceId)) return fail('UNKNOWN_PROJECT');
-    return this.all(`SELECT r.*,t.workspace_id,t.title,t.status AS task_status,t.dispatch_blocked,b.execution_thread_id,c.summary_json FROM task_runs r JOIN tasks t USING(task_id) LEFT JOIN thread_bindings b ON b.task_id=t.task_id AND b.state='active' LEFT JOIN task_checkpoints c ON c.checkpoint_id=r.result_ref WHERE t.workspace_id=? AND t.dot_id=? ORDER BY r.started_at_ms DESC,r.rowid DESC LIMIT 50`, workspaceId, this.dotId).map(row => ({
+    return this.all(`SELECT r.*,t.workspace_id,t.title,t.status AS task_status,t.dispatch_blocked,b.execution_thread_id,CASE WHEN ? THEN c.summary_json ELSE NULL END AS summary_json FROM task_runs r JOIN tasks t USING(task_id) LEFT JOIN thread_bindings b ON b.task_id=t.task_id AND b.state='active' LEFT JOIN task_checkpoints c ON c.checkpoint_id=r.result_ref WHERE t.workspace_id=? AND t.dot_id=? AND (? IS NULL OR r.run_id=?) ORDER BY r.started_at_ms DESC,r.rowid DESC LIMIT 50`, options.snapshots === false ? 0 : 1, workspaceId, this.dotId, options.runId ?? null, options.runId ?? null).map(row => ({
       runId: String(row.run_id), taskId: String(row.task_id), workspaceId, title: String(row.title), status: String(row.status), taskStatus: String(row.task_status), epoch: Number(row.runtime_epoch), taskFence: Number(row.task_fence), blocked: row.dispatch_blocked === 1,
       threadId: row.execution_thread_id as string | null, turnId: this.one("SELECT execution_turn_id FROM execution_intents WHERE run_id=? AND kind='turn_start' AND execution_turn_id IS NOT NULL", row.run_id!)?.execution_turn_id as string ?? null,
       snapshot: row.summary_json ? JSON.parse(String(row.summary_json)) as ThreadView : null,

@@ -1,0 +1,36 @@
+{
+  "observedAt": "2026-11-02T15:41:01.260850+00:00",
+  "milestone": "M1.1c",
+  "status": "passed_initial_read_only_message_scope",
+  "nodeTests": {
+    "discovered": 73,
+    "executed": 73,
+    "passed": 73,
+    "failed": 0,
+    "skipped": 0
+  },
+  "designChecks": 17,
+  "realModelTurnsSent": 1,
+  "successfulModelEvidence": "M1.1c-real-execution-2026-11-02T15-35-15-055Z.json",
+  "preflightFailuresSentNoTurn": true,
+  "realComponents": [
+    "Electron sandbox + SQLite",
+    "stdio durable request correlation",
+    "real read-only model turn",
+    "populated native history reread",
+    "display cache reopen"
+  ],
+  "fixtures": [
+    "desktop backend and folder selection",
+    "transport faults and disabled MCP status boundary"
+  ],
+  "notYetAccepted": [
+    "thread continuation",
+    "approval/input/stop",
+    "crash reconciliation",
+    "trusted completion verification",
+    "real code task",
+    "manual native directory selection"
+  ],
+  "next": "M1.2 interactions and interrupt; M1 gate remains open"
+}

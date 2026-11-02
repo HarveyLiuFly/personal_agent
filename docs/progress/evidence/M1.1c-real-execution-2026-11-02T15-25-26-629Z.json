@@ -1,0 +1,18 @@
+{
+  "status": "blocked",
+  "observedAt": "2026-11-02T15:25:26.629Z",
+  "kind": "real_model_with_durable_execution_ledger_and_populated_history",
+  "cliVersion": "codex-cli 0.163.0",
+  "platform": "darwin-arm64",
+  "runId": "1cc2f9ce-26d4-49c4-bb98-92534be11037",
+  "diagnostics": {
+    "clientThreadStarts": 1,
+    "clientTurnStarts": 0,
+    "notificationCount": 5,
+    "serverRequestsDenied": 0,
+    "selectedModel": "gpt-6.1-sol",
+    "externalMcpServers": -1
+  },
+  "code": "REAL_EXECUTION_VALIDATION_FAILED",
+  "scope": "Do not automatically rerun this probe. Inspect the durable run before another submission."
+}

@@ -37,6 +37,7 @@ export class StdioRpcClient {
   private child: ChildProcessWithoutNullStreams;
   private pending = new Map<RequestId, Pending>();
   private nextId = 1;
+  private usedClientIds = new Set<RequestId>();
   private buffer = Buffer.alloc(0);
   private closed = false;
   private exited = false;
@@ -69,9 +70,16 @@ export class StdioRpcClient {
   waitClosed(): Promise<void> { return this.exitPromise; }
 
   request<T = unknown>(method: string, params: unknown, timeoutMs = this.options.requestTimeoutMs ?? 15_000): Promise<T> {
+    return this.requestWithId<T>(this.nextId++, method, params, timeoutMs);
+  }
+
+  /** Host-provided ID must already be persisted in the execution intent before this call. */
+  requestWithId<T = unknown>(id: RequestId, method: string, params: unknown, timeoutMs = this.options.requestTimeoutMs ?? 15_000): Promise<T> {
     if (this.closed || this.stopRequested) return Promise.reject(new RpcFailure('DISCONNECTED'));
     if (this.pending.size >= 32) return Promise.reject(new RpcFailure('PENDING_LIMIT'));
-    const id = this.nextId++;
+    if ((typeof id !== 'string' && !Number.isSafeInteger(id)) || this.usedClientIds.has(id)) return Promise.reject(new RpcFailure('INVALID_CLIENT_REQUEST_ID'));
+    if (this.usedClientIds.size >= 4096) return Promise.reject(new RpcFailure('CONNECTION_REQUEST_LIMIT'));
+    this.usedClientIds.add(id);
     return new Promise<T>((resolve, reject) => {
       const timer = setTimeout(() => {
         this.pending.delete(id);

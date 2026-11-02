@@ -61,6 +61,10 @@ codex app-server generate-ts --experimental --out "$protocol_tmp/experimental"
 
 Composer 在 Idle 时创建 Turn，运行中按锁版能力 Steer/Interrupt，断开时保留草稿且不自动重发。任务列表、完整 Item 与错误状态由服务端结果/持久账本重建。大型历史分页、长日志限制和渲染背压从 M1 实现。
 
+当前首次发送路径为只读消息，每条新消息建立一个持久 Task/Run/Thread，结束只进入待验证；既有 Thread 的续接在对应交互/恢复工作包验收后开放。Renderer 仅传项目 ID、正文及稳定提交键；Host 先写入 Intent/RPC ID，再发送 stdio。项目选择和任务导航持久化，目录身份每次派发复核；任务列表只传摘要，按所选 Run 获取单个有界显示快照，不逐帧传原始 RPC。
+
+产品 UI 的所有模型发送都走账本，M0 无账本调试按钮不作为产品入口保留。M1 运行进程关闭 Apps/Plugins/Hooks/自治与 Browser/Computer 功能；继承的手动 MCP 通过线程配置逐项 disabled。工具目录可以保留配置行，只有空目录或每行都明确 disabled 且 tools 为空时才允许 Turn；未知连接状态或任何可用外部工具均阻断。本阶段不因此宣称外部 Connector 可安全使用。
+
 只读历史先经 Host 原生目录选择注册真实路径及目录身份，Renderer 仅用项目 ID 请求。Thread 必须来自该项目的已校验列表，Turn 必须来自该 Thread 的列表；读取内容前再次核对元数据 cwd。分页游标由 Host 兑换为绑定项目/Thread/Turn 的不透明句柄，不接受任意路径、原始 RPC 或跨范围游标。
 
 历史读取按 `historyMode` 选择：`paginated` 使用 `thread/turns/list` 与 `thread/items/list`；`legacy` 只在范围校验后读取有界完整快照并本地分页。完整帧上限 1 MiB，超限明确拒绝；禁止用 Resume 隐式迁移或执行。新空 Thread 可能尚未物化，服务端拒绝时保留“暂不可读取”，不能推断没有执行过。只读浏览的可用性与真实模型恢复验收分别记录；开放创建/发送之前必须接入下述最小账本。

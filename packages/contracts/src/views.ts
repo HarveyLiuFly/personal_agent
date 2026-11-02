@@ -30,3 +30,10 @@ export type HostResult<T> = { ok: true; value: T } | { ok: false; errorCode: str
 export interface ProjectQuery { projectId: string; cursor?: string }
 export interface ThreadQuery extends ProjectQuery { threadId: string }
 export interface ItemQuery extends ThreadQuery { turnId: string }
+export interface RunQuery { projectId: string; runId: string }
+export interface SubmitMessage { projectId: string; text: string; submissionKey: string }
+export interface RunSummary {
+  runId: string; taskId: string; title: string; status: string; taskStatus: string;
+  threadId: string | null; turnId: string | null; blocked: boolean;
+}
+export interface RunView extends RunSummary { snapshot: ThreadView | null }

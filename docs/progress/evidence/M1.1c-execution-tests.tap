@@ -1,0 +1,64 @@
+TAP version 13
+# Subtest: real stdio fixture sees committed intents before both requests and final projection preserves repeated deltas
+ok 1 - real stdio fixture sees committed intents before both requests and final projection preserves repeated deltas
+  ---
+  duration_ms: 110.449042
+  type: 'test'
+  ...
+# Subtest: duplicate keys after completion return the stored result without another transport
+ok 2 - duplicate keys after completion return the stored result without another transport
+  ---
+  duration_ms: 103.964709
+  type: 'test'
+  ...
+# Subtest: lost acceptance remains unknown even when a completed event was observed; no automatic resend
+ok 3 - lost acceptance remains unknown even when a completed event was observed; no automatic resend
+  ---
+  duration_ms: 277.313
+  type: 'test'
+  ...
+# Subtest: a disconnected server and a silent turn preserve Unknown and mark the snapshot stale
+ok 4 - a disconnected server and a silent turn preserve Unknown and mark the snapshot stale
+  ---
+  duration_ms: 564.977709
+  type: 'test'
+  ...
+# Subtest: confirmed invalid protocol parameters reject once and do not leave a sending intent
+ok 5 - confirmed invalid protocol parameters reject once and do not leave a sending intent
+  ---
+  duration_ms: 74.884459
+  type: 'test'
+  ...
+# Subtest: queries reject arbitrary keys, raw paths and foreign run IDs before exporting content
+ok 6 - queries reject arbitrary keys, raw paths and foreign run IDs before exporting content
+  ---
+  duration_ms: 102.12725
+  type: 'test'
+  ...
+# Subtest: concurrent different submission cannot create an orphan ledger run
+ok 7 - concurrent different submission cannot create an orphan ledger run
+  ---
+  duration_ms: 880.94825
+  type: 'test'
+  ...
+# Subtest: closing owner while running records Unknown and waits for the child process shutdown
+ok 8 - closing owner while running records Unknown and waits for the child process shutdown
+  ---
+  duration_ms: 138.84925
+  type: 'test'
+  ...
+# Subtest: nonempty thread MCP inventory blocks a model turn even if disable overrides were supplied
+ok 9 - nonempty thread MCP inventory blocks a model turn even if disable overrides were supplied
+  ---
+  duration_ms: 75.682375
+  type: 'test'
+  ...
+1..9
+# tests 9
+# suites 0
+# pass 9
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 2419.308875

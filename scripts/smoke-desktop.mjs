@@ -6,8 +6,9 @@ import electron from 'electron';
 import { openDisplay } from './virtual-display.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const execution = process.argv.includes('--execution');
 const history = process.argv.includes('--history');
-const file = resolve(root, `docs/progress/evidence/${history ? 'M1.1b-desktop' : 'M0-desktop-smoke'}.json`);
+const file = resolve(root, `docs/progress/evidence/${execution ? 'M1.1c-desktop' : history ? 'M1.1b-desktop' : 'M0-desktop-smoke'}.json`);
 await mkdir(dirname(file), { recursive: true });
 // Replace old evidence before starting so an unsuccessful new run cannot reuse a past success.
 await writeFile(file, JSON.stringify({ status: 'running', observedAt: new Date().toISOString(), kind: history ? 'real_electron_with_local_rpc_fixture' : 'real_electron_window_smoke' }, null, 2) + '\n');
@@ -15,7 +16,7 @@ let display;
 let evidence;
 try {
   display = await openDisplay(root);
-  const child = spawn(electron, ['.', history ? '--m1-history-smoke' : '--m0-window-smoke'], { cwd: root, stdio: 'inherit', env: display.env });
+  const child = spawn(electron, ['.', execution ? '--m1-execution-smoke' : history ? '--m1-history-smoke' : '--m0-window-smoke'], { cwd: root, stdio: 'inherit', env: display.env });
   let timedOut = false;
   let killTimer;
   const timer = setTimeout(() => {
@@ -34,7 +35,7 @@ try {
   evidence = { ...current, observedAt: new Date().toISOString(), display: display.kind, ...outcome, timedOut,
     platform: `${process.platform}-${process.arch}`,
     status: outcome.exitCode === 0 && current.status === 'passed' && current.result ? 'passed' : 'blocked' };
-  if (evidence.status !== 'passed') evidence.code = 'ELECTRON_VALIDATION_FAILED';
+  if (evidence.status !== 'passed') evidence.code = current.code ?? 'ELECTRON_VALIDATION_FAILED';
 } catch (error) {
   const code = error instanceof Error && /^[A-Z0-9_a-z]+$/.test(error.message) ? error.message : 'HOST_ERROR';
   evidence = { status: 'blocked', observedAt: new Date().toISOString(), kind: 'real_electron_window_smoke', code };

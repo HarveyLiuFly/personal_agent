@@ -62,6 +62,15 @@ test('closed clients reject new work and cleanup can be awaited more than once',
   await rpc.close();
   await assert.rejects(rpc.request('test/start', {}), error => error instanceof RpcFailure && error.code === 'DISCONNECTED');
 });
+test('durable client request IDs cannot be reused after success or while pending', async () => {
+  const rpc = client('echo');
+  try {
+    const first = rpc.requestWithId('durable-fixture-id', 'test/echo', {});
+    await assert.rejects(rpc.requestWithId('durable-fixture-id', 'test/echo', {}), /INVALID_CLIENT_REQUEST_ID/);
+    await first;
+    await assert.rejects(rpc.requestWithId('durable-fixture-id', 'test/echo', {}), /INVALID_CLIENT_REQUEST_ID/);
+  } finally { await rpc.close(); }
+});
 test('owner cancellation rejects pending work and waits for its child process to stop', async () => {
   const controller = new AbortController();
   const rpc = client('timeout', { signal: controller.signal });

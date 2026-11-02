@@ -1,0 +1,40 @@
+{
+  "observedAt": "2026-11-02T15:40:05.004Z",
+  "status": "passed",
+  "kind": "real_electron_durable_execution_with_stdio_fixture",
+  "backend": "synthetic_stdio_fixture",
+  "folderDialogSelection": "fixed_fixture_substitution",
+  "inferenceRequested": false,
+  "diagnostics": {
+    "clientThreadStarts": 1,
+    "clientTurnStarts": 1,
+    "notificationCount": 8,
+    "serverRequestsDenied": 0,
+    "selectedModel": "synthetic-model",
+    "externalMcpServers": 0,
+    "disabledInheritedMcpServers": 1,
+    "failureCode": "",
+    "remoteFailureCategory": "",
+    "phase": "turn/completed"
+  },
+  "result": {
+    "sandboxed": true,
+    "isolated": true,
+    "hasRequire": false,
+    "streamedBeforeCompletion": true,
+    "runStatus": "completed",
+    "taskStatus": "needs_review",
+    "finalText": "aab",
+    "extraArgumentsRejected": true,
+    "foreignRunRejected": true,
+    "markupShownAsText": true,
+    "noInjectedImage": true,
+    "noScriptExecution": true,
+    "draftClearedAfterAcceptance": true
+  },
+  "display": "native_desktop",
+  "exitCode": 0,
+  "signal": null,
+  "timedOut": false,
+  "platform": "darwin-arm64"
+}

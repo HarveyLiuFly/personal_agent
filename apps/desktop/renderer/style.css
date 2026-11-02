@@ -64,3 +64,5 @@ pre { white-space: pre-wrap; overflow-wrap: anywhere; font-family: ui-monospace,
 .composer textarea::placeholder { color: #7f92ac; }
 .composer button { background: #a2eedc; color: #092d2a; font-size: 12px; flex-shrink: 0; }
 @media (max-width: 850px) { .shell { grid-template-columns: 218px minmax(0, 1fr); } .toolbar, .history-panel { padding-left: 22px; padding-right: 22px; } .connection-actions { gap: 0; } .connection-status { padding-left: 22px; } }
+
+.project-select { margin-top: 12px; padding: 8px; background: #142033; color: #b9c8da; border: 1px solid #304057; border-radius: 8px; width: 100%; }

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, readFileSync, realpathSync, renameSync, rmSync, statSync } from 'node:fs';
-import { spawn } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
 import { once } from 'node:events';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -46,6 +46,15 @@ test('foreign or unsupported databases are rejected without wiping existing tabl
   db.exec('CREATE TABLE user_data(value TEXT); INSERT INTO user_data VALUES (\'retained\')'); db.close();
   assert.throws(() => new ExecutionLedger(file, schema), failure('LEDGER_SCHEMA_UNSUPPORTED'));
   const check = new DatabaseSync(file); assert.equal(check.prepare('SELECT value FROM user_data').get()!.value, 'retained'); check.close();
+});
+test('importing a Git subdirectory keeps the canonical repository and actual workspace separate', t => {
+  const f = fixture(t); execFileSync('git', ['init','--quiet',f.workspace]);
+  const nested = join(f.workspace, 'nested'); mkdirSync(nested);
+  const project = f.ledger.registerWorkspace(nested), db = f.sql();
+  try {
+    const row = db.prepare('SELECT p.canonical_git_root,w.canonical_cwd FROM workspaces w JOIN projects p USING(project_id) WHERE w.workspace_id=?').get(project.id)!;
+    assert.equal(row.canonical_git_root, f.workspace); assert.equal(row.canonical_cwd, nested);
+  } finally { db.close(); }
 });
 test('duplicate submission keys return the same run; changed inputs and concurrent tasks fail', t => {
   const f = fixture(t), token = f.begin();

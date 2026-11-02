@@ -1,9 +1,12 @@
 import { app, BrowserWindow, ipcMain, dialog } from 'electron';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { readFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import { mkdtemp, mkdir, rm } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
+import { ExecutionLedger, LedgerError } from '../../../packages/store/src/ledger.ts';
+import { ForegroundExecution } from '../../../packages/runtime/src/execution.ts';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { inspectConnection, runRealSmoke } from '../../../packages/codex-adapter/src/smoke.ts';
+import { inspectConnection } from '../../../packages/codex-adapter/src/smoke.ts';
 import { resolveExecutable } from '../../../packages/codex-adapter/src/launch.ts';
 import { verifiedCodex } from '../../../packages/codex-adapter/src/binary.ts';
 import { RpcFailure, StdioRpcClient } from '../../../packages/codex-adapter/src/rpc.ts';
@@ -12,7 +15,7 @@ import type { ReadPort } from '../../../packages/codex-adapter/src/history.ts';
 import { readConnection } from '../../../packages/codex-adapter/src/read-connection.ts';
 import { runtimeEnvironment } from '../../../packages/codex-adapter/src/launch.ts';
 import type { HostResult } from '../../../packages/contracts/src/views.ts';
-import type { ConnectionInfo, SmokeInfo } from './bridge.ts';
+import type { ConnectionInfo } from './bridge.ts';
 
 const directory = dirname(fileURLToPath(import.meta.url));
 const root = resolve(directory, '../..');
@@ -22,10 +25,26 @@ let active = false;
 let controller: AbortController | undefined;
 let quitting = false;
 let window: BrowserWindow | undefined;
+let ledger: ExecutionLedger | undefined;
+let execution: ForegroundExecution | undefined;
+const executionSmoke = process.argv.includes('--m1-execution-smoke');
 const historySmoke = process.argv.includes('--m1-history-smoke');
 let fixtureDirectory: string | undefined;
+  if (process.argv.includes('--m0-window-smoke')) app.setPath('userData', resolve(root, '.local/desktop-smoke-data'));
+  if (historySmoke) app.setPath('userData', resolve(root, '.local/desktop-history-smoke-data'));
+  if (executionSmoke) app.setPath('userData', resolve(root, '.local/desktop-execution-smoke-data'));
 if (!app.requestSingleInstanceLock()) app.quit();
-else void boot().catch(() => app.exit(1));
+else void boot().catch(async error => {
+  const code = error instanceof Error && /^[A-Z0-9_]{1,100}$/.test(error.message) ? error.message : 'HOST_ERROR';
+  console.error('DESKTOP_BOOT_FAILED', code);
+  if (executionSmoke || historySmoke || process.argv.includes('--m0-window-smoke')) {
+    if (window) { try { writeFileSync(resolve(root, '.local/desktop-failure.png'), (await window.webContents.capturePage()).toPNG()); } catch {} }
+    const file = executionSmoke ? 'M1.1c-desktop' : historySmoke ? 'M1.1b-desktop' : 'M0-desktop-smoke';
+    writeFileSync(resolve(root, `docs/progress/evidence/${file}.json`), JSON.stringify({ status: 'blocked', code, observedAt: new Date().toISOString() }) + '\n');
+  }
+  try { await execution?.close(); ledger?.close(); } catch {}
+  app.exit(1);
+});
 
 function authorized(event: Electron.IpcMainInvokeEvent): void {
   if (!window || event.sender !== window.webContents || event.senderFrame !== window.webContents.mainFrame
@@ -37,26 +56,31 @@ function executable(): string {
 async function historyCommand<T>(event: Electron.IpcMainInvokeEvent, args: unknown[], count: number, operation: () => Promise<T>): Promise<HostResult<T>> {
   authorized(event);
   if (args.length !== count) return { ok: false, errorCode: 'UNEXPECTED_ARGUMENTS' };
-  if (active) return { ok: false, errorCode: 'RUNTIME_BUSY' };
+  if (active || execution?.busy) return { ok: false, errorCode: 'RUNTIME_BUSY' };
   active = true; controller = new AbortController();
   try { return { ok: true, value: await operation() }; }
-  catch (error) { return { ok: false, errorCode: error instanceof RpcFailure ? error.code : 'HOST_ERROR' }; }
+  catch (error) { return { ok: false, errorCode: error instanceof RpcFailure || error instanceof LedgerError ? error.code : 'HOST_ERROR' }; }
   finally { active = false; controller = undefined; if (quitting || BrowserWindow.getAllWindows().length === 0) app.quit(); }
 }
 async function boot(): Promise<void> {
-  if (process.argv.includes('--m0-window-smoke')) app.setPath('userData', resolve(root, '.local/desktop-smoke-data'));
-  if (historySmoke) app.setPath('userData', resolve(root, '.local/desktop-history-smoke-data'));
   await app.whenReady();
   const state = resolve(app.getPath('userData'), 'codex-state');
   let fixtureWorkspace: string | undefined;
   const fixtureMethods = new Set<string>();
-  if (historySmoke) {
+  if (historySmoke || executionSmoke) {
     mkdirSync(resolve(root, '.local'), { recursive: true });
     fixtureDirectory = await mkdtemp(resolve(root, '.local/history-desktop-'));
     fixtureWorkspace = resolve(fixtureDirectory, 'workspace'); await mkdir(fixtureWorkspace);
   }
+  if (!historySmoke) {
+    ledger = new ExecutionLedger(resolve(fixtureDirectory ?? app.getPath('userData'), 'execution/ledger.db'), readFileSync(resolve(directory, 'schema.sql'), 'utf8'));
+    ledger.startOwner(randomUUID(), true); // OS single-instance lock was acquired before boot().
+    execution = new ForegroundExecution(ledger, { executable: executionSmoke ? resolveExecutable('node') : executable(), stateDirectory: state,
+      ...(executionSmoke ? { connect: callbacks => new StdioRpcClient({ executable: resolveExecutable('node'),
+        args: [resolve(root, 'tests/fixtures/execution-server.ts'), 'slow', resolve(fixtureDirectory!, 'execution/ledger.db')], env: runtimeEnvironment(), ...callbacks }) } : {}) });
+  }
   const history = new HistoryBrowser(async read => {
-    if (!historySmoke) return readConnection(executable(), state, controller?.signal)(read);
+    if (!historySmoke && !executionSmoke) return readConnection(executable(), state, controller?.signal)(read);
     // Fixed internal integration fixture. No Renderer API selects a process, path, or fixture mode.
     const rpc = new StdioRpcClient({ executable: resolveExecutable('node'),
       args: [resolve(root, 'tests/fixtures/history-server.ts'), fixtureWorkspace!], env: runtimeEnvironment(), signal: controller?.signal });
@@ -67,7 +91,7 @@ async function boot(): Promise<void> {
       await rpc.request('initialize', { clientInfo: { name: 'personal_agent_history_fixture', version: '0.1.0' } });
       await rpc.notify('initialized'); return await read(port);
     } finally { await rpc.close(); }
-  });
+  }, ledger ? path => ledger!.registerWorkspace(path) : undefined);
   ipcMain.handle('history:chooseProject', (event, ...args: unknown[]) => historyCommand(event, args, 0, async () => {
     if (fixtureWorkspace) return history.registerDirectory(fixtureWorkspace);
     const selection = await dialog.showOpenDialog(window!, { title: '选择项目目录', properties: ['openDirectory'] });
@@ -76,26 +100,34 @@ async function boot(): Promise<void> {
   ipcMain.handle('history:listThreads', (event, ...args: unknown[]) => historyCommand(event, args, 1, () => history.listThreads(args[0])));
   ipcMain.handle('history:listTurns', (event, ...args: unknown[]) => historyCommand(event, args, 1, () => history.listTurns(args[0])));
   ipcMain.handle('history:listItems', (event, ...args: unknown[]) => historyCommand(event, args, 1, () => history.listItems(args[0])));
+  function executionCommand<T>(event: Electron.IpcMainInvokeEvent, args: unknown[], count: number, operation: () => T): HostResult<T> {
+    authorized(event);
+    if (args.length !== count) return { ok: false, errorCode: 'UNEXPECTED_ARGUMENTS' };
+    try { return { ok: true, value: operation() }; }
+    catch (error) { return { ok: false, errorCode: error instanceof LedgerError || error instanceof RpcFailure ? error.code : 'HOST_ERROR' }; }
+  }
+  ipcMain.handle('execution:workspaceState', (event, ...args: unknown[]) => executionCommand(event, args, 0, () => ({ projects: ledger?.projects() ?? [], canSubmit: Boolean(execution) })));
+  // Re-register persisted grants in the read-only browser; invalid directories remain blocked by Store.
+  for (const project of ledger?.projects() ?? []) {
+    try { ledger!.workspace(project.id); await history.registerDirectory(project.directory); } catch {}
+  }
+  ipcMain.handle('execution:submit', (event, ...args: unknown[]) => executionCommand(event, args, 1, () => {
+    if (!execution || active) throw new LedgerError('RUNTIME_BUSY'); return execution.submit(args[0]);
+  }));
+  ipcMain.handle('execution:list', (event, ...args: unknown[]) => executionCommand(event, args, 1, () => {
+    if (!execution) throw new LedgerError('EXECUTION_UNAVAILABLE'); return execution.list(args[0]);
+  }));
+  ipcMain.handle('execution:view', (event, ...args: unknown[]) => executionCommand(event, args, 1, () => {
+    if (!execution) throw new LedgerError('EXECUTION_UNAVAILABLE'); return execution.view(args[0]);
+  }));
   ipcMain.handle('runtime:inspect', async (event, ...args: unknown[]): Promise<ConnectionInfo> => {
     authorized(event);
     if (args.length) throw new Error('UNEXPECTED_ARGUMENTS');
-    if (active) return { status: 'error', errorCode: 'RUNTIME_BUSY' };
+    if (active || execution?.busy) return { status: 'error', errorCode: 'RUNTIME_BUSY' };
     active = true;
     controller = new AbortController();
     try { return { status: 'connected', ...await inspectConnection(executable(), state, controller.signal) }; }
-    catch (error) { return { status: 'error', errorCode: error instanceof RpcFailure ? error.code : 'HOST_ERROR' }; }
-    finally { active = false; controller = undefined; if (quitting || BrowserWindow.getAllWindows().length === 0) app.quit(); }
-  });
-  ipcMain.handle('runtime:smoke', async (event, ...args: unknown[]): Promise<SmokeInfo> => {
-    authorized(event);
-    if (args.length) throw new Error('UNEXPECTED_ARGUMENTS');
-    if (active) return { status: 'error', errorCode: 'RUNTIME_BUSY' };
-    active = true;
-    controller = new AbortController();
-    try {
-      const result = await runRealSmoke(executable(), state, controller.signal);
-      return { status: 'passed', finalText: result.finalText, threadId: result.threadId, turnId: result.turnId };
-    } catch (error) { return { status: 'error', errorCode: error instanceof RpcFailure ? error.code : 'HOST_ERROR' }; }
+    catch (error) { return { status: 'error', errorCode: error instanceof RpcFailure || error instanceof LedgerError ? error.code : 'HOST_ERROR' }; }
     finally { active = false; controller = undefined; if (quitting || BrowserWindow.getAllWindows().length === 0) app.quit(); }
   });
   window = new BrowserWindow({ width: 1120, height: 760, backgroundColor: '#0c1221', show: true,
@@ -130,7 +162,7 @@ async function boot(): Promise<void> {
     const passed = r.rendered === true && r.hasRequire === false && r.sandboxed === true && r.isolated === true
       && r.uiConnected === true && !app.commandLine.hasSwitch('no-sandbox')
       && (r.connection as ConnectionInfo)?.status === 'connected'
-      && JSON.stringify(r.bridgeKeys) === JSON.stringify(['chooseProject', 'inspect', 'listItems', 'listThreads', 'listTurns', 'runSmoke', 'security']);
+      && JSON.stringify(r.bridgeKeys) === JSON.stringify(['chooseProject', 'getRun', 'inspect', 'listItems', 'listRuns', 'listThreads', 'listTurns', 'security', 'submitMessage', 'workspaceState']);
     const evidence = { observedAt: new Date().toISOString(), kind: 'real_electron_window_smoke',
       status: passed ? 'passed' : 'blocked',
       browserSandbox: app.commandLine.hasSwitch('no-sandbox') ? 'disabled' : 'enabled', result };
@@ -182,12 +214,60 @@ async function boot(): Promise<void> {
     writeFileSync(resolve(root, '.local/M1-history-desktop.png'), (await window.webContents.capturePage()).toPNG());
     app.quit();
   }
+  if (executionSmoke) {
+    const result = await window.webContents.executeJavaScript(`(async () => {
+      const wait = async (check) => {
+        const deadline = Date.now() + 15000;
+        while (!check()) { if (Date.now() > deadline) throw new Error('EXECUTION_UI_TIMEOUT'); await new Promise(r => setTimeout(r, 30)); }
+      };
+      document.querySelector('[data-action="choose-project"]').click();
+      await wait(() => document.querySelector('[data-task-draft]'));
+      const input = document.querySelector('[data-task-draft]');
+      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(input, '<img src=x onerror="window.__executionInjected=true"> Synthetic execution question.');
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      await wait(() => !document.querySelector('[data-action="send"]').disabled);
+      document.querySelector('[data-action="send"]').click();
+      await wait(() => document.querySelector('[data-item-status="streaming"]'));
+      const streamedBeforeCompletion = document.querySelector('[data-run-status]').getAttribute('data-run-status') !== 'completed';
+      await wait(() => document.querySelector('[data-run-status="completed"]'));
+      const state = await window.personalAgent.workspaceState();
+      const projectId = state.value.projects[0].id;
+      const rows = await window.personalAgent.listRuns({ projectId });
+      const run = await window.personalAgent.getRun({ projectId, runId: rows.value[0].runId });
+      const extra = await window.personalAgent.submitMessage({ projectId, submissionKey: 'malicious', text: 'must not send', path: '/etc' });
+      const foreign = await window.personalAgent.getRun({ projectId, runId: 'foreign-run' });
+      return { sandboxed: window.personalAgent.security.sandboxed, isolated: window.personalAgent.security.isolated,
+        hasRequire: typeof require !== 'undefined', streamedBeforeCompletion,
+        runStatus: run.value.status, taskStatus: run.value.taskStatus,
+        finalText: run.value.snapshot.items.find(item => item.role === 'assistant').text,
+        extraArgumentsRejected: extra.ok === false, foreignRunRejected: foreign.ok === false,
+        markupShownAsText: document.body.textContent.includes('<img src=x onerror='),
+        noInjectedImage: document.querySelector('[data-execution-items] img') === null,
+        noScriptExecution: window.__executionInjected !== true,
+        draftClearedAfterAcceptance: input.value === '' };
+    })()`);
+    const r = result as Record<string, unknown>;
+    const passed = r.sandboxed === true && r.isolated === true && r.hasRequire === false && r.streamedBeforeCompletion === true
+      && r.runStatus === 'completed' && r.taskStatus === 'needs_review' && r.finalText === 'aab'
+      && r.extraArgumentsRejected === true && r.foreignRunRejected === true && r.markupShownAsText === true
+      && r.noInjectedImage === true && r.noScriptExecution === true && r.draftClearedAfterAcceptance === true;
+    writeFileSync(resolve(root, 'docs/progress/evidence/M1.1c-desktop.json'), JSON.stringify({ observedAt: new Date().toISOString(),
+      status: passed ? 'passed' : 'blocked', kind: 'real_electron_durable_execution_with_stdio_fixture',
+      backend: 'synthetic_stdio_fixture', folderDialogSelection: 'fixed_fixture_substitution', inferenceRequested: false,
+      diagnostics: execution!.diagnostics, result }, null, 2) + '\n');
+    writeFileSync(resolve(root, '.local/M1-execution-desktop.png'), (await window.webContents.capturePage()).toPNG());
+    app.quit();
+  }
+
 }
 app.on('window-all-closed', () => { if (!active) app.quit(); });
 app.on('before-quit', event => {
   if (active) { event.preventDefault(); quitting = true; controller?.abort(); }
-  else if (fixtureDirectory) {
+  else if (execution?.busy) {
+    event.preventDefault(); void execution.close().finally(() => app.quit());
+  } else if (fixtureDirectory) {
     event.preventDefault(); const owned = fixtureDirectory; fixtureDirectory = undefined;
+    ledger?.close(); ledger = undefined;
     void rm(owned, { recursive: true, force: true }).finally(() => app.quit());
-  }
+  } else if (ledger) { ledger.close(); ledger = undefined; }
 });

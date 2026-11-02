@@ -1,0 +1,48 @@
+{
+  "status": "passed",
+  "observedAt": "2026-11-02T15:35:15.055Z",
+  "kind": "real_model_with_durable_execution_ledger_and_populated_history",
+  "cliVersion": "codex-cli 0.163.0",
+  "platform": "darwin-arm64",
+  "model": "gpt-6.1-sol",
+  "schemaFingerprint": "d3bb2d6b3aba976aecaa62eab4f0496f3cccd4bfc5b355190b23bd14c1bb545c",
+  "runId": "8053fc64-60fb-4f66-89dc-e66d85edd0d0",
+  "threadId": "01a19ce6-6334-7c33-b759-df9fbe853ff5",
+  "turnId": "01a19ce6-63a0-74b0-8a84-c9f1a5f98330",
+  "finalText": "M1_READY_6cfccaf397e0",
+  "expectedText": "M1_READY_6cfccaf397e0",
+  "toolItems": 0,
+  "taskStatus": "needs_review",
+  "diagnostics": {
+    "clientThreadStarts": 1,
+    "clientTurnStarts": 1,
+    "notificationCount": 24,
+    "serverRequestsDenied": 0,
+    "selectedModel": "gpt-6.1-sol",
+    "externalMcpServers": 0,
+    "disabledInheritedMcpServers": 2,
+    "failureCode": "",
+    "remoteFailureCategory": "",
+    "phase": "turn/completed"
+  },
+  "durableSnapshotAfterReopen": true,
+  "populatedNativeHistory": {
+    "threads": 1,
+    "turns": 1,
+    "items": 2,
+    "finalContentMatched": true
+  },
+  "verifiedMethods": [
+    "initialize",
+    "initialized",
+    "model/list",
+    "mcpServerStatus/list",
+    "thread/start",
+    "turn/start",
+    "thread/list",
+    "thread/read",
+    "thread/turns/list",
+    "thread/items/list"
+  ],
+  "scope": "One real read-only no-tool turn through the product runtime and ledger. Reopened local display cache plus scoped populated native history. No code editing/approval/stop/crash-reconciliation gate claimed."
+}

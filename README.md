@@ -1,6 +1,6 @@
 # Personal Agent
 
-Electron/React 桌面宿主，通过锁版 Codex App Server 驱动执行。当前具备安全窗口、流事件投影与只读项目历史浏览；macOS arm64 的 M0 真实模型闭环与平台 Gate 已通过，完整任务发送、个人记忆与长期自治按阶段交付。
+Electron/React 桌面宿主，通过锁版 Codex App Server 驱动执行。当前具备安全窗口、持久执行账本、只读消息发送/流式展示与项目历史浏览；macOS arm64 的 M0 真实模型闭环与平台 Gate 已通过，完整任务发送、个人记忆与长期自治按阶段交付。
 
 - [总体规划与技术专题](docs/design/00_总体架构与开发规划.md)
 - [M0–M5 进展点与同步规则](docs/progress/README.md)
@@ -48,7 +48,7 @@ pnpm smoke:desktop
 
 ## 只读历史浏览
 
-`pnpm dev` 启动后选择项目目录，按项目查看 Codex 已保存的会话、轮次与消息/工具记录。每页最多 20 项；大文本明确截断，HTML 按纯文本展示。项目选择仅在当前启动期间保留，重新启动后需再选择；跨重启的项目目录与执行账本由后续存储工作包实现。新任务发送暂未开放。
+`pnpm dev` 启动后选择项目目录，按项目查看 Codex 已保存的会话、轮次与消息/工具记录。每页最多 20 项；大文本明确截断，HTML 按纯文本展示。项目目录与任务记录保存到本机私有 SQLite，重启后复核目录身份；选择“项目任务”可发送新的只读消息。每条消息当前创建独立 Task/Thread；运行结束仍为待验证，结果未知时禁止重发。写入、会话续接、审批和停止按后续 M1 进展点开放。
 
 ```bash
 pnpm smoke:history:local
@@ -56,3 +56,9 @@ pnpm smoke:history:desktop
 ```
 
 `smoke:history:local` 在独立空白 Codex Home 验证原生元数据和空历史分页；不复制凭据、不调用模型。`smoke:history:desktop` 验证真实沙箱窗口与本地 stdio 合成 Fixture 的完整浏览路径，并替代原生目录对话框的选择结果，证据明确记录这一区别。这两项不能代替有内容的真实模型历史恢复与 M1 Gate。
+
+## M1 消息执行验证
+
+`pnpm smoke:execution` 通过产品 Runtime 和持久 Intent 执行一次只读零工具模型请求，读取该 Thread 的真实有内容历史并重开本地账本验证缓存。`pnpm smoke:execution:desktop` 使用真实沙箱 Electron 与合成 stdio Fixture 验证发送、流式中间态和 IPC 范围；后者不调用模型，目录选择由固定 Fixture 代替。结果与未验收范围见 [M1 进展](docs/progress/M1.md)。
+
+产品发送路径统一经过账本。M0 的无账本模型调试按钮已移除；独立协议 Smoke 仍作为显式开发诊断命令保留。M1 关闭外部 Apps/MCP/Plugins/Hooks/自治扩展，并在派发前检查线程内全部 MCP 均已明确禁用且无可用工具。

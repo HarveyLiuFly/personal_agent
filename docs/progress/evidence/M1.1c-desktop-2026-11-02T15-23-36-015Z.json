@@ -1,0 +1,10 @@
+{
+  "status": "blocked",
+  "code": "ELECTRON_VALIDATION_FAILED",
+  "observedAt": "2026-11-02T15:23:36.015Z",
+  "display": "native_desktop",
+  "exitCode": 1,
+  "signal": null,
+  "timedOut": false,
+  "platform": "darwin-arm64"
+}

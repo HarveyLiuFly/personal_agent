@@ -1,5 +1,5 @@
 {
-  "observedAt": "2026-11-02T14:58:18.543Z",
+  "observedAt": "2026-11-02T15:41:05.720Z",
   "kind": "real_electron_window_smoke",
   "status": "passed",
   "browserSandbox": "enabled",
@@ -9,12 +9,15 @@
     "hasRequire": false,
     "bridgeKeys": [
       "chooseProject",
+      "getRun",
       "inspect",
       "listItems",
+      "listRuns",
       "listThreads",
       "listTurns",
-      "runSmoke",
-      "security"
+      "security",
+      "submitMessage",
+      "workspaceState"
     ],
     "sandboxed": true,
     "isolated": true,
