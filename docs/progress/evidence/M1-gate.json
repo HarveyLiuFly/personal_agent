@@ -1,0 +1,59 @@
+{
+  "milestone": "M1",
+  "status": "passed_in_scope",
+  "observedAt": "2026-11-02T23:36:40.349897+00:00",
+  "kind": "review_of_actual_runtime_acceptance_evidence",
+  "scope": "macOS arm64, pinned Codex CLI 0.163.0, single foreground local profile, controlled Git code fixture and fixed Node test verification profile",
+  "counts": {
+    "tests": 109,
+    "pass": 109,
+    "fail": 0,
+    "skipped": 0
+  },
+  "staticContracts": 17,
+  "generatedTypes": 747,
+  "applicationResults": {
+    "realCodeModelTurns": 2,
+    "sameTaskAndThreadNewRunAndTurn": true,
+    "frozenContractInherited": true,
+    "changedFiles": [
+      "src/math.mjs"
+    ],
+    "hostDiscovered": 4,
+    "hostExecuted": 4,
+    "hostSkipped": 0,
+    "taskStatus": "completed",
+    "nativeApproveDeclineAndProcessInterrupt": "passed",
+    "explicitLostReceiptReadOnlyReconciliation": "passed_without_resend",
+    "nativeOpenPanel": "passed_actual_selection",
+    "osSingleInstance": "passed_three_real_processes",
+    "newElectronRestart": "passed_receipt_hash_current_tree_and_populated_native_history",
+    "restartModelTurns": 0
+  },
+  "evidence": {
+    "nativeCodeAndContinuation": "M1-native-code-desktop-2026-11-02T23-26-23-107Z.json",
+    "trustedReceipt": "M1.4b-verification-receipt.json",
+    "nativeRestart": "M1.4b-native-restart.json",
+    "nativeDirectory": "M1.4b-native-folder.json",
+    "osOwnership": "M1.4b-owner.json",
+    "nativeApprovalDeny": "M1.4a-native-deny.json",
+    "nativeApprovalAccept": "M1.4a-native-accept.json",
+    "nativeInterrupt": "M1.4a-native-interrupt.json",
+    "nativeLostReceiptReconciliation": "M1.3c-native-reconciliation.json",
+    "nativeNegativeVerifier": "M1.3b-native-verifier-negative.json",
+    "checks": "M1.4b-checks.txt"
+  },
+  "testScopeNotes": [
+    "Component TAP includes real SQLite/Git/Node subprocesses and synthetic stdio/test events; native model/application evidence is listed separately.",
+    "Native approval/interrupt probes use internal trusted fixture mode; the desktop approval button regression uses synthetic stdio.",
+    "The real desktop code/continuation task uses production frozen-contract execution and independent real sandbox verification, not synthetic model metadata."
+  ],
+  "limitations": [
+    "Only this platform and fixed Node profile are accepted; other platform or verification profiles require their own baseline.",
+    "Native user-input elicitation remains component-only; file-change approval accepts no grants, Steer and Legacy reconciliation remain disabled.",
+    "Unclosed executors, missing/ambiguous history, unconfirmed server replies and unsafe native policies remain blocked; Unknown never auto-resends.",
+    "Background ownership, broad concurrency/crash recovery, scheduler, memory, devices and release distribution remain future phases."
+  ],
+  "nextMilestone": "M2",
+  "commitLocator": "checkpoint/M1"
+}

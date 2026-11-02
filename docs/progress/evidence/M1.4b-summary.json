@@ -1,0 +1,21 @@
+{
+  "checkpoint": "M1.4b",
+  "status": "passed_in_scope",
+  "observedAt": "2026-11-02T23:36:40.349897+00:00",
+  "platform": "darwin-arm64",
+  "checks": {
+    "tests": 109,
+    "pass": 109,
+    "fail": 0,
+    "skipped": 0
+  },
+  "actualScenarios": {
+    "osSingleInstance": "passed",
+    "nativeDirectory": "passed_after_recorded_timeout",
+    "realDesktopCodeAndContinuation": "passed_two_model_turns_four_host_cases",
+    "newProcessRestartAndNativeHistory": "passed_zero_model_turns"
+  },
+  "M1Gate": "passed_in_scope",
+  "gateEvidence": "M1-gate.json",
+  "requiredRemaining": []
+}

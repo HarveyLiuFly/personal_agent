@@ -1,0 +1,52 @@
+{
+  "status": "passed",
+  "kind": "real_electron_restart_verified_code_and_native_history",
+  "receiptHashVerified": true,
+  "currentWorkspaceMatchesReceipt": true,
+  "ownerEpoch": 2,
+  "verifiedMethods": [
+    "thread/items/list",
+    "thread/list",
+    "thread/read",
+    "thread/turns/list"
+  ],
+  "result": {
+    "projectRestored": true,
+    "runCount": 2,
+    "runId": "ad3a3610-e2da-4ba8-ba9f-92e903789d61",
+    "threadId": "01a19e95-72e5-74e2-8f5a-44d5cb707d6e",
+    "turnId": "01a19e95-b1e5-7ff3-afb8-10721897ba34",
+    "taskStatus": "completed",
+    "cachedItemCount": 4,
+    "receiptStatus": "passed",
+    "executed": 4,
+    "nativeHistoryItems": 4,
+    "sandboxed": true,
+    "isolated": true,
+    "hasRequire": false
+  },
+  "diagnostics": {
+    "clientThreadStarts": 0,
+    "clientThreadResumes": 0,
+    "clientTurnStarts": 0,
+    "notificationCount": 0,
+    "serverRequestsDenied": 0,
+    "selectedModel": "",
+    "externalMcpServers": -1,
+    "disabledInheritedMcpServers": 0,
+    "nativePolicyVerified": false,
+    "nativeApprovalsReviewer": "",
+    "failureCode": "",
+    "remoteFailureCategory": "",
+    "phase": "idle"
+  },
+  "observedAt": "2026-11-02T23:29:00.409Z",
+  "platform": "darwin-arm64",
+  "cliVersion": "codex-cli 0.163.0",
+  "electronVersion": "45.2.1",
+  "nodeVersion": "24.22.1",
+  "inferenceRequested": false,
+  "display": "native_desktop",
+  "exitCode": 0,
+  "signal": null
+}

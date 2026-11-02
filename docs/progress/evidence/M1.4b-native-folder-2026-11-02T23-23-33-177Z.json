@@ -1,0 +1,20 @@
+{
+  "status": "passed",
+  "kind": "real_native_open_panel_selection",
+  "selection": "actual_native_dialog_via_computer_use",
+  "dialogOpened": true,
+  "selectionMatched": true,
+  "result": {
+    "projects": 1,
+    "selectedName": "personal-agent-folder-native-eul57A",
+    "sandboxed": true,
+    "isolated": true,
+    "hasRequire": false
+  },
+  "observedAt": "2026-11-02T23:23:33.177Z",
+  "platform": "darwin-arm64",
+  "cliVersion": "codex-cli 0.163.0",
+  "electronVersion": "45.2.1",
+  "nodeVersion": "24.22.1",
+  "inferenceRequested": false
+}

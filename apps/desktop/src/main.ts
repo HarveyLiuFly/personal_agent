@@ -20,11 +20,14 @@ import { readConnection } from '../../../packages/codex-adapter/src/read-connect
 import { runtimeEnvironment } from '../../../packages/codex-adapter/src/launch.ts';
 import type { HostResult } from '../../../packages/contracts/src/views.ts';
 import type { ConnectionInfo } from './bridge.ts';
+import {nativeProbe,rejectedSecondary,runNativeProbe} from './native-probes.ts';
 
 const directory = dirname(fileURLToPath(import.meta.url));
 const root = resolve(directory, '../..');
 const documentPath = resolve(directory, 'renderer/index.html');
 const documentUrl = pathToFileURL(documentPath).href;
+const acceptanceProbe=nativeProbe(root,process.argv);
+let ownerEpoch=0;
 let active = false;
 let controller: AbortController | undefined;
 let quitting = false;
@@ -32,7 +35,8 @@ let window: BrowserWindow | undefined;
 let ledger: ExecutionLedger | undefined;
 let execution: ForegroundExecution | undefined;
 let verifier: NodeVerification | undefined;
-const nativeCodeSmoke=process.argv.includes('--m1-native-code-smoke');
+const nativeCodeContinuationSmoke=process.argv.includes('--m1-native-code-continuation-smoke');
+const nativeCodeSmoke=process.argv.includes('--m1-native-code-smoke')||nativeCodeContinuationSmoke;
 let nativeCodeWorkspace:string|undefined;
 if(nativeCodeSmoke){mkdirSync(resolve(root,'.local'),{recursive:true});app.setPath('userData',mkdtempSync(resolve(root,'.local/desktop-native-code-')));}
 const interactionSmoke = process.argv.includes('--m1-interaction-smoke');
@@ -43,13 +47,16 @@ let fixtureDirectory: string | undefined;
   if (process.argv.includes('--m0-window-smoke')) app.setPath('userData', resolve(root, '.local/desktop-smoke-data'));
   if (historySmoke) app.setPath('userData', resolve(root, '.local/desktop-history-smoke-data'));
   if (executionSmoke) app.setPath('userData', resolve(root, '.local/desktop-execution-smoke-data'));
-if (!app.requestSingleInstanceLock()) app.quit();
+if(acceptanceProbe)app.setPath('userData',acceptanceProbe.stateDirectory);
+const singleInstanceHeld=app.requestSingleInstanceLock();
+if(acceptanceProbe?.kind==='owner-secondary'){rejectedSecondary(acceptanceProbe,singleInstanceHeld);app.quit();}
+else if (!singleInstanceHeld) app.quit();
 else void boot().catch(async error => {
   const code = error instanceof Error && /^[A-Z0-9_]{1,100}$/.test(error.message) ? error.message : 'HOST_ERROR';
   console.error('DESKTOP_BOOT_FAILED', code);
-  if (nativeCodeSmoke || executionSmoke || historySmoke || process.argv.includes('--m0-window-smoke')) {
+  if (acceptanceProbe || nativeCodeSmoke || executionSmoke || historySmoke || process.argv.includes('--m0-window-smoke')) {
     if (window) { try { writeFileSync(resolve(root, '.local/desktop-failure.png'), (await window.webContents.capturePage()).toPNG()); } catch {} }
-    const file = nativeCodeSmoke ? 'M1-native-code-desktop' : continuationSmoke?'M1.3c-desktop':interactionSmoke ? 'M1.2-desktop' : executionSmoke ? 'M1.1c-desktop' : historySmoke ? 'M1.1b-desktop' : 'M0-desktop-smoke';
+    const file = acceptanceProbe?`M1.4b-${acceptanceProbe.kind==='folder'?'native-folder':acceptanceProbe.kind==='restart'?'native-restart':'owner'}`:nativeCodeSmoke ? 'M1-native-code-desktop' : continuationSmoke?'M1.3c-desktop':interactionSmoke ? 'M1.2-desktop' : executionSmoke ? 'M1.1c-desktop' : historySmoke ? 'M1.1b-desktop' : 'M0-desktop-smoke';
     writeFileSync(resolve(root, `docs/progress/evidence/${file}.json`), JSON.stringify({ status: 'blocked', code, observedAt: new Date().toISOString() }) + '\n');
   }
   try { await execution?.close(); ledger?.close(); } catch {}
@@ -85,7 +92,7 @@ async function boot(): Promise<void> {
   }
   if (!historySmoke) {
     ledger = new ExecutionLedger(resolve(fixtureDirectory ?? app.getPath('userData'), 'execution/ledger.db'), readFileSync(resolve(directory, 'schema.sql'), 'utf8'));
-    ledger.startOwner(randomUUID(), true); // OS single-instance lock was acquired before boot().
+    ownerEpoch=ledger.startOwner(randomUUID(), true); // OS single-instance lock was acquired before boot().
     if (!executionSmoke && process.platform === 'darwin' && process.arch === 'arm64') {
       try { verifier = new NodeVerification(ledger,{node:resolveVerifierNode(root),cli:executable(),reporter:resolve(directory,'verification-reporter.mjs'),stateDirectory:resolve(app.getPath('userData'),'verification')}); } catch {}
     }
@@ -96,7 +103,7 @@ async function boot(): Promise<void> {
         args: [resolve(root, 'tests/fixtures/execution-server.ts'), interactionSmoke ? 'approval-accept' : 'slow', resolve(fixtureDirectory!, 'execution/ledger.db'), resolve(fixtureDirectory!, 'execution-receipts')], env: runtimeEnvironment(), ...callbacks }) } : {}) });
   }
   const history = new HistoryBrowser(async read => {
-    if (!historySmoke && !executionSmoke) return readConnection(executable(), state, controller?.signal)(read);
+    if (!historySmoke && !executionSmoke) return readConnection(executable(), state, controller?.signal)(port=>read({request:async<T>(method:string,params:unknown)=>{acceptanceProbe?.readMethods.add(method);return port.request<T>(method,params);}}));
     // Fixed internal integration fixture. No Renderer API selects a process, path, or fixture mode.
     const rpc = new StdioRpcClient({ executable: resolveExecutable('node'),
       args: [resolve(root, 'tests/fixtures/history-server.ts'), fixtureWorkspace!], env: runtimeEnvironment(), signal: controller?.signal });
@@ -111,7 +118,9 @@ async function boot(): Promise<void> {
   ipcMain.handle('history:chooseProject', (event, ...args: unknown[]) => historyCommand(event, args, 0, async () => {
     if (fixtureWorkspace) return history.registerDirectory(fixtureWorkspace);
     if (nativeCodeWorkspace) return history.registerDirectory(nativeCodeWorkspace);
-    const selection = await dialog.showOpenDialog(window!, { title: '选择项目目录', properties: ['openDirectory'] });
+    if(acceptanceProbe?.kind==='folder')acceptanceProbe.dialogOpened=true;
+    const selection = await dialog.showOpenDialog(window!, { title: '选择项目目录', properties: ['openDirectory'],...(acceptanceProbe?.folderDirectory?{defaultPath:acceptanceProbe.folderDirectory}:{}) });
+    if(acceptanceProbe?.kind==='folder'&&!selection.canceled){if(selection.filePaths.length!==1||realpathSync(selection.filePaths[0]!)!==acceptanceProbe.folderDirectory)throw new LedgerError('NATIVE_FOLDER_SCOPE_MISMATCH');acceptanceProbe.selectionMatched=true;}
     return selection.canceled || !selection.filePaths[0] ? null : history.registerDirectory(selection.filePaths[0]);
   }));
   ipcMain.handle('history:listThreads', (event, ...args: unknown[]) => historyCommand(event, args, 1, () => history.listThreads(args[0])));
@@ -193,6 +202,7 @@ async function boot(): Promise<void> {
   window.webContents.session.setPermissionCheckHandler(() => false);
   window.webContents.on('will-attach-webview', event => event.preventDefault());
   await window.loadFile(documentPath);
+  if(acceptanceProbe){await runNativeProbe(root,acceptanceProbe,app,window,{ledger:ledger!,execution:execution!,...(verifier?{verifier}:{}),ownerEpoch});return;}
   if (process.argv.includes('--m0-window-smoke')) {
     // Fixed test-only evaluation; no Renderer API accepts JS or a command string.
     const result: unknown = await window.webContents.executeJavaScript(`(async () => {
@@ -366,31 +376,40 @@ async function boot(): Promise<void> {
       document.querySelector('[data-code-profile]').click();
       const fill=(selector,text)=>{const element=document.querySelector(selector);const prototype=element.tagName==='TEXTAREA'?HTMLTextAreaElement.prototype:HTMLInputElement.prototype;Object.getOwnPropertyDescriptor(prototype,'value').set.call(element,text);element.dispatchEvent(new Event('input',{bubbles:true}));};
       await wait(()=>document.querySelector('[data-code-target]'));fill('[data-code-target]','test/math.test.mjs');fill('[data-code-paths]','src/math.mjs');
-      fill('[data-task-draft]','Fix the sum(a,b) bug in src/math.mjs. Modify only that file. The four frozen Node tests must pass. Do not modify tests, run Git, use network, or create other files.');
+      fill('[data-task-draft]','Fix the sum(a,b) bug in src/math.mjs. Modify only that file. The four frozen Node tests must pass. Do not modify tests, run Git, use network, or create other files. Do not request escalation; the Host will independently run the frozen verification.');
       await wait(()=>!document.querySelector('[data-action="send"]').disabled);document.querySelector('[data-action="send"]').click();
       const state=await window.personalAgent.workspaceState(),projectId=state.value.projects[0].id;
       let runId,view,approvalDecisions=0;const deadline=Date.now()+200000;
-      while(Date.now()<deadline){const rows=await window.personalAgent.listRuns({projectId});runId=rows.value[0]?.runId;if(runId){
-        const r=await window.personalAgent.getRun({projectId,runId});view=r.value;
-        if(['completed','failed','cancelled','outcome_unknown'].includes(view.status))break;
+      const settle=async previous=>{while(Date.now()<deadline){const rows=await window.personalAgent.listRuns({projectId});const next=rows.value[0]?.runId;if(next&&next!==previous){
+        runId=next;const r=await window.personalAgent.getRun({projectId,runId});view=r.value;
+        if(['completed','failed','cancelled','outcome_unknown'].includes(view.status))return;
         const pending=await window.personalAgent.listInteractions({projectId,runId});
-        for(const request of pending.value.filter(r=>r.state==='pending')){const safe=request.canAccept&&request.kind==='command'&&['node --test','node --test test/math.test.mjs'].includes(request.command);await window.personalAgent.replyInteraction({projectId,runId,requestId:request.requestId,decision:safe?'accept':'decline'});approvalDecisions++;}
-      }await new Promise(r=>setTimeout(r,300));}
+        for(const request of pending.value.filter(r=>r.state==='pending')){await window.personalAgent.replyInteraction({projectId,runId,requestId:request.requestId,decision:'decline'});approvalDecisions++;}
+      }await new Promise(r=>setTimeout(r,300));}throw new Error('NATIVE_CODE_TASK_TIMEOUT');};
+      await settle();const first=view;
       if(!view||view.status!=='completed')return{runStatus:view?.status,taskStatus:view?.taskStatus,errorCode:view?.errorCode,approvalDecisions};
+      if(${nativeCodeContinuationSmoke}){
+        await wait(()=>document.querySelector('[data-run-status="completed"]'));document.querySelector('[data-action="continue-run"]').click();await wait(()=>document.querySelector('[data-continuation-banner]'));
+        fill('[data-task-draft]','Review your prior sum fix against the four frozen tests. If any further correction is needed, change only src/math.mjs; otherwise keep the code. Do not modify tests, use Git/network, create files or request escalation. The Host will run verification.');await wait(()=>!document.querySelector('[data-action="send"]').disabled);document.querySelector('[data-action="send"]').click();
+        await settle(first.runId);if(view.status!=='completed')return{runStatus:view.status,taskStatus:view.taskStatus,errorCode:view.errorCode,approvalDecisions};
+      }
+      await wait(()=>document.querySelector('[data-run-status="completed"]'));
       document.querySelector('[data-action="review-run"]').click();await wait(()=>document.querySelector('[data-run-diff]'));
       const diffShown=document.querySelector('[data-run-diff]').textContent.includes('src/math.mjs');
       document.querySelector('[data-action="verify-run"]').click();await wait(()=>document.querySelector('[data-verification-status="passed"]'));
       const final=await window.personalAgent.getRun({projectId,runId}),review=await window.personalAgent.getVerification({projectId,runId});
-      return{runId,threadId:final.value.threadId,turnId:final.value.turnId,runStatus:final.value.status,taskStatus:final.value.taskStatus,mode:final.value.mode,
+      return{runId,firstRunId:first.runId,sourceTurnId:first.turnId,codeContinuation:${nativeCodeContinuationSmoke},sameTask:first.taskId===final.value.taskId,sameThread:first.threadId===final.value.threadId,newRun:first.runId!==runId,newTurn:first.turnId!==final.value.turnId,threadId:final.value.threadId,turnId:final.value.turnId,runStatus:final.value.status,taskStatus:final.value.taskStatus,mode:final.value.mode,
         diffShown,changedFiles:review.value.changedFiles,receipt:review.value.receipt,requiredCases:review.value.requiredCases,approvalDecisions,
         sandboxed:window.personalAgent.security.sandboxed,isolated:window.personalAgent.security.isolated,hasRequire:typeof require!=='undefined'};
     })()`);
     const r=result as Record<string,unknown>,receipt=r.receipt as Record<string,unknown>|undefined;
+    const firstPlan=typeof r.firstRunId==='string'?ledger!.verificationPlan(r.firstRunId):null,finalPlan=typeof r.runId==='string'?ledger!.verificationPlan(r.runId):null;
+    const frozenContractInherited=Boolean(firstPlan&&finalPlan&&['baselineCommit','files','testHash','nodeHash','reporterHash','cliHash','verifierHash','target','allowedPaths','requiredCases','knownCases'].every(key=>JSON.stringify(firstPlan[key as keyof typeof firstPlan])===JSON.stringify(finalPlan[key as keyof typeof finalPlan])));
     const passed=r.runStatus==='completed'&&r.taskStatus==='completed'&&r.mode==='workspaceWrite'&&r.diffShown===true&&r.requiredCases===4
       &&r.sandboxed===true&&r.isolated===true&&r.hasRequire===false&&receipt?.status==='passed'&&receipt.executed===4&&receipt.skipped===0
-      &&JSON.stringify(r.changedFiles)===JSON.stringify(['src/math.mjs']);
+      &&execution!.diagnostics.nativePolicyVerified&&JSON.stringify(r.changedFiles)===JSON.stringify(['src/math.mjs'])&&(!nativeCodeContinuationSmoke||(r.sameTask===true&&r.sameThread===true&&r.newRun===true&&r.newTurn===true&&frozenContractInherited&&execution!.diagnostics.clientThreadResumes===1&&execution!.diagnostics.clientTurnStarts===2));
     writeFileSync(resolve(root,'docs/progress/evidence/M1-native-code-desktop.json'),JSON.stringify({status:passed?'passed':'blocked',observedAt:new Date().toISOString(),kind:'real_electron_real_model_code_task_and_trusted_sandbox_verification',
-      backend:'native_locked_app_server',inferenceRequested:true,folderDialogSelection:'fixed_fixture_substitution',cliVersion:verifiedCodex(root).lock.cliVersion,platform:process.platform+'-'+process.arch,diagnostics:execution!.diagnostics,result},null,2)+'\n');
+      backend:'native_locked_app_server',inferenceRequested:true,folderDialogSelection:'fixed_fixture_substitution',cliVersion:verifiedCodex(root).lock.cliVersion,platform:process.platform+'-'+process.arch,verifiedMethods:['thread/start',...(nativeCodeContinuationSmoke?['thread/resume']:[]),'turn/start'],frozenContractInherited,diagnostics:execution!.diagnostics,result},null,2)+'\n');
     writeFileSync(resolve(root,'.local/M1-native-code-desktop.png'),(await window.webContents.capturePage()).toPNG());app.quit();
   }
 

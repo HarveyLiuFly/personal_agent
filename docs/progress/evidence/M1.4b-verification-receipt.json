@@ -1,0 +1,58 @@
+{
+  "kind": "sanitized_controlled_fixture_host_verification_receipt",
+  "receiptSha256": "c9bfc14259e1a5ff1a85aba23900db121755155cda8c0969484c55b4feb49f3c",
+  "receipt": {
+    "verificationId": "1704df74-b347-46da-a6df-3aea959fa543",
+    "runId": "ad3a3610-e2da-4ba8-ba9f-92e903789d61",
+    "specId": "55ce493e-ce41-47c9-99ec-5c54bab7d7f9",
+    "status": "passed",
+    "code": "VERIFIED",
+    "discovered": 4,
+    "executed": 4,
+    "skipped": 0,
+    "exitCode": 0,
+    "requiredCases": [
+      "[\"test/math.test.mjs\",5,1,\"adds positive integers\"]",
+      "[\"test/math.test.mjs\",6,1,\"adds negative integers\"]",
+      "[\"test/math.test.mjs\",7,1,\"adds zero and mixed signs\"]",
+      "[\"test/math.test.mjs\",8,1,\"adds fresh integer pairs\"]"
+    ],
+    "passedCases": [
+      "[\"test/math.test.mjs\",5,1,\"adds positive integers\"]",
+      "[\"test/math.test.mjs\",6,1,\"adds negative integers\"]",
+      "[\"test/math.test.mjs\",7,1,\"adds zero and mixed signs\"]",
+      "[\"test/math.test.mjs\",8,1,\"adds fresh integer pairs\"]"
+    ],
+    "changedFiles": [
+      "src/math.mjs"
+    ],
+    "workspaceHash": "25971cffabdd51496537688efb7555f5086d827373f7fc84a5e980dad6848442",
+    "observedAt": "2026-11-02T23:26:22.313Z"
+  },
+  "contract": {
+    "baselineCommit": "0648927a0861ddb5ac6de0e35914dfae14a1496c",
+    "target": "test/math.test.mjs",
+    "allowedPaths": [
+      "src/math.mjs"
+    ],
+    "testHash": "bb2211d790969275c913597bb24f029d9e82915d124f450f042d0575aaa6b568",
+    "nodeHash": "27db838bb204ef7c21df2931f5656e4c8fb32e6e947f363a402b49714d32b5b1",
+    "reporterHash": "c536cbb58846b9b24cae774c9a1dd899093c8109f37feede7eecf85fdb7115f3",
+    "cliHash": "8813367285524ac798dd96d1b071aea30d58708c7226fd236cd275cf1cfdee31",
+    "verifierHash": "36e2a8d6dd112b20da21b8ddb0db726e9823a03f7be5ec05328de1a7f40b9bfd",
+    "requiredCases": [
+      "[\"test/math.test.mjs\",5,1,\"adds positive integers\"]",
+      "[\"test/math.test.mjs\",6,1,\"adds negative integers\"]",
+      "[\"test/math.test.mjs\",7,1,\"adds zero and mixed signs\"]",
+      "[\"test/math.test.mjs\",8,1,\"adds fresh integer pairs\"]"
+    ],
+    "knownCases": [
+      "[\"test/math.test.mjs\",5,1,\"adds positive integers\"]",
+      "[\"test/math.test.mjs\",6,1,\"adds negative integers\"]",
+      "[\"test/math.test.mjs\",7,1,\"adds zero and mixed signs\"]",
+      "[\"test/math.test.mjs\",8,1,\"adds fresh integer pairs\"]"
+    ]
+  },
+  "contractInheritedAcrossBothRuns": true,
+  "currentBuiltHostMatchesFrozenVerifierHash": true
+}

@@ -1,0 +1,16 @@
+{
+  "status": "passed",
+  "observedAt": "2026-11-02T17:50:09.537Z",
+  "kind": "real_electron_os_single_instance_and_owner_restart",
+  "platform": "darwin-arm64",
+  "display": "native_desktop",
+  "inferenceRequested": false,
+  "firstWindowLoaded": true,
+  "secondProcessLockRejected": true,
+  "secondProcessOpenedLedger": false,
+  "epochWhileOwnerAlive": 1,
+  "epochAfterRejectedSecond": 1,
+  "epochAfterNewOwner": 2,
+  "finalOwnerState": "stopped",
+  "processesLaunched": 3
+}

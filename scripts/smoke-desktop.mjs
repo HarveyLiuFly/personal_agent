@@ -6,7 +6,8 @@ import electron from 'electron';
 import { openDisplay } from './virtual-display.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const nativeCode=process.argv.includes('--native-code');
+const codeContinuation=process.argv.includes('--native-code-continue');
+const nativeCode=process.argv.includes('--native-code')||codeContinuation;
 const continuation=process.argv.includes('--continuation');
 const interactions = process.argv.includes('--interactions');
 const execution = process.argv.includes('--execution') || interactions;
@@ -19,7 +20,7 @@ let display;
 let evidence;
 try {
   display = await openDisplay(root);
-  const child = spawn(electron, ['.', nativeCode ? '--m1-native-code-smoke' : continuation?'--m1-continuation-smoke':interactions ? '--m1-interaction-smoke' : execution ? '--m1-execution-smoke' : history ? '--m1-history-smoke' : '--m0-window-smoke'], { cwd: root, stdio: 'inherit', env: display.env });
+  const child = spawn(electron, ['.', codeContinuation?'--m1-native-code-continuation-smoke':nativeCode ? '--m1-native-code-smoke' : continuation?'--m1-continuation-smoke':interactions ? '--m1-interaction-smoke' : execution ? '--m1-execution-smoke' : history ? '--m1-history-smoke' : '--m0-window-smoke'], { cwd: root, stdio: 'inherit', env: display.env });
   let timedOut = false;
   let killTimer;
   const timer = setTimeout(() => {
