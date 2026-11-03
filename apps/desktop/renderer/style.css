@@ -124,3 +124,15 @@ pre { white-space: pre-wrap; overflow-wrap: anywhere; font-family: ui-monospace,
 .terminal-actions {display:flex;gap:8px;flex-wrap:wrap;margin:10px 0;}
 .terminal-actions button {font-size:12px;padding:7px 10px;}
 .terminal-screen {height:360px;overflow:auto;padding:8px;background:#0b1422;border-radius:7px;}
+.agent-tools {margin:16px 0;padding:14px;border:1px solid #304258;border-radius:10px;}
+.agent-tools h3 {margin:0;font-size:14px;}
+.tool-filters {display:flex;gap:12px;flex-wrap:wrap;margin:12px 0;}
+.tool-filters label {display:flex;align-items:center;gap:8px;font-size:12px;color:#a8bad0;}
+.tool-filters select {padding:6px;background:#101a2a;color:#e7edf6;border:1px solid #35485f;border-radius:6px;color-scheme:dark;}
+.tool-record {padding:10px 0;border-top:1px solid #304258;min-width:0;}
+.tool-record summary {cursor:pointer;font-size:12px;overflow-wrap:anywhere;}
+.tool-record summary span {display:inline-block;margin-left:12px;color:#93a8c1;}
+.tool-record[data-tool-state=failed] summary span,.tool-record[data-tool-state=declined] summary span {color:#ffb6a7;}
+.tool-record[data-tool-state=unknown] summary span {color:#ead08d;}
+.tool-record pre {white-space:pre-wrap;overflow-wrap:anywhere;max-height:280px;overflow:auto;font-size:12px;}
+.tool-record small {display:block;overflow-wrap:anywhere;margin-top:10px;}

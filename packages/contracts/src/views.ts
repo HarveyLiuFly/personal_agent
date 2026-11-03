@@ -7,6 +7,10 @@ export interface ItemView {
   label: string;
   text: string;
   status: 'streaming' | 'complete' | 'unknown';
+  /** Native tool result, separate from receipt of the final record. Absent in older snapshots. */
+  toolStatus?: 'inProgress' | 'completed' | 'failed' | 'declined' | 'interrupted' | 'unknown';
+  exitCode?: number;
+  durationMs?: number;
   truncated: boolean;
 }
 export interface TurnView {

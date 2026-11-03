@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import type { HostResult, InteractionView, ProjectView, RunSummary, RunView, VerificationView } from '../../../packages/contracts/src/views.ts';
 import { InteractionCard } from './interactions.tsx';
+import {AgentToolPanel} from './tool-panel.tsx';
+import {isToolItem} from './tool-activity.ts';
 async function value<T>(request: Promise<HostResult<T>>): Promise<T> { const r = await request; if (!r.ok) throw new Error(r.errorCode); return r.value; }
 const labels: Record<string,string> = { preparing: '正在连接', submitting: '正在发送', running: '执行中', completed: '执行已结束 · 待验证', failed: '执行失败', cancelled: '已中断', outcome_unknown: '结果未知 · 待核对', waiting_approval: '等待批准', waiting_input: '等待补充' };
 export function ExecutionPanel({ project, disabled = false, mode = 'readOnly', canCode = false,requestedRunId }: { project: ProjectView; disabled?: boolean; mode?: 'readOnly'|'workspaceWrite'; canCode?: boolean;requestedRunId?:string }) {
@@ -76,7 +78,8 @@ export function ExecutionPanel({ project, disabled = false, mode = 'readOnly', c
         </div>}
         {view.snapshot?.needsSnapshot && <div className="notice">连接已断开，以下为最后保存的内容，尚未核对最新结果。</div>}
         {requests.map(request=><InteractionCard key={request.requestId} request={request} reply={async(decision,answers)=>{await value(window.personalAgent.replyInteraction({projectId:project.id,runId:view.runId,requestId:request.requestId,decision,...(answers?{answers}:{})}));setRequests(rows=>rows.filter(r=>r.requestId!==request.requestId));}}/>)}
-        <div className="items" data-execution-items>{view.snapshot?.items.map(item => <article key={`${item.turnId}:${item.id}`} className={`item ${item.role}`} data-execution-item={item.id} data-item-status={item.status}>
+        <AgentToolPanel key={view.runId} run={view}/>
+        <div className="items" data-execution-items>{view.snapshot?.items.filter(item=>!isToolItem(item)).map(item => <article key={`${item.turnId}:${item.id}`} className={`item ${item.role}`} data-execution-item={item.id} data-item-status={item.status}>
           <div className="item-meta"><strong>{item.label}</strong><span>{item.status === 'streaming' ? '正在接收' : item.status === 'complete' ? '记录已结束' : '状态未知'}</span></div><pre>{item.text}</pre>
           {item.truncated && <small className="clip-note">仅显示部分内容</small>}
         </article>)}</div>

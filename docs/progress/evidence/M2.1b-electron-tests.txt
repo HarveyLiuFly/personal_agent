@@ -1,0 +1,127 @@
+[1103/155842.121194:ERROR:electron/shell/common/mac/codesign_util.cc:79] task_name_for_pid: (os/kern) failure (5)
+TAP version 13
+# [1103/155842.202028:ERROR:electron/shell/common/mac/codesign_util.cc:79] task_name_for_pid: (os/kern) failure (5)
+# Subtest: repeated deltas are appended and the authoritative final item calibrates them
+ok 1 - repeated deltas are appended and the authoritative final item calibrates them
+  ---
+  duration_ms: 0.953375
+  type: 'test'
+  ...
+# Subtest: a late item/started does not erase text or reopen a completed item
+ok 2 - a late item/started does not erase text or reopen a completed item
+  ---
+  duration_ms: 0.151834
+  type: 'test'
+  ...
+# Subtest: thread, turn and item identity remain separate even with equal IDs and delimiter-like strings
+ok 3 - thread, turn and item identity remain separate even with equal IDs and delimiter-like strings
+  ---
+  duration_ms: 0.839542
+  type: 'test'
+  ...
+# Subtest: duplicate receive identities do not duplicate text, while a gap requires reconciliation
+ok 4 - duplicate receive identities do not duplicate text, while a gap requires reconciliation
+  ---
+  duration_ms: 0.138709
+  type: 'test'
+  ...
+# Subtest: reconnection requires a fresh snapshot and replaces old partial text rather than concatenating it
+ok 5 - reconnection requires a fresh snapshot and replaces old partial text rather than concatenating it
+  ---
+  duration_ms: 0.365291
+  type: 'test'
+  ...
+# Subtest: disconnect leaves partial content explicitly stale and blocks additional updates
+ok 6 - disconnect leaves partial content explicitly stale and blocks additional updates
+  ---
+  duration_ms: 0.090667
+  type: 'test'
+  ...
+# Subtest: turn completion uses full items and a late start or delta cannot reopen it
+ok 7 - turn completion uses full items and a late start or delta cannot reopen it
+  ---
+  duration_ms: 0.112041
+  type: 'test'
+  ...
+# Subtest: failed turns retain failure and unknown item types remain explicit without exposing arguments
+ok 8 - failed turns retain failure and unknown item types remain explicit without exposing arguments
+  ---
+  duration_ms: 0.169875
+  type: 'test'
+  ...
+# Subtest: text limits are bounded, do not split emoji, and a final item can replace a clipped prefix
+ok 9 - text limits are bounded, do not split emoji, and a final item can replace a clipped prefix
+  ---
+  duration_ms: 0.38225
+  type: 'test'
+  ...
+# Subtest: aggregate text, item and turn budgets bound growth and visibly signal missing data
+ok 10 - aggregate text, item and turn budgets bound growth and visibly signal missing data
+  ---
+  duration_ms: 0.39675
+  type: 'test'
+  ...
+# Subtest: snapshot replacement drops orphaned old items and rejects a stale sequence
+ok 11 - snapshot replacement drops orphaned old items and rejects a stale sequence
+  ---
+  duration_ms: 0.091083
+  type: 'test'
+  ...
+# Subtest: plain-text views keep markup inert and hide reasoning, tool secrets and local image paths
+ok 12 - plain-text views keep markup inert and hide reasoning, tool secrets and local image paths
+  ---
+  duration_ms: 1.1485
+  type: 'test'
+  ...
+# Subtest: view consumers cannot mutate the next projection or advance an old epoch
+ok 13 - view consumers cannot mutate the next projection or advance an old epoch
+  ---
+  duration_ms: 0.089459
+  type: 'test'
+  ...
+# [1103/155842.202013:ERROR:electron/shell/common/mac/codesign_util.cc:79] task_name_for_pid: (os/kern) failure (5)
+# Subtest: tool status is explicit and independent of final record receipt; invalid metadata is dropped
+ok 14 - tool status is explicit and independent of final record receipt; invalid metadata is dropped
+  ---
+  duration_ms: 0.684375
+  type: 'test'
+  ...
+# Subtest: completed Turn and snapshot do not fabricate success for failed, declined or unfinished tools
+ok 15 - completed Turn and snapshot do not fabricate success for failed, declined or unfinished tools
+  ---
+  duration_ms: 0.755625
+  type: 'test'
+  ...
+# Subtest: late tool starts and output cannot erase a failed final result; reconnect requires fresh snapshot
+ok 16 - late tool starts and output cannot erase a failed final result; reconnect requires fresh snapshot
+  ---
+  duration_ms: 0.283458
+  type: 'test'
+  ...
+# Subtest: nonzero exit, interrupted tool and old metadata cannot appear as successful executions
+ok 17 - nonzero exit, interrupted tool and old metadata cannot appear as successful executions
+  ---
+  duration_ms: 0.159625
+  type: 'test'
+  ...
+# Subtest: live tool requires fresh snapshot, active Run and matching active Turn; older snapshot is unknown
+ok 18 - live tool requires fresh snapshot, active Run and matching active Turn; older snapshot is unknown
+  ---
+  duration_ms: 0.1265
+  type: 'test'
+  ...
+# Subtest: tool projection obeys existing per-item and aggregate display budgets
+ok 19 - tool projection obeys existing per-item and aggregate display budgets
+  ---
+  duration_ms: 0.199875
+  type: 'test'
+  ...
+1..19
+# tests 19
+# suites 0
+# pass 19
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 119.731292

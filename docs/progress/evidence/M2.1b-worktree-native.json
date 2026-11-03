@@ -1,0 +1,71 @@
+{
+  "status": "passed",
+  "observedAt": "2026-11-03T07:57:38.008Z",
+  "kind": "real_electron_managed_worktree_native_code_and_independent_verification",
+  "backend": "native_locked_app_server",
+  "history": "synthetic_metadata",
+  "folderSelection": "owned_fixture_substitution",
+  "platform": "darwin-arm64",
+  "cliVersion": "codex-cli 0.163.0",
+  "inferenceRequested": true,
+  "attempts": 1,
+  "modelTurns": 1,
+  "model": "gpt-6.1-sol",
+  "reportedTokens": 74356,
+  "estimatedUsd": null,
+  "toolCount": 4,
+  "toolKinds": [
+    "command",
+    "command",
+    "files",
+    "command"
+  ],
+  "toolStates": [
+    "completed",
+    "completed",
+    "completed",
+    "completed"
+  ],
+  "commandExitCodes": [
+    0,
+    0,
+    0
+  ],
+  "receipt": {
+    "status": "passed",
+    "code": "VERIFIED",
+    "discovered": 4,
+    "executed": 4,
+    "skipped": 0,
+    "exitCode": 0,
+    "observedAt": "2026-11-03T07:57:37.039Z"
+  },
+  "declinedApprovals": 0,
+  "errorCode": null,
+  "result": {
+    "created": true,
+    "selected": true,
+    "oneManagedWorkspace": true,
+    "oneRun": true,
+    "oneDurableTurn": true,
+    "sourceUnchanged": true,
+    "baseFrozen": true,
+    "needsReviewBeforeVerification": true,
+    "taskCompleted": true,
+    "workspaceWrite": true,
+    "onlyAllowedChange": true,
+    "independentVerification": true,
+    "diffShown": true,
+    "nativeToolRecords": true,
+    "nativePolicyVerified": true,
+    "usageSettled": true,
+    "sandboxed": true,
+    "isolated": true,
+    "noRequire": true,
+    "apiCount": true
+  },
+  "display": "native_desktop",
+  "exitCode": 0,
+  "signal": null,
+  "timedOut": false
+}

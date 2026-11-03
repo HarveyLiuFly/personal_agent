@@ -13,6 +13,10 @@ function turnStatus(value: unknown): TurnView['status'] {
   return value === 'inProgress' || value === 'completed' || value === 'failed' || value === 'interrupted' ? value : 'unknown';
 }
 
+function toolResult(result: ItemView, item: Record<string, unknown>, statuses: string[]): void {
+  result.toolStatus = typeof item.status === 'string' && statuses.includes(item.status) ? item.status as ItemView['toolStatus'] : 'unknown';
+  if (Number.isSafeInteger(item.durationMs) && Number(item.durationMs) >= 0) result.durationMs = Number(item.durationMs);
+}
 /** Convert trusted-transport data to bounded plain text; never carry tool arguments, HTML, or local image URLs. */
 export function itemView(turnId: string, item: Record<string, unknown>, complete: boolean, maximum = defaults.itemText): ItemView | undefined {
   if (!identity(item.id) || !identity(turnId)) return;
@@ -28,15 +32,18 @@ export function itemView(turnId: string, item: Record<string, unknown>, complete
     case 'agentMessage': result.kind = 'message'; result.role = 'assistant'; result.label = '助手'; text = string(item.text); break;
     case 'commandExecution':
       result.kind = 'command'; result.label = '命令';
+      toolResult(result, item, ['inProgress', 'completed', 'failed', 'declined']);
+      if (Number.isSafeInteger(item.exitCode)) result.exitCode = Number(item.exitCode);
       text = `${string(item.command)}\n${string(item.aggregatedOutput)}`.trim(); break;
     case 'fileChange':
       result.kind = 'files'; result.label = '文件变更';
+      toolResult(result, item, ['inProgress', 'completed', 'failed', 'declined']);
       text = Array.isArray(item.changes) ? item.changes.map(change => object(change) ? string(change.path) : '').join('\n') : ''; break;
     case 'plan': result.kind = 'plan'; result.label = '计划'; text = string(item.text); break;
     case 'reasoning': result.kind = 'reasoning'; result.label = '思考'; text = '思考过程已隐藏'; break;
-    case 'mcpToolCall': result.kind = 'tool'; result.label = 'MCP 工具'; text = `${string(item.server)} / ${string(item.tool)}`; break;
-    case 'dynamicToolCall': result.kind = 'tool'; result.label = '工具'; text = string(item.tool); break;
-    case 'collabAgentToolCall': result.kind = 'agent'; result.label = '协作事件'; text = string(item.tool); break;
+    case 'mcpToolCall': result.kind = 'tool'; result.label = 'MCP 工具'; toolResult(result, item, ['inProgress','completed','failed']); text = `${string(item.server)} / ${string(item.tool)}`; break;
+    case 'dynamicToolCall': result.kind = 'tool'; result.label = '工具'; toolResult(result, item, ['inProgress','completed','failed']); text = string(item.tool); break;
+    case 'collabAgentToolCall': result.kind = 'agent'; result.label = '协作事件'; toolResult(result, item, ['inProgress','completed','failed','interrupted']); text = string(item.tool); break;
     case 'subAgentActivity': result.kind = 'agent'; result.label = '子任务活动'; text = string(item.kind); break;
     case 'contextCompaction': result.kind = 'tool'; result.label = '上下文整理'; break;
     default: text = `类型：${cut(string(item.type), 80) || 'unknown'}；仅保留记录身份。`;

@@ -1,0 +1,93 @@
+{
+  "checkpoint": "M2.1b",
+  "status": "passed_agent_tool_status_and_managed_worktree_native_code_scope",
+  "observedAt": "2026-11-03T08:00:19.940543+00:00",
+  "baselineCommit": "77e1f03ae01e95a81a8fd9840030f0ba34fd8747",
+  "schemaRevision": 6,
+  "fixedDesktopApiCount": 42,
+  "stageGate": "open",
+  "permissionManagement": "deferred_to_M5",
+  "checks": {
+    "discovered": 271,
+    "executed": 271,
+    "passed": 271,
+    "failed": 0,
+    "skipped": 0,
+    "electronProjectionCases": 19,
+    "designContracts": 17,
+    "stableGeneratedTypes": 747,
+    "typecheck": "passed",
+    "build": "passed"
+  },
+  "tools": {
+    "newExecutionApi": false,
+    "nativeResultSeparateFromRecordReceipt": true,
+    "nonzeroExitDisplayedAsFailure": true,
+    "noStatusFromTurnCompletion": true,
+    "legacyMissingStatus": "unknown",
+    "liveRequiresFreshActiveRunAndTurn": true,
+    "countScope": "currently_retained_supported_items",
+    "syntheticDesktopItems": 7,
+    "syntheticToolExecutions": 0,
+    "syntheticModelInferences": 0
+  },
+  "nativeWorktreeCode": {
+    "attempts": 1,
+    "modelTurns": 1,
+    "model": "gpt-6.1-sol",
+    "reportedTokens": 74356,
+    "estimatedUsd": null,
+    "nativeToolItems": 4,
+    "nativeToolKinds": [
+      "command",
+      "command",
+      "files",
+      "command"
+    ],
+    "sourceHeadStatusAndDirtyFilesUnchanged": true,
+    "changedFiles": [
+      "src/math.mjs"
+    ],
+    "verification": {
+      "discovered": 4,
+      "executed": 4,
+      "skipped": 0,
+      "exitCode": 0,
+      "status": "passed"
+    },
+    "taskCompleteOnlyAfterIndependentReceipt": true,
+    "oneDurableAcceptedTurnIntent": true,
+    "unknownResent": false,
+    "ownedGitFixturesRemovedAfterExplicitQuit": true
+  },
+  "substitutions": [
+    "history_metadata_synthetic",
+    "folder_selection_owned_public_fixture",
+    "tool_status_desktop_synthetic_items_no_tool_execution"
+  ],
+  "failuresRetained": [
+    "first_preflight_observed_wrong_selection_and_refused_before_any_model_Run"
+  ],
+  "remaining": [
+    "resource_and_backup_restore",
+    "workspace_editing",
+    "automatic_worktree_data_reattachment",
+    "independent_daemon_and_sleep_execution_not_claimed",
+    "full_M2_gate"
+  ],
+  "sourceAndBuildHashes": {
+    "packages/contracts/src/views.ts": "90b69a975693ee616978e9ace67ba2f9ab308755b3cad7b927ae9c614908a0ec",
+    "packages/codex-adapter/src/projection.ts": "7941dc85747be3c095838c63ec4113ed6420f397a8e10fb6c21a8703efa37af2",
+    "apps/desktop/renderer/tool-activity.ts": "1619c0932582e12ebfe693a24da0a879bd3679ce96e5172cd6e7995684511e9d",
+    "apps/desktop/renderer/tool-panel.tsx": "df7cbe6fd6514b29e917540a7c3415890e817ea35f062bec9ec3e93864c9dec3",
+    "apps/desktop/renderer/execution-panel.tsx": "248be702b162bd83e3e3c643e5fb4c2a27a526ea38118df4f93da64d2b3db681",
+    "apps/desktop/renderer/style.css": "238782cb44cb139fb26ab7eda04ad1a6a4d460bb29148a100382f5bbd0d1a9f8",
+    "apps/desktop/src/main.ts": "f2048281fb224ad945630d6c1858c1e8332627a3875dc3d7dc21b70e056052bc",
+    "apps/desktop/src/tool-probe.ts": "760a0f4d750ebaef4bfcd52b539c65f5ad68efacee6cf407f65dbf4ca0eb3117",
+    "apps/desktop/src/worktree-code-probe.ts": "0496bca180ef4080ed2a4e309bcafcb110fcf855e32a0358cd28cf9e8f87389e",
+    "scripts/smoke-desktop.mjs": "fb463a7ab49375a4fe9699a3b674c41cc51ec945885c245c69a6a7f5e8633bcc",
+    "tests/tool-activity.test.ts": "570b051f8f2a4fb0db06374b0df9eceac11f6fbfaab0094a3f303a820e2bab43",
+    "tests/fixtures/execution-server.ts": "4f9e088ffaec4bb2c3436a0fa3ca439679eb5646e15686f12a29f0aa9c0b3bbd",
+    "build/desktop/main.js": "7db7281607ac4de3645120ceb54a7fffb3fa5981ee1ca8b2d54572a975c6ecc7"
+  }
+}

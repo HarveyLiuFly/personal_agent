@@ -37,6 +37,19 @@ for await (const line of createInterface({ input: process.stdin })) {
     notify('item/completed', { threadId, turnId, item: { id: 'fixture-user', type: 'userMessage', content: m.params.input } });
     notify('item/started', { threadId, turnId, item: { id: 'fixture-assistant', type: 'agentMessage', text: '' } });
     for (const delta of ['a','a','b']) { notify('item/agentMessage/delta', { threadId, turnId, itemId: 'fixture-assistant', delta }); }
+    if(mode==='tool-status'){
+      // Synthetic protocol items only. These commands/tools are never executed by this fixture.
+      const items=[
+        {id:'ok',type:'commandExecution',status:'completed',command:'public command',aggregatedOutput:'PUBLIC_OK',exitCode:0,durationMs:12},
+        {id:'failed',type:'commandExecution',status:'completed',command:'public failing command',aggregatedOutput:'<img src=x onerror=alert(1)> PUBLIC_FAILURE',exitCode:7,durationMs:18},
+        {id:'declined',type:'fileChange',status:'declined',changes:[{path:'declined.txt'}]},
+        {id:'files',type:'fileChange',status:'completed',changes:[{path:'public.txt'}]},
+        {id:'pending',type:'commandExecution',status:'inProgress',command:'unfinished public command'},
+        {id:'mcp',type:'mcpToolCall',status:'failed',server:'public server',tool:'public tool',arguments:{token:'DO_NOT_COPY'},error:{message:'DO_NOT_COPY'}},
+        {id:'legacy',type:'commandExecution',command:'legacy public command'},
+      ];
+      for(const item of items)notify(item.id==='pending'?'item/started':'item/completed',{threadId,turnId,item});
+    }
     if(mode.startsWith('usage')){
       const db=database?new DatabaseSync(database,{readOnly:true}):undefined,base=Number(db?.prepare('SELECT total_tokens FROM thread_usage WHERE thread_id=?').get(threadId)?.total_tokens??0);db?.close();
       for(const [total,last]of [[base+10,10],[base+10,10],[base+25,15]] as const)notify('thread/tokenUsage/updated',{threadId,turnId,tokenUsage:{total:{totalTokens:total,inputTokens:total-5,cachedInputTokens:0,cacheWriteInputTokens:0,outputTokens:5,reasoningOutputTokens:0},last:{totalTokens:last,inputTokens:last-5,cachedInputTokens:0,cacheWriteInputTokens:0,outputTokens:5,reasoningOutputTokens:0},modelContextWindow:100000}});
@@ -55,7 +68,7 @@ for await (const line of createInterface({ input: process.stdin })) {
     setTimeout(() => {
       notify('item/completed', { threadId, turnId, item: { id: 'fixture-assistant', type: 'agentMessage', text: 'aab' } });
       notify('turn/completed', { threadId, turn: { id: turnId, status: 'completed' } });
-    }, mode === 'slow' ? 800 : 25);
+    }, mode === 'tool-status' ? 2000 : mode === 'slow' ? 800 : 25);
     continue;
   }
   if (m.method === 'turn/interrupt' && mode.startsWith('interrupt')) {

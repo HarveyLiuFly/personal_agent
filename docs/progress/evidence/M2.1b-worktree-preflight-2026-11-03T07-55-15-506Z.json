@@ -1,0 +1,20 @@
+{
+  "status": "blocked",
+  "observedAt": "2026-11-03T07:55:15.506Z",
+  "kind": "real_electron_git_code_form_preflight",
+  "inferenceRequested": false,
+  "history": "synthetic_metadata",
+  "result": {
+    "created": true,
+    "selected": false,
+    "sendReady": true,
+    "noRuns": true,
+    "sourceUnchanged": true
+  },
+  "display": "native_desktop",
+  "exitCode": 0,
+  "signal": null,
+  "timedOut": false,
+  "platform": "darwin-arm64",
+  "code": "ELECTRON_VALIDATION_FAILED"
+}

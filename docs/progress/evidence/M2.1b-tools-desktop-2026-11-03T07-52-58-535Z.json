@@ -1,0 +1,37 @@
+{
+  "status": "passed",
+  "observedAt": "2026-11-03T07:52:58.535Z",
+  "kind": "real_electron_sqlite_synthetic_tool_items",
+  "inferenceRequested": false,
+  "toolExecutionRequested": false,
+  "history": "synthetic_metadata",
+  "result": {
+    "liveObserved": true,
+    "count": true,
+    "failedFilter": true,
+    "emptyFilter": true,
+    "filesFilter": true,
+    "plainText": true,
+    "noSecrets": true,
+    "taskNeedsReview": true,
+    "sandboxed": true,
+    "isolated": true,
+    "noRequire": true,
+    "apiCount": true,
+    "states": {
+      "ok": "completed",
+      "failed": "failed",
+      "declined": "declined",
+      "files": "completed",
+      "pending": "unknown",
+      "mcp": "failed",
+      "legacy": "unknown"
+    },
+    "oneSyntheticRun": true
+  },
+  "display": "native_desktop",
+  "exitCode": 0,
+  "signal": null,
+  "timedOut": false,
+  "platform": "darwin-arm64"
+}
