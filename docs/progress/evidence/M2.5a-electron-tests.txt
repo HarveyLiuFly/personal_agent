@@ -1,0 +1,24 @@
+[1103/130647.599140:ERROR:electron/shell/common/mac/codesign_util.cc:79] task_name_for_pid: (os/kern) failure (5)
+[1103/130647.667001:ERROR:electron/shell/common/mac/codesign_util.cc:79] task_name_for_pid: (os/kern) failure (5)
+✔ real Git creates an isolated managed branch from committed HEAD, dedupes, and removes without deleting branch (664.922292ms)
+✔ tracked, untracked, ignored files and unmerged commits prevent removal and remain intact (1054.100334ms)
+✔ fresh inspection, task state and project exclusion are enforced without creating model Runs (698.07625ms)
+✔ unsupported helpers and unmanaged linked roots fail before a Git write (125.562875ms)
+✔ lost Git result is Unknown, never resent, and explicit reconciliation adopts the one actual worktree (284.765875ms)
+✔ Owner recovery distinguishes unsent preparation from dispatch and retains Unknown project lease (93.106208ms)
+✔ revision 4 WAL migration backs up actual data and creates revision 5 atomically (16.454916ms)
+✔ revision 4 failed migration rolls all new tables and metadata back (11.800541ms)
+✔ real Host SIGKILL at prepared preserves committed Git intent and requires explicit recovery (229.365417ms)
+✔ real Host SIGKILL at dispatch preserves committed Git intent and requires explicit recovery (466.302625ms)
+✔ real Host SIGKILL at result preserves committed Git intent and requires explicit recovery (418.9315ms)
+✔ a last-moment ignored file survives removal in the private atomic recovery directory (642.645667ms)
+✔ managed linked Git previews use the recorded metadata identity, while retargeting is rejected (430.390708ms)
+✔ a foreign workspace, raw argv and a changed branch cannot authorize managed removal (323.2215ms)
+ℹ tests 14
+ℹ suites 0
+ℹ pass 14
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5633.975125

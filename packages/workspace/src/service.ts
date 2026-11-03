@@ -13,7 +13,7 @@ const fail=(code:string):never=>{throw new LedgerError(code);};
 function query(value:unknown,keys:string[]):Record<string,string>{
  if(!isObject(value)||Object.keys(value).length!==keys.length||Object.keys(value).some(k=>!keys.includes(k))||keys.some(k=>!Object.hasOwn(value,k)||!validId(value[k])))return fail('INVALID_WORKSPACE_QUERY');return value as Record<string,string>;
 }
-export interface WorkspaceReaderOptions {node:string;cli:string;git:string;worker:string;stateDirectory:string;timeoutMs?:number;/** Component tests only. Never supplied over IPC. */withoutSandboxForTests?:boolean}
+export interface WorkspaceReaderOptions {managedGit?:(workspaceId:string)=>{gitDir:string;commonDir:string;gitIdentity:{device:string;inode:string};commonIdentity:{device:string;inode:string}}|null;node:string;cli:string;git:string;worker:string;stateDirectory:string;timeoutMs?:number;/** Component tests only. Never supplied over IPC. */withoutSandboxForTests?:boolean}
 interface Handle {projectId:string;path:string;identity:string|null;kind:'directory'|'file'|'change';gitToken?:string;staged?:string;unstaged?:string;untracked?:boolean;rootIdentity:string}
 export function resolveWorkspaceGit():string {
  if(process.platform==='darwin')return realpathSync(execFileSync('/usr/bin/xcrun',['--find','git'],{encoding:'utf8',timeout:5000,stdio:['ignore','pipe','ignore'],env:{PATH:'/usr/bin:/bin',HOME:process.env.HOME}}).trim());
@@ -82,7 +82,7 @@ export class WorkspaceService {
    if(hash(readFileSync(this.program))!==this.programHash)return fail('WORKSPACE_READER_CHANGED');
    this.workspace(project.id);const rootStamp=identity(project.directory);scratchRoot=mkdtempSync(join(this.options.stateDirectory,'query-'));
    const home=join(scratchRoot,'home'),scratch=join(scratchRoot,'scratch');mkdirSync(home,{mode:0o700});mkdirSync(scratch,{mode:0o700});
-   const readRoots=[dirname(dirname(this.options.node)),dirname(dirname(this.options.git)),dirname(this.program)];if(process.platform==='darwin'&&existsSync('/System/Library/OpenSSL'))readRoots.push(realpathSync('/System/Library/OpenSSL'));
+   const managedGit=this.options.managedGit?.(project.id),readRoots=[dirname(dirname(this.options.node)),dirname(dirname(this.options.git)),dirname(this.program),...(managedGit?[managedGit.gitDir,managedGit.commonDir]:[])];if(process.platform==='darwin'&&existsSync('/System/Library/OpenSSL'))readRoots.push(realpathSync('/System/Library/OpenSSL'));
    const protectedRoots=new Set(['.codex','.agents','.aws','.ssh','.kube','.local','.npmrc','.netrc','.pypirc','credentials.json','auth.json',...(operation.operation==='overview'||operation.operation==='diff'?[]:['.git'])]);
    for(const name of readdirSync(project.directory)){const lower=name.toLowerCase();if(protectedRoots.has(lower)||lower==='.env'||lower.startsWith('.env.')||/\.(pem|key|p12|pfx)$/.test(lower))protectedRoots.add(name);}
    const config='[permissions.personal-agent-workspace]\nextends=":read-only"\n[permissions.personal-agent-workspace.filesystem]\n":root"="deny"\n":minimal"="read"\n'+readRoots.map(p=>`${JSON.stringify(p)}="read"\n`).join('')+`${JSON.stringify(scratch)}="write"\n`+[...protectedRoots].map(name=>`${JSON.stringify(join(project.directory,name))}="deny"\n`).join('')+'[permissions.personal-agent-workspace.filesystem.":workspace_roots"]\n"."="read"\n[permissions.personal-agent-workspace.network]\nenabled=false\n';
@@ -92,7 +92,7 @@ export class WorkspaceService {
    let bytes=0,stopped=false;const chunks:Buffer[]=[];const stop=()=>{stopped=true;try{if(child.pid){if(process.platform==='win32')child.kill('SIGKILL');else process.kill(-child.pid,'SIGKILL');}}catch{}};
    const timer=setTimeout(stop,this.options.timeoutMs??12000);signal?.addEventListener('abort',stop,{once:true});if(signal?.aborted)stop();
    child.stdout.on('data',chunk=>{bytes+=chunk.length;if(bytes>1048576){stop();return;}chunks.push(chunk);});child.stderr.on('data',()=>{});child.stdin.on('error',()=>{});
-   child.stdin.end(JSON.stringify({...operation,directory:project.directory,rootIdentity:rootStamp,git:this.options.git}));
+   child.stdin.end(JSON.stringify({...operation,directory:project.directory,rootIdentity:rootStamp,git:this.options.git,managedGit}));
    let code:number|null;
    try{code=await new Promise<number|null>(done=>{child.once('error',()=>done(null));child.once('close',done);});}finally{clearTimeout(timer);signal?.removeEventListener('abort',stop);}
    if(stopped||code===null)return fail('WORKSPACE_READ_INTERRUPTED');

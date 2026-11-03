@@ -1,0 +1,29 @@
+{
+  "observedAt": "2026-11-03T05:05:19.467Z",
+  "status": "passed",
+  "kind": "real_electron_git_managed_worktrees_native_reader",
+  "modelTurns": 0,
+  "result": {
+    "created": true,
+    "preview": true,
+    "linkedGit": true,
+    "extraRejected": true,
+    "foreignRejected": true,
+    "switched": true,
+    "sandboxed": true,
+    "isolated": true,
+    "noRequire": true,
+    "untrackedBlocked": true,
+    "removed": true,
+    "sourceDirtyPreserved": true,
+    "directoryRemoved": true,
+    "branchRetained": true,
+    "noModelRuns": true,
+    "apiCount": true
+  },
+  "display": "native_desktop",
+  "exitCode": 0,
+  "signal": null,
+  "timedOut": false,
+  "platform": "darwin-arm64"
+}

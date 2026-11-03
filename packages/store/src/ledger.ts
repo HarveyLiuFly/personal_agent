@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { chmodSync, existsSync, lstatSync, mkdirSync, readFileSync, realpathSync, statSync } from 'node:fs';
-import { basename, dirname } from 'node:path';
+import { basename, dirname, join, resolve } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { taskTransitions } from '../../../docs/design/contracts/domain.ts';
 import type { TaskStatus } from '../../../docs/design/contracts/domain.ts';
@@ -14,6 +14,7 @@ import type {BudgetPolicy} from './budget.ts';
 import {SchedulerLedger,scheduledRunKey} from './scheduler.ts';
 import type {ScheduleCommand} from '../../contracts/src/schedules.ts';
 import {ScheduleTimeError,scheduleTime} from '../../runtime/src/calendar.ts';
+import type {GitWorkspaceSnapshot,ManagedWorktreeView,WorktreeDispatch,WorktreeOperationView,WorktreePayload} from '../../contracts/src/worktrees.ts';
 
 export class LedgerError extends Error { readonly code: string; constructor(code: string) { super(code); this.code = code; } }
 const fail = (code: string): never => { throw new LedgerError(code); };
@@ -61,7 +62,7 @@ export class ExecutionLedger {
       if (tables.length === 0) this.#db.exec(schemaSql);
       else if (!tables.some(row => row.name === 'schema_metadata')) fail('LEDGER_SCHEMA_UNSUPPORTED');
       const revision = this.one('SELECT schema_revision FROM schema_metadata WHERE singleton=1')?.schema_revision;
-      if (revision === 2 || revision === 3) {
+      if (revision === 2 || revision === 3 || revision === 4) {
         const ddl=(name:string)=>schemaSql.match(new RegExp('CREATE TABLE '+name+' \\([\\s\\S]*?\\n\\);'))?.[0]??fail('LEDGER_MIGRATION_UNAVAILABLE');
         if (path !== ':memory:') {
           const backupPath = `${path}.revision${revision}-${randomUUID()}.backup`;
@@ -72,11 +73,12 @@ export class ExecutionLedger {
         }
         this.tx(() => {
           if(revision===2)this.#db.exec(ddl('runtime_requests'));
-          this.#db.exec('ALTER TABLE budget_reservations ADD COLUMN actual_units INTEGER CHECK (actual_units IS NULL OR actual_units>=0); ALTER TABLE budget_reservations ADD COLUMN settlement_hash TEXT;');
-          for(const name of ['budget_policies','run_usage','thread_usage'])this.#db.exec(ddl(name));
-          this.exec('UPDATE schema_metadata SET schema_revision=4 WHERE singleton=1');
+          if(revision<=3)this.#db.exec('ALTER TABLE budget_reservations ADD COLUMN actual_units INTEGER CHECK (actual_units IS NULL OR actual_units>=0); ALTER TABLE budget_reservations ADD COLUMN settlement_hash TEXT;');
+          if(revision<=3)for(const name of ['budget_policies','run_usage','thread_usage'])this.#db.exec(ddl(name));
+          for(const name of ['worktree_operations','project_operation_leases','managed_worktrees'])this.#db.exec(ddl(name));
+          this.exec('UPDATE schema_metadata SET schema_revision=5 WHERE singleton=1');
         });
-      } else if (revision !== 4) fail('LEDGER_SCHEMA_UNSUPPORTED');
+      } else if (revision !== 5) fail('LEDGER_SCHEMA_UNSUPPORTED');
       this.budget=new BudgetLedger(this.#db,this.dotId,fail,options.budgetPolicy);
       this.scheduler=new SchedulerLedger(this.#db,this.dotId,fail,{task:(projectId,taskId)=>{
         this.workspace(projectId);const task=this.taskRow(projectId,taskId),authority=this.taskAuthority(task),constraints=JSON.parse(String(task.constraints_json));
@@ -112,6 +114,9 @@ export class ExecutionLedger {
     this.exec('UPDATE tasks SET status=?,version=version+1,updated_at_ms=? WHERE task_id=?', target, Date.now(), taskId);
     if(target==='paused'||target==='cancelled'||target==='completed')this.scheduler.stopTask(taskId,target==='paused'?'paused':'cancelled');
   }
+  private projectOperationAvailable(workspaceId:string):void {
+    if(this.one('SELECT l.operation_id FROM project_operation_leases l JOIN workspaces w USING(project_id) WHERE w.workspace_id=? AND w.dot_id=?',workspaceId,this.dotId))return fail('WORKSPACE_BUSY');
+  }
   startOwner(instanceId: string, exclusiveLockHeld: true): number {
     if (!id(instanceId) || exclusiveLockHeld !== true || this.#epoch) return fail('OWNER_LOCK_REQUIRED');
     const epoch = this.tx(() => {
@@ -122,6 +127,10 @@ export class ExecutionLedger {
       this.exec("INSERT INTO runtime_owners VALUES (?,?,?,'main','ready',?) ON CONFLICT(profile_id) DO UPDATE SET runtime_epoch=excluded.runtime_epoch,instance_id=excluded.instance_id,state='ready',updated_at_ms=excluded.updated_at_ms", this.profileId, next, instanceId, Date.now());
       this.exec("UPDATE runtime_requests SET state=CASE WHEN state='responding' THEN 'outcome_unknown' ELSE 'cancelled' END WHERE state IN ('pending','responding')");
       this.exec("UPDATE outbox_events SET lease_until_ms=0 WHERE state='claimed' AND aggregate_ref IN (SELECT task_id FROM tasks WHERE dot_id=?)",this.dotId);
+      for(const op of this.all("SELECT * FROM worktree_operations WHERE dot_id=? AND state IN ('prepared','dispatching')",this.dotId)){
+        const state=op.state==='prepared'?'failed':'outcome_unknown';this.exec('UPDATE worktree_operations SET state=?,error_code=? WHERE operation_id=?',state,op.state==='prepared'?'OWNER_STOPPED_BEFORE_SEND':'OWNER_RECOVERY_UNKNOWN',op.operation_id!);this.exec('UPDATE operations SET state=? WHERE operation_id=?',state,op.operation_id!);
+        if(state==='failed')this.exec('DELETE FROM project_operation_leases WHERE operation_id=?',op.operation_id!);
+      }
       for (const run of this.all(`SELECT * FROM task_runs WHERE status IN ${active} AND dot_id=?`, this.dotId)) {
         this.exec("UPDATE execution_intents SET state='outcome_unknown' WHERE run_id=? AND state='sending'", run.run_id!);
         this.exec("UPDATE execution_intents SET state='rejected',response_ref='owner_stopped_before_send' WHERE run_id=? AND state='prepared'", run.run_id!);
@@ -141,6 +150,7 @@ export class ExecutionLedger {
     this.owner();
     const cwd = realpathSync(directory), info = statSync(cwd, { bigint: true });
     if (!info.isDirectory()) return fail('PROJECT_NOT_DIRECTORY');
+    const known=this.one("SELECT workspace_id FROM workspaces WHERE dot_id=? AND canonical_cwd=?",this.dotId,cwd);if(known)return this.workspace(String(known.workspace_id));
     let detected = gitRoot;
     if (!detected) {
       try { detected = execFileSync('git', ['-C', cwd, 'rev-parse', '--show-toplevel'], { encoding: 'utf8', timeout: 3000, maxBuffer: 8192, stdio: ['ignore','pipe','ignore'] }).trim(); } catch {}
@@ -156,7 +166,7 @@ export class ExecutionLedger {
       }
       let workspace = this.one('SELECT * FROM workspaces WHERE dot_id=? AND canonical_cwd=?', this.dotId, cwd);
       if (!workspace) {
-        if (Number(this.one('SELECT COUNT(*) AS n FROM workspaces WHERE dot_id=?', this.dotId)!.n) >= 16) return fail('PROJECT_LIMIT');
+        if (Number(this.one("SELECT COUNT(*) AS n FROM workspaces WHERE dot_id=? AND state<>'archived'", this.dotId)!.n) >= 16) return fail('PROJECT_LIMIT');
         const workspaceId = randomUUID();
         this.exec("INSERT INTO workspaces(workspace_id,project_id,dot_id,canonical_cwd,kind,state) VALUES (?,?,?,?,?,'ready')", workspaceId, project.project_id!, this.dotId, cwd, detected ? 'main' : 'external');
         this.exec('INSERT INTO workspace_identities VALUES (?,?,?)', workspaceId, String(info.dev), String(info.ino));
@@ -169,17 +179,97 @@ export class ExecutionLedger {
     });
   }
   projects(): ProjectView[] {
-    return this.all('SELECT workspace_id,canonical_cwd FROM workspaces WHERE dot_id=? ORDER BY rowid LIMIT 100', this.dotId)
-      .map(row => ({ id: String(row.workspace_id), directory: String(row.canonical_cwd), name: basename(String(row.canonical_cwd)) }));
+    return this.all("SELECT w.workspace_id,w.canonical_cwd,m.display_name FROM workspaces w LEFT JOIN managed_worktrees m USING(workspace_id) WHERE w.dot_id=? AND w.state<>'archived' ORDER BY w.rowid LIMIT 100", this.dotId)
+      .map(row => ({ id: String(row.workspace_id), directory: String(row.canonical_cwd), name: row.display_name?String(row.display_name):basename(String(row.canonical_cwd)) }));
   }
   workspace(workspaceId: string): ProjectView {
     const row = this.one('SELECT w.*,i.device_id,i.inode FROM workspaces w JOIN workspace_identities i USING(workspace_id) WHERE workspace_id=? AND dot_id=?', workspaceId, this.dotId);
     if (!row) return fail('UNKNOWN_PROJECT');
+    if(row.state==='archived')return fail('PROJECT_ARCHIVED');if(row.state==='invalid')return fail('PROJECT_INVALID');
     try {
       const cwd = realpathSync(String(row.canonical_cwd)), info = statSync(cwd, { bigint: true });
       if (cwd !== row.canonical_cwd || !info.isDirectory() || String(info.dev) !== row.device_id || String(info.ino) !== row.inode) return fail('PROJECT_IDENTITY_CHANGED');
-      return { id: workspaceId, name: basename(cwd), directory: cwd };
+      const managed=this.worktreeMetadata(workspaceId);
+      if(managed){
+        for(const expected of [managed.gitIdentity,managed.commonIdentity]){const s=lstatSync(expected.directory,{bigint:true});if(!s.isDirectory()||s.isSymbolicLink()||realpathSync(expected.directory)!==expected.directory||String(s.dev)!==expected.device||String(s.ino)!==expected.inode)return fail('WORKTREE_IDENTITY_CHANGED');}
+        const pointer=join(cwd,'.git'),s=lstatSync(pointer);if(!s.isFile()||s.isSymbolicLink()||s.size>4096||readFileSync(pointer,'utf8')!==`gitdir: ${managed.gitDir}\n`)return fail('WORKTREE_IDENTITY_CHANGED');
+        const common=join(managed.gitDir,'commondir');if(lstatSync(common).isSymbolicLink()||realpathSync(resolve(managed.gitDir,readFileSync(common,'utf8').trim()))!==managed.commonDir)return fail('WORKTREE_IDENTITY_CHANGED');
+      }
+      return { id: workspaceId, name: managed?this.managedWorktree(workspaceId).name:basename(cwd), directory: cwd };
     } catch (error) { if (error instanceof LedgerError) throw error; return fail('PROJECT_UNAVAILABLE'); }
+  }
+  worktreeContext(workspaceId:string):{projectId:string;root:string;workspace:ProjectView} {
+    const workspace=this.workspace(workspaceId),row=this.one('SELECT p.* FROM projects p JOIN workspaces w USING(project_id) WHERE w.workspace_id=? AND w.dot_id=?',workspaceId,this.dotId)!;
+    return{projectId:String(row.project_id),root:String(row.canonical_git_root),workspace};
+  }
+  managedWorktree(workspaceId:string):ManagedWorktreeView {
+    const row=this.one('SELECT m.*,w.canonical_cwd FROM managed_worktrees m JOIN workspaces w USING(workspace_id) WHERE workspace_id=? AND w.dot_id=?',workspaceId,this.dotId)??fail('WORKTREE_NOT_MANAGED');
+    return{id:workspaceId,name:String(row.display_name),directory:String(row.canonical_cwd),sourceWorkspaceId:String(row.source_workspace_id),branch:String(row.branch),baseCommit:String(row.base_commit),version:Number(row.version),state:row.state as ManagedWorktreeView['state']};
+  }
+  worktreeMetadata(workspaceId:string):GitWorkspaceSnapshot|null {
+    const row=this.one('SELECT m.git_identity_json FROM managed_worktrees m JOIN workspaces w USING(workspace_id) WHERE workspace_id=? AND w.dot_id=?',workspaceId,this.dotId);return row?JSON.parse(String(row.git_identity_json)):null;
+  }
+  worktreePendingTasks(workspaceId:string):number {
+    return Number(this.one("SELECT COUNT(*) AS n FROM tasks WHERE workspace_id=? AND dot_id=? AND status NOT IN ('completed','cancelled')",workspaceId,this.dotId)!.n);
+  }
+  worktreeOperations(workspaceId:string):WorktreeOperationView[] {
+    const context=this.worktreeContext(workspaceId);
+    return this.all('SELECT * FROM worktree_operations WHERE project_id=? AND dot_id=? ORDER BY created_at_ms DESC,rowid DESC LIMIT 20',context.projectId,this.dotId).map(row=>{const p=JSON.parse(String(row.payload_json)) as WorktreePayload;return{operationId:String(row.operation_id),kind:row.kind as 'create'|'remove',state:row.state as WorktreeOperationView['state'],workspaceId:row.target_workspace_id as string|null,name:p.name,branch:p.branch,errorCode:row.error_code as string|null,createdAt:Number(row.created_at_ms)};});
+  }
+  worktreeList(workspaceId:string):ManagedWorktreeView[] {
+    const context=this.worktreeContext(workspaceId);return this.all("SELECT m.workspace_id FROM managed_worktrees m JOIN workspaces w USING(workspace_id) WHERE w.project_id=? AND w.dot_id=? AND m.state<>'removed' ORDER BY w.rowid LIMIT 16",context.projectId,this.dotId).map(row=>this.managedWorktree(String(row.workspace_id)));
+  }
+  worktreeReplay(workspaceId:string,key:string,input:unknown,kind:'create'|'remove'):WorktreeDispatch|null {
+    this.owner();this.worktreeContext(workspaceId);const row=this.one('SELECT o.* FROM operations o JOIN router_decisions d USING(decision_id) JOIN messages m USING(message_id) WHERE decision_id=? AND m.dot_id=?','command:'+hashInput([this.dotId,'worktree:'+key]),this.dotId);
+    if(!row)return null;if(row.input_hash!==hashInput(input)||row.kind!==(kind==='create'?'CREATE_WORKTREE':'REMOVE_WORKTREE'))return fail('IDEMPOTENCY_CONFLICT');return this.worktreeDispatch(workspaceId,String(row.operation_id));
+  }
+  prepareWorktree(workspaceId:string,key:string,input:unknown,kind:'create'|'remove',source:GitWorkspaceSnapshot,managedRoot:string,target?:{workspaceId:string;version:number;snapshot:GitWorkspaceSnapshot;inspectionHash:string}):WorktreeDispatch {
+    if(!id(key))return fail('INVALID_WORKTREE_COMMAND');const context=this.worktreeContext(workspaceId);
+    return this.tx(()=>{
+      this.owner();const opened=this.openOperation('worktree:'+key,kind==='create'?'CREATE_WORKTREE':'REMOVE_WORKTREE',input,null,null);if(!opened.created)return this.worktreeDispatch(workspaceId,opened.operationId);
+      this.projectOperationAvailable(workspaceId);
+      if(this.one(`SELECT r.run_id FROM task_runs r JOIN tasks t USING(task_id) JOIN workspaces w ON w.workspace_id=t.workspace_id WHERE w.project_id=? AND r.status IN ${active}`,context.projectId))return fail('WORKSPACE_BUSY');
+      if(this.one('SELECT l.run_id FROM workspace_write_leases l JOIN workspaces w USING(workspace_id) WHERE w.project_id=?',context.projectId))return fail('WORKSPACE_BUSY');
+      const targetId=kind==='create'?randomUUID():target?.workspaceId??fail('WORKTREE_NOT_MANAGED');
+      let payload:WorktreePayload;
+      if(kind==='create'){
+        if(Number(this.one("SELECT COUNT(*) AS n FROM workspaces WHERE dot_id=? AND state<>'archived'",this.dotId)!.n)>=16)return fail('PROJECT_LIMIT');
+        const name=(input as {name:string}).name;if(typeof name!=='string'||!name.trim()||name.length>80||/[\x00-\x1f]/.test(name))return fail('INVALID_WORKTREE_NAME');
+        payload={name,targetId,targetDirectory:join(resolve(managedRoot),targetId),branch:'codex/worktree-'+targetId,baseCommit:source.head,executionDirectory:context.root,source};
+      }else{
+        const managed=this.managedWorktree(targetId);if(managed.state!=='ready'||managed.version!==target!.version||this.worktreeContext(targetId).projectId!==context.projectId)return fail('WORKTREE_VERSION_CONFLICT');
+        if(this.worktreePendingTasks(targetId))return fail('WORKTREE_PENDING_TASKS');
+        payload={name:managed.name,targetId,targetDirectory:managed.directory,branch:managed.branch,baseCommit:managed.baseCommit,executionDirectory:context.root,source,target:target!.snapshot,inspectionHash:target!.inspectionHash,recoveryDirectory:join(resolve(managedRoot),'..','removed',targetId+'-'+opened.operationId)};
+      }
+      this.exec('UPDATE workspaces SET write_fence=write_fence+1 WHERE workspace_id=?',workspaceId);const fence=Number(this.one('SELECT write_fence FROM workspaces WHERE workspace_id=?',workspaceId)!.write_fence);
+      this.exec("INSERT INTO worktree_operations(operation_id,dot_id,project_id,source_workspace_id,target_workspace_id,kind,state,source_fence,runtime_epoch,payload_json,payload_sha256,created_at_ms) VALUES (?,?,?,?,?,?,'prepared',?,?,?,?,?)",opened.operationId,this.dotId,context.projectId,workspaceId,kind==='remove'?targetId:null,kind,fence,this.#epoch,JSON.stringify(payload),hashInput(payload),Date.now());
+      this.exec('INSERT INTO project_operation_leases VALUES (?,?,?,?)',context.projectId,opened.operationId,this.#epoch,fence);return this.worktreeDispatch(workspaceId,opened.operationId);
+    });
+  }
+  worktreeDispatch(workspaceId:string,operationId:string):WorktreeDispatch {
+    const context=this.worktreeContext(workspaceId),row=this.one('SELECT * FROM worktree_operations WHERE operation_id=? AND project_id=? AND dot_id=?',operationId,context.projectId,this.dotId)??fail('WORKTREE_OPERATION_NOT_FOUND');
+    const payload=JSON.parse(String(row.payload_json));if(hashInput(payload)!==row.payload_sha256)return fail('WORKTREE_PAYLOAD_CHANGED');return{operationId,kind:row.kind as 'create'|'remove',state:row.state as WorktreeDispatch['state'],payload,runtimeEpoch:Number(row.runtime_epoch),sourceFence:Number(row.source_fence),supervisorPid:row.supervisor_pid as number|null};
+  }
+  dispatchWorktree(workspaceId:string,operationId:string,pid:number):void {
+    this.tx(()=>{this.owner();const op=this.worktreeDispatch(workspaceId,operationId);if(op.state!=='prepared'||op.runtimeEpoch!==this.#epoch||!Number.isSafeInteger(pid)||pid<2)return fail('STALE_WORKTREE_OPERATION');
+      this.exec("UPDATE worktree_operations SET state='dispatching',supervisor_pid=? WHERE operation_id=?",pid,operationId);this.exec("UPDATE operations SET state='executing' WHERE operation_id=?",operationId);
+    });
+  }
+  finishWorktree(workspaceId:string,operationId:string,outcome:'completed'|'failed'|'outcome_unknown',snapshot?:GitWorkspaceSnapshot,errorCode?:string,reconciled=false):void {
+    this.tx(()=>{this.owner();const op=this.worktreeDispatch(workspaceId,operationId),row=this.one('SELECT * FROM worktree_operations WHERE operation_id=?',operationId)!;
+      if(!['prepared','dispatching','outcome_unknown'].includes(op.state)||(!reconciled&&op.runtimeEpoch!==this.#epoch)||op.state==='outcome_unknown'&&!reconciled)return fail('STALE_WORKTREE_OPERATION');
+      const lease=this.one('SELECT * FROM project_operation_leases WHERE operation_id=?',operationId);if(!lease||lease.source_fence!==op.sourceFence||this.one('SELECT write_fence FROM workspaces WHERE workspace_id=?',row.source_workspace_id!)?.write_fence!==op.sourceFence)return fail('STALE_WORKTREE_OPERATION');
+      if(outcome==='completed'&&op.kind==='create'){
+        if(!snapshot||snapshot.directory!==op.payload.targetDirectory||snapshot.head!==op.payload.baseCommit||snapshot.commonDir!==op.payload.source.commonDir)return fail('WORKTREE_RESULT_MISMATCH');
+        const p=op.payload;this.exec("INSERT INTO workspaces(workspace_id,project_id,dot_id,canonical_cwd,kind,state) VALUES (?,?,?,?,'worktree','ready')",p.targetId,row.project_id!,this.dotId,p.targetDirectory);
+        this.exec('INSERT INTO workspace_identities VALUES (?,?,?)',p.targetId,snapshot.rootIdentity.device,snapshot.rootIdentity.inode);
+        this.exec("INSERT INTO managed_worktrees(workspace_id,source_workspace_id,create_operation_id,display_name,branch,base_commit,git_dir,common_dir,git_identity_json,state) VALUES (?,?,?,?,?,?,?,?,?,'ready')",p.targetId,row.source_workspace_id!,operationId,p.name,p.branch,p.baseCommit,snapshot.gitDir,snapshot.commonDir,JSON.stringify(snapshot));
+        this.exec('UPDATE worktree_operations SET target_workspace_id=? WHERE operation_id=?',p.targetId,operationId);
+      }
+      if(outcome==='completed'&&op.kind==='remove'){this.exec("UPDATE managed_worktrees SET state='removed',version=version+1 WHERE workspace_id=?",op.payload.targetId);this.exec("UPDATE workspaces SET state='archived' WHERE workspace_id=?",op.payload.targetId);}
+      this.exec('UPDATE worktree_operations SET state=?,result_json=?,error_code=? WHERE operation_id=?',outcome,JSON.stringify({workspaceId:op.payload.targetId}),errorCode??null,operationId);this.exec('UPDATE operations SET state=?,result_ref=? WHERE operation_id=?',outcome,'worktree-result:'+operationId,operationId);
+      if(outcome!=='outcome_unknown')this.exec('DELETE FROM project_operation_leases WHERE operation_id=?',operationId);
+    });
   }
   private taskRow(projectId:string,taskId:string):Row {
     const task=this.one('SELECT * FROM tasks WHERE task_id=? AND workspace_id=? AND dot_id=?',taskId,projectId,this.dotId);
@@ -259,6 +349,7 @@ export class ExecutionLedger {
   }
   private applyTaskOperation(input:TaskCommand,operationId:string,normalized:unknown):OperationReceipt {
     if(input.kind==='create'){
+      this.projectOperationAvailable(input.projectId);
       if(Number(this.one('SELECT COUNT(*) AS n FROM tasks WHERE dot_id=?',this.dotId)!.n)>=10000)return fail('TASK_LIMIT');
       const epochs=this.one('SELECT policy_epoch,privacy_epoch FROM dots WHERE dot_id=?',this.dotId)!,taskId=randomUUID(),constraints={mode:input.code?'workspaceWrite':'readOnly',inputHash:hashInput(normalized),text:input.text,policyEpoch:epochs.policy_epoch,privacyEpoch:epochs.privacy_epoch,...(input.code?{code:input.code}:{})};
       this.exec("INSERT INTO tasks(task_id,dot_id,workspace_id,title,constraints_json,status,created_at_ms,updated_at_ms) VALUES (?,?,?,?,?,'created',?,?)",taskId,this.dotId,input.projectId,input.text.slice(0,120),JSON.stringify(constraints),Date.now(),Date.now());
@@ -411,6 +502,7 @@ export class ExecutionLedger {
     return this.tx(()=>{this.owner();return this.claimTaskInTransaction(projectId,taskId,expectedVersion,key);});
   }
   private claimTaskInTransaction(projectId:string,taskId:string,expectedVersion:number,key:string):QueuedRun {
+      this.projectOperationAvailable(projectId);
       const task=this.taskRow(projectId,taskId),data=JSON.parse(String(task.constraints_json)) as {text?:string;mode:'readOnly'|'workspaceWrite';code?:CodeTaskSpec};
       if(typeof data.text!=='string'||!data.text.trim())return fail('TASK_INPUT_UNAVAILABLE');
       const prior=this.one('SELECT * FROM task_runs WHERE idempotency_key=?',key);
@@ -514,6 +606,7 @@ export class ExecutionLedger {
         return { token: { runId: String(previous.run_id), epoch: Number(previous.runtime_epoch), taskFence: Number(previous.task_fence) }, created: false };
       }
       if (this.one(`SELECT run_id FROM task_runs WHERE dot_id=? AND status IN ${active}`, this.dotId)) return fail('RUNTIME_BUSY');
+      this.projectOperationAvailable(workspaceId);
       const taskId = randomUUID(), runId = randomUUID();
       this.exec("INSERT INTO tasks(task_id,dot_id,workspace_id,title,constraints_json,status,created_at_ms,updated_at_ms) VALUES (?,?,?,?,?,'created',?,?)", taskId, this.dotId, workspaceId, text.slice(0, 120), JSON.stringify({ inputHash, mode, text }), Date.now(), Date.now());
       this.event(taskId, null, 'task_created'); this.transition(taskId, 'queued'); this.transition(taskId, 'running');
@@ -521,6 +614,7 @@ export class ExecutionLedger {
       this.exec("INSERT INTO task_runs(run_id,task_id,dot_id,idempotency_key,executor_kind,status,task_snapshot_version,task_fence,runtime_epoch,policy_epoch,privacy_epoch,worker_id,lease_until_ms,started_at_ms) VALUES (?,?,?,?,'codex','preparing',3,1,?,1,1,?,?,?)", runId, taskId, this.dotId, key, this.#epoch, this.#instance, Date.now() + 60_000, Date.now());
       this.budget.reserve(runId,null);
       if (mode === 'workspaceWrite') {
+        this.projectOperationAvailable(workspaceId);
         if (this.one('SELECT run_id FROM workspace_write_leases WHERE workspace_id=?', workspaceId)) return fail('WORKSPACE_BUSY');
         this.exec('UPDATE workspaces SET write_fence=write_fence+1,state=\'busy\' WHERE workspace_id=?', workspaceId);
         const ws = this.one('SELECT write_fence FROM workspaces WHERE workspace_id=?', workspaceId)!;
@@ -542,6 +636,7 @@ export class ExecutionLedger {
       const inputHash=hashInput([workspaceId,text,source.mode,'continuation',sourceRunId]);
       const previous=this.one('SELECT * FROM task_runs WHERE idempotency_key=? AND dot_id=?',key,this.dotId);
       if(previous){const manifest=JSON.parse(String(this.one('SELECT module_hashes_json FROM prompt_manifests WHERE run_id=?',previous.run_id!)!.module_hashes_json));if(manifest.submission!==inputHash)return fail('IDEMPOTENCY_CONFLICT');return{token:{runId:String(previous.run_id),epoch:Number(previous.runtime_epoch),taskFence:Number(previous.task_fence)},created:false,threadId:source.threadId,mode:source.mode};}
+      this.projectOperationAvailable(workspaceId);
       const task=this.one('SELECT * FROM tasks WHERE task_id=?',source.taskId)!;
       if(!['completed','failed'].includes(source.status)||!['needs_review','failed'].includes(String(task.status))||source.blocked||task.write_fence!==source.taskFence)return fail('RUN_NOT_CONTINUABLE');
       if(this.one(`SELECT run_id FROM task_runs WHERE dot_id=? AND status IN ${active}`,this.dotId))return fail('RUNTIME_BUSY');
@@ -551,6 +646,7 @@ export class ExecutionLedger {
       this.exec("INSERT INTO task_runs(run_id,task_id,dot_id,idempotency_key,executor_kind,status,task_snapshot_version,task_fence,runtime_epoch,policy_epoch,privacy_epoch,worker_id,lease_until_ms,started_at_ms) VALUES (?,?,?,?,'codex','preparing',?,?,?,1,1,?,?,?)",runId,source.taskId,this.dotId,key,current.version!,fence,this.#epoch,this.#instance,Date.now()+60000,Date.now());
       this.budget.reserve(runId,task.goal_id as string|null);
       if(source.mode==='workspaceWrite'){
+        this.projectOperationAvailable(workspaceId);
         if(this.one('SELECT run_id FROM workspace_write_leases WHERE workspace_id=?',workspaceId))return fail('WORKSPACE_BUSY');
         this.exec("UPDATE workspaces SET write_fence=write_fence+1,state='busy' WHERE workspace_id=?",workspaceId);
         const workspace=this.one('SELECT write_fence FROM workspaces WHERE workspace_id=?',workspaceId)!;
@@ -837,6 +933,7 @@ export class ExecutionLedger {
     return this.tx(() => {
       this.owner(); const run = this.runForHost(runId), task = this.one('SELECT * FROM tasks WHERE task_id=?', run.taskId)!;
       if (run.status !== 'completed' || task.status !== 'needs_review' || task.write_fence !== run.taskFence || task.dispatch_blocked === 1) return fail('RUN_NOT_VERIFIABLE');
+      this.projectOperationAvailable(run.workspaceId);
       if (this.one('SELECT run_id FROM workspace_write_leases WHERE workspace_id=?', run.workspaceId)) return fail('WORKSPACE_BUSY');
       this.workspace(run.workspaceId);
       this.exec('UPDATE workspaces SET write_fence=write_fence+1 WHERE workspace_id=?', run.workspaceId);

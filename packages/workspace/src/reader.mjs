@@ -57,7 +57,12 @@ function git(args,optional=false){
 }
 function repository(){
  const metadata=join(input.directory,'.git');if(!existsSync(metadata))fail('LOCAL_GIT_DIRECTORY_REQUIRED');
- const info=lstatSync(metadata);if(!info.isDirectory()||info.isSymbolicLink())fail('LINKED_GIT_DIRECTORY_UNSUPPORTED');
+ const info=lstatSync(metadata);if(info.isSymbolicLink())fail('LINKED_GIT_DIRECTORY_UNSUPPORTED');
+ if(!info.isDirectory()){
+  const m=input.managedGit;if(!m||!info.isFile()||info.size>4096||readFileSync(metadata,'utf8')!==`gitdir: ${m.gitDir}\n`)fail('LINKED_GIT_DIRECTORY_UNSUPPORTED');
+  for(const [path,expected] of [[m.gitDir,m.gitIdentity],[m.commonDir,m.commonIdentity]]){const s=lstatSync(path,{bigint:true});if(!s.isDirectory()||s.isSymbolicLink()||realpathSync(path)!==path||String(s.dev)!==expected.device||String(s.ino)!==expected.inode)fail('WORKSPACE_GIT_CHANGED');}
+  if(realpathSync(resolve(m.gitDir,readFileSync(join(m.gitDir,'commondir'),'utf8').trim()))!==m.commonDir)fail('WORKSPACE_GIT_CHANGED');
+ }
  indexInfo();
  if(existsSync(join(input.directory,'.gitmodules')))fail('SUBMODULES_UNSUPPORTED');
  const filters=git(['config','--includes','--name-only','--get-regexp','^filter\\.'],true);if(filters.length)fail('GIT_FILTERS_UNSUPPORTED');
@@ -65,7 +70,7 @@ function repository(){
  if(/(?:^|\0)160000 /.test(utf8(git(['ls-files','--stage','-z']))))fail('SUBMODULES_UNSUPPORTED');
 }
 function indexInfo(){
- const path=join(input.directory,'.git/index');if(!existsSync(path))return null;
+ const path=input.managedGit?join(input.managedGit.gitDir,'index'):join(input.directory,'.git/index');if(!existsSync(path))return null;
  const info=lstatSync(path,{bigint:true});if(!info.isFile()||info.isSymbolicLink())fail('GIT_INDEX_UNSUPPORTED');
  if(info.size>16777216n)fail('WORKSPACE_GIT_TOO_LARGE');return{path,info};
 }

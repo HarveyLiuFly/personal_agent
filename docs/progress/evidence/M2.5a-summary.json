@@ -1,0 +1,90 @@
+{
+  "checkpoint": "M2.5a",
+  "status": "passed_managed_worktree_scope",
+  "baselineCommit": "e5b869fc0f97e15e0191161d9206ecd42e370121",
+  "schemaRevision": 5,
+  "stageGate": "open",
+  "permissionManagement": "deferred_to_M5",
+  "checks": {
+    "discovered": 239,
+    "executed": 239,
+    "passed": 239,
+    "failed": 0,
+    "skipped": 0,
+    "designContracts": 17,
+    "stableGeneratedTypes": 747,
+    "typecheck": "passed",
+    "build": "passed",
+    "electronNewTests": 14,
+    "finalTargetedCliTests": 14
+  },
+  "newModelTurns": 0,
+  "desktop": {
+    "status": "passed",
+    "git": "real_2.50.1_apple_git_155",
+    "workspaceReader": "real_locked_cli_native_readonly_sandbox",
+    "history": "synthetic_readonly_metadata_fixture",
+    "apiWhitelistCount": 36,
+    "nativeMetadataRegression": "passed_0_inference"
+  },
+  "faults": {
+    "actualOwnedHostSigkill": [
+      "prepared_before_dispatch",
+      "pid_registered_before_go",
+      "git_finished_before_db_receipt"
+    ],
+    "independentSqliteVisibilityChecked": true,
+    "waitActualHostExit": true,
+    "oldOwnedProcessGroupGoneBeforeReconcile": true,
+    "automaticResends": 0,
+    "newFaultLocations": 3,
+    "notTested": "removal_archive_to_metadata_cleanup_crash_window"
+  },
+  "removal": {
+    "dirtyUntrackedIgnoredUnmergedPendingTasksRefused": true,
+    "sameFilesystemAtomicRecoveryDirectory": true,
+    "lateIgnoredFilePreservedByRealTest": true,
+    "force": false,
+    "branchDeleted": false,
+    "recoveryCopiesAutomaticallyDeleted": false,
+    "recoveryManagementUi": false
+  },
+  "migration": {
+    "supportedFrom": [
+      2,
+      3,
+      4
+    ],
+    "backup": "VACUUM_INTO_0600_quick_and_fk_check",
+    "walDataInRevision4Backup": "verified",
+    "failedRevision4MigrationRollback": "verified"
+  },
+  "remaining": [
+    "user_pty",
+    "recovery_directory_management_and_interrupted_metadata_repair",
+    "resource_and_backup_restore",
+    "managed_worktree_native_model_task_integration_not_run",
+    "full_M2_gate"
+  ],
+  "sourceAndBuildHashes": {
+    "packages/store/src/ledger.ts": "5e3c4e7d38e2320ce12dec3b033f33697bd6e5253d92f114dda10c7346d5da35",
+    "packages/workspace/src/worktrees.ts": "d3fe6038ce9724edaa6deb7b9a72eecfdc6aba36aee37671e15df7ec61efcc18",
+    "packages/workspace/src/worktree-worker.mjs": "14940da8d37b67790f8f156170a8a06fbba767db45f6421562dfc0b0e5c13477",
+    "packages/workspace/src/service.ts": "2345c45573da8819ac6ae06d988d34a87c3cc32ad8fa6602604f40d4561561dd",
+    "packages/workspace/src/reader.mjs": "57393d480bdc88ba8c704c9451675032f07d9c4aa4e265081aacafd773159a8c",
+    "packages/contracts/src/worktrees.ts": "a0b472021bab3f04fbc42227b16995b70e723a88e36b5d41d0d42664d5090613",
+    "apps/desktop/src/main.ts": "7a5103ec3b06d49d97a408c5b3d13a6413be8de5ae470c422f9404f7c728b57f",
+    "apps/desktop/src/worktree-probe.ts": "0308ad5568597105ba67dd0e8effd090f7eb51b9ec5b9e4f9437c60c04c5a909",
+    "apps/desktop/src/preload.ts": "f21b2488ac744ed7e95c7c54244fe22bfdbda592121a92d3223e9aa900e9430b",
+    "apps/desktop/src/bridge.ts": "ec4c170f555f5ef433bbe69279b4f96bcb3454b08748fef306b181556f0a7dc0",
+    "apps/desktop/renderer/worktree-manager.tsx": "781e6097d35389f50e9cff5c977ffeafd43de25ff0043297c179a54cc9405a17",
+    "apps/desktop/renderer/workspace-panel.tsx": "3620c7bf6102c9eb974346d3503655eee69a44aa669a5eb56aecc3e5c9a1ee8a",
+    "tests/worktrees.test.ts": "c52ee7881d83ae16ffdcf90b982f730e9c2e2a729d187d2ffc345a47872e6153",
+    "tests/fixtures/worktree-crash-worker.ts": "d60655a4eb3e5eaedee852e2bde8b4fe03ebf594624eab7a87e20cf01d6be821",
+    "docs/design/contracts/schema.sql": "ab046caacfe4f86dadfd883e07e5a862d8ddc3374c40d9227ba1a94e90120eb7",
+    "build/desktop/main.js": "71ad4c1d8983128c8e3abb3c3ec8e6949e4e15f4f6260f06d68e81cc124d716b",
+    "build/desktop/preload.cjs": "547743dacba1eb22eb6ddad085346fc5043ad31647dbf26f0fd2e5b488bbc2b4",
+    "build/desktop/worktree-worker.mjs": "14940da8d37b67790f8f156170a8a06fbba767db45f6421562dfc0b0e5c13477",
+    "build/desktop/workspace-reader.mjs": "57393d480bdc88ba8c704c9451675032f07d9c4aa4e265081aacafd773159a8c"
+  }
+}

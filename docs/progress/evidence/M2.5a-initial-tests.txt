@@ -1,0 +1,36 @@
+✔ real Git creates an isolated managed branch from committed HEAD, dedupes, and removes without deleting branch (799.9655ms)
+✔ tracked, untracked, ignored files and unmerged commits prevent removal and remain intact (1056.337041ms)
+✔ fresh inspection, task state and project exclusion are enforced without creating model Runs (729.079792ms)
+✔ unsupported helpers and unmanaged linked roots fail before a Git write (125.063834ms)
+✔ lost Git result is Unknown, never resent, and explicit reconciliation adopts the one actual worktree (307.0195ms)
+✔ Owner recovery distinguishes unsent preparation from dispatch and retains Unknown project lease (103.121291ms)
+✔ revision 4 WAL migration backs up actual data and creates revision 5 atomically (17.071708ms)
+✖ revision 4 failed migration rolls all new tables and metadata back (12.704542ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 7
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3281.472708
+
+✖ failing tests:
+
+test at tests/worktrees.test.ts:43:1
+✖ revision 4 failed migration rolls all new tables and metadata back (12.704542ms)
+  AssertionError [ERR_ASSERTION]: Missing expected exception.
+      at TestContext.<anonymous> (file://<REPOSITORY>/tests/worktrees.test.ts:44:237)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: undefined,
+    operator: 'throws',
+    diff: 'simple'
+  }

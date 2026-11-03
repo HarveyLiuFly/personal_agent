@@ -2,7 +2,7 @@
 
 交接日期：2026-11-02（Asia/Shanghai）。用户决定停止在当前云环境中推进，改用本地电脑的 Codex 继续开发。本文件是接手入口，详细执行历史保留在阶段记录中。
 
-本机后续状态以[本机平台接续](LOCAL_BASELINE.md)、[阶段总览](README.md)、[M1](M1.md)和[M2](M2.md)为准：**M0/M1 Gate 在已记录的 macOS arm64 范围通过，M1 定位 `checkpoint/M1`**，见[历史 Gate](evidence/M1-gate.json)。**M2 最新 `checkpoint/M2.4a`：只读文件/Git、持久队列/Outbox、Token/单前台预算、Operation DAG、once/cron/持久实例/桌面计划、显式一次性只读自动执行及关闭窗口后继续执行/重开恢复已交付。Schema Revision 4，2/3→4 先验证备份；225/225、八个账本故障位置及真实 Renderer SIGKILL及 32 项 IPC 白名单通过。新增真实 Electron 无窗口模型 1 Turn、0 工具、18,082 Token 已结算，Task needs_review。** 临时仓库已归档清理，仍只有 main 工作区。用户已将权限管理移至 M5；继续工作树写操作/PTY、完整资源及备份恢复；M2 Gate 开放，窗口关闭保留 Main，显式退出应用停止；不承诺独立 Daemon，不推断套餐账单。历史 Verifier Hash 变化仍拒绝复用，不可改 Hash 绕过。下文保留原云交接事实。
+本机后续状态以[本机平台接续](LOCAL_BASELINE.md)、[阶段总览](README.md)、[M1](M1.md)和[M2](M2.md)为准：**M0/M1 Gate 在已记录的 macOS arm64 范围通过，M1 定位 `checkpoint/M1`**，见[历史 Gate](evidence/M1-gate.json)。**M2 最新 `checkpoint/M2.5a`：队列/预算/Operation/计划/后台窗口之上，新增工作树创建、列表、切换、保守移除及托管 Linked Git 原生只读预览。Schema Revision 5，2/3/4→5 先验证备份；239/239、14 项 Electron 新用例、三个新增 Host SIGKILL（累计 11 个账本故障位置）及 36 项 IPC 白名单通过。** 创建不搬迁原目录脏文件；移除保留私有恢复目录和分支，Unknown 不自动重发。本点 0 模型，真实 Electron 无窗口模型证据仍见 M2.4a（1 Turn / 18,082 Token），工作树模型集成尚未运行。开发仓库仍只有 main；权限管理移至 M5，继续用户 PTY、恢复目录管理/中断登记修复、资源与备份恢复。M2 Gate 开放，关闭窗口保留 Main，显式退出应用停止；不承诺独立 Daemon。历史 Verifier Hash 变化仍拒绝复用，不可改 Hash 绕过。下文保留原云交接事实。
 
 ## 1. Git 与交付范围
 

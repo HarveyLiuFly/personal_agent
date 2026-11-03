@@ -30,7 +30,7 @@ function fixture(t: { after(fn: () => void): void }) {
 test('initializes common schema, persists workspace identity and protects local database permissions', t => {
   const f = fixture(t); const db = f.sql();
   try {
-    assert.equal(db.prepare('SELECT schema_revision FROM schema_metadata').get()!.schema_revision, 4);
+    assert.equal(db.prepare('SELECT schema_revision FROM schema_metadata').get()!.schema_revision, 5);
     assert.equal(db.prepare('PRAGMA journal_mode').get()!.journal_mode, 'wal');
     if (process.platform !== 'win32') {
       assert.equal(statSync(f.file).mode & 0o777, 0o600);

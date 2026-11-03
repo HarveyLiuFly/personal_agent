@@ -1,3 +1,4 @@
+import type {WorktreeCommand,WorktreePage,WorktreeInspection} from '../../../packages/contracts/src/worktrees.ts';
 import type { HostResult, ProjectView, ThreadSummary, TurnView, ItemView, Page, ProjectQuery, ThreadQuery, ItemQuery } from '../../../packages/contracts/src/views.ts';
 import type { ContinueMessage, InteractionView, ReplyInteraction, VerificationView, RunQuery, RunSummary, RunView, SubmitMessage } from '../../../packages/contracts/src/views.ts';
 import type {WorkspaceQuery,WorkspaceEntryQuery,WorkspaceDiffQuery,WorkspaceOverview,WorkspaceDirectory,WorkspacePreview,WorkspaceDiff} from '../../../packages/contracts/src/workspace.ts';
@@ -30,6 +31,10 @@ export interface DesktopApi {
   applyTaskPlan(input:TaskPlanCommand):Promise<HostResult<TaskPlanView>>;
   listTaskPlans(query:{projectId:string}):Promise<HostResult<TaskPlanView[]>>;
   cancelTaskPlan(query:{projectId:string;planId:string;commandKey:string}):Promise<HostResult<TaskPlanView>>;
+  listWorktrees(query:{projectId:string}):Promise<HostResult<WorktreePage>>;
+  applyWorktreeCommand(input:WorktreeCommand):Promise<HostResult<WorktreePage>>;
+  inspectWorktree(query:{projectId:string;workspaceId:string}):Promise<HostResult<WorktreeInspection>>;
+  useWorktree(query:{projectId:string;workspaceId:string}):Promise<HostResult<ProjectView>>;
   getWorkspace(query:WorkspaceQuery):Promise<HostResult<WorkspaceOverview>>;
   listWorkspaceDirectory(query:WorkspaceEntryQuery):Promise<HostResult<WorkspaceDirectory>>;
   readWorkspaceFile(query:WorkspaceEntryQuery):Promise<HostResult<WorkspacePreview>>;

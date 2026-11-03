@@ -1,0 +1,10 @@
+{
+  "status": "blocked",
+  "code": "UI_TIMEOUT",
+  "observedAt": "2026-11-03T05:04:02.724Z",
+  "display": "native_desktop",
+  "exitCode": 1,
+  "signal": null,
+  "timedOut": false,
+  "platform": "darwin-arm64"
+}

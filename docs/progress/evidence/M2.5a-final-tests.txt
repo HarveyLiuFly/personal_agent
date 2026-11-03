@@ -1,0 +1,89 @@
+$ tsc --noEmit
+✔ real Git creates an isolated managed branch from committed HEAD, dedupes, and removes without deleting branch (656.811667ms)
+✔ tracked, untracked, ignored files and unmerged commits prevent removal and remain intact (997.772958ms)
+✔ fresh inspection, task state and project exclusion are enforced without creating model Runs (711.008375ms)
+✔ unsupported helpers and unmanaged linked roots fail before a Git write (127.467292ms)
+✔ lost Git result is Unknown, never resent, and explicit reconciliation adopts the one actual worktree (292.290417ms)
+✔ Owner recovery distinguishes unsent preparation from dispatch and retains Unknown project lease (94.387292ms)
+✔ revision 4 WAL migration backs up actual data and creates revision 5 atomically (13.07ms)
+✔ revision 4 failed migration rolls all new tables and metadata back (10.466709ms)
+✔ real Host SIGKILL at prepared preserves committed Git intent and requires explicit recovery (210.820833ms)
+✔ real Host SIGKILL at dispatch preserves committed Git intent and requires explicit recovery (351.941084ms)
+✔ real Host SIGKILL at result preserves committed Git intent and requires explicit recovery (398.115916ms)
+✔ a last-moment ignored file survives removal in the private atomic recovery directory (632.475542ms)
+✔ managed linked Git previews use the recorded metadata identity, while retargeting is rejected (413.739166ms)
+✔ a foreign workspace, raw argv and a changed branch cannot authorize managed removal (317.845834ms)
+ℹ tests 14
+ℹ suites 0
+ℹ pass 14
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5365.000458
+$ node scripts/build.mjs
+vite v8.3.5 building client environment for production...
+transforming...
+✓ 23 modules transformed.
+rendering chunks...
+computing gzip size...
+build/desktop/renderer/index.html                   0.62 kB │ gzip:  0.37 kB
+build/desktop/renderer/assets/index-Bw722msF.css   11.32 kB │ gzip:  3.01 kB
+build/desktop/renderer/assets/index-CtcwZl8Q.js   272.37 kB │ gzip: 84.15 kB
+
+✓ built in 84ms
+
+Final managed display-name preservation and build:
+$ tsc --noEmit
+✔ real Git creates an isolated managed branch from committed HEAD, dedupes, and removes without deleting branch (638.470416ms)
+✔ tracked, untracked, ignored files and unmerged commits prevent removal and remain intact (1011.545834ms)
+✔ fresh inspection, task state and project exclusion are enforced without creating model Runs (706.992667ms)
+✔ unsupported helpers and unmanaged linked roots fail before a Git write (119.190667ms)
+✔ lost Git result is Unknown, never resent, and explicit reconciliation adopts the one actual worktree (288.9175ms)
+✔ Owner recovery distinguishes unsent preparation from dispatch and retains Unknown project lease (101.763125ms)
+✔ revision 4 WAL migration backs up actual data and creates revision 5 atomically (14.603375ms)
+✔ revision 4 failed migration rolls all new tables and metadata back (13.13375ms)
+✔ real Host SIGKILL at prepared preserves committed Git intent and requires explicit recovery (217.308083ms)
+✔ real Host SIGKILL at dispatch preserves committed Git intent and requires explicit recovery (363.602709ms)
+✔ real Host SIGKILL at result preserves committed Git intent and requires explicit recovery (413.936958ms)
+✔ a last-moment ignored file survives removal in the private atomic recovery directory (646.088958ms)
+✔ managed linked Git previews use the recorded metadata identity, while retargeting is rejected (427.734292ms)
+✔ a foreign workspace, raw argv and a changed branch cannot authorize managed removal (321.397708ms)
+ℹ tests 14
+ℹ suites 0
+ℹ pass 14
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5422.807583
+$ node scripts/build.mjs
+vite v8.3.5 building client environment for production...
+transforming...
+✓ 23 modules transformed.
+rendering chunks...
+computing gzip size...
+build/desktop/renderer/index.html                   0.62 kB │ gzip:  0.37 kB
+build/desktop/renderer/assets/index-Bw722msF.css   11.32 kB │ gzip:  3.01 kB
+build/desktop/renderer/assets/index-CtcwZl8Q.js   272.37 kB │ gzip: 84.15 kB
+
+✓ built in 85ms
+$ python3 docs/design/contracts/validate_contracts.py
+PASS single_schema_initialization_and_foreign_keys
+PASS sql_typescript_status_consistency
+PASS task_transition_guards_shape
+PASS single_active_run_and_nonreused_fence
+PASS orphan_and_cross_dot_references_rejected
+PASS stale_fence_cas_rejected
+PASS stop_requested_task_blocks_new_claims
+PASS task_event_sequence_and_run_scope
+PASS active_thread_and_workspace_writer_uniqueness
+PASS intent_ordering_and_idempotency
+PASS per_operation_identity_and_dependency
+PASS immutable_source_and_per_task_delivery
+PASS occurrence_dedup_and_schedule_version_guard
+PASS single_use_hash_bound_action_receipt
+PASS budget_admission_and_actual_overrun_accounting
+PASS privacy_tombstone_dependency_lookup
+PASS stage_document_navigation_requirements_and_protocol_evidence
+17 design checks passed. Application E2E and runtime security are not verified.

@@ -113,3 +113,9 @@ pre { white-space: pre-wrap; overflow-wrap: anywhere; font-family: ui-monospace,
 .queue-task form{display:flex;gap:6px;flex-wrap:wrap}.queue-task form input{min-width:120px;flex:1}.queue-task small{color:#93a8c1}
 .task-activity{list-style:none;margin:0;padding:0;font-size:12px}.task-activity li{display:grid;gap:4px;padding:8px 0;border-bottom:1px solid #26384e}.task-activity small{color:#93a8c1;overflow-wrap:anywhere}
 .budget-summary{padding:10px 12px;margin:0 0 16px;border:1px solid #35485f;border-radius:8px;font-size:12px;background:#0c1726}.budget-summary p{margin:7px 0}.budget-summary small{color:#93a8c1;line-height:1.6}
+.worktree-manager {margin:0 0 20px;padding:16px;border:1px solid #304258;border-radius:12px;}
+.worktree-manager form,.worktree-manager article>div {display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.worktree-manager article {padding:10px 0;border-top:1px solid #304258;}
+.worktree-manager small {font-size:11px;color:#8194ae;overflow-wrap:anywhere;}
+.worktree-manager input {padding:7px;border:1px solid #304258;border-radius:6px;background:#101a2a;color:#e7edf6;font:inherit;font-size:12px;}
+.worktree-manager button {padding:6px 10px;font-size:12px;}

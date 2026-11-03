@@ -1,3 +1,6 @@
+import {createWorktreeFixture,runWorktreeProbe} from './worktree-probe.ts';
+import {WorktreeService} from '../../../packages/workspace/src/worktrees.ts';
+import type {WorktreeCommand} from '../../../packages/contracts/src/worktrees.ts';
 import { app, BrowserWindow, ipcMain, dialog, Menu } from 'electron';
 import { readFileSync, mkdirSync, writeFileSync, mkdtempSync, realpathSync } from 'node:fs';
 import { mkdtemp, mkdir, rm } from 'node:fs/promises';
@@ -44,9 +47,12 @@ let window: BrowserWindow | undefined;
 let ledger: ExecutionLedger | undefined;
 let execution: ForegroundExecution | undefined;
 let verifier: NodeVerification | undefined;
+let worktreeService:WorktreeService|undefined;
+let worktreeStopping=false;
 let workspaceReader:WorkspaceService|undefined;
 let scheduleService:ScheduleService|undefined,scheduleTimer:ReturnType<typeof setInterval>|undefined;
 let taskService:TaskService|undefined,outboxPump:OutboxPump|undefined,outboxTimer:ReturnType<typeof setInterval>|undefined;
+const worktreeSmoke=process.argv.includes('--m2-worktrees-smoke');
 const backgroundNativeSmoke=process.argv.includes('--m2-background-native-smoke');
 const backgroundSmoke=process.argv.includes('--m2-background-smoke');
 const backgroundProbe=backgroundSmoke||backgroundNativeSmoke;
@@ -63,9 +69,9 @@ const planSmoke=process.argv.includes('--m2-plans-smoke');
 const taskSmoke=process.argv.includes('--m2-tasks-smoke')||budgetSmoke||planSmoke||scheduleSmoke;
 const executionSmoke = backgroundSmoke || process.argv.includes('--m1-execution-smoke') || interactionSmoke || continuationSmoke || taskSmoke;
 const historySmoke = process.argv.includes('--m1-history-smoke');
-const keepRunningWithoutWindow=backgroundProbe||!(nativeCodeSmoke||executionSmoke||historySmoke||acceptanceProbe||process.argv.includes('--m0-window-smoke'));
+const keepRunningWithoutWindow=backgroundProbe||!(worktreeSmoke||nativeCodeSmoke||executionSmoke||historySmoke||acceptanceProbe||process.argv.includes('--m0-window-smoke'));
 let windowsReady=false,windowOpening:Promise<BrowserWindow>|undefined;
-if(backgroundNativeSmoke){mkdirSync(resolve(root,'.local'),{recursive:true});app.setPath('userData',mkdtempSync(resolve(root,'.local/desktop-background-native-')));}
+if(backgroundNativeSmoke||worktreeSmoke){mkdirSync(resolve(root,'.local'),{recursive:true});app.setPath('userData',mkdtempSync(resolve(root,'.local/desktop-background-native-')));}
 let fixtureDirectory: string | undefined;
   if (process.argv.includes('--m0-window-smoke')) app.setPath('userData', resolve(root, '.local/desktop-smoke-data'));
   if (historySmoke) app.setPath('userData', resolve(root, '.local/desktop-history-smoke-data'));
@@ -77,9 +83,9 @@ else if (!singleInstanceHeld) app.quit();
 else void boot().catch(async error => {
   const code = error instanceof Error && /^[A-Z0-9_]{1,100}$/.test(error.message) ? error.message : 'HOST_ERROR';
   console.error('DESKTOP_BOOT_FAILED', code);
-  if (backgroundProbe || acceptanceProbe || nativeCodeSmoke || executionSmoke || historySmoke || process.argv.includes('--m0-window-smoke')) {
+  if (worktreeSmoke || backgroundProbe || acceptanceProbe || nativeCodeSmoke || executionSmoke || historySmoke || process.argv.includes('--m0-window-smoke')) {
     if (window) { try { writeFileSync(resolve(root, '.local/desktop-failure.png'), (await window.webContents.capturePage()).toPNG()); } catch {} }
-    const file = backgroundProbe?(backgroundNativeSmoke?'M2.4a-native-background':'M2.4a-desktop'):scheduleAutoSmoke?'M2.3d-desktop':scheduleSmoke?'M2.3c-desktop':planSmoke?'M2.2d-desktop':budgetSmoke?'M2.2c-desktop':taskSmoke?'M2.2b-desktop':acceptanceProbe?acceptanceProbe.kind==='workspace'?'M2.1a-desktop':`M1.4b-${acceptanceProbe.kind==='folder'?'native-folder':acceptanceProbe.kind==='restart'?'native-restart':'owner'}`:nativeCodeSmoke ? 'M1-native-code-desktop' : continuationSmoke?'M1.3c-desktop':interactionSmoke ? 'M1.2-desktop' : executionSmoke ? 'M1.1c-desktop' : historySmoke ? 'M1.1b-desktop' : 'M0-desktop-smoke';
+    const file = worktreeSmoke?'M2.5a-desktop':backgroundProbe?(backgroundNativeSmoke?'M2.4a-native-background':'M2.4a-desktop'):scheduleAutoSmoke?'M2.3d-desktop':scheduleSmoke?'M2.3c-desktop':planSmoke?'M2.2d-desktop':budgetSmoke?'M2.2c-desktop':taskSmoke?'M2.2b-desktop':acceptanceProbe?acceptanceProbe.kind==='workspace'?'M2.1a-desktop':`M1.4b-${acceptanceProbe.kind==='folder'?'native-folder':acceptanceProbe.kind==='restart'?'native-restart':'owner'}`:nativeCodeSmoke ? 'M1-native-code-desktop' : continuationSmoke?'M1.3c-desktop':interactionSmoke ? 'M1.2-desktop' : executionSmoke ? 'M1.1c-desktop' : historySmoke ? 'M1.1b-desktop' : 'M0-desktop-smoke';
     writeFileSync(resolve(root, `docs/progress/evidence/${file}.json`), JSON.stringify({ status: 'blocked', code, observedAt: new Date().toISOString() }) + '\n');
   }
   try { await execution?.close(); ledger?.close(); } catch {}
@@ -108,17 +114,18 @@ async function boot(): Promise<void> {
   if(nativeCodeSmoke){nativeCodeWorkspace=realpathSync(await mkdtemp(resolve(tmpdir(),'personal-agent-code-')));createCodeFixture(nativeCodeWorkspace);}
   let fixtureWorkspace: string | undefined;
   const fixtureMethods = new Set<string>();
-  if (historySmoke || executionSmoke || backgroundNativeSmoke) {
+  if (historySmoke || executionSmoke || backgroundNativeSmoke || worktreeSmoke) {
     mkdirSync(resolve(root, '.local'), { recursive: true });
     fixtureDirectory = await mkdtemp(resolve(root, '.local/history-desktop-'));
-    fixtureWorkspace = resolve(fixtureDirectory, 'workspace'); await mkdir(fixtureWorkspace);
+    fixtureWorkspace = resolve(fixtureDirectory, 'workspace'); await mkdir(fixtureWorkspace);if(worktreeSmoke)createWorktreeFixture(fixtureWorkspace);
   }
   if (!historySmoke) {
     ledger = new ExecutionLedger(resolve(fixtureDirectory ?? app.getPath('userData'), 'execution/ledger.db'), readFileSync(resolve(directory, 'schema.sql'), 'utf8'),budgetSmoke?{budgetPolicy:{dailyTokens:150,reservationTokens:60}}:{});
     ownerEpoch=ledger.startOwner(randomUUID(), true); // OS single-instance lock was acquired before boot().
     if (!executionSmoke && process.platform === 'darwin' && process.arch === 'arm64') {
       try { verifier = new NodeVerification(ledger,{node:resolveVerifierNode(root),cli:executable(),reporter:resolve(directory,'verification-reporter.mjs'),stateDirectory:resolve(app.getPath('userData'),'verification')}); } catch {}
-      try {workspaceReader=new WorkspaceService(id=>ledger!.workspace(id),{node:resolveVerifierNode(root),cli:executable(),git:resolveWorkspaceGit(),worker:resolve(directory,'workspace-reader.mjs'),stateDirectory:resolve(app.getPath('userData'),'workspace-read')});}catch{}
+      try {worktreeService=new WorktreeService(ledger,{git:resolveWorkspaceGit(),node:resolveVerifierNode(root),worker:resolve(directory,'worktree-worker.mjs'),stateDirectory:resolve(fixtureDirectory??app.getPath('userData'),'worktrees')});}catch{}
+      try {workspaceReader=new WorkspaceService(id=>ledger!.workspace(id),{node:resolveVerifierNode(root),cli:executable(),git:resolveWorkspaceGit(),worker:resolve(directory,'workspace-reader.mjs'),stateDirectory:resolve(app.getPath('userData'),'workspace-read'),managedGit:id=>ledger!.worktreeMetadata(id)});}catch{}
     }
     execution = new ForegroundExecution(ledger, { executable: executionSmoke ? resolveExecutable('node') : executable(), stateDirectory: state, mode: interactionSmoke ? 'workspaceWrite' : 'readOnly',
       ...(verifier ? { prepareCode: (token, code, signal) => verifier!.prepare(token,code,signal) } : {}),
@@ -127,7 +134,7 @@ async function boot(): Promise<void> {
         args: [resolve(root, 'tests/fixtures/execution-server.ts'), backgroundSmoke||scheduleAutoSmoke?'usage':taskSmoke?'interrupt-ok':interactionSmoke ? 'approval-accept' : 'slow', resolve(fixtureDirectory!, 'execution/ledger.db'), resolve(fixtureDirectory!, 'execution-receipts')], env: runtimeEnvironment(), ...callbacks }) } : {}) });
   }
   const history = new HistoryBrowser(async read => {
-    if (!historySmoke && !executionSmoke) return readConnection(executable(), state, controller?.signal)(port=>read({request:async<T>(method:string,params:unknown)=>{acceptanceProbe?.readMethods.add(method);return port.request<T>(method,params);}}));
+    if (!historySmoke && !executionSmoke && !worktreeSmoke) return readConnection(executable(), state, controller?.signal)(port=>read({request:async<T>(method:string,params:unknown)=>{acceptanceProbe?.readMethods.add(method);return port.request<T>(method,params);}}));
     // Fixed internal integration fixture. No Renderer API selects a process, path, or fixture mode.
     const rpc = new StdioRpcClient({ executable: resolveExecutable('node'),
       args: [resolve(root, 'tests/fixtures/history-server.ts'), fixtureWorkspace!], env: runtimeEnvironment(), signal: controller?.signal });
@@ -180,6 +187,17 @@ async function boot(): Promise<void> {
   for(const [channel,operation]of [['workspace:overview','overview'],['workspace:directory','list'],['workspace:file','preview'],['workspace:diff','diff']] as const){
     ipcMain.handle(channel,(event,...args:unknown[])=>historyCommand(event,args,1,async()=>{if(!workspaceReader)throw new LedgerError('WORKSPACE_READER_UNAVAILABLE');return workspaceReader[operation](args[0],controller?.signal);}));
   }
+  for(const channel of ['worktrees:list','worktrees:command','worktrees:inspect','worktrees:use'])ipcMain.handle(channel,(event,...args:unknown[])=>historyCommand(event,args,1,async()=>{
+    if(!worktreeService||!ledger)throw new LedgerError('WORKTREES_UNAVAILABLE');
+    if(channel==='worktrees:command')return worktreeService.command(args[0] as WorktreeCommand);
+    const q=args[0] as Record<string,unknown>,keys=channel==='worktrees:list'?['projectId']:['projectId','workspaceId'];
+    if(!q||typeof q!=='object'||Array.isArray(q)||Object.keys(q).length!==keys.length||keys.some(k=>typeof q[k]!=='string'||!(q[k] as string).length||(q[k] as string).length>200)||Object.keys(q).some(k=>!keys.includes(k)))throw new LedgerError('INVALID_WORKTREE_QUERY');
+    if(channel==='worktrees:list')return worktreeService.page(q.projectId as string);
+    if(channel==='worktrees:inspect')return worktreeService.inspect(q.projectId as string,q.workspaceId as string);
+    if(ledger.worktreeContext(q.projectId as string).projectId!==ledger.worktreeContext(q.workspaceId as string).projectId)throw new LedgerError('WORKTREE_SCOPE_MISMATCH');
+    const managed=ledger.managedWorktree(q.workspaceId as string);if(managed.state!=='ready')throw new LedgerError('WORKTREE_NOT_READY');
+    return history.registerDirectory(ledger.workspace(managed.id).directory);
+  }));
   // Re-register persisted grants in the read-only browser; invalid directories remain blocked by Store.
   for (const project of ledger?.projects() ?? []) {
     try { ledger!.workspace(project.id); await history.registerDirectory(project.directory); } catch {}
@@ -243,6 +261,7 @@ async function boot(): Promise<void> {
   windowsReady=true;
   Menu.setApplicationMenu(Menu.buildFromTemplate([{label:'Personal Agent',submenu:[{label:'显示主窗口',click:()=>{void showMainWindow().catch(()=>{});}},{type:'separator'},{label:'退出并停止运行',accelerator:'CmdOrCtrl+Q',click:()=>app.quit()}]},{role:'editMenu'},{role:'windowMenu'}]));
   window=await showMainWindow();
+  if(worktreeSmoke){await runWorktreeProbe(root,app,window,ledger!,fixtureWorkspace!);return;}
   if(backgroundProbe){await runBackgroundProbe(root,app,window,ledger!,execution!,resolve(fixtureDirectory!,'execution/ledger.db'),showMainWindow,backgroundNativeSmoke);return;}
   if(scheduleSmoke){await runScheduleProbe(root,app,window,execution!,scheduleAutoSmoke);return;}
   if(planSmoke){await runPlanProbe(root,app,window,execution!);return;}
@@ -271,7 +290,7 @@ async function boot(): Promise<void> {
     const passed = r.rendered === true && r.hasRequire === false && r.sandboxed === true && r.isolated === true
       && r.uiConnected === true && !app.commandLine.hasSwitch('no-sandbox')
       && (r.connection as ConnectionInfo)?.status === 'connected'
-      && JSON.stringify(r.bridgeKeys) === JSON.stringify(['applyScheduleCommand','applyTaskCommand','applyTaskPlan','cancelTaskPlan','chooseProject', 'continueRun', 'getRun', 'getVerification','getWorkspace','getWorkspaceDiff', 'inspect', 'interruptRun', 'listInteractions', 'listItems', 'listRuns','listScheduleOccurrences','listSchedules','listTaskActivity','listTaskPlans','listTasks', 'listThreads', 'listTurns','listWorkspaceDirectory','readWorkspaceFile', 'reconcileRun', 'replyInteraction','resourceBudget', 'security','startTask', 'submitMessage', 'verifyRun', 'workspaceState']);
+      && JSON.stringify(r.bridgeKeys) === JSON.stringify(['applyScheduleCommand','applyTaskCommand','applyTaskPlan','applyWorktreeCommand','cancelTaskPlan','chooseProject', 'continueRun', 'getRun', 'getVerification','getWorkspace','getWorkspaceDiff', 'inspect','inspectWorktree', 'interruptRun', 'listInteractions', 'listItems', 'listRuns','listScheduleOccurrences','listSchedules','listTaskActivity','listTaskPlans','listTasks', 'listThreads', 'listTurns','listWorkspaceDirectory','listWorktrees','readWorkspaceFile', 'reconcileRun', 'replyInteraction','resourceBudget', 'security','startTask', 'submitMessage','useWorktree', 'verifyRun', 'workspaceState']);
     const evidence = { observedAt: new Date().toISOString(), kind: 'real_electron_window_smoke',
       status: passed ? 'passed' : 'blocked',
       browserSandbox: app.commandLine.hasSwitch('no-sandbox') ? 'disabled' : 'enabled', result };
@@ -471,6 +490,7 @@ app.on('window-all-closed',()=>{if(!keepRunningWithoutWindow&&!active)app.quit()
 app.on('before-quit', event => {
   quitting=true;
   clearInterval(outboxTimer);outboxTimer=undefined;clearInterval(scheduleTimer);scheduleTimer=undefined;
+  if(worktreeService&&!worktreeStopping){event.preventDefault();worktreeStopping=true;void worktreeService.stop().finally(()=>{worktreeService=undefined;app.quit();});return;}
   if (active) { event.preventDefault(); quitting = true; controller?.abort(); }
   else if (execution?.busy) {
     event.preventDefault(); void execution.close().finally(() => app.quit());

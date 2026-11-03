@@ -12,7 +12,7 @@ CREATE TABLE schema_metadata (
   singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
   schema_revision INTEGER NOT NULL CHECK (schema_revision > 0)
 );
-INSERT INTO schema_metadata VALUES (1, 4);
+INSERT INTO schema_metadata VALUES (1, 5);
 
 CREATE TABLE profiles (
   profile_id TEXT PRIMARY KEY,
@@ -62,6 +62,48 @@ CREATE TABLE workspace_identities (
   workspace_id TEXT PRIMARY KEY REFERENCES workspaces(workspace_id),
   device_id TEXT NOT NULL,
   inode TEXT NOT NULL
+);
+
+CREATE TABLE worktree_operations (
+  operation_id TEXT PRIMARY KEY REFERENCES operations(operation_id),
+  dot_id TEXT NOT NULL REFERENCES dots(dot_id),
+  project_id TEXT NOT NULL,
+  source_workspace_id TEXT NOT NULL,
+  target_workspace_id TEXT,
+  kind TEXT NOT NULL CHECK (kind IN ('create','remove')),
+  state TEXT NOT NULL CHECK (state IN ('prepared','dispatching','completed','failed','outcome_unknown')),
+  source_fence INTEGER NOT NULL,
+  runtime_epoch INTEGER NOT NULL,
+  supervisor_pid INTEGER,
+  payload_json TEXT NOT NULL CHECK (json_valid(payload_json)),
+  payload_sha256 TEXT NOT NULL,
+  result_json TEXT CHECK (result_json IS NULL OR json_valid(result_json)),
+  error_code TEXT,
+  created_at_ms INTEGER NOT NULL,
+  FOREIGN KEY(project_id,dot_id) REFERENCES projects(project_id,dot_id),
+  FOREIGN KEY(source_workspace_id,dot_id) REFERENCES workspaces(workspace_id,dot_id),
+  FOREIGN KEY(target_workspace_id,dot_id) REFERENCES workspaces(workspace_id,dot_id)
+);
+
+CREATE TABLE project_operation_leases (
+  project_id TEXT PRIMARY KEY REFERENCES projects(project_id),
+  operation_id TEXT NOT NULL UNIQUE REFERENCES worktree_operations(operation_id),
+  runtime_epoch INTEGER NOT NULL,
+  source_fence INTEGER NOT NULL
+);
+
+CREATE TABLE managed_worktrees (
+  workspace_id TEXT PRIMARY KEY REFERENCES workspaces(workspace_id),
+  source_workspace_id TEXT NOT NULL REFERENCES workspaces(workspace_id),
+  create_operation_id TEXT NOT NULL UNIQUE REFERENCES worktree_operations(operation_id),
+  display_name TEXT NOT NULL,
+  branch TEXT NOT NULL,
+  base_commit TEXT NOT NULL,
+  git_dir TEXT NOT NULL,
+  common_dir TEXT NOT NULL,
+  git_identity_json TEXT NOT NULL CHECK (json_valid(git_identity_json)),
+  version INTEGER NOT NULL DEFAULT 1,
+  state TEXT NOT NULL CHECK (state IN ('ready','removed','invalid'))
 );
 
 CREATE TABLE goals (
