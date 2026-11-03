@@ -1,0 +1,15 @@
+{
+  "checkpoint": "M2.1a",
+  "status": "remote_verified",
+  "observedAt": "2026-11-03T00:34:15Z",
+  "command": "git ls-remote origin refs/heads/main refs/tags/checkpoint/M2.1a refs/tags/checkpoint/M2.1a^{}",
+  "checkpointCommit": "992de70af676a92adb9c91ef959c43b672e81cf5",
+  "remoteMainAtCheckpointDelivery": "992de70af676a92adb9c91ef959c43b672e81cf5",
+  "tag": "checkpoint/M2.1a",
+  "remoteAnnotatedTagObject": "932a45e28edcd27a0c9f45e0b3214e8f2496d242",
+  "remoteTagCommit": "992de70af676a92adb9c91ef959c43b672e81cf5",
+  "workspaceCleanAfterCheckpointPush": true,
+  "forcePushUsed": false,
+  "stageGate": "open",
+  "note": "This receipt is a documentation follow-up to the verified feature checkpoint; main may subsequently include the receipt commit."
+}
