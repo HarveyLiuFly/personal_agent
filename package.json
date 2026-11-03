@@ -23,6 +23,8 @@
     "smoke:worktree-recovery:desktop": "node scripts/smoke-desktop.mjs --worktree-recovery",
     "smoke:tools:desktop": "node scripts/smoke-desktop.mjs --tools",
     "smoke:backups:desktop": "node scripts/smoke-desktop.mjs --backups",
+    "smoke:restore:preflight": "node scripts/smoke-restore.mjs --preflight",
+    "smoke:restore:desktop": "node scripts/smoke-restore.mjs",
     "smoke:rehearsal:desktop": "node scripts/smoke-desktop.mjs --rehearsal",
     "smoke:resources:desktop": "node scripts/smoke-desktop.mjs --resources",
     "smoke:skills:desktop": "node scripts/smoke-desktop.mjs --skills",

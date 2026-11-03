@@ -1,0 +1,73 @@
+✔ initializes common schema, persists workspace identity and protects local database permissions (23.75925ms)
+✔ foreign or unsupported databases are rejected without wiping existing tables (22.018625ms)
+✔ importing a Git subdirectory keeps the canonical repository and actual workspace separate (57.837791ms)
+✔ duplicate submission keys return the same run; changed inputs and concurrent tasks fail (23.201083ms)
+✔ workspace lease collision rolls back the entire task/run/event claim (27.934417ms)
+✔ turn intents require the task binding and cannot borrow a different project thread (21.842792ms)
+✔ sending is durable once only, input hashes are stable and RPC correlation is persisted (23.181334ms)
+✔ invalid acceptance cannot partially bind a thread or clear an uncertain intent (20.599541ms)
+✔ restart retains unknown work, rejects stale grants and never creates a replacement run (21.615917ms)
+✔ prepared but unsent intents are marked rejected on restart, with no dispatch authorization (22.261792ms)
+✔ completion ends the run but keeps the task awaiting verification (21.982875ms)
+✔ snapshot caches are scope checked and do not turn an unfinished run into success (24.25625ms)
+✔ directory replacement and expired leases prevent further dispatch (19.544792ms)
+✔ workspace fence or lease expiry blocks writes even while the run lease is valid (21.621083ms)
+✔ task events and outbox entries share a committed sequence and omit raw task input (21.31175ms)
+✔ real worker SIGKILL after sending commit survives reopen without authorizing a resend (128.563209ms)
+✔ fresh explicit run and manifest bind the current post-recovery policy and privacy watermarks (22.3955ms)
+✖ a prior completed execution cannot reuse its Thread after policy or privacy advances (23.075333ms)
+✖ two real simultaneous project PTYs keep cwd, input/output and leases separate; closing one leaves the other live (151.150542ms)
+ℹ tests 19
+ℹ suites 0
+ℹ pass 17
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 678.027834
+
+✖ failing tests:
+
+test at tests/ledger.test.ts:181:1
+✖ a prior completed execution cannot reuse its Thread after policy or privacy advances (23.075333ms)
+  AssertionError [ERR_ASSERTION]: The validation function is expected to return "true". Received false
+  
+  Caught error:
+  
+  Error: TASK_AUTHORIZATION_CHANGED
+      at TestContext.<anonymous> (file://[repository]/tests/ledger.test.ts:182:195)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: Error: TASK_AUTHORIZATION_CHANGED
+        at fail (file://[repository]/packages/store/src/ledger.ts:23:47)
+        at ExecutionLedger.taskAuthority (file://[repository]/packages/store/src/ledger.ts:331:285)
+        at file://[repository]/packages/store/src/ledger.ts:693:25
+        at ExecutionLedger.tx (file://[repository]/packages/store/src/ledger.ts:104:26)
+        at ExecutionLedger.beginContinuation (file://[repository]/packages/store/src/ledger.ts:683:17)
+        at file://[repository]/tests/ledger.test.ts:182:215
+        at getActual (node:assert:611:5)
+        at strict.throws (node:assert:759:24)
+        at TestContext.<anonymous> (file://[repository]/tests/ledger.test.ts:182:195)
+        at Test.runInAsyncScope (node:async_hooks:227:14),
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at tests/project-isolation.test.ts:9:1
+✖ two real simultaneous project PTYs keep cwd, input/output and leases separate; closing one leaves the other live (151.150542ms)
+  Error: INVALID_TERMINAL_QUERY
+      at fail (file://[repository]/packages/workspace/src/terminal.ts:11:40)
+      at TerminalService.query (file://[repository]/packages/workspace/src/terminal.ts:18:259)
+      at TerminalService.view (file://[repository]/packages/workspace/src/terminal.ts:45:49)
+      at text (file://[repository]/tests/project-isolation.test.ts:13:37)
+      at TestContext.<anonymous> (file://[repository]/tests/project-isolation.test.ts:16:125)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    code: 'INVALID_TERMINAL_QUERY'
+  }

@@ -1,0 +1,220 @@
+TAP version 13
+# Subtest: initializes common schema, persists workspace identity and protects local database permissions
+ok 1 - initializes common schema, persists workspace identity and protects local database permissions
+  ---
+  duration_ms: 26.333
+  type: 'test'
+  ...
+# Subtest: foreign or unsupported databases are rejected without wiping existing tables
+ok 2 - foreign or unsupported databases are rejected without wiping existing tables
+  ---
+  duration_ms: 42.514042
+  type: 'test'
+  ...
+# Subtest: importing a Git subdirectory keeps the canonical repository and actual workspace separate
+ok 3 - importing a Git subdirectory keeps the canonical repository and actual workspace separate
+  ---
+  duration_ms: 84.493875
+  type: 'test'
+  ...
+# Subtest: duplicate submission keys return the same run; changed inputs and concurrent tasks fail
+ok 4 - duplicate submission keys return the same run; changed inputs and concurrent tasks fail
+  ---
+  duration_ms: 37.483666
+  type: 'test'
+  ...
+# Subtest: workspace lease collision rolls back the entire task/run/event claim
+ok 5 - workspace lease collision rolls back the entire task/run/event claim
+  ---
+  duration_ms: 49.018375
+  type: 'test'
+  ...
+# Subtest: turn intents require the task binding and cannot borrow a different project thread
+ok 6 - turn intents require the task binding and cannot borrow a different project thread
+  ---
+  duration_ms: 29.751125
+  type: 'test'
+  ...
+# Subtest: sending is durable once only, input hashes are stable and RPC correlation is persisted
+ok 7 - sending is durable once only, input hashes are stable and RPC correlation is persisted
+  ---
+  duration_ms: 38.843167
+  type: 'test'
+  ...
+# Subtest: invalid acceptance cannot partially bind a thread or clear an uncertain intent
+ok 8 - invalid acceptance cannot partially bind a thread or clear an uncertain intent
+  ---
+  duration_ms: 37.868792
+  type: 'test'
+  ...
+# Subtest: restart retains unknown work, rejects stale grants and never creates a replacement run
+ok 9 - restart retains unknown work, rejects stale grants and never creates a replacement run
+  ---
+  duration_ms: 35.154291
+  type: 'test'
+  ...
+# Subtest: prepared but unsent intents are marked rejected on restart, with no dispatch authorization
+ok 10 - prepared but unsent intents are marked rejected on restart, with no dispatch authorization
+  ---
+  duration_ms: 33.13225
+  type: 'test'
+  ...
+# Subtest: completion ends the run but keeps the task awaiting verification
+ok 11 - completion ends the run but keeps the task awaiting verification
+  ---
+  duration_ms: 44.724125
+  type: 'test'
+  ...
+# Subtest: snapshot caches are scope checked and do not turn an unfinished run into success
+ok 12 - snapshot caches are scope checked and do not turn an unfinished run into success
+  ---
+  duration_ms: 26.285083
+  type: 'test'
+  ...
+# Subtest: directory replacement and expired leases prevent further dispatch
+ok 13 - directory replacement and expired leases prevent further dispatch
+  ---
+  duration_ms: 36.68725
+  type: 'test'
+  ...
+# Subtest: workspace fence or lease expiry blocks writes even while the run lease is valid
+ok 14 - workspace fence or lease expiry blocks writes even while the run lease is valid
+  ---
+  duration_ms: 23.415667
+  type: 'test'
+  ...
+# Subtest: task events and outbox entries share a committed sequence and omit raw task input
+ok 15 - task events and outbox entries share a committed sequence and omit raw task input
+  ---
+  duration_ms: 33.84175
+  type: 'test'
+  ...
+# Subtest: real worker SIGKILL after sending commit survives reopen without authorizing a resend
+ok 16 - real worker SIGKILL after sending commit survives reopen without authorizing a resend
+  ---
+  duration_ms: 190.554708
+  type: 'test'
+  ...
+# Subtest: fresh explicit run and manifest bind the current post-recovery policy and privacy watermarks
+ok 17 - fresh explicit run and manifest bind the current post-recovery policy and privacy watermarks
+  ---
+  duration_ms: 27.816834
+  type: 'test'
+  ...
+# Subtest: a prior completed execution cannot reuse its Thread after policy or privacy advances
+ok 18 - a prior completed execution cannot reuse its Thread after policy or privacy advances
+  ---
+  duration_ms: 30.277916
+  type: 'test'
+  ...
+# Subtest: task tombstones suppress direct Run snapshot queries while internal Host cleanup keeps its record
+ok 19 - task tombstones suppress direct Run snapshot queries while internal Host cleanup keeps its record
+  ---
+  duration_ms: 32.530375
+  type: 'test'
+  ...
+# Subtest: two real simultaneous project PTYs keep cwd, input/output and leases separate; closing one leaves the other live
+ok 20 - two real simultaneous project PTYs keep cwd, input/output and leases separate; closing one leaves the other live
+  ---
+  duration_ms: 198.326333
+  type: 'test'
+  ...
+# Subtest: restorable copy preserves current consumption, latest policy and tombstones without changing either source
+ok 21 - restorable copy preserves current consumption, latest policy and tombstones without changing either source
+  ---
+  duration_ms: 84.057917
+  type: 'test'
+  ...
+# Subtest: matching Run usage merges high water, and current-only usage stays in its source snapshot without forged Run/FK
+ok 22 - matching Run usage merges high water, and current-only usage stays in its source snapshot without forged Run/FK
+  ---
+  duration_ms: 84.281333
+  type: 'test'
+  ...
+# Subtest: same scope/period buckets use conservative maximum spend and minimum limit even with different IDs
+ok 23 - same scope/period buckets use conservative maximum spend and minimum limit even with different IDs
+  ---
+  duration_ms: 81.65225
+  type: 'test'
+  ...
+# Subtest: old mandates, schedules and bindings stay invalidated after a genuinely openable restore
+ok 24 - old mandates, schedules and bindings stay invalidated after a genuinely openable restore
+  ---
+  duration_ms: 70.852625
+  type: 'test'
+  ...
+# Subtest: both backup and current unsettled budgets refuse restoration without inventing released balances
+ok 25 - both backup and current unsettled budgets refuse restoration without inventing released balances
+  ---
+  duration_ms: 514.202292
+  type: 'test'
+  ...
+# Subtest: unresolved Runs, reserved Actions, grants, execution Operations and all three lease types are refused
+ok 26 - unresolved Runs, reserved Actions, grants, execution Operations and all three lease types are refused
+  ---
+  duration_ms: 519.116834
+  type: 'test'
+  ...
+# Subtest: numeric overflow, unknown goals, scope conflicts and corrupt inputs fail conservatively
+ok 27 - numeric overflow, unknown goals, scope conflicts and corrupt inputs fail conservatively
+  ---
+  duration_ms: 303.665416
+  type: 'test'
+  ...
+# Subtest: a failure in final accounting merge retains quarantine rather than exposing a half-prepared runnable database
+ok 28 - a failure in final accounting merge retains quarantine rather than exposing a half-prepared runnable database
+  ---
+  duration_ms: 62.258458
+  type: 'test'
+  ...
+# Subtest: idle restore physically activates a new generation, preserving newer source DB and source files
+ok 29 - idle restore physically activates a new generation, preserving newer source DB and source files
+  ---
+  duration_ms: 245.149209
+  type: 'test'
+  ...
+# Subtest: same preparation key returns original copy, and changes before activation require an explicit new preparation
+ok 30 - same preparation key returns original copy, and changes before activation require an explicit new preparation
+  ---
+  duration_ms: 277.301958
+  type: 'test'
+  ...
+# Subtest: extra fields, foreign IDs, malformed pointers and changed physical copies are rejected
+ok 31 - extra fields, foreign IDs, malformed pointers and changed physical copies are rejected
+  ---
+  duration_ms: 153.207459
+  type: 'test'
+  ...
+# Subtest: actual cold restore Host SIGKILL at before_pointer retains a complete old or new active generation
+ok 32 - actual cold restore Host SIGKILL at before_pointer retains a complete old or new active generation
+  ---
+  duration_ms: 323.742833
+  type: 'test'
+  ...
+# Subtest: actual cold restore Host SIGKILL at commit_intent retains a complete old or new active generation
+ok 33 - actual cold restore Host SIGKILL at commit_intent retains a complete old or new active generation
+  ---
+  duration_ms: 306.987459
+  type: 'test'
+  ...
+# Subtest: actual cold restore Host SIGKILL at activated retains a complete old or new active generation
+ok 34 - actual cold restore Host SIGKILL at activated retains a complete old or new active generation
+  ---
+  duration_ms: 317.239583
+  type: 'test'
+  ...
+# Subtest: a lost committed active pointer fails closed and never rolls back to the previous runtime
+ok 35 - a lost committed active pointer fails closed and never rolls back to the previous runtime
+  ---
+  duration_ms: 167.319875
+  type: 'test'
+  ...
+1..35
+# tests 35
+# suites 0
+# pass 35
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1978.34825

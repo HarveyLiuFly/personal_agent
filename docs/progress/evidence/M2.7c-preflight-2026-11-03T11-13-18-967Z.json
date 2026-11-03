@@ -1,0 +1,42 @@
+{
+  "status": "passed",
+  "kind": "real_electron_cold_restore_generation_switch_and_new_process",
+  "inferenceRequested": false,
+  "modelTurns": 0,
+  "processesLaunched": 2,
+  "history": "not_requested",
+  "fixture": "public_tasks_and_controlled_budget_privacy_metadata",
+  "display": "native_desktop",
+  "prepared": {
+    "prepared": true,
+    "shownInUi": true,
+    "sandboxed": true,
+    "isolated": true,
+    "noRequire": true,
+    "apiCount": true,
+    "ownerEpoch": 1
+  },
+  "result": {
+    "newGeneration": true,
+    "restoredOldTitle": true,
+    "oldCurrentTitlePreserved": true,
+    "oldOwnerStopped": true,
+    "newOwnerEpochIncreased": true,
+    "latestPrivacyMerged": true,
+    "latestDeletionPreserved": true,
+    "latestConsumptionPreserved": true,
+    "oldTaskPaused": true,
+    "oldDispatchBlocked": true,
+    "noRestoredRunsBeforeExplicitSubmit": true,
+    "noRestoredIntentsBeforeExplicitSubmit": true,
+    "noOldApprovals": true,
+    "sourcePreserved": true,
+    "restoredTaskVisible": true,
+    "newCommandAccepted": true,
+    "sandboxed": true,
+    "isolated": true,
+    "noRequire": true
+  },
+  "observedAt": "2026-11-03T11:13:18.967Z",
+  "platform": "darwin-arm64"
+}

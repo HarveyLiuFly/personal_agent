@@ -1,0 +1,98 @@
+{
+  "checkpoint": "M2.7c",
+  "status": "passed_idle_runtime_generation_restore_with_same_run_native_verification",
+  "observedAt": "2026-11-03T11:27:16.256951+00:00",
+  "baselineCommit": "3145459f64b7fc1ded480c7b693b81e741c8cbe3",
+  "schemaRevision": 6,
+  "fixedDesktopApiCount": 45,
+  "stageGate": "pending_final_M2_integration",
+  "permissionManagement": "M5",
+  "checks": {
+    "tests": 341,
+    "passed": 341,
+    "failed": 0,
+    "skipped": 0,
+    "designContracts": 17,
+    "generatedTypes": 747,
+    "electronTargetedTests": 35,
+    "newCases": 19
+  },
+  "native": {
+    "model": "gpt-6.1-sol",
+    "attempts": 1,
+    "modelTurns": 1,
+    "reportedTokens": 18097,
+    "estimatedUsd": null,
+    "taskResult": "needs_review_not_business_completion",
+    "initialProbe": "blocked_assertion_used_snapshotless_runForHost",
+    "resolvedBy": "third_Electron_process_same_Run_scoped_snapshot_query",
+    "additionalThreadOrTurn": 0,
+    "originalEvidence": "M2.7c-desktop.json",
+    "verification": "M2.7c-native-verification.json"
+  },
+  "restore": {
+    "idleOnly": true,
+    "unresolvedExecutionOrBudgetRefused": true,
+    "sourceCurrentDatabaseAndFilesPreserved": true,
+    "fullPreSwitchSafetyBackup": true,
+    "latestPrivacyPolicyAndBudgetMerged": true,
+    "currentOnlyUsageNotForgedIntoOldForeignKeys": true,
+    "oldBindingsInvalidated": true,
+    "oldTasksBlockedAndSchedulesPaused": true,
+    "newWorkRequiresNewExplicitTask": true,
+    "beforeAndAfterDrainStampChecked": true,
+    "oldOwnerPhysicalStoppedChecked": true,
+    "atomicGenerationPointer": true,
+    "missingCommittedPointer": "fail_closed_no_legacy_fallback",
+    "scope": "ledger_and_published_verification_receipts"
+  },
+  "newPhysicalFilesystemFaultLocations": [
+    "before_commit_intent",
+    "commit_intent_before_pointer",
+    "pointer_committed_before_receipt"
+  ],
+  "existingLedgerFaultLocations": 16,
+  "backupRestoreFilesystemFaultLocations": 7,
+  "notClaimed": [
+    "online_restore_with_unknown_occupancy",
+    "source_code_restore",
+    "raw_Codex_history_restore",
+    "auth_copy",
+    "independent_daemon",
+    "execution_during_device_sleep",
+    "M3_full_physical_forgetting"
+  ],
+  "parallelWork": {
+    "subagent": [
+      "new offline restore-database.ts",
+      "eight SQLite tests",
+      "read-only Gate and activation review"
+    ],
+    "primary": [
+      "physical generation and pointer",
+      "Main and UI",
+      "ledger epoch and tombstone fixes",
+      "cross-project real PTY case",
+      "native and Electron integration",
+      "documentation/Git"
+    ]
+  },
+  "sourceAndBuildHashes": {
+    "packages/contracts/src/backups.ts": "fa29ef980143ff34f3a9486851dd78c3860e8e1c18cb25359a1fd8b3ef12f06d",
+    "packages/store/src/ledger.ts": "037d8d11f582318fda8a88aa0587a0aee5dac94f4caf6d7ab3c62bf0680a0156",
+    "packages/backup/src/service.ts": "9fed5e876b00f8420f88b6f214e4b27a3c846fb15d92a130fe78b0901ff9e70f",
+    "packages/backup/src/restore.ts": "98a6b7e88d644c4386923afde9aeaf5d625283d2828631458a2939af2bb14e09",
+    "packages/backup/src/restore-database.ts": "ab670f443f46561e0568aae6ec2d24594113d9e2ecb701dbbfddd89f943df3c5",
+    "apps/desktop/src/main.ts": "bb9bbc1abd52dfb09951eecc885059f5c289ca05626e3fcd4e3914c4469795cd",
+    "apps/desktop/src/restore-probe.ts": "817d0e813419ca869ae39d958e70fe05ea835647c9fd1cb83f23cfd4aeb3d404",
+    "apps/desktop/renderer/backup-manager.tsx": "4287d05b4c067ac15f28af3c6c63a2bceff882a5ae9eca4f52d58bb34dbf092f",
+    "scripts/smoke-restore.mjs": "2c0b78845cbc263b3f6365ef7793cea043f283a6307be3ca144c3a880fc1b83b",
+    "scripts/verify-restored-run.mjs": "9ea990475511b67e719b0d6dcb1530ae1cfb640a3d790b2965354d631ac3d368",
+    "tests/restore.test.ts": "1d49bc84b22fd57dc8366a8a617381787f18ad90659d8f646294c4ee772ffded",
+    "tests/restore-database.test.ts": "7aec0f98792a6e2a358e19db29b676f59498eff78ec4ba1a4c16c5132843a9b3",
+    "tests/project-isolation.test.ts": "d9ae5ee92cb5ed34ecd872dc0e5d165f2ab6a0cf6e4299d18fe7bb33a25e52ae",
+    "tests/ledger.test.ts": "4ea2153afb04138bc7e9beba1a05e0011bd008ad61b48a0a1c93a1aaaac662de",
+    "tests/fixtures/restore-crash-worker.ts": "583a4dd6afca03df4b9b0d90d47f211eed4100fbc220abf584f4a81be4284943",
+    "build/desktop/main.js": "24b3923f8faa3fee1649a18c05f59cdc0d7dcf20766ee8c278521cf7c0bd4f8d"
+  }
+}

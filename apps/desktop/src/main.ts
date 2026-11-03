@@ -1,3 +1,5 @@
+import {seedRestoreProbe,runRestoreProbe} from './restore-probe.ts';
+import {RestoreService,activeRuntimePaths} from '../../../packages/backup/src/restore.ts';
 import {runWorktreeRecoveryProbe} from './worktree-recovery-probe.ts';
 import {runToolProbe} from './tool-probe.ts';
 import {BackupService} from '../../../packages/backup/src/service.ts';
@@ -71,6 +73,9 @@ let scheduleService:ScheduleService|undefined,scheduleTimer:ReturnType<typeof se
 let taskService:TaskService|undefined,outboxPump:OutboxPump|undefined,outboxTimer:ReturnType<typeof setInterval>|undefined;
 const recoverySmoke=process.argv.includes('--m2-worktree-recovery-smoke');
 const toolsSmoke=process.argv.includes('--m2-tools-smoke');
+const restoreSmoke=process.argv.includes('--m2-restore-smoke'),restorePhase=process.argv.find(v=>v.startsWith('--restore-phase='))?.slice(16);
+let restoreProbeState:string|undefined;
+if(restoreSmoke){const raw=process.argv.find(v=>v.startsWith('--restore-state='))?.slice(16);if(!raw||!['prepare','reopen','verify'].includes(restorePhase??''))throw Error('RESTORE_PROBE_ARGUMENTS');const value=realpathSync(raw),local=realpathSync(resolve(root,'.local'));if(!value.startsWith(local+'/desktop-restore-smoke-')||value.slice(local.length+1).includes('/'))throw Error('RESTORE_PROBE_SCOPE');restoreProbeState=value;app.setPath('userData',value);}
 const skillsSmoke=process.argv.includes('--m2-skills-smoke'),skillsMethods:string[]=[];
 const resourcesSmoke=process.argv.includes('--m2-resources-smoke');
 const rehearsalSmoke=process.argv.includes('--m2-rehearsal-smoke');
@@ -120,6 +125,7 @@ else void boot().catch(async error => {
   app.exit(1);
 });
 
+let runtimeTransition=false;
 function authorized(event: Electron.IpcMainInvokeEvent): void {
   if (!window || event.sender !== window.webContents || event.senderFrame !== window.webContents.mainFrame
       || event.senderFrame.url !== documentUrl) throw new Error('UNAUTHORIZED_IPC');
@@ -128,7 +134,7 @@ function executable(): string {
   return verifiedCodex(root).executable;
 }
 async function historyCommand<T>(event: Electron.IpcMainInvokeEvent, args: unknown[], count: number, operation: () => Promise<T>): Promise<HostResult<T>> {
-  authorized(event);
+  authorized(event);if(runtimeTransition)return{ok:false,errorCode:'RUNTIME_RESTARTING'};
   if (args.length !== count) return { ok: false, errorCode: 'UNEXPECTED_ARGUMENTS' };
   if (active || execution?.busy) return { ok: false, errorCode: 'RUNTIME_BUSY' };
   active = true; controller = new AbortController();
@@ -139,6 +145,7 @@ async function historyCommand<T>(event: Electron.IpcMainInvokeEvent, args: unkno
 async function boot(): Promise<void> {
   await app.whenReady();
   const state = resolve(app.getPath('userData'), 'codex-state');
+  let restoreService:RestoreService|undefined;
   if(nativeCodeSmoke){nativeCodeWorkspace=realpathSync(await mkdtemp(resolve(tmpdir(),'personal-agent-code-')));createCodeFixture(nativeCodeWorkspace);}
   let fixtureWorkspace: string | undefined;
   const fixtureMethods = new Set<string>();
@@ -150,11 +157,14 @@ async function boot(): Promise<void> {
     if(worktreeCodeSmoke){createCodeFixture(fixtureWorkspace);writeFileSync(resolve(fixtureWorkspace,'src/math.mjs'),'export const sum = (a, b) => a - b;\n// SOURCE_DIRTY_KEPT\n');}
   }
   if (!historySmoke) {
-    ledger = new ExecutionLedger(resolve(fixtureDirectory ?? app.getPath('userData'), 'execution/ledger.db'), readFileSync(resolve(directory, 'schema.sql'), 'utf8'),budgetSmoke?{budgetPolicy:{dailyTokens:150,reservationTokens:60}}:{});
+    const storageRoot=fixtureDirectory??app.getPath('userData'),runtimePaths=activeRuntimePaths(storageRoot,resolve(app.getPath('userData'),'verification'));
+    ledger = new ExecutionLedger(runtimePaths.database, readFileSync(resolve(directory, 'schema.sql'), 'utf8'),budgetSmoke?{budgetPolicy:{dailyTokens:150,reservationTokens:60}}:{});
     ownerEpoch=ledger.startOwner(randomUUID(), true); // OS single-instance lock was acquired before boot().
-    backupService=new BackupService(ledger,{directory:resolve(fixtureDirectory??app.getPath('userData'),'backups'),verificationDirectory:resolve(app.getPath('userData'),'verification/artifacts'),...(backupSmoke?{afterStage:(stage:'snapshot'|'published')=>{if(stage==='snapshot'&&backupSmokeFirstCopy){backupSmokeFirstCopy=false;throw new LedgerError('CONTROLLED_BACKUP_COPY_FAILURE');}}}:{})});
+    backupService=new BackupService(ledger,{directory:resolve(fixtureDirectory??app.getPath('userData'),'backups'),verificationDirectory:resolve(runtimePaths.verification,'artifacts'),...(backupSmoke?{afterStage:(stage:'snapshot'|'published')=>{if(stage==='snapshot'&&backupSmokeFirstCopy){backupSmokeFirstCopy=false;throw new LedgerError('CONTROLLED_BACKUP_COPY_FAILURE');}}}:{})});
+    restoreService=new RestoreService(ledger,backupService,storageRoot);
+    if(restoreSmoke&&restorePhase==='prepare')seedRestoreProbe(restoreProbeState!,ledger,backupService);
     if (!executionSmoke && process.platform === 'darwin' && process.arch === 'arm64') {
-      try { verifier = new NodeVerification(ledger,{node:resolveVerifierNode(root),cli:executable(),reporter:resolve(directory,'verification-reporter.mjs'),stateDirectory:resolve(app.getPath('userData'),'verification')}); } catch {}
+      try { verifier = new NodeVerification(ledger,{node:resolveVerifierNode(root),cli:executable(),reporter:resolve(directory,'verification-reporter.mjs'),stateDirectory:runtimePaths.verification}); } catch {}
       try {terminalService=new TerminalService(ledger,{node:resolveVerifierNode(root),worker:resolve(directory,'terminal-worker.mjs'),stateDirectory:resolve(fixtureDirectory??app.getPath('userData'),'terminals')});}catch{}
       try {worktreeService=new WorktreeService(ledger,{git:resolveWorkspaceGit(),node:resolveVerifierNode(root),worker:resolve(directory,'worktree-worker.mjs'),stateDirectory:resolve(fixtureDirectory??app.getPath('userData'),'worktrees'),reveal:path=>{if(recoveryProbeState)recoveryProbeState.revealed.push(path);else shell.showItemInFolder(path);},...(recoverySmoke?{afterArchived:()=>{recoveryProbeState!.archiveStops++;throw new LedgerError('CONTROLLED_RECOVERY_GAP');}}:{})});}catch{}
       try {workspaceReader=new WorkspaceService(id=>ledger!.workspace(id),{node:resolveVerifierNode(root),cli:executable(),git:resolveWorkspaceGit(),worker:resolve(directory,'workspace-reader.mjs'),stateDirectory:resolve(app.getPath('userData'),'workspace-read'),managedGit:id=>ledger!.worktreeMetadata(id)});}catch{}
@@ -193,7 +203,7 @@ async function boot(): Promise<void> {
   const projectSkills=ledger?new ProjectSkillCatalog({workspace:id=>ledger!.workspace(id),read:(read,signal)=>projectSkillConnection(executable(),resolve(app.getPath('userData'),'project-skills'),skillsSmoke?{onMethod:method=>skillsMethods.push(method)}:{})(read,signal)}):undefined;
   ipcMain.handle('skills:list',(event,...args:unknown[])=>historyCommand(event,args,1,async()=>{if(!projectSkills)throw new LedgerError('PROJECT_SKILLS_UNAVAILABLE');return projectSkills.list(args[0],controller?.signal);}));
   function executionCommand<T>(event: Electron.IpcMainInvokeEvent, args: unknown[], count: number, operation: () => T): HostResult<T> {
-    authorized(event);
+    authorized(event);if(runtimeTransition)return{ok:false,errorCode:'RUNTIME_RESTARTING'};
     if (args.length !== count) return { ok: false, errorCode: 'UNEXPECTED_ARGUMENTS' };
     try { return { ok: true, value: operation() }; }
     catch (error) { return { ok: false, errorCode: error instanceof LedgerError || error instanceof RpcFailure ? error.code : 'HOST_ERROR' }; }
@@ -205,18 +215,38 @@ async function boot(): Promise<void> {
   ipcMain.handle('tasks:list',(event,...args:unknown[])=>executionCommand(event,args,1,()=>{if(!taskService)throw new LedgerError('TASKS_UNAVAILABLE');return taskService.list(args[0]);}));
   ipcMain.handle('tasks:activity',(event,...args:unknown[])=>executionCommand(event,args,1,()=>{if(!taskService)throw new LedgerError('TASKS_UNAVAILABLE');return taskService.activity(args[0]);}));
   ipcMain.handle('runtime:resourceBudget',(event,...args:unknown[])=>executionCommand(event,args,0,()=>{if(!ledger)throw new LedgerError('TASKS_UNAVAILABLE');let mainProcess;try{mainProcess=resourceSampler.sample();}catch{}return{...ledger.resourceBudget(),occupancy:ledger.resourceOccupancy(),...(mainProcess?{mainProcess}:{})};}));
-  ipcMain.handle('backups:list',(event,...args:unknown[])=>executionCommand(event,args,0,()=>{if(!backupService)throw new LedgerError('BACKUPS_UNAVAILABLE');return backupService.list();}));
-  ipcMain.handle('backups:command',(event,...args:unknown[])=>executionCommand(event,args,1,()=>{if(!backupService)throw new LedgerError('BACKUPS_UNAVAILABLE');return backupService.command(args[0] as BackupCommand);}));
+  ipcMain.handle('backups:list',(event,...args:unknown[])=>executionCommand(event,args,0,()=>{if(!backupService)throw new LedgerError('BACKUPS_UNAVAILABLE');return {...backupService.list(),restores:restoreService?.list()};}));
+  ipcMain.handle('backups:command',async(event,...args:unknown[])=>{
+    authorized(event);if(runtimeTransition)return{ok:false,errorCode:'RUNTIME_RESTARTING'};if(args.length!==1)return{ok:false,errorCode:'UNEXPECTED_ARGUMENTS'};
+    try{
+      if(!backupService||!restoreService)throw new LedgerError('BACKUPS_UNAVAILABLE');
+      const input=args[0] as BackupCommand;
+      if(input?.kind==='prepareRestore'){
+        if(active||execution?.busy)throw new LedgerError('RUNTIME_BUSY');
+        const restore=restoreService.prepare(input);return{ok:true,value:{...backupService.command({kind:'verify',backupId:restore.backupId!}),restore}};
+      }
+      if(input?.kind==='activateRestore'){
+        if(active||execution?.busy)throw new LedgerError('RUNTIME_BUSY');
+        const checked=restoreService.checkActivation(input),result={...backupService.command({kind:'verify',backupId:checked.view.backupId!}),restore:checked.view};
+        runtimeTransition=true;clearInterval(scheduleTimer);clearInterval(outboxTimer);
+        await terminalService?.stop();await worktreeService?.stop();await execution?.close();restoreService.checkActivation(input);ledger?.close();ledger=undefined;
+        restoreService.activateAfterOwnerStopped(checked.id);
+        if(!process.argv.includes('--m2-restore-smoke'))app.relaunch();setTimeout(()=>app.quit(),150);
+        return{ok:true,value:result};
+      }
+      return{ok:true,value:backupService.command(input)};
+    }catch(error){if(runtimeTransition)setTimeout(()=>app.quit(),150);return{ok:false,errorCode:error instanceof LedgerError?error.code:'HOST_ERROR'};}
+  });
   ipcMain.handle('tasks:plans',(event,...args:unknown[])=>executionCommand(event,args,1,()=>{if(!taskService)throw new LedgerError('TASKS_UNAVAILABLE');return taskService.plans(args[0]);}));
   ipcMain.handle('tasks:cancelPlan',(event,...args:unknown[])=>executionCommand(event,args,1,()=>{if(!taskService)throw new LedgerError('TASKS_UNAVAILABLE');return taskService.cancelPlan(args[0]);}));
   ipcMain.handle('tasks:plan',async(event,...args:unknown[])=>{
-    authorized(event);if(args.length!==1)return{ok:false,errorCode:'UNEXPECTED_ARGUMENTS'};
+    authorized(event);if(runtimeTransition)return{ok:false,errorCode:'RUNTIME_RESTARTING'};if(args.length!==1)return{ok:false,errorCode:'UNEXPECTED_ARGUMENTS'};
     try{if(!taskService)throw new LedgerError('TASKS_UNAVAILABLE');return{ok:true,value:await taskService.applyPlan(args[0])};}
     catch(error){return{ok:false,errorCode:error instanceof LedgerError||error instanceof RpcFailure?error.code:'HOST_ERROR'};}
   });
   ipcMain.handle('tasks:start',(event,...args:unknown[])=>executionCommand(event,args,1,()=>{if(!execution||active)throw new LedgerError('RUNTIME_BUSY');return execution.startTask(args[0]);}));
   ipcMain.handle('tasks:command',async(event,...args:unknown[])=>{
-    authorized(event);if(args.length!==1)return{ok:false,errorCode:'UNEXPECTED_ARGUMENTS'};
+    authorized(event);if(runtimeTransition)return{ok:false,errorCode:'RUNTIME_RESTARTING'};if(args.length!==1)return{ok:false,errorCode:'UNEXPECTED_ARGUMENTS'};
     try{if(!taskService)throw new LedgerError('TASKS_UNAVAILABLE');return{ok:true,value:await taskService.apply(args[0])};}
     catch(error){return{ok:false,errorCode:error instanceof LedgerError||error instanceof RpcFailure?error.code:'HOST_ERROR'};}
   });
@@ -224,7 +254,7 @@ async function boot(): Promise<void> {
     ipcMain.handle(channel,(event,...args:unknown[])=>historyCommand(event,args,1,async()=>{if(!workspaceReader)throw new LedgerError('WORKSPACE_READER_UNAVAILABLE');return workspaceReader[operation](args[0],controller?.signal);}));
   }
   for(const [channel,method]of [['terminal:open','open'],['terminal:read','view'],['terminal:write','write'],['terminal:resize','resize'],['terminal:close','close'],['terminal:reconcile','reconcile']] as const)ipcMain.handle(channel,async(event,...args:unknown[])=>{
-    authorized(event);if(args.length!==1)return{ok:false,errorCode:'UNEXPECTED_ARGUMENTS'};
+    authorized(event);if(runtimeTransition)return{ok:false,errorCode:'RUNTIME_RESTARTING'};if(args.length!==1)return{ok:false,errorCode:'UNEXPECTED_ARGUMENTS'};
     try{if(!terminalService||quitting)throw new LedgerError('TERMINAL_UNAVAILABLE');return{ok:true,value:await terminalService[method](args[0])};}
     catch(error){return{ok:false,errorCode:error instanceof LedgerError?error.code:'HOST_ERROR'};}
   });
@@ -267,7 +297,7 @@ async function boot(): Promise<void> {
     if (!execution) throw new LedgerError('EXECUTION_UNAVAILABLE'); execution.reply(args[0]); return { state: 'submitted' as const };
   }));
   ipcMain.handle('execution:interrupt', async (event, ...args: unknown[]) => {
-    authorized(event);
+    authorized(event);if(runtimeTransition)return{ok:false,errorCode:'RUNTIME_RESTARTING'};
     if (args.length !== 1) return { ok: false, errorCode: 'UNEXPECTED_ARGUMENTS' };
     try { if (!execution) throw new LedgerError('EXECUTION_UNAVAILABLE'); await execution.interrupt(args[0]); return { ok: true, value: { state: 'requested' } }; }
     catch (error) { return { ok: false, errorCode: error instanceof LedgerError || error instanceof RpcFailure ? error.code : 'HOST_ERROR' }; }
@@ -282,7 +312,7 @@ async function boot(): Promise<void> {
   }
   ipcMain.handle('execution:review',(event,...args:unknown[])=>executionCommand(event,args,1,()=>review(args[0])));
   ipcMain.handle('execution:verify',async(event,...args:unknown[])=>{
-    authorized(event);if(args.length!==1)return{ok:false,errorCode:'UNEXPECTED_ARGUMENTS'};
+    authorized(event);if(runtimeTransition)return{ok:false,errorCode:'RUNTIME_RESTARTING'};if(args.length!==1)return{ok:false,errorCode:'UNEXPECTED_ARGUMENTS'};
     if(active||execution?.busy)return{ok:false,errorCode:'RUNTIME_BUSY'};
     active=true;controller=new AbortController();
     try{if(!execution||!verifier)throw new LedgerError('VERIFICATION_UNAVAILABLE');execution.view(args[0]);const q=args[0] as {projectId:string;runId:string};await verifier.verify(q.projectId,q.runId,controller.signal);return{ok:true,value:review(args[0])};}
@@ -290,7 +320,7 @@ async function boot(): Promise<void> {
     finally{active=false;controller=undefined;if(quitting||(!keepRunningWithoutWindow&&BrowserWindow.getAllWindows().length===0))app.quit();}
   });
   ipcMain.handle('runtime:inspect', async (event, ...args: unknown[]): Promise<ConnectionInfo> => {
-    authorized(event);
+    authorized(event);if(runtimeTransition)return{status:'error',errorCode:'RUNTIME_RESTARTING'};
     if (args.length) throw new Error('UNEXPECTED_ARGUMENTS');
     if (active || execution?.busy) return { status: 'error', errorCode: 'RUNTIME_BUSY' };
     active = true;
@@ -302,6 +332,7 @@ async function boot(): Promise<void> {
   windowsReady=true;
   Menu.setApplicationMenu(Menu.buildFromTemplate([{label:'Personal Agent',submenu:[{label:'显示主窗口',click:()=>{void showMainWindow().catch(()=>{});}},{type:'separator'},{label:'退出并停止运行',accelerator:'CmdOrCtrl+Q',click:()=>app.quit()}]},{role:'editMenu'},{role:'windowMenu'}]));
   window=await showMainWindow();
+  if(restoreSmoke){await runRestoreProbe(root,restoreProbeState!,restorePhase!,app,window,ledger!,execution!);return;}
   if(skillsSmoke){await runSkillsProbe(root,app,window,resolve(fixtureDirectory!,'execution/ledger.db'),fixtureWorkspace!,skillsMethods);return;}
   if(resourcesSmoke){await runResourceProbe(root,app,window,ledger!,execution!,resolve(fixtureDirectory!,'execution/ledger.db'));return;}
   if(toolsSmoke){await runToolProbe(root,app,window,ledger!);return;}

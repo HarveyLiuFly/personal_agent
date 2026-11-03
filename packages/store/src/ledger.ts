@@ -657,11 +657,11 @@ export class ExecutionLedger {
       }
       if (this.one(`SELECT run_id FROM task_runs WHERE dot_id=? AND status IN ${active}`, this.dotId)) return fail('RUNTIME_BUSY');
       this.projectOperationAvailable(workspaceId);
-      const taskId = randomUUID(), runId = randomUUID();
+      const taskId = randomUUID(), runId = randomUUID(),epochs=this.one('SELECT policy_epoch,privacy_epoch FROM dots WHERE dot_id=?',this.dotId)!;
       this.exec("INSERT INTO tasks(task_id,dot_id,workspace_id,title,constraints_json,status,created_at_ms,updated_at_ms) VALUES (?,?,?,?,?,'created',?,?)", taskId, this.dotId, workspaceId, text.slice(0, 120), JSON.stringify({ inputHash, mode, text }), Date.now(), Date.now());
       this.event(taskId, null, 'task_created'); this.transition(taskId, 'queued'); this.transition(taskId, 'running');
       this.exec('UPDATE tasks SET write_fence=write_fence+1 WHERE task_id=?', taskId);
-      this.exec("INSERT INTO task_runs(run_id,task_id,dot_id,idempotency_key,executor_kind,status,task_snapshot_version,task_fence,runtime_epoch,policy_epoch,privacy_epoch,worker_id,lease_until_ms,started_at_ms) VALUES (?,?,?,?,'codex','preparing',3,1,?,1,1,?,?,?)", runId, taskId, this.dotId, key, this.#epoch, this.#instance, Date.now() + 60_000, Date.now());
+      this.exec("INSERT INTO task_runs(run_id,task_id,dot_id,idempotency_key,executor_kind,status,task_snapshot_version,task_fence,runtime_epoch,policy_epoch,privacy_epoch,worker_id,lease_until_ms,started_at_ms) VALUES (?,?,?,?,'codex','preparing',3,1,?,?,?,?,?,?)", runId, taskId, this.dotId, key, this.#epoch, epochs.policy_epoch!,epochs.privacy_epoch!,this.#instance, Date.now() + 60_000, Date.now());
       this.budget.reserve(runId,null);
       if (mode === 'workspaceWrite') {
         this.projectOperationAvailable(workspaceId);
@@ -670,7 +670,7 @@ export class ExecutionLedger {
         const ws = this.one('SELECT write_fence FROM workspaces WHERE workspace_id=?', workspaceId)!;
         this.exec('INSERT INTO workspace_write_leases VALUES (?,?,?,?)', workspaceId, runId, ws.write_fence!, Date.now() + 60_000);
       }
-      this.exec("INSERT INTO prompt_manifests VALUES (?,?,'coding',?,?,?,1,1,'[]',NULL)", randomUUID(), runId, mode === 'readOnly' ? 'read-only' : 'execution', JSON.stringify({ submission: inputHash, user: hashInput(text) }), hashInput({ mode }));
+      this.exec("INSERT INTO prompt_manifests VALUES (?,?,'coding',?,?,?,?,?,'[]',NULL)", randomUUID(), runId, mode === 'readOnly' ? 'read-only' : 'execution', JSON.stringify({ submission: inputHash, user: hashInput(text) }), hashInput({ mode }),epochs.policy_epoch!,epochs.privacy_epoch!);
       this.event(taskId, runId, 'run_claimed', { mode });
       const operation=this.openOperation('submit:'+key,'CREATE_TASK',{workspaceId,text,mode,contextHash:contextHash??null},taskId,null);
       this.exec('UPDATE task_runs SET operation_id=? WHERE run_id=?',operation.operationId,runId);this.sealOperation(operation.operationId,taskId,'completed',runId);
@@ -690,10 +690,11 @@ export class ExecutionLedger {
       const task=this.one('SELECT * FROM tasks WHERE task_id=?',source.taskId)!;
       if(!['completed','failed'].includes(source.status)||!['needs_review','failed'].includes(String(task.status))||source.blocked||task.write_fence!==source.taskFence)return fail('RUN_NOT_CONTINUABLE');
       if(this.one(`SELECT run_id FROM task_runs WHERE dot_id=? AND status IN ${active}`,this.dotId))return fail('RUNTIME_BUSY');
+      const epochs=this.taskAuthority(task);const sourceEpochs=this.one('SELECT policy_epoch,privacy_epoch FROM task_runs WHERE run_id=?',sourceRunId)!;if(sourceEpochs.policy_epoch!==epochs.policy_epoch||sourceEpochs.privacy_epoch!==epochs.privacy_epoch)return fail('RUN_GRANT_EXPIRED');
       if(source.mode==='workspaceWrite'&&!this.verificationPlan(sourceRunId))return fail('VERIFICATION_NOT_CONFIGURED');
       this.transition(source.taskId,'queued');this.transition(source.taskId,'running');this.exec('UPDATE tasks SET write_fence=write_fence+1 WHERE task_id=?',source.taskId);
       const current=this.one('SELECT version,write_fence FROM tasks WHERE task_id=?',source.taskId)!,runId=randomUUID(),fence=Number(current.write_fence);
-      this.exec("INSERT INTO task_runs(run_id,task_id,dot_id,idempotency_key,executor_kind,status,task_snapshot_version,task_fence,runtime_epoch,policy_epoch,privacy_epoch,worker_id,lease_until_ms,started_at_ms) VALUES (?,?,?,?,'codex','preparing',?,?,?,1,1,?,?,?)",runId,source.taskId,this.dotId,key,current.version!,fence,this.#epoch,this.#instance,Date.now()+60000,Date.now());
+      this.exec("INSERT INTO task_runs(run_id,task_id,dot_id,idempotency_key,executor_kind,status,task_snapshot_version,task_fence,runtime_epoch,policy_epoch,privacy_epoch,worker_id,lease_until_ms,started_at_ms) VALUES (?,?,?,?,'codex','preparing',?,?,?,?,?,?,?,?)",runId,source.taskId,this.dotId,key,current.version!,fence,this.#epoch,epochs.policy_epoch!,epochs.privacy_epoch!,this.#instance,Date.now()+60000,Date.now());
       this.budget.reserve(runId,task.goal_id as string|null);
       if(source.mode==='workspaceWrite'){
         this.projectOperationAvailable(workspaceId);
@@ -702,7 +703,7 @@ export class ExecutionLedger {
         const workspace=this.one('SELECT write_fence FROM workspaces WHERE workspace_id=?',workspaceId)!;
         this.exec('INSERT INTO workspace_write_leases VALUES (?,?,?,?)',workspaceId,runId,workspace.write_fence!,Date.now()+60000);
       }
-      this.exec("INSERT INTO prompt_manifests VALUES (?,?,'coding',?,?,?,1,1,'[]',NULL)",randomUUID(),runId,source.mode==='readOnly'?'read-only':'execution',JSON.stringify({submission:inputHash,user:hashInput(text)}),hashInput({mode:source.mode}));
+      this.exec("INSERT INTO prompt_manifests VALUES (?,?,'coding',?,?,?,?,?,'[]',NULL)",randomUUID(),runId,source.mode==='readOnly'?'read-only':'execution',JSON.stringify({submission:inputHash,user:hashInput(text)}),hashInput({mode:source.mode}),epochs.policy_epoch!,epochs.privacy_epoch!);
       this.event(source.taskId,runId,'run_continued',{sourceRunId,threadId:source.threadId,taskFence:fence});
       const operation=this.openOperation('continue:'+key,'CONTINUE_TASK',{workspaceId,sourceRunId,text},source.taskId,Number(task.version));
       this.exec('UPDATE tasks SET constraints_json=json_set(constraints_json,\'$.text\',?) WHERE task_id=?',text,source.taskId);
@@ -855,9 +856,9 @@ export class ExecutionLedger {
     this.exec('INSERT INTO task_checkpoints VALUES (?,?,?,?,1,?,?) ON CONFLICT(checkpoint_id) DO UPDATE SET task_version=excluded.task_version,summary_json=excluded.summary_json,content_sha256=excluded.content_sha256',checkpointId,taskId,runId,task.version!,json,hashInput(view));
     this.exec('UPDATE task_runs SET result_ref=? WHERE run_id=?',checkpointId,runId);
   }
-  runs(workspaceId: string, options: { snapshots?: boolean; runId?: string } = {}): RunRecord[] {
+  runs(workspaceId: string, options: { snapshots?: boolean; runId?: string;includeHiddenForHost?:boolean } = {}): RunRecord[] {
     if (!id(workspaceId)) return fail('UNKNOWN_PROJECT');
-    return this.all(`SELECT r.*,t.workspace_id,t.title,t.constraints_json,t.status AS task_status,t.dispatch_blocked,b.execution_thread_id,CASE WHEN ? THEN c.summary_json ELSE NULL END AS summary_json FROM task_runs r JOIN tasks t USING(task_id) LEFT JOIN thread_bindings b ON b.task_id=t.task_id AND b.state='active' LEFT JOIN task_checkpoints c ON c.checkpoint_id=r.result_ref WHERE t.workspace_id=? AND t.dot_id=? AND (? IS NULL OR r.run_id=?) ORDER BY r.started_at_ms DESC,r.rowid DESC LIMIT 50`, options.snapshots === false ? 0 : 1, workspaceId, this.dotId, options.runId ?? null, options.runId ?? null).map(row => ({
+    return this.all(`SELECT r.*,t.workspace_id,t.title,t.constraints_json,t.status AS task_status,t.dispatch_blocked,b.execution_thread_id,CASE WHEN ? THEN c.summary_json ELSE NULL END AS summary_json FROM task_runs r JOIN tasks t USING(task_id) LEFT JOIN thread_bindings b ON b.task_id=t.task_id AND b.state='active' LEFT JOIN task_checkpoints c ON c.checkpoint_id=r.result_ref WHERE t.workspace_id=? AND t.dot_id=? AND (? IS NULL OR r.run_id=?) AND (? OR NOT EXISTS(SELECT 1 FROM privacy_tombstones p WHERE p.dot_id=t.dot_id AND p.source_ref IN (t.task_id,'task:'||t.task_id))) ORDER BY r.started_at_ms DESC,r.rowid DESC LIMIT 50`, options.snapshots === false ? 0 : 1, workspaceId, this.dotId, options.runId ?? null, options.runId ?? null,options.includeHiddenForHost===true?1:0).map(row => ({
       runId: String(row.run_id), taskId: String(row.task_id), workspaceId, title: String(row.title), status: String(row.status), taskStatus: String(row.task_status), epoch: Number(row.runtime_epoch), taskFence: Number(row.task_fence), blocked: row.dispatch_blocked === 1,
       threadId: row.execution_thread_id as string | null, turnId: this.one("SELECT execution_turn_id FROM execution_intents WHERE run_id=? AND kind='turn_start' AND execution_turn_id IS NOT NULL", row.run_id!)?.execution_turn_id as string ?? null,
       snapshot: row.summary_json ? JSON.parse(String(row.summary_json)) as ThreadView : null,
@@ -909,7 +910,7 @@ export class ExecutionLedger {
   runForHost(runId: string): RunRecord {
     const row = this.one('SELECT t.workspace_id FROM task_runs r JOIN tasks t USING(task_id) WHERE r.run_id=? AND r.dot_id=?', runId, this.dotId);
     if (!row) return fail('UNKNOWN_RUN');
-    return this.runs(String(row.workspace_id), { snapshots: false, runId })[0]!;
+    return this.runs(String(row.workspace_id), { snapshots: false, runId,includeHiddenForHost:true })[0]!;
   }
   diagnostic(token: RunToken, code: string): void {
     if (!/^[A-Z0-9_-]{1,100}$/.test(code)) return fail('INVALID_DIAGNOSTIC');
@@ -946,6 +947,10 @@ export class ExecutionLedger {
     this.owner();const dot=this.one('SELECT policy_epoch,privacy_epoch FROM dots WHERE dot_id=?',this.dotId)!,rows=this.all('SELECT source_ref,privacy_epoch,deleted_at_ms FROM privacy_tombstones WHERE dot_id=? LIMIT 10001',this.dotId);if(rows.length>10000)return fail('RESTORE_TOMBSTONE_LIMIT');
     return{profileId:this.profileId,dotId:this.dotId,runtimeEpoch:this.#epoch,policyEpoch:Number(dot.policy_epoch),privacyEpoch:Number(dot.privacy_epoch),tombstones:rows.map(row=>({sourceRef:String(row.source_ref),privacyEpoch:Number(row.privacy_epoch),deletedAtMs:Number(row.deleted_at_ms)}))};
   });}
+  /** Main-local preparation stamp. Any local or external DB write invalidates a prepared restore. */
+  recoveryStateStamp():string {
+    this.owner();return hashInput([this.#instance,this.#epoch,this.one('PRAGMA data_version')?.data_version,this.one('SELECT total_changes() AS n')?.n]);
+  }
   recordTokenUsage(token:RunToken,threadId:string,turnId:string,total:unknown):void {
     this.tx(()=>{
       this.owner();const run=this.one('SELECT r.*,t.write_fence FROM task_runs r JOIN tasks t USING(task_id) WHERE r.run_id=? AND r.dot_id=?',token.runId,this.dotId);

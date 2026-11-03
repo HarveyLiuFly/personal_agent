@@ -1,0 +1,21 @@
+{
+  "status": "passed",
+  "kind": "new_electron_process_reads_same_completed_restored_native_run",
+  "inferenceRequested": false,
+  "additionalModelTurns": 0,
+  "originalEvidence": "M2.7c-desktop.json",
+  "originalModelTurns": 1,
+  "correction": "initial assertion used runForHost without snapshots; fixed to scoped snapshot query, never resubmitted",
+  "runId": "161b9d61-d680-4b21-93ec-3463a0a71fad",
+  "taskId": "4152ce6b-c6a1-41f1-ba68-018c048349cf",
+  "reportedTokens": 18097,
+  "result": {
+    "samePreviouslyCompletedRun": true,
+    "savedReplyMatches": true,
+    "fixedIpcReplyMatches": true,
+    "noNewNativeTurn": true,
+    "noNewThread": true,
+    "usageStillSettled": true
+  },
+  "observedAt": "2026-11-03T11:24:17.794Z"
+}

@@ -69,7 +69,7 @@ export class BackupService {
       return{items:items.sort((a,b)=>(b.createdAt??0)-(a.createdAt??0)||a.id.localeCompare(b.id)),limit:20,scope:'ledger_and_verification_receipts',rehearsals:this.rehearsals.list()};
     }catch(error){throw error instanceof LedgerError?error:new LedgerError('BACKUP_READ_FAILED');}
   }
-  command(input:BackupCommand):BackupCommandResult{
+  command(input:Exclude<BackupCommand,{kind:'prepareRestore'|'activateRestore'}>):BackupCommandResult{
     const key=(v:unknown):v is string=>typeof v==='string'&&v.length>0&&v.length<=200&&!/[\x00-\x1f]/.test(v);
     if(!object(input)||!((input.kind==='create'&&keys(input,['kind','commandKey'])&&key(input.commandKey))||(input.kind==='verify'&&keys(input,['kind','backupId'])&&typeof input.backupId==='string'&&idPattern.test(input.backupId))||(input.kind==='rehearse'&&keys(input,['kind','backupId','commandKey'])&&typeof input.backupId==='string'&&idPattern.test(input.backupId)&&key(input.commandKey))))fail('INVALID_BACKUP_COMMAND');
     try{
@@ -101,6 +101,8 @@ export class BackupService {
     const bytes=m.files.reduce((n,f)=>n+f.bytes,0),verification:BackupVerification={id,verifiedAt:Date.now(),files:m.files.length,bytes,schemaRevision:metadata.schemaRevision,activeRuns:metadata.activeRuns,pendingTerminals:metadata.pendingTerminals,pendingWorktreeOperations:metadata.pendingWorktreeOperations,runtimeEpoch:metadata.runtimeEpoch,policyEpoch:metadata.policyEpoch,privacyEpoch:metadata.privacyEpoch,tombstones:metadata.tombstones};
     return{backup:{id,state:'available',createdAt:m.createdAt,bytes,receipts:m.files.length-1,schemaRevision:metadata.schemaRevision},verification};
   }
+  /** Host-only new private copy; no Renderer-selected destination is accepted. */
+  copyForRestore(id:string,destination:string):void{this.copyForRehearsal(id,destination);}
   private copyForRehearsal(id:string,destination:string):void{
     this.checked(id);directory(destination);const source=join(this.root,id),identity=directory(source),manifest=this.manifest(source,id);mkdirSync(join(destination,'receipts'),{mode:0o700});
     for(const entry of manifest.files){const copied=file(join(source,entry.key),entry.key==='ledger.db'?maxDatabase:maxReceipt,false,join(destination,entry.key));if(copied.bytes!==entry.bytes||copied.sha256!==entry.sha256)fail('BACKUP_HASH_MISMATCH');}

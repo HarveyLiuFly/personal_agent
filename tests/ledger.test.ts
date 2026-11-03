@@ -174,3 +174,13 @@ test('real worker SIGKILL after sending commit survives reopen without authorizi
     assert.throws(() => recovered.beginRun(receipt.projectId, 'duplicate after crash', 'new-key', 'readOnly'), failure('RUNTIME_BUSY'));
   } finally { recovered.close(); }
 });
+
+test('fresh explicit run and manifest bind the current post-recovery policy and privacy watermarks',t=>{
+  const f=fixture(t),db=f.sql();try{db.exec('UPDATE dots SET policy_epoch=4,privacy_epoch=8');const token=f.begin('post-recovery');assert.doesNotThrow(()=>f.ledger.prepare(token,'new-intent','thread_start',{cwd:f.workspace}));const run=db.prepare('SELECT policy_epoch,privacy_epoch FROM task_runs WHERE run_id=?').get(token.runId),manifest=db.prepare('SELECT policy_epoch,privacy_epoch FROM prompt_manifests WHERE run_id=?').get(token.runId);assert.equal(run?.policy_epoch,4);assert.equal(run?.privacy_epoch,8);assert.equal(manifest?.policy_epoch,4);assert.equal(manifest?.privacy_epoch,8);}finally{db.close();}
+});
+test('a prior completed execution cannot reuse its Thread after policy or privacy advances',t=>{
+  const f=fixture(t),token=f.begin('before-policy-change');f.turn(token);f.ledger.finish(token,'completed');const db=f.sql();try{db.exec('UPDATE dots SET policy_epoch=2,privacy_epoch=2');assert.throws(()=>f.ledger.beginContinuation(f.project.id,token.runId,'PUBLIC_FOLLOWUP','new-continuation'),failure('TASK_AUTHORIZATION_CHANGED'));assert.equal(db.prepare('SELECT count(*) AS n FROM task_runs').get()?.n,1);}finally{db.close();}
+});
+test('task tombstones suppress direct Run snapshot queries while internal Host cleanup keeps its record',t=>{
+  const f=fixture(t),token=f.begin('deleted-task');f.turn(token);f.ledger.saveSnapshot(token,{threadId:'fixture-thread',epoch:1,sequence:1,needsSnapshot:false,truncated:false,unsupportedItems:false,turns:[],items:[{id:'public-message',turnId:'fixture-turn',kind:'message',role:'assistant',label:'assistant',text:'PUBLIC_DELETED_CONTENT',status:'complete',truncated:false}]});const task=f.ledger.runForHost(token.runId).taskId,db=f.sql();try{db.prepare('INSERT INTO privacy_tombstones VALUES (?,?,2,?)').run(f.ledger.dotId,'task:'+task,Date.now());assert.deepEqual(f.ledger.runs(f.project.id),[]);assert.deepEqual(f.ledger.runs(f.project.id,{runId:token.runId}),[]);assert.equal(f.ledger.runForHost(token.runId).runId,token.runId);}finally{db.close();}
+});
