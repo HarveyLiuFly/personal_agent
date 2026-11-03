@@ -23,6 +23,7 @@
     "smoke:worktree-recovery:desktop": "node scripts/smoke-desktop.mjs --worktree-recovery",
     "smoke:tools:desktop": "node scripts/smoke-desktop.mjs --tools",
     "smoke:backups:desktop": "node scripts/smoke-desktop.mjs --backups",
+    "smoke:rehearsal:desktop": "node scripts/smoke-desktop.mjs --rehearsal",
     "smoke:worktree-code:preflight": "node scripts/smoke-desktop.mjs --worktree-code-preflight",
     "smoke:worktree-code:desktop": "node scripts/smoke-desktop.mjs --worktree-code",
     "smoke:terminal:desktop": "node scripts/smoke-desktop.mjs --terminal",

@@ -1,0 +1,89 @@
+{
+  "checkpoint": "M2.7b",
+  "status": "passed_quarantined_physical_restore_rehearsal_scope",
+  "observedAt": "2026-11-03T08:57:24.935522+00:00",
+  "baselineCommit": "9679ebc05e8067649e9b472ffa353ed1058a34da",
+  "stageGate": "open",
+  "schemaRevision": 6,
+  "fixedDesktopApiCount": 44,
+  "permissionManagement": "deferred_to_M5",
+  "checks": {
+    "discovered": 296,
+    "executed": 296,
+    "passed": 296,
+    "failed": 0,
+    "skipped": 0,
+    "designContracts": 17,
+    "stableGeneratedTypes": 747,
+    "backupAndRehearsalElectronCases": 25,
+    "newOfflineDatabaseCases": 8,
+    "newCopyGuardCrashCases": 6,
+    "typecheck": "passed",
+    "build": "passed"
+  },
+  "rehearsal": {
+    "physicallyCopiedSqliteAndReceipts": true,
+    "sourceAndLiveLedgerUnchanged": true,
+    "profileActivation": false,
+    "normalLedgerRefusesFileMarker": true,
+    "normalLedgerRefusesDatabaseMarker": true,
+    "stateBasedOnCurrentOwnerWatermarks": true,
+    "currentOnlyTombstonesMerged": true,
+    "epochsAndFencesAdvanced": true,
+    "unknownNotRetried": true,
+    "reservedActionsBecomeUnknown": true,
+    "oldApprovalsMandatesRevoked": true,
+    "sourcesSchedulesSubscriptionsOutboxStopped": true,
+    "threeLeaseTypesAndOriginalPidsRetained": true,
+    "deletedTaskReceiptCopiesExcluded": true,
+    "originalReceiptsRetained": true,
+    "historicalTextPhysicalErasureClaimed": false,
+    "candidateLimit": 20,
+    "sameKeyReplyLoss": "verify_existing_candidate",
+    "incompleteSameKey": "reject_no_retry"
+  },
+  "newModelTurns": 0,
+  "newActualHostSigkillLocations": [
+    "candidate_copied_before_database_preparation",
+    "candidate_published_before_caller_receipt"
+  ],
+  "existingLedgerFaultLocations": 16,
+  "cumulativeBackupRehearsalFilesystemFaultLocations": 4,
+  "parallelWork": {
+    "subagentFiles": [
+      "packages/backup/src/rehearsal-database.ts",
+      "tests/rehearsal-database.test.ts"
+    ],
+    "primaryAgent": "copy_and_publication_store_watermarks_quarantine_guards_UI_integration",
+    "sameImplementationFileWrittenConcurrently": false,
+    "allGitMutations": "primary_agent"
+  },
+  "substitutions": [
+    "offline_Run_approval_lease_driver_rows_synthetic_metadata",
+    "desktop_history_metadata_synthetic",
+    "desktop_policy_and_deletion_inputs_public_fixture_rows"
+  ],
+  "notClaimed": [
+    "actual_running_Profile_replacement",
+    "automatic_source_workspace_recreation",
+    "latest_budget_or_provider_outcome_reconciliation",
+    "complete_privacy_erasure",
+    "independent_daemon_or_sleep_execution",
+    "full_M2_gate"
+  ],
+  "sourceAndBuildHashes": {
+    "packages/backup/src/service.ts": "2bdc7607f3d0f0a88e69af7001d276a1a6e630cdc5c7e9ae2679ef3ef2aa97b7",
+    "packages/backup/src/rehearsal.ts": "ba250fccb9ff1548cc7e3fcf5ba08419b81d40b4db7290c4989d9bc8facf2f95",
+    "packages/backup/src/rehearsal-database.ts": "bd795a9ce80d6bf8c3306254b6e9b587d47fad6bda87943e8645f602df33ef3d",
+    "packages/store/src/ledger.ts": "b2cd88a176013fbdddec6883b55b920e0554512235668eb7c3338f8fa4325b79",
+    "packages/contracts/src/backups.ts": "75282308ec268d31ef9531edfbe657aeb007e3608096c9287252ee8fab50669b",
+    "apps/desktop/renderer/backup-manager.tsx": "c863fd8a693a1346330b5fd75161351de4aee1e4df346f37833f2bc231b25e36",
+    "apps/desktop/src/main.ts": "8a5c3730b23aef15c8e985599e3d72304c624f7112eb78e57ff928323e301065",
+    "apps/desktop/src/backup-probe.ts": "cff8f947873c4196c92bdf94422a326845201db96e55ae1d500e50d4595f9df5",
+    "scripts/smoke-desktop.mjs": "4097a5a1e44cc191a70967560df0521020d22bfd4a1c6ca6feecdd764d5d01a6",
+    "tests/rehearsal.test.ts": "b36fe073410d669626533b980a38de8da947b7b0cb3d7e5af9a3d67c75fce91f",
+    "tests/rehearsal-database.test.ts": "87671450bebe4ae489afefde71a70999bdf7c9dc56a9965bce51425dea5907ba",
+    "tests/fixtures/rehearsal-crash-worker.ts": "08c2e44c6ad3ba3a600c0cdedf4d091515b7747827ceb18471b5ad9edde41a88",
+    "build/desktop/main.js": "7c27a831a8045e52020fc74632688cbf55ce085dad1fde6ef2f16cefe83d4702"
+  }
+}

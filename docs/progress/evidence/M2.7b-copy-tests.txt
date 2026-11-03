@@ -1,0 +1,112 @@
+TAP version 13
+# Subtest: consistent backup includes real committed WAL and dedupes without replaying or changing live tasks
+ok 1 - consistent backup includes real committed WAL and dedupes without replaying or changing live tasks
+  ---
+  duration_ms: 85.364625
+  type: 'test'
+  ...
+# Subtest: real receipt files and snapshot watermarks are verified; validation never starts an old Owner
+ok 2 - real receipt files and snapshot watermarks are verified; validation never starts an old Owner
+  ---
+  duration_ms: 92.348167
+  type: 'test'
+  ...
+# Subtest: missing or changed receipt refuses publication, preserves incomplete state and refuses same-key retry
+ok 3 - missing or changed receipt refuses publication, preserves incomplete state and refuses same-key retry
+  ---
+  duration_ms: 111.005167
+  type: 'test'
+  ...
+# Subtest: copied file corruption, receipt symlink and reference mismatch fail explicit verification
+ok 4 - copied file corruption, receipt symlink and reference mismatch fail explicit verification
+  ---
+  duration_ms: 283.296166
+  type: 'test'
+  ...
+# Subtest: arbitrary fields, paths and unknown published artifact kinds are refused before any external file read
+ok 5 - arbitrary fields, paths and unknown published artifact kinds are refused before any external file read
+  ---
+  duration_ms: 44.954416
+  type: 'test'
+  ...
+# Subtest: private root identity, source receipt symlink, stale Owner and bounded inventory are enforced
+ok 6 - private root identity, source receipt symlink, stale Owner and bounded inventory are enforced
+  ---
+  duration_ms: 56.204292
+  type: 'test'
+  ...
+# Subtest: publication refuses a newly occupied target and filesystem write failure keeps only an incomplete copy
+ok 7 - publication refuses a newly occupied target and filesystem write failure keeps only an incomplete copy
+  ---
+  duration_ms: 87.267542
+  type: 'test'
+  ...
+# Subtest: unsupported receipt sizes and extra copied files cannot pass integrity checks
+ok 8 - unsupported receipt sizes and extra copied files cannot pass integrity checks
+  ---
+  duration_ms: 68.161083
+  type: 'test'
+  ...
+# Subtest: real FIFO manifest, copied receipt and source receipt are refused without blocking the Host
+ok 9 - real FIFO manifest, copied receipt and source receipt are refused without blocking the Host
+  ---
+  duration_ms: 474.599917
+  type: 'test'
+  ...
+# Subtest: real Host SIGKILL at backup snapshot never publishes partial state or retries the old copy
+ok 10 - real Host SIGKILL at backup snapshot never publishes partial state or retries the old copy
+  ---
+  duration_ms: 118.85275
+  type: 'test'
+  ...
+# Subtest: real Host SIGKILL at backup published never publishes partial state or retries the old copy
+ok 11 - real Host SIGKILL at backup published never publishes partial state or retries the old copy
+  ---
+  duration_ms: 139.812583
+  type: 'test'
+  ...
+# Subtest: rehearsal restores physical SQLite and receipts, merges current deletion barriers and preserves source and backup
+ok 12 - rehearsal restores physical SQLite and receipts, merges current deletion barriers and preserves source and backup
+  ---
+  duration_ms: 165.203458
+  type: 'test'
+  ...
+# Subtest: ordinary Ledger refuses both pending-file and published-database quarantine guards
+ok 13 - ordinary Ledger refuses both pending-file and published-database quarantine guards
+  ---
+  duration_ms: 123.836375
+  type: 'test'
+  ...
+# Subtest: same rehearsal Key verifies the same candidate; conflicting source and corrupt copy are refused
+ok 14 - same rehearsal Key verifies the same candidate; conflicting source and corrupt copy are refused
+  ---
+  duration_ms: 174.256125
+  type: 'test'
+  ...
+# Subtest: raw destination, foreign backup and incomplete copy fail without starting an executor
+ok 15 - raw destination, foreign backup and incomplete copy fail without starting an executor
+  ---
+  duration_ms: 103.158208
+  type: 'test'
+  ...
+# Subtest: actual Host SIGKILL at rehearsal copied preserves quarantine and never repeats recovery
+ok 16 - actual Host SIGKILL at rehearsal copied preserves quarantine and never repeats recovery
+  ---
+  duration_ms: 197.370833
+  type: 'test'
+  ...
+# Subtest: actual Host SIGKILL at rehearsal published preserves quarantine and never repeats recovery
+ok 17 - actual Host SIGKILL at rehearsal published preserves quarantine and never repeats recovery
+  ---
+  duration_ms: 224.049834
+  type: 'test'
+  ...
+1..17
+# tests 17
+# suites 0
+# pass 17
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1681.837167

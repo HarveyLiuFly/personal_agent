@@ -65,7 +65,8 @@ let scheduleService:ScheduleService|undefined,scheduleTimer:ReturnType<typeof se
 let taskService:TaskService|undefined,outboxPump:OutboxPump|undefined,outboxTimer:ReturnType<typeof setInterval>|undefined;
 const recoverySmoke=process.argv.includes('--m2-worktree-recovery-smoke');
 const toolsSmoke=process.argv.includes('--m2-tools-smoke');
-const backupSmoke=process.argv.includes('--m2-backups-smoke');
+const rehearsalSmoke=process.argv.includes('--m2-rehearsal-smoke');
+const backupSmoke=rehearsalSmoke||process.argv.includes('--m2-backups-smoke');
 let backupSmokeFirstCopy=backupSmoke;
 const worktreeCodePreflight=process.argv.includes('--m2-worktree-code-preflight');
 const worktreeCodeSmoke=worktreeCodePreflight||process.argv.includes('--m2-worktree-code-smoke');
@@ -104,7 +105,7 @@ else void boot().catch(async error => {
   console.error('DESKTOP_BOOT_FAILED', code);
   if (backupSmoke || worktreeCodeSmoke || recoverySmoke || terminalSmoke || worktreeSmoke || backgroundProbe || acceptanceProbe || nativeCodeSmoke || executionSmoke || historySmoke || process.argv.includes('--m0-window-smoke')) {
     if (window) { try { writeFileSync(resolve(root, '.local/desktop-failure.png'), (await window.webContents.capturePage()).toPNG()); } catch {} }
-    const file = backupSmoke?'M2.7a-desktop':worktreeCodeSmoke?(worktreeCodePreflight?'M2.1b-worktree-preflight':'M2.1b-worktree-native'):toolsSmoke?'M2.1b-tools-desktop':recoverySmoke?'M2.5b-desktop':terminalSmoke?'M2.6a-desktop':worktreeSmoke?'M2.5a-desktop':backgroundProbe?(backgroundNativeSmoke?'M2.4a-native-background':'M2.4a-desktop'):scheduleAutoSmoke?'M2.3d-desktop':scheduleSmoke?'M2.3c-desktop':planSmoke?'M2.2d-desktop':budgetSmoke?'M2.2c-desktop':taskSmoke?'M2.2b-desktop':acceptanceProbe?acceptanceProbe.kind==='workspace'?'M2.1a-desktop':`M1.4b-${acceptanceProbe.kind==='folder'?'native-folder':acceptanceProbe.kind==='restart'?'native-restart':'owner'}`:nativeCodeSmoke ? 'M1-native-code-desktop' : continuationSmoke?'M1.3c-desktop':interactionSmoke ? 'M1.2-desktop' : executionSmoke ? 'M1.1c-desktop' : historySmoke ? 'M1.1b-desktop' : 'M0-desktop-smoke';
+    const file = rehearsalSmoke?'M2.7b-desktop':backupSmoke?'M2.7a-desktop':worktreeCodeSmoke?(worktreeCodePreflight?'M2.1b-worktree-preflight':'M2.1b-worktree-native'):toolsSmoke?'M2.1b-tools-desktop':recoverySmoke?'M2.5b-desktop':terminalSmoke?'M2.6a-desktop':worktreeSmoke?'M2.5a-desktop':backgroundProbe?(backgroundNativeSmoke?'M2.4a-native-background':'M2.4a-desktop'):scheduleAutoSmoke?'M2.3d-desktop':scheduleSmoke?'M2.3c-desktop':planSmoke?'M2.2d-desktop':budgetSmoke?'M2.2c-desktop':taskSmoke?'M2.2b-desktop':acceptanceProbe?acceptanceProbe.kind==='workspace'?'M2.1a-desktop':`M1.4b-${acceptanceProbe.kind==='folder'?'native-folder':acceptanceProbe.kind==='restart'?'native-restart':'owner'}`:nativeCodeSmoke ? 'M1-native-code-desktop' : continuationSmoke?'M1.3c-desktop':interactionSmoke ? 'M1.2-desktop' : executionSmoke ? 'M1.1c-desktop' : historySmoke ? 'M1.1b-desktop' : 'M0-desktop-smoke';
     writeFileSync(resolve(root, `docs/progress/evidence/${file}.json`), JSON.stringify({ status: 'blocked', code, observedAt: new Date().toISOString() }) + '\n');
   }
   try {await terminalService?.stop();await worktreeService?.stop();await execution?.close(); ledger?.close();}catch{}
@@ -291,7 +292,7 @@ async function boot(): Promise<void> {
   Menu.setApplicationMenu(Menu.buildFromTemplate([{label:'Personal Agent',submenu:[{label:'显示主窗口',click:()=>{void showMainWindow().catch(()=>{});}},{type:'separator'},{label:'退出并停止运行',accelerator:'CmdOrCtrl+Q',click:()=>app.quit()}]},{role:'editMenu'},{role:'windowMenu'}]));
   window=await showMainWindow();
   if(toolsSmoke){await runToolProbe(root,app,window,ledger!);return;}
-  if(backupSmoke){await runBackupProbe(root,app,window,ledger!,resolve(fixtureDirectory!,'execution/ledger.db'),resolve(fixtureDirectory!,'backups'));return;}
+  if(backupSmoke){await runBackupProbe(root,app,window,ledger!,resolve(fixtureDirectory!,'execution/ledger.db'),resolve(fixtureDirectory!,'backups'),rehearsalSmoke);return;}
   if(worktreeCodeSmoke){await runWorktreeCodeProbe(root,app,window,ledger!,execution!,fixtureWorkspace!,resolve(fixtureDirectory!,'execution/ledger.db'),worktreeCodePreflight);return;}
   if(recoverySmoke){await runWorktreeRecoveryProbe(root,app,window,ledger!,fixtureWorkspace!,resolve(fixtureDirectory!,'execution/ledger.db'),recoveryProbeState!);return;}
   if(terminalSmoke){await runTerminalProbe(root,app,window,ledger!,terminalService!,fixtureWorkspace!,showMainWindow);return;}

@@ -1,0 +1,29 @@
+{
+  "checkpoint": "M2.7b",
+  "parallelDatabaseUnitInitial": {
+    "discovered": 8,
+    "passed": 5,
+    "failed": 3,
+    "cause": "SQLite row null-prototype differed from ordinary object in deepStrictEqual; prepared values matched",
+    "fix": "explicit object row projection in test helper; product state assertions retained"
+  },
+  "parallelDatabaseUnitFinal": {
+    "discovered": 8,
+    "passed": 8,
+    "failed": 0,
+    "skipped": 0,
+    "restrictedTypecheck": "passed"
+  },
+  "reviewCorrection": {
+    "issue": "reserved Action cannot be known rejected after restoring an old snapshot",
+    "fix": "reserved and dispatched both become outcome_unknown",
+    "test": "explicit synthetic reserved Action row and assertion"
+  },
+  "parentInitialIntegration": {
+    "discovered": 17,
+    "passed": 17,
+    "failed": 0,
+    "scope": "11 backup + 6 copy/guard/crash tests"
+  },
+  "modelsRequested": 0
+}

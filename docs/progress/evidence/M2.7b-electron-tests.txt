@@ -1,0 +1,164 @@
+[1103/164941.365252:ERROR:electron/shell/common/mac/codesign_util.cc:79] task_name_for_pid: (os/kern) failure (5)
+TAP version 13
+# [1103/164941.437673:ERROR:electron/shell/common/mac/codesign_util.cc:79] task_name_for_pid: (os/kern) failure (5)
+# Subtest: consistent backup includes real committed WAL and dedupes without replaying or changing live tasks
+ok 1 - consistent backup includes real committed WAL and dedupes without replaying or changing live tasks
+  ---
+  duration_ms: 97.525
+  type: 'test'
+  ...
+# Subtest: real receipt files and snapshot watermarks are verified; validation never starts an old Owner
+ok 2 - real receipt files and snapshot watermarks are verified; validation never starts an old Owner
+  ---
+  duration_ms: 114.504458
+  type: 'test'
+  ...
+# Subtest: missing or changed receipt refuses publication, preserves incomplete state and refuses same-key retry
+ok 3 - missing or changed receipt refuses publication, preserves incomplete state and refuses same-key retry
+  ---
+  duration_ms: 139.301209
+  type: 'test'
+  ...
+# Subtest: copied file corruption, receipt symlink and reference mismatch fail explicit verification
+ok 4 - copied file corruption, receipt symlink and reference mismatch fail explicit verification
+  ---
+  duration_ms: 348.112917
+  type: 'test'
+  ...
+# Subtest: arbitrary fields, paths and unknown published artifact kinds are refused before any external file read
+ok 5 - arbitrary fields, paths and unknown published artifact kinds are refused before any external file read
+  ---
+  duration_ms: 38.690833
+  type: 'test'
+  ...
+# Subtest: private root identity, source receipt symlink, stale Owner and bounded inventory are enforced
+ok 6 - private root identity, source receipt symlink, stale Owner and bounded inventory are enforced
+  ---
+  duration_ms: 51.506625
+  type: 'test'
+  ...
+# Subtest: publication refuses a newly occupied target and filesystem write failure keeps only an incomplete copy
+ok 7 - publication refuses a newly occupied target and filesystem write failure keeps only an incomplete copy
+  ---
+  duration_ms: 116.171042
+  type: 'test'
+  ...
+# Subtest: unsupported receipt sizes and extra copied files cannot pass integrity checks
+ok 8 - unsupported receipt sizes and extra copied files cannot pass integrity checks
+  ---
+  duration_ms: 76.70325
+  type: 'test'
+  ...
+# Subtest: real FIFO manifest, copied receipt and source receipt are refused without blocking the Host
+ok 9 - real FIFO manifest, copied receipt and source receipt are refused without blocking the Host
+  ---
+  duration_ms: 600.91175
+  type: 'test'
+  ...
+# Subtest: real Host SIGKILL at backup snapshot never publishes partial state or retries the old copy
+ok 10 - real Host SIGKILL at backup snapshot never publishes partial state or retries the old copy
+  ---
+  duration_ms: 155.665208
+  type: 'test'
+  ...
+# Subtest: real Host SIGKILL at backup published never publishes partial state or retries the old copy
+ok 11 - real Host SIGKILL at backup published never publishes partial state or retries the old copy
+  ---
+  duration_ms: 178.944
+  type: 'test'
+  ...
+# [1103/164941.433719:ERROR:electron/shell/common/mac/codesign_util.cc:79] task_name_for_pid: (os/kern) failure (5)
+# Subtest: rehearsal merges latest and absent-source tombstones, advances barriers and does not mutate input
+ok 12 - rehearsal merges latest and absent-source tombstones, advances barriers and does not mutate input
+  ---
+  duration_ms: 22.840625
+  type: 'test'
+  ...
+# Subtest: uncertain operations and all original leases/PIDs remain evidence, with increased Task and Workspace fences
+ok 13 - uncertain operations and all original leases/PIDs remain evidence, with increased Task and Workspace fences
+  ---
+  duration_ms: 22.034625
+  type: 'test'
+  ...
+# Subtest: old grants, schedules, deliveries and queued effects cannot become dispatchable
+ok 14 - old grants, schedules, deliveries and queued effects cannot become dispatchable
+  ---
+  duration_ms: 52.292042
+  type: 'test'
+  ...
+# Subtest: any transactional failure rolls back watermarks, merged tombstones, all state and quarantine marker
+ok 15 - any transactional failure rolls back watermarks, merged tombstones, all state and quarantine marker
+  ---
+  duration_ms: 51.589042
+  type: 'test'
+  ...
+# Subtest: unknown corrupt state is rejected conservatively without changing it or leaving a marker
+ok 16 - unknown corrupt state is rejected conservatively without changing it or leaving a marker
+  ---
+  duration_ms: 50.12925
+  type: 'test'
+  ...
+# Subtest: terminal historical Run results are retained and a quarantine cannot be prepared a second time
+ok 17 - terminal historical Run results are retained and a quarantine cannot be prepared a second time
+  ---
+  duration_ms: 30.148917
+  type: 'test'
+  ...
+# Subtest: wrong Profile/Dot, unsupported revision and nonfinite or exhausted watermarks are rejected
+ok 18 - wrong Profile/Dot, unsupported revision and nonfinite or exhausted watermarks are rejected
+  ---
+  duration_ms: 41.56325
+  type: 'test'
+  ...
+# Subtest: missing, linked and oversized candidate files are rejected before a new database can be created
+ok 19 - missing, linked and oversized candidate files are rejected before a new database can be created
+  ---
+  duration_ms: 33.966416
+  type: 'test'
+  ...
+# [1103/164941.438632:ERROR:electron/shell/common/mac/codesign_util.cc:79] task_name_for_pid: (os/kern) failure (5)
+# Subtest: rehearsal restores physical SQLite and receipts, merges current deletion barriers and preserves source and backup
+ok 20 - rehearsal restores physical SQLite and receipts, merges current deletion barriers and preserves source and backup
+  ---
+  duration_ms: 204.946334
+  type: 'test'
+  ...
+# Subtest: ordinary Ledger refuses both pending-file and published-database quarantine guards
+ok 21 - ordinary Ledger refuses both pending-file and published-database quarantine guards
+  ---
+  duration_ms: 151.016917
+  type: 'test'
+  ...
+# Subtest: same rehearsal Key verifies the same candidate; conflicting source and corrupt copy are refused
+ok 22 - same rehearsal Key verifies the same candidate; conflicting source and corrupt copy are refused
+  ---
+  duration_ms: 170.473958
+  type: 'test'
+  ...
+# Subtest: raw destination, foreign backup and incomplete copy fail without starting an executor
+ok 23 - raw destination, foreign backup and incomplete copy fail without starting an executor
+  ---
+  duration_ms: 110.541333
+  type: 'test'
+  ...
+# Subtest: actual Host SIGKILL at rehearsal copied preserves quarantine and never repeats recovery
+ok 24 - actual Host SIGKILL at rehearsal copied preserves quarantine and never repeats recovery
+  ---
+  duration_ms: 277.856875
+  type: 'test'
+  ...
+# Subtest: actual Host SIGKILL at rehearsal published preserves quarantine and never repeats recovery
+ok 25 - actual Host SIGKILL at rehearsal published preserves quarantine and never repeats recovery
+  ---
+  duration_ms: 259.467167
+  type: 'test'
+  ...
+1..25
+# tests 25
+# suites 0
+# pass 25
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 2111.35975

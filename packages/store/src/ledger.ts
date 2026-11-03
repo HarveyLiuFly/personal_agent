@@ -55,6 +55,7 @@ export class ExecutionLedger {
   constructor(path: string, schemaSql: string, options:LedgerOptions={}) {
     this.options=options;
     if (path !== ':memory:') {
+      if(existsSync(join(dirname(path),'RESTORE_QUARANTINE')))fail('RECOVERY_REHEARSAL_NOT_ACTIVE');
       mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
       if (existsSync(path) && lstatSync(path).isSymbolicLink()) fail('LEDGER_SYMLINK_REJECTED');
     }
@@ -62,6 +63,7 @@ export class ExecutionLedger {
     try {
       this.#db.exec('PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000; PRAGMA synchronous=FULL;');
       const tables = this.#db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'").all();
+      if(tables.some(row=>row.name==='recovery_quarantine'))fail('RECOVERY_REHEARSAL_NOT_ACTIVE');
       if (tables.length === 0) this.#db.exec(schemaSql);
       else if (!tables.some(row => row.name === 'schema_metadata')) fail('LEDGER_SCHEMA_UNSUPPORTED');
       const revision = this.one('SELECT schema_revision FROM schema_metadata WHERE singleton=1')?.schema_revision;
@@ -924,6 +926,10 @@ export class ExecutionLedger {
     try{lstatSync(destination);return fail('BACKUP_TARGET_EXISTS');}catch(error){if((error as NodeJS.ErrnoException).code!=='ENOENT')throw error;}
     this.#db.prepare('VACUUM INTO ?').run(destination);chmodSync(destination,0o600);
   }
+  recoveryWatermarks(){return this.tx(()=>{
+    this.owner();const dot=this.one('SELECT policy_epoch,privacy_epoch FROM dots WHERE dot_id=?',this.dotId)!,rows=this.all('SELECT source_ref,privacy_epoch,deleted_at_ms FROM privacy_tombstones WHERE dot_id=? LIMIT 10001',this.dotId);if(rows.length>10000)return fail('RESTORE_TOMBSTONE_LIMIT');
+    return{profileId:this.profileId,dotId:this.dotId,runtimeEpoch:this.#epoch,policyEpoch:Number(dot.policy_epoch),privacyEpoch:Number(dot.privacy_epoch),tombstones:rows.map(row=>({sourceRef:String(row.source_ref),privacyEpoch:Number(row.privacy_epoch),deletedAtMs:Number(row.deleted_at_ms)}))};
+  });}
   recordTokenUsage(token:RunToken,threadId:string,turnId:string,total:unknown):void {
     this.tx(()=>{
       this.owner();const run=this.one('SELECT r.*,t.write_fence FROM task_runs r JOIN tasks t USING(task_id) WHERE r.run_id=? AND r.dot_id=?',token.runId,this.dotId);

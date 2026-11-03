@@ -1,9 +1,10 @@
 import {createHash} from 'node:crypto';
-import {constants,openSync,closeSync,readSync,fstatSync,lstatSync,realpathSync,mkdirSync,readdirSync,writeFileSync,fsyncSync,renameSync} from 'node:fs';
+import {constants,openSync,closeSync,readSync,writeSync,fstatSync,lstatSync,realpathSync,mkdirSync,readdirSync,writeFileSync,fsyncSync,renameSync} from 'node:fs';
 import {join,resolve} from 'node:path';
 import {DatabaseSync} from 'node:sqlite';
 import {ExecutionLedger,LedgerError} from '../../store/src/ledger.ts';
 import type {BackupCommand,BackupCommandResult,BackupPage,BackupVerification,BackupView} from '../../contracts/src/backups.ts';
+import {RehearsalService} from './rehearsal.ts';
 
 const idPattern=/^[a-f0-9]{64}$/,receiptPattern=/^[a-f0-9-]{36}\.json$/,hashPattern=/^[a-f0-9]{64}$/;
 const maxDatabase=128*1024*1024,maxReceipt=1024*1024,maxTotalReceipts=64*1024*1024;
@@ -16,18 +17,21 @@ interface Metadata {schemaRevision:number;runtimeEpoch:number;policyEpoch:number
 interface Manifest {format:1;backupId:string;createdAt:number;scope:'ledger_and_verification_receipts';metadata:Metadata;files:FileRecord[]}
 interface Artifact {key:string;bytes:number;sha256:string}
 /** Open one bounded regular file with no symlink following, preserving its identity through reads. */
-function file(path:string,maximum:number,content=false):{bytes:number;sha256:string;content:Buffer}{
+export function backupFile(path:string,maximum:number,content=false,copyTo?:string):{bytes:number;sha256:string;content:Buffer}{
   const fd=openSync(path,constants.O_RDONLY|constants.O_NOFOLLOW|constants.O_NONBLOCK);
+  let output:number|undefined;
   try{
     const before=fstatSync(fd);if(!before.isFile()||before.size>maximum||before.size<1)fail('BACKUP_FILE_INVALID');
+    if(copyTo)output=openSync(copyTo,constants.O_WRONLY|constants.O_CREAT|constants.O_EXCL|constants.O_NOFOLLOW,0o600);
     const hash=createHash('sha256'),chunks:Buffer[]=[];let total=0;const buffer=Buffer.alloc(65536);
-    while(true){const n=readSync(fd,buffer,0,Math.min(buffer.length,maximum-total+1),null);if(!n)break;total+=n;if(total>maximum)fail('BACKUP_FILE_TOO_LARGE');hash.update(buffer.subarray(0,n));if(content)chunks.push(Buffer.from(buffer.subarray(0,n)));}
+    while(true){const n=readSync(fd,buffer,0,Math.min(buffer.length,maximum-total+1),null);if(!n)break;total+=n;if(total>maximum)fail('BACKUP_FILE_TOO_LARGE');hash.update(buffer.subarray(0,n));if(content)chunks.push(Buffer.from(buffer.subarray(0,n)));if(output!==undefined){let offset=0;while(offset<n){const written=writeSync(output,buffer,offset,n-offset);if(written<=0)fail('BACKUP_COPY_FAILED');offset+=written;}}}
     const after=fstatSync(fd),current=lstatSync(path);if(after.size!==total||before.size!==after.size||before.mtimeMs!==after.mtimeMs||current.isSymbolicLink()||current.dev!==after.dev||current.ino!==after.ino)fail('BACKUP_FILE_CHANGED');
-    return{bytes:total,sha256:hash.digest('hex'),content:content?Buffer.concat(chunks):Buffer.alloc(0)};
-  }finally{closeSync(fd);}
+    if(output!==undefined)fsyncSync(output);return{bytes:total,sha256:hash.digest('hex'),content:content?Buffer.concat(chunks):Buffer.alloc(0)};
+  }finally{if(output!==undefined)closeSync(output);closeSync(fd);}
 }
-function sync(path:string){const fd=openSync(path,constants.O_RDONLY|constants.O_NOFOLLOW|constants.O_NONBLOCK);try{const info=fstatSync(fd);if(!info.isFile()&&!info.isDirectory())fail('BACKUP_FILE_INVALID');fsyncSync(fd);}finally{closeSync(fd);}}
-function directory(path:string):string{const info=lstatSync(path);if(!info.isDirectory()||info.isSymbolicLink()||realpathSync(path)!==path||(info.mode&0o077)!==0)fail('BACKUP_DIRECTORY_CHANGED');return info.dev+':'+info.ino;}
+export function backupSync(path:string){const fd=openSync(path,constants.O_RDONLY|constants.O_NOFOLLOW|constants.O_NONBLOCK);try{const info=fstatSync(fd);if(!info.isFile()&&!info.isDirectory())fail('BACKUP_FILE_INVALID');fsyncSync(fd);}finally{closeSync(fd);}}
+export function backupDirectory(path:string):string{const info=lstatSync(path);if(!info.isDirectory()||info.isSymbolicLink()||realpathSync(path)!==path||(info.mode&0o077)!==0)fail('BACKUP_DIRECTORY_CHANGED');return info.dev+':'+info.ino;}
+const file=backupFile,sync=backupSync,directory=backupDirectory;
 /** Reads ONLY the fixed schema from a newly created or hash-checked local snapshot. */
 function inspect(database:string):{metadata:Metadata;artifacts:Artifact[]}{
   const db=new DatabaseSync(database,{readOnly:true});
@@ -47,11 +51,11 @@ function inspect(database:string):{metadata:Metadata;artifacts:Artifact[]}{
     return{metadata,artifacts};
   }finally{db.close();}
 }
-export interface BackupOptions {directory:string;verificationDirectory:string;/** Trusted crash tests only; not IPC. */afterStage?:(stage:'snapshot'|'published')=>void}
+export interface BackupOptions {directory:string;verificationDirectory:string;/** Trusted crash tests only; not IPC. */afterStage?:(stage:'snapshot'|'published')=>void;afterRehearsalStage?:(stage:'copied'|'published')=>void}
 /** Private snapshots only. This service NEVER opens a snapshot as an execution Owner or restores it. */
 export class BackupService {
-  private store:ExecutionLedger;private options:BackupOptions;private root:string;private rootIdentity:string;
-  constructor(store:ExecutionLedger,options:BackupOptions){this.store=store;this.options=options;this.root=resolve(options.directory);mkdirSync(this.root,{recursive:true,mode:0o700});this.rootIdentity=directory(this.root);}
+  private store:ExecutionLedger;private options:BackupOptions;private root:string;private rootIdentity:string;private rehearsals:RehearsalService;
+  constructor(store:ExecutionLedger,options:BackupOptions){this.store=store;this.options=options;this.root=resolve(options.directory);mkdirSync(this.root,{recursive:true,mode:0o700});this.rootIdentity=directory(this.root);this.rehearsals=new RehearsalService({directory:join(this.root,'..','rehearsals'),watermarks:()=>store.recoveryWatermarks(),copy:(id,destination)=>this.copyForRehearsal(id,destination),files:{read:backupFile,sync:backupSync,directory:backupDirectory},afterStage:options.afterRehearsalStage});}
   private anchor(){if(directory(this.root)!==this.rootIdentity)fail('BACKUP_DIRECTORY_CHANGED');}
   private manifest(path:string,id:string):Manifest{
     const value:unknown=JSON.parse(file(join(path,'manifest.json'),262144,true).content.toString('utf8'));
@@ -62,13 +66,15 @@ export class BackupService {
   list():BackupPage{
     try{this.anchor();const entries=readdirSync(this.root);if(entries.length>200)fail('BACKUP_DIRECTORY_LIMIT');const ids=[...new Set(entries.filter(e=>idPattern.test(e)||/^[a-f0-9]{64}\.pending$/.test(e)).map(e=>e.slice(0,64)))];if(ids.length>20)fail('BACKUP_COUNT_LIMIT');
       const items:BackupView[]=ids.map(id=>{try{directory(join(this.root,id));const m=this.manifest(join(this.root,id),id);return{id,state:'available',createdAt:m.createdAt,bytes:m.files.reduce((n,f)=>n+f.bytes,0),receipts:m.files.length-1,schemaRevision:m.metadata.schemaRevision};}catch{let state:BackupView['state']='invalid';try{directory(join(this.root,id+'.pending'));if(!entries.includes(id))state='incomplete';}catch{}return{id,state,createdAt:null,bytes:null,receipts:null,schemaRevision:null};}});
-      return{items:items.sort((a,b)=>(b.createdAt??0)-(a.createdAt??0)||a.id.localeCompare(b.id)),limit:20,scope:'ledger_and_verification_receipts'};
+      return{items:items.sort((a,b)=>(b.createdAt??0)-(a.createdAt??0)||a.id.localeCompare(b.id)),limit:20,scope:'ledger_and_verification_receipts',rehearsals:this.rehearsals.list()};
     }catch(error){throw error instanceof LedgerError?error:new LedgerError('BACKUP_READ_FAILED');}
   }
   command(input:BackupCommand):BackupCommandResult{
-    if(!object(input)||!((input.kind==='create'&&keys(input,['kind','commandKey'])&&typeof input.commandKey==='string'&&input.commandKey.length>0&&input.commandKey.length<=200&&!/[\x00-\x1f]/.test(input.commandKey))||(input.kind==='verify'&&keys(input,['kind','backupId'])&&typeof input.backupId==='string'&&idPattern.test(input.backupId))))fail('INVALID_BACKUP_COMMAND');
+    const key=(v:unknown):v is string=>typeof v==='string'&&v.length>0&&v.length<=200&&!/[\x00-\x1f]/.test(v);
+    if(!object(input)||!((input.kind==='create'&&keys(input,['kind','commandKey'])&&key(input.commandKey))||(input.kind==='verify'&&keys(input,['kind','backupId'])&&typeof input.backupId==='string'&&idPattern.test(input.backupId))||(input.kind==='rehearse'&&keys(input,['kind','backupId','commandKey'])&&typeof input.backupId==='string'&&idPattern.test(input.backupId)&&key(input.commandKey))))fail('INVALID_BACKUP_COMMAND');
     try{
       this.anchor();const id=input.kind==='create'?digest(input.commandKey):input.backupId;
+      if(input.kind==='rehearse')return{...this.checked(id),rehearsal:this.rehearsals.create(id,input.commandKey)};
       if(input.kind==='create'){
         const page=this.list(),existing=page.items.find(b=>b.id===id);if(existing){if(existing.state!=='available')fail('BACKUP_INCOMPLETE_OR_INVALID');return this.checked(id);}
         if(page.items.length>=20)fail('BACKUP_COUNT_LIMIT');
@@ -94,5 +100,10 @@ export class BackupService {
     const last=file(join(path,'ledger.db'),maxDatabase);if(last.sha256!==m.files.find(f=>f.key==='ledger.db')!.sha256||directory(path)!==identity)fail('BACKUP_FILE_CHANGED');this.anchor();
     const bytes=m.files.reduce((n,f)=>n+f.bytes,0),verification:BackupVerification={id,verifiedAt:Date.now(),files:m.files.length,bytes,schemaRevision:metadata.schemaRevision,activeRuns:metadata.activeRuns,pendingTerminals:metadata.pendingTerminals,pendingWorktreeOperations:metadata.pendingWorktreeOperations,runtimeEpoch:metadata.runtimeEpoch,policyEpoch:metadata.policyEpoch,privacyEpoch:metadata.privacyEpoch,tombstones:metadata.tombstones};
     return{backup:{id,state:'available',createdAt:m.createdAt,bytes,receipts:m.files.length-1,schemaRevision:metadata.schemaRevision},verification};
+  }
+  private copyForRehearsal(id:string,destination:string):void{
+    this.checked(id);directory(destination);const source=join(this.root,id),identity=directory(source),manifest=this.manifest(source,id);mkdirSync(join(destination,'receipts'),{mode:0o700});
+    for(const entry of manifest.files){const copied=file(join(source,entry.key),entry.key==='ledger.db'?maxDatabase:maxReceipt,false,join(destination,entry.key));if(copied.bytes!==entry.bytes||copied.sha256!==entry.sha256)fail('BACKUP_HASH_MISMATCH');}
+    if(directory(source)!==identity)fail('BACKUP_DIRECTORY_CHANGED');this.anchor();sync(join(destination,'receipts'));sync(destination);
   }
 }
