@@ -1,0 +1,33 @@
+{
+  "status": "passed",
+  "observedAt": "2026-11-03T01:14:35.951Z",
+  "kind": "real_electron_and_sqlite_task_queue_with_synthetic_stdio",
+  "backend": "synthetic_stdio",
+  "inferenceRequested": false,
+  "folderDialogSelection": "fixed_fixture_substitution",
+  "modelTurns": 0,
+  "syntheticTurnStarts": 2,
+  "result": {
+    "noRunsBeforeStart": true,
+    "markupSafe": true,
+    "titleUpdated": true,
+    "staleRejected": true,
+    "extraRejected": true,
+    "pausedConfirmed": true,
+    "cancelledConfirmed": true,
+    "sameTask": true,
+    "sameThread": true,
+    "newRun": true,
+    "activityUnique": true,
+    "stopActivityShown": true,
+    "deadLetterEmpty": true,
+    "sandboxed": true,
+    "isolated": true,
+    "hasRequire": false
+  },
+  "display": "native_desktop",
+  "exitCode": 0,
+  "signal": null,
+  "timedOut": false,
+  "platform": "darwin-arm64"
+}

@@ -13,4 +13,5 @@ export interface OperationReceipt {
  taskVersion:number;status:TaskStatus;blocked:boolean;runId:string|null;
 }
 export interface ActivityItem {sequence:number;eventId:string;taskId:string;eventType:string;taskVersion:number;runId:string|null}
-export interface ActivityPage {items:ActivityItem[];nextCursor:number|null}
+export interface ActivityPage {items:ActivityItem[];nextCursor:number|null;delivery:{pending:number;claimed:number;deadLetter:number}}
+export interface StartTask {projectId:string;taskId:string;expectedVersion:number;submissionKey:string}

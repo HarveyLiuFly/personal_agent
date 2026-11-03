@@ -1,0 +1,31 @@
+import type {App,BrowserWindow} from 'electron';
+import {writeFileSync} from 'node:fs';
+import {join} from 'node:path';
+import type {ExecutionLedger} from '../../../packages/store/src/ledger.ts';
+import type {ForegroundExecution} from '../../../packages/runtime/src/execution.ts';
+/** Owned public fixture; this fixed harness is never exposed as Renderer evaluation capability. */
+export async function runTaskProbe(root:string,app:App,window:BrowserWindow,store:ExecutionLedger,execution:ForegroundExecution){
+ const result=await window.webContents.executeJavaScript(`(async()=>{
+  const wait=async(check)=>{const deadline=Date.now()+25000;while(!await check()){if(Date.now()>deadline)throw new Error('TASK_UI_TIMEOUT');await new Promise(r=>setTimeout(r,50));}};
+  const set=async(selector,text)=>{const input=document.querySelector(selector),proto=input.tagName==='TEXTAREA'?HTMLTextAreaElement.prototype:HTMLInputElement.prototype;Object.getOwnPropertyDescriptor(proto,'value').set.call(input,text);input.dispatchEvent(new Event('input',{bubbles:true}));await new Promise(r=>setTimeout(r,50));};
+  document.querySelector('[data-action="choose-project"]').click();await wait(()=>document.querySelector('[data-task-manager]'));document.querySelector('[data-task-manager]').open=true;
+  const state=await window.personalAgent.workspaceState(),projectId=state.value.projects[0].id;
+  await set('[data-queue-draft]', '<img src=x onerror="window.queueInjected=true"> public queue fixture');await wait(()=>!document.querySelector('[data-action="queue-create"]').disabled);document.querySelector('[data-action="queue-create"]').click();
+  await wait(()=>document.querySelector('[data-queued-task]'));await wait(()=>!document.querySelector('[data-task-action="rename"]').disabled&&document.querySelector('[data-queue-draft]').value==='');
+  const initial=(await window.personalAgent.listTasks({projectId})).value[0],taskId=initial.taskId;
+  const noRunsBeforeStart=(await window.personalAgent.listRuns({projectId})).value.length===0,markupSafe=document.querySelector('[data-task-manager] img')===null&&window.queueInjected!==true;
+  document.querySelector('[data-task-action="rename"]').click();await wait(()=>document.querySelector('[data-queue-title]'));await set('[data-queue-title]','renamed queued fixture');document.querySelector('[data-task-action="save-title"]').click();await wait(()=>document.querySelector('[data-queued-task] strong').textContent==='renamed queued fixture');
+  document.querySelector('[data-task-action="pause"]').click();await wait(()=>document.querySelector('[data-queued-status="paused"]'));document.querySelector('[data-task-action="resume"]').click();await wait(()=>document.querySelector('[data-queued-status="queued"]'));
+  const stale=await window.personalAgent.applyTaskCommand({projectId,taskId,expectedVersion:initial.version,commandKey:'stale-ui-fixture',kind:'cancel'}),extra=await window.personalAgent.applyTaskCommand({projectId,taskId,expectedVersion:initial.version,commandKey:'extra-ui-fixture',kind:'pause',argv:['arbitrary']});
+  document.querySelector('[data-task-action="start"]').click();await wait(async()=>{const rows=(await window.personalAgent.listRuns({projectId})).value;return rows[0]?.turnId!==null&&rows[0]?.turnId!==undefined;});
+  const first=(await window.personalAgent.listRuns({projectId})).value[0];await wait(()=>document.querySelector('[data-queued-status="running"]'));document.querySelector('[data-task-action="pause"]').click();await wait(()=>document.querySelector('[data-queued-status="paused"]'));const paused=(await window.personalAgent.listTasks({projectId})).value[0];
+  document.querySelector('[data-task-action="resume"]').click();await wait(()=>document.querySelector('[data-queued-status="queued"]'));document.querySelector('[data-task-action="start"]').click();await wait(async()=>{const rows=(await window.personalAgent.listRuns({projectId})).value;return rows[0]?.runId!==first.runId&&Boolean(rows[0]?.turnId);});
+  await wait(()=>document.querySelector('[data-queued-status="running"]'));document.querySelector('[data-task-action="cancel"]').click();await wait(()=>document.querySelector('[data-queued-status="cancelled"]'));
+  await wait(async()=>{const feed=(await window.personalAgent.listTaskActivity({projectId})).value;return feed.delivery.pending===0&&feed.delivery.claimed===0;});
+  const final=(await window.personalAgent.listTasks({projectId})).value[0],runs=(await window.personalAgent.listRuns({projectId})).value,feed=(await window.personalAgent.listTaskActivity({projectId})).value;
+  return{noRunsBeforeStart,markupSafe,titleUpdated:final.title==='renamed queued fixture',staleRejected:!stale.ok&&stale.errorCode==='TASK_VERSION_CONFLICT',extraRejected:!extra.ok,pausedConfirmed:paused.status==='paused'&&paused.activeRunId===null,cancelledConfirmed:final.status==='cancelled'&&final.activeRunId===null,sameTask:runs.length===2&&runs.every(r=>r.taskId===taskId),sameThread:runs[0].threadId===runs[1].threadId,newRun:runs[0].runId!==runs[1].runId,activityUnique:feed.items.length>0&&new Set(feed.items.map(e=>e.eventId)).size===feed.items.length,stopActivityShown:feed.items.some(e=>e.eventType==='operation_stop_requested'),deadLetterEmpty:feed.delivery.deadLetter===0,sandboxed:window.personalAgent.security.sandboxed,isolated:window.personalAgent.security.isolated,hasRequire:typeof require!=='undefined'};
+ })()`);
+ const passed=Object.entries(result).every(([key,value])=>key==='hasRequire'?value===false:value===true)&&execution.diagnostics.clientThreadStarts===1&&execution.diagnostics.clientThreadResumes===1&&execution.diagnostics.clientTurnStarts===2&&store.outboxStatus().deadLetter===0;
+ writeFileSync(join(root,'docs/progress/evidence/M2.2b-desktop.json'),JSON.stringify({status:passed?'passed':'blocked',observedAt:new Date().toISOString(),kind:'real_electron_and_sqlite_task_queue_with_synthetic_stdio',backend:'synthetic_stdio',inferenceRequested:false,folderDialogSelection:'fixed_fixture_substitution',modelTurns:0,syntheticTurnStarts:execution.diagnostics.clientTurnStarts,result},null,2)+'\n');
+ writeFileSync(join(root,'.local/M2-task-queue-desktop.png'),(await window.webContents.capturePage()).toPNG());app.quit();
+}

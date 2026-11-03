@@ -1,0 +1,35 @@
+{
+  "status": "passed",
+  "observedAt": "2026-11-03T01:17:31.707651+00:00",
+  "additionalFixtureRepositoriesRemoved": 3,
+  "scope": "two completed verifier fixtures (one older and one current) and one current workspace regression fixture",
+  "archiveVerified": 3,
+  "openProcessCount": 0,
+  "localRecoveryDirectory": ".local/worktree-cleanup-20261103T003834Z",
+  "rawRuntimeStatePreserved": true,
+  "mainPreserved": true,
+  "registeredWorktreesAfter": 1,
+  "snapshots": [
+    {
+      "id": 1,
+      "archiveSha256": "24ed038ee2fb970aeadb7268c4752dcea5252ece24bca3cb0df80e3d3db95541",
+      "archiveVerified": true,
+      "openProcessCount": 0,
+      "files": 33
+    },
+    {
+      "id": 2,
+      "archiveSha256": "a4e2da9d6b14ce7b3018f10276b33d2c472d79663b47df4b6a146b4fffad03e2",
+      "archiveVerified": true,
+      "openProcessCount": 0,
+      "files": 33
+    },
+    {
+      "id": 3,
+      "archiveSha256": "9b31316d5981455ef100681f8fd40e33264e72f12f9ab4580edd9d1cff3e990c",
+      "archiveVerified": true,
+      "openProcessCount": 0,
+      "files": 35
+    }
+  ]
+}

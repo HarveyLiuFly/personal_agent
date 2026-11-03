@@ -3,7 +3,7 @@ import type { HostResult, InteractionView, ProjectView, RunSummary, RunView, Ver
 import { InteractionCard } from './interactions.tsx';
 async function value<T>(request: Promise<HostResult<T>>): Promise<T> { const r = await request; if (!r.ok) throw new Error(r.errorCode); return r.value; }
 const labels: Record<string,string> = { preparing: '正在连接', submitting: '正在发送', running: '执行中', completed: '执行已结束 · 待验证', failed: '执行失败', cancelled: '已中断', outcome_unknown: '结果未知 · 待核对', waiting_approval: '等待批准', waiting_input: '等待补充' };
-export function ExecutionPanel({ project, disabled = false, mode = 'readOnly', canCode = false }: { project: ProjectView; disabled?: boolean; mode?: 'readOnly'|'workspaceWrite'; canCode?: boolean }) {
+export function ExecutionPanel({ project, disabled = false, mode = 'readOnly', canCode = false,requestedRunId }: { project: ProjectView; disabled?: boolean; mode?: 'readOnly'|'workspaceWrite'; canCode?: boolean;requestedRunId?:string }) {
   const [runs,setRuns] = useState<RunSummary[]>([]), [selected,setSelected] = useState<string>(), [view,setView] = useState<RunView>();
   const [codeEnabled,setCodeEnabled] = useState(false), [target,setTarget] = useState(''), [paths,setPaths] = useState('');
   const [review,setReview] = useState<VerificationView>(), [verifying,setVerifying] = useState(false);
@@ -13,6 +13,7 @@ export function ExecutionPanel({ project, disabled = false, mode = 'readOnly', c
   const [draft,setDraft] = useState(''), [sending,setSending] = useState(false), [error,setError] = useState<string>();
   const key = useRef<string | undefined>(undefined), pendingDraft = useRef<string | undefined>(undefined);
   const selectedRef = useRef(selected); selectedRef.current = selected;
+  useEffect(()=>{if(requestedRunId){setSelected(requestedRunId);selectedRef.current=requestedRunId;setView(undefined);setContinuation(undefined);setReview(undefined);setStopping(false);}},[requestedRunId]);
   useEffect(() => {
     let stopped = false, timer: ReturnType<typeof setTimeout>;
     const poll = async () => {
@@ -70,7 +71,7 @@ export function ExecutionPanel({ project, disabled = false, mode = 'readOnly', c
           {review.receipt && <p role="status">{review.receipt.status === 'passed' ? '验证通过' : '尚未通过'} · 发现 {review.receipt.discovered} / 实际执行 {review.receipt.executed} / 跳过 {review.receipt.skipped} · {review.receipt.code}</p>}
           <pre data-run-diff>{review.diff || '当前没有可显示的 Diff。'}</pre>{review.diffTruncated&&<small>Diff 过长，仅显示部分。</small>}
         </article>}
-        {view.blocked && <div className="notice">该请求需要核对，新的执行已暂停。系统不会自动重发。
+        {view.blocked && <div className="notice">{view.status==='outcome_unknown'?'该请求需要核对，新的执行已暂停。系统不会自动重发。':'后续执行已停止，请根据任务状态决定是否恢复排队。'}
           {view.status==='outcome_unknown'&&<button className="secondary" data-action="reconcile-run" disabled={checking} onClick={()=>{const runId=view.runId;setChecking(true);void value(window.personalAgent.reconcileRun({projectId:project.id,runId})).then(next=>{if(selectedRef.current===runId){setView(next);setError(undefined);}}).catch(()=>setError('权威历史尚不足以确认结果，任务继续保持未知，不会重发。')).finally(()=>setChecking(false));}}>{checking?'正在核对…':'只读核对执行结果'}</button>}
         </div>}
         {view.snapshot?.needsSnapshot && <div className="notice">连接已断开，以下为最后保存的内容，尚未核对最新结果。</div>}

@@ -85,3 +85,7 @@ test('linked inactive goals block claims and a plan-version change revokes an ex
  assert.throws(()=>f.store.claimTask(f.project.id,created.taskId,2,'goal-claim'),/GOAL_NOT_ACTIVE/);f.db.exec("UPDATE goals SET status='active' WHERE goal_id='goal'");const run=f.store.claimTask(f.project.id,created.taskId,2,'goal-claim');assert.equal(f.db.prepare('SELECT goal_plan_version FROM task_runs WHERE run_id=?').get(run.token.runId)!.goal_plan_version,1);
  f.db.exec("UPDATE goals SET plan_version=plan_version+1 WHERE goal_id='goal'");assert.throws(()=>f.store.heartbeat(run.token),/RUN_GRANT_EXPIRED/);
 });
+test('old tasks without reusable source input cannot be moved to a misleading queued state',t=>{
+ const f=fixture(t),created=f.create();f.db.prepare("UPDATE tasks SET constraints_json=json_remove(constraints_json,'$.text'),status='paused' WHERE task_id=?").run(created.taskId);const before=f.counts();
+ assert.throws(()=>f.store.taskCommand({projectId:f.project.id,taskId:created.taskId,expectedVersion:2,commandKey:'old-resume',kind:'resume'}),/TASK_INPUT_UNAVAILABLE/);assert.deepEqual(f.counts(),before);assert.equal(f.store.tasks(f.project.id)[0]!.status,'paused');
+});

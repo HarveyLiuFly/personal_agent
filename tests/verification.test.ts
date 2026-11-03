@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {execFileSync} from 'node:child_process';
-import {mkdtempSync,mkdirSync,readFileSync,writeFileSync,realpathSync,rmSync} from 'node:fs';
+import {mkdtempSync,mkdirSync,readFileSync,writeFileSync,realpathSync,rmSync,chmodSync,existsSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join,resolve} from 'node:path';
 import {test} from 'node:test';
@@ -63,6 +63,11 @@ test('a receipt file altered after publication is rejected by its stored hash',a
 });
 test('profile paths reject traversal, test editing and arbitrary command fields',()=>{
  for(const input of [{profile:'shell',target:'test.mjs',allowedPaths:['src.mjs']},{profile:'node-test',target:'../escape',allowedPaths:['src.mjs']},{profile:'node-test',target:'test.mjs',allowedPaths:['test.mjs']},{profile:'node-test',target:'test.mjs',allowedPaths:['src.mjs'],command:'touch /tmp/x'}])assert.throws(()=>codeInput(input));
+});
+test('verification Git rejects included clean filters before any helper can execute',async t=>{
+ const f=await fixture(t),marker=join(f.root,'helper-effect'),helper=join(f.root,'helper.sh');writeFileSync(helper,`#!/bin/sh\ntouch '${marker}'\ncat\n`);chmodSync(helper,0o700);
+ writeFileSync(join(f.cwd,'.git/filter-config'),`[filter "evil"]\nclean = ${helper}\n`);writeFileSync(join(f.cwd,'.git/info/attributes'),'src/math.mjs filter=evil\n');execFileSync('git',['-C',f.cwd,'config','include.path','filter-config']);f.fix();
+ assert.throws(()=>f.service.diff(f.p.id,f.token.runId),/GIT_FILTERS_UNSUPPORTED/);assert.equal(existsSync(marker),false);
 });
 test('continuation inherits the original file/test/case contract and verifies accumulated allowed changes',async t=>{
  const f=await fixture(t);f.finish();writeFileSync(join(f.cwd,'src/math.mjs'),'export const sum=(a,b)=>a-b-1;\n');

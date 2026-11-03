@@ -47,6 +47,7 @@ test('activity is paginated, project-scoped and suppresses tombstoned tasks',t=>
  const first=f.store.activity(f.project.id);assert.equal(first.items.length,100);assert.ok(first.nextCursor);assert.equal(f.store.activity(f.project.id,first.nextCursor!).items.length,10);
  mkdirSync(join(f.root,'other'));const other=f.store.registerWorkspace(join(f.root,'other'),join(f.root,'other'));assert.equal(f.store.activity(other.id).items.length,0);assert.throws(()=>f.store.activity(f.project.id,-1),/INVALID_ACTIVITY_CURSOR/);
  const target=first.items[0]!.taskId;f.db.prepare('INSERT INTO privacy_tombstones VALUES (?,?,1,?)').run(f.store.dotId,'task:'+target,Date.now());assert.equal(f.store.activity(f.project.id).items.some(x=>x.taskId===target),false);
+ assert.equal(f.store.tasks(f.project.id).some(x=>x.taskId===target),false);
 });
 test('a tombstone before delivery prevents feed publication while completing local consumption',t=>{
  const f=fixture(t),task=f.create();f.db.prepare('INSERT INTO privacy_tombstones VALUES (?,?,1,?)').run(f.store.dotId,task.taskId,Date.now());const result=new OutboxPump(f.store).step();assert.equal(result.claimed,2);assert.equal(result.projected,0);assert.equal(f.store.outboxStatus().delivered,2);assert.equal(f.db.prepare('SELECT COUNT(*) AS n FROM main_feed').get()!.n,0);

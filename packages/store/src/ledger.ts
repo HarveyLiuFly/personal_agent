@@ -171,11 +171,14 @@ export class ExecutionLedger {
   }
   tasks(projectId:string):TaskSummary[] {
     this.workspace(projectId);
-    return this.all('SELECT * FROM tasks WHERE workspace_id=? AND dot_id=? ORDER BY updated_at_ms DESC,rowid DESC LIMIT 100',projectId,this.dotId).map(t=>({
+    return this.all("SELECT * FROM tasks WHERE workspace_id=? AND dot_id=? AND NOT EXISTS(SELECT 1 FROM privacy_tombstones p WHERE p.dot_id=tasks.dot_id AND p.source_ref IN (tasks.task_id,'task:'||tasks.task_id)) ORDER BY updated_at_ms DESC,rowid DESC LIMIT 100",projectId,this.dotId).map(t=>({
       projectId,taskId:String(t.task_id),title:String(t.title),status:t.status as TaskStatus,version:Number(t.version),blocked:t.dispatch_blocked===1,
       activeRunId:this.one(`SELECT run_id FROM task_runs WHERE task_id=? AND status IN ${active}`,t.task_id!)?.run_id as string??null,
       mode:JSON.parse(String(t.constraints_json)).mode==='workspaceWrite'?'workspaceWrite':'readOnly',updatedAt:Number(t.updated_at_ms),
     }));
+  }
+  taskForHost(projectId:string,taskId:string):{mode:'readOnly'|'workspaceWrite'} {
+    this.workspace(projectId);const task=this.taskRow(projectId,taskId);return{mode:JSON.parse(String(task.constraints_json)).mode==='workspaceWrite'?'workspaceWrite':'readOnly'};
   }
   private conversation():string {
     const current=this.one('SELECT conversation_id FROM conversations WHERE dot_id=?',this.dotId);if(current)return String(current.conversation_id);
@@ -242,6 +245,7 @@ export class ExecutionLedger {
         this.exec('UPDATE tasks SET title=?,version=version+1,updated_at_ms=? WHERE task_id=?',input.title,Date.now(),input.taskId);
       }else if(input.kind==='resume'){
         this.taskAuthority(task);
+        if(typeof JSON.parse(String(task.constraints_json)).text!=='string')return fail('TASK_INPUT_UNAVAILABLE');
         if(run||task.status==='outcome_unknown'||!['created','paused','failed','waiting_trigger'].includes(String(task.status)))return fail('TASK_NOT_RESUMABLE');
         this.transition(input.taskId,'queued');this.exec('UPDATE tasks SET dispatch_blocked=0 WHERE task_id=?',input.taskId);
       }else{
@@ -323,9 +327,9 @@ export class ExecutionLedger {
       this.exec('UPDATE outbox_events SET state=?,lease_until_ms=NULL,next_attempt_at_ms=? WHERE outbox_id=?',dead?'dead_letter':'pending',dead?null:Date.now()+Math.min(60000,1000*2**(Number(row.attempts)-1)),claim.outboxId);
     });
   }
-  outboxStatus():{pending:number;claimed:number;delivered:number;deadLetter:number} {
+  outboxStatus(projectId?:string):{pending:number;claimed:number;delivered:number;deadLetter:number} {
     const counts={pending:0,claimed:0,delivered:0,deadLetter:0};
-    for(const row of this.all('SELECT o.state,COUNT(*) AS n FROM outbox_events o JOIN tasks t ON t.task_id=o.aggregate_ref WHERE t.dot_id=? GROUP BY o.state',this.dotId)){
+    for(const row of this.all('SELECT o.state,COUNT(*) AS n FROM outbox_events o JOIN tasks t ON t.task_id=o.aggregate_ref WHERE t.dot_id=? AND (? IS NULL OR t.workspace_id=?) GROUP BY o.state',this.dotId,projectId??null,projectId??null)){
       if(row.state==='dead_letter')counts.deadLetter=Number(row.n);else counts[row.state as 'pending'|'claimed'|'delivered']=Number(row.n);
     }return counts;
   }
@@ -333,7 +337,7 @@ export class ExecutionLedger {
     this.workspace(projectId);if(!Number.isSafeInteger(cursor)||cursor<0)return fail('INVALID_ACTIVITY_CURSOR');
     const rows=this.all("SELECT f.projection_sequence,f.display_json FROM main_feed f JOIN tasks t ON t.task_id=f.ref_id JOIN dots d ON d.dot_id=t.dot_id WHERE t.workspace_id=? AND t.dot_id=? AND f.privacy_epoch=d.privacy_epoch AND f.item_type='task_event' AND f.projection_sequence>? AND NOT EXISTS(SELECT 1 FROM privacy_tombstones p WHERE p.dot_id=t.dot_id AND p.source_ref IN (t.task_id,'task:'||t.task_id)) ORDER BY f.projection_sequence LIMIT 101",projectId,this.dotId,cursor);
     const items=rows.slice(0,100).map(row=>({sequence:Number(row.projection_sequence),...JSON.parse(String(row.display_json)) as Omit<ActivityPage['items'][number],'sequence'>}));
-    return{items,nextCursor:rows.length>100?items.at(-1)!.sequence:null};
+    const {pending,claimed,deadLetter}=this.outboxStatus(projectId);return{items,nextCursor:rows.length>100?items.at(-1)!.sequence:null,delivery:{pending,claimed,deadLetter}};
   }
   beginRun(workspaceId: string, text: string, key: string, mode: 'readOnly' | 'workspaceWrite', contextHash?: string): { token: RunToken; created: boolean } {
     if (!id(key) || typeof text !== 'string' || !text.trim() || text.length > 32_768 || !['readOnly','workspaceWrite'].includes(mode)) return fail('INVALID_TASK_INPUT');

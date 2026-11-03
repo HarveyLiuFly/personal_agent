@@ -32,8 +32,12 @@ export function codeInput(value:unknown):CodeInput {
  return{profile:'node-test',target,allowedPaths};
 }
 function git(cwd:string,args:string[]):string {
- try{return execFileSync('git',['--no-pager','--no-replace-objects','--no-optional-locks','-c','core.fsmonitor=false','-c','core.hooksPath=/dev/null','-C',cwd,...args],{encoding:'utf8',timeout:5000,maxBuffer:262144,stdio:['ignore','pipe','ignore']});}
- catch{throw new LedgerError('GIT_BASELINE_UNAVAILABLE');}
+ const base=['--no-pager','--no-replace-objects','--no-optional-locks','-c','core.fsmonitor=false','-c','core.hooksPath=/dev/null','-c','core.attributesFile=/dev/null','-c','core.untrackedCache=false','-c','maintenance.auto=false','-c','gc.auto=0','-C',cwd];
+ const run=(argv:string[])=>execFileSync('git',[...base,...argv],{encoding:'utf8' as const,timeout:5000,maxBuffer:262144,stdio:['ignore','pipe','ignore'] as const,env:{PATH:process.env.PATH,HOME:'/var/empty',LANG:'C',LC_ALL:'C',GIT_CONFIG_NOSYSTEM:'1',GIT_CONFIG_GLOBAL:'/dev/null',GIT_ATTR_NOSYSTEM:'1',GIT_OPTIONAL_LOCKS:'0',GIT_TERMINAL_PROMPT:'0'}});
+ try{
+  let filters='';try{filters=run(['config','--includes','--name-only','--get-regexp','^filter\\.']);}catch(error){if((error as {status?:number}).status!==1)throw error;}
+  if(filters.trim())throw new LedgerError('GIT_FILTERS_UNSUPPORTED');return run(args);
+ }catch(error){if(error instanceof LedgerError)throw error;throw new LedgerError('GIT_BASELINE_UNAVAILABLE');}
 }
 export function workspaceFiles(cwd:string):Record<string,string>{
  const files:Record<string,string>={};let bytes=0,count=0;

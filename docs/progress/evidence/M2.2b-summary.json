@@ -1,0 +1,83 @@
+{
+  "checkpoint": "M2.2b",
+  "status": "passed_foreground_queue_scope",
+  "stageGate": "open",
+  "platform": "darwin-arm64",
+  "schemaRevision": 3,
+  "schemaChanged": false,
+  "inferenceRequested": false,
+  "modelTurns": 0,
+  "syntheticDesktopTurns": 2,
+  "runtimeOwner": "electron_main_foreground",
+  "desktopApiWhitelistCount": 25,
+  "checks": {
+    "discovered": 152,
+    "executed": 152,
+    "passed": 152,
+    "failed": 0,
+    "skipped": 0,
+    "designContracts": 17,
+    "generatedTypes": 747,
+    "typecheck": "passed",
+    "build": "passed"
+  },
+  "runs": {
+    "M2.2b-desktop": {
+      "status": "passed",
+      "observedAt": "2026-11-03T01:14:35.951Z",
+      "kind": "real_electron_and_sqlite_task_queue_with_synthetic_stdio",
+      "inferenceRequested": false
+    },
+    "M2.2b-native-verifier": {
+      "status": "passed",
+      "observedAt": "2026-11-03T01:10:04.049Z",
+      "kind": "real_sandbox_node_verifier_with_synthetic_model_metadata",
+      "inferenceRequested": false
+    },
+    "M2.2b-M0-desktop-regression": {
+      "status": "passed",
+      "observedAt": "2026-11-03T01:12:19.057Z",
+      "kind": "real_electron_window_smoke",
+      "inferenceRequested": false
+    },
+    "M2.2b-workspace-regression": {
+      "status": "passed",
+      "observedAt": "2026-11-03T01:12:37.841Z",
+      "kind": "real_electron_filesystem_git_and_native_sandbox",
+      "inferenceRequested": false
+    }
+  },
+  "initialDesktopFailure": {
+    "status": "blocked",
+    "code": "TASK_UI_TIMEOUT",
+    "observedAt": "2026-11-03T01:08:26.620Z",
+    "cause": "contradictory test wait: empty draft correctly disables create button",
+    "fix": "wait for task controls; yield React input rendering",
+    "evidence": "M2.2b-desktop-2026-11-03T01-08-26-620Z.json"
+  },
+  "cleanup": "M2.2b-cleanup.json",
+  "sourceAndBuildHashes": {
+    "packages/store/src/ledger.ts": "16664baeb151d200773bc35152fae492389af262623e9dbffec2c1904e806db3",
+    "packages/runtime/src/tasks.ts": "8541d0960d7dd66c00fd97143b4d90aba7e2dadc73b3cde7d3899aac8fb0f974",
+    "packages/runtime/src/execution.ts": "8a03d5312b1167ccfaa5537f71aad9d3adc46aa8f196c07efe2a052e9fa522c5",
+    "packages/verification/src/verification.ts": "9b46c23ad7c0ea7d84fb2529c9887927c4e652d5edc3c1ae66d57fade719b7c4",
+    "packages/contracts/src/tasks.ts": "dc36c6880a735c4d5abe6a0e614c5418ec867bbda738ace2fd7e7d12eac73461",
+    "apps/desktop/src/main.ts": "60f1e884655a1e97c90d4a8191e8d78573d3ab5693dbdb2d2721febc997c35ba",
+    "apps/desktop/src/preload.ts": "05d8258f3332b437de0d2c654d5f530d9ff9b6e494e64fe1ce6136c5c50aef01",
+    "apps/desktop/src/bridge.ts": "098e412d46c3422b1929292dba651519ef6f65f2b86360b4549b2801194a0add",
+    "apps/desktop/renderer/task-manager.tsx": "c457ab01033e63cbe476757d9c5a8a8afc8ef0871546431c2db573502f27b13c",
+    "apps/desktop/renderer/execution-panel.tsx": "c90eda33f8262e7099a8aba14547c571d9cae73f02f3b04dd4901e0e2c0956a3",
+    "apps/desktop/renderer/history-app.tsx": "e08d1d266b3d5861db2aebe43f29c5048e28043dcc1ecf2bc001805e3acf0e3f",
+    "apps/desktop/renderer/style.css": "500479e75136ceb7965846b25f2108c2c5d91c93550c1fbd8b1e20c960776d8d",
+    "build/desktop/main.js": "5b616b4246872dcf41e75528761db46399492a264332c7068ef36aebf90eea32",
+    "build/desktop/preload.cjs": "9397ddadd485b4ad96407e4ddc14906530594a31aeb61a5f7c11134cb2c256b6"
+  },
+  "remaining": [
+    "multi_operation_dag",
+    "resource_budget_admission_and_settlement",
+    "internal_scheduler",
+    "daemon_protected_ipc",
+    "pty_worktree_lifecycle",
+    "backup_and_full_stage_gate"
+  ]
+}

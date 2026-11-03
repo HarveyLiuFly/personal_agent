@@ -16,7 +16,7 @@ import type { InteractionContext } from './interactions.ts';
 
 const identity = (v: unknown): v is string => typeof v === 'string' && v.length > 0 && v.length <= 200 && !/[\x00-\x1f]/.test(v);
 function query(value: unknown, keys: string[]): Record<string, unknown> {
-  if (!isObject(value) || Object.keys(value).length !== keys.length || keys.some(key => !(key in value))) throw new LedgerError('INVALID_EXECUTION_QUERY');
+  if (!isObject(value) || Object.keys(value).length !== keys.length || keys.some(key => !Object.hasOwn(value,key))) throw new LedgerError('INVALID_EXECUTION_QUERY');
   return value;
 }
 function summary(row: RunRecord): RunSummary {
@@ -49,6 +49,7 @@ export class ForegroundExecution {
   readonly diagnostics = { clientThreadStarts: 0, clientThreadResumes:0, clientTurnStarts: 0, notificationCount: 0, serverRequestsDenied: 0, selectedModel: '', externalMcpServers: -1, disabledInheritedMcpServers: 0, nativePolicyVerified:false,nativeApprovalsReviewer:'',failureCode: '', remoteFailureCategory: '', phase: 'idle' };
   constructor(store: ExecutionLedger, options: ExecutionOptions) { this.store = store; this.options = options; }
   get busy(): boolean { return this.session !== undefined; }
+  get supportsQueuedCode():boolean {return Boolean(this.options.prepareCode&&this.options.prepareContinuation);}
   list(input: unknown): RunSummary[] {
     const q = query(input, ['projectId']); if (!identity(q.projectId)) throw new LedgerError('INVALID_EXECUTION_QUERY');
     this.store.workspace(q.projectId); return this.store.runs(q.projectId, { snapshots: false }).map(summary);
@@ -81,6 +82,19 @@ export class ForegroundExecution {
     return summary(this.store.runs(q.projectId, { snapshots: false, runId: token.runId })[0]!);
   }
   async wait(): Promise<void> { await this.completion; }
+  startTask(input:unknown):RunSummary {
+    const q=query(input,['projectId','taskId','expectedVersion','submissionKey']);
+    if(!identity(q.projectId)||!identity(q.taskId)||!identity(q.submissionKey)||!Number.isSafeInteger(q.expectedVersion)||Number(q.expectedVersion)<1)throw new LedgerError('INVALID_EXECUTION_QUERY');
+    const spec=this.store.taskForHost(q.projectId,q.taskId);
+    if(spec.mode==='workspaceWrite'&&(!this.options.prepareCode||!this.options.prepareContinuation))throw new LedgerError('CODE_EXECUTION_UNAVAILABLE');
+    if(this.busy&&(this.session?.projectId!==q.projectId||this.session.submissionKey!==q.submissionKey))throw new LedgerError('RUNTIME_BUSY');
+    const queued=this.store.claimTask(q.projectId,q.taskId,Number(q.expectedVersion),q.submissionKey);
+    if(queued.created){
+      const session:Session={token:queued.token,projectId:q.projectId,submissionKey:q.submissionKey,mode:spec.mode,...(queued.code?{code:queued.code}:{}),...(queued.threadId?{resumeThreadId:queued.threadId,sourceRunId:queued.sourceRunId}:{}),abort:new AbortController()};this.session=session;
+      this.completion=this.execute(session,queued.text).finally(()=>{if(this.session===session)this.session=undefined;});
+    }
+    return summary(this.store.runForHost(queued.token.runId));
+  }
   continueRun(input:unknown):RunSummary {
     const q=query(input,['projectId','runId','text','submissionKey']);
     if(!identity(q.projectId)||!identity(q.runId)||!identity(q.submissionKey)||typeof q.text!=='string')throw new LedgerError('INVALID_EXECUTION_QUERY');

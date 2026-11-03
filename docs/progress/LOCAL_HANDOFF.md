@@ -2,7 +2,7 @@
 
 交接日期：2026-11-02（Asia/Shanghai）。用户决定停止在当前云环境中推进，改用本地电脑的 Codex 继续开发。本文件是接手入口，详细执行历史保留在阶段记录中。
 
-本机后续状态以[本机平台接续](LOCAL_BASELINE.md)、[阶段总览](README.md)、[M1 当前记录](M1.md)和[M2 当前记录](M2.md)为准：**M0 与 M1 Gate 已在 macOS arm64 的已记录范围通过，M1 最终定位 `checkpoint/M1`。** M1 的真实代码修复/续接、独立验证、审批/中断、Unknown 核对、原生目录、单实例与进程恢复有[Gate 证据](evidence/M1-gate.json)。**M2.1a 只读工作台完成；旧临时 Fixture 仓库已保存本地恢复包并清理。M2.2a 持久命令/状态 Guard/领取/Outbox 基础完成（`checkpoint/M2.2a`），145/145 用例与真实子进程 SIGKILL 恢复通过，未请求模型。** 正在继续任务管理 UI 和调度/资源/后台执行基础，M2 Gate 开放，尚无 Daemon 或关闭 GUI 后继续执行的承诺。下文（包括第 7 节原始接手指令）保留原云交接时的事实与计划，不覆盖本机新结果。
+本机后续状态以[本机平台接续](LOCAL_BASELINE.md)、[阶段总览](README.md)、[M1 当前记录](M1.md)和[M2 当前记录](M2.md)为准：**M0 与 M1 Gate 已在 macOS arm64 的已记录范围通过，M1 最终定位 `checkpoint/M1`。** 真实代码、验证、审批/中断、Unknown、目录、单实例与恢复有[Gate 证据](evidence/M1-gate.json)。**M2.1a 文件/Git、M2.2a 持久命令/Outbox 和 M2.2b 桌面任务队列完成（`checkpoint/M2.2b`）。152/152 用例、真实子进程 SIGKILL、真实 Electron 和原生 Node 验证回归通过；模型部分用受控 Fixture，未新增真实推理。** 临时仓库已归档清理，正在继续多项 Operation/资源/调度及后台执行。M2 Gate 开放，尚无 Daemon 或关闭 GUI 后继续执行的承诺。历史冻结合同的 Verifier Hash 改变会明确拒绝复用，不可手改 Hash 绕过。下文（包括第 7 节原始接手指令）保留原云交接事实，不覆盖本机结果。
 
 ## 1. Git 与交付范围
 
