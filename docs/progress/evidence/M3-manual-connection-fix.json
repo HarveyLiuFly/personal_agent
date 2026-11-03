@@ -1,0 +1,103 @@
+{
+  "checkpoint": "M3.manual-conn",
+  "date": "2026-11-03",
+  "platform": "darwin-arm64",
+  "cliVersion": "codex-cli 0.163.0",
+  "userObservation": {
+    "case": "A01",
+    "firstAttempt": "connection failed",
+    "agentReadErrorCode": "RESPONSE_TIMEOUT",
+    "manualRetest": "pending; never replaced with agent result"
+  },
+  "diagnosis": {
+    "originalInitializeDeadlineMs": 15000,
+    "observedOriginalTimeoutMs": 15002,
+    "coldInitializeMs": 17615,
+    "coldDirectoryTotalMs": 20846,
+    "coldDirectoryModels": 8,
+    "sharedHomeBackfillObserved": "complete (read only)",
+    "originalWalkthroughIndexObserved": "running; no manual DB changes"
+  },
+  "fix": {
+    "initializeDefaultMs": 60000,
+    "ordinaryRequestDeadlines": "unchanged",
+    "businessUnknownAndNoAutoResend": "unchanged",
+    "startupDiagnostic": "CODEX_STATE_INDEX_PENDING; fixed stderr marker only; no private text/path exposed",
+    "manualDatabaseRepair": false,
+    "deletedIndex": false,
+    "copiedCredentials": false,
+    "changedCliPin": false
+  },
+  "recovery": {
+    "status": "passed",
+    "elapsedMs": 3024,
+    "models": 8,
+    "modelRequests": 0,
+    "finalBackfillStatus": "complete",
+    "mechanism": "native backfill lease recovered without hand-editing SQLite"
+  },
+  "desktop": {
+    "kind": "real production Electron Main and UI; agent accessibility observation",
+    "visibleStatus": "目录已连接 · 8 个模型",
+    "sameDedicatedProfile": true,
+    "manualPass": false
+  },
+  "ledgerCounts": {
+    "projects": 0,
+    "tasks": 0,
+    "task_runs": 0,
+    "execution_intents": 0
+  },
+  "modelRequests": 0,
+  "checks": {
+    "rpcIncremental": {
+      "tests": 17,
+      "passed": 17,
+      "backend": "real Node processes, synthetic stdio"
+    },
+    "firstFullRestricted": {
+      "passed": 571,
+      "failed": 18,
+      "reason": "sandbox EPERM: loopback listen and ps"
+    },
+    "secondFullAuthorized": {
+      "passed": 588,
+      "failed": 1,
+      "reason": "existing terminal SIGKILL running case TERMINAL_WAIT_TIMEOUT"
+    },
+    "terminalFileRecheck": {
+      "tests": 11,
+      "passed": 11
+    },
+    "finalFullAuthorized": {
+      "tests": 589,
+      "passed": 589,
+      "failed": 0,
+      "skipped": 0,
+      "generatedTypes": 747,
+      "designContracts": 17,
+      "typecheck": "passed",
+      "build": "passed"
+    },
+    "timing": "all full runs finished before the user requested incremental-only future regressions"
+  },
+  "futureTestingPolicy": "incremental only unless user explicitly requests full regression",
+  "implementationHashes": [
+    {
+      "file": "packages/codex-adapter/src/rpc.ts",
+      "sha256": "e912091707a22ce68dcf23aaf3573b03a1bb1df5920b3262d555ec0480f3e884"
+    },
+    {
+      "file": "apps/desktop/renderer/src.tsx",
+      "sha256": "a151264e596e9a71f95188db26d1f32e7e4cd268690f257309a7d31a97163e7e"
+    },
+    {
+      "file": "tests/rpc.test.ts",
+      "sha256": "eed785426127f01c5489386762a918d3bd85e7b6b24b50b7ad3aa4c990a95d57"
+    },
+    {
+      "file": "tests/fixtures/rpc-server.ts",
+      "sha256": "51c195271d8477971edf79ae38e988c9b1e09412f9906098c293dfbb05db1cc8"
+    }
+  ]
+}

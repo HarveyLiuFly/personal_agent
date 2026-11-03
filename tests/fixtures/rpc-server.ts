@@ -14,7 +14,16 @@ lines.on('line', line => {
   }
   const method = String(message.method);
   counts[method] = (counts[method] ?? 0) + 1;
-  if (mode === 'reverse') {
+  if (mode === 'slow-startup' && method === 'initialize') {
+    setTimeout(() => send({ id: message.id, result: { ready: true } }), 120);
+  } else if ((mode === 'backfill-exit' || mode === 'backfill-timeout') && method === 'initialize') {
+    process.stderr.write('state db backfill is run');
+    setTimeout(() => {
+      process.stderr.write('ning at /fixture/private-history; waiting up to 30s\n');
+      if (mode === 'backfill-exit') process.exit(7);
+    }, 10);
+  } else if (['slow-startup','backfill-timeout'].includes(mode!) && method === 'test/timeout') return;
+  else if (mode === 'reverse') {
     queued.push(message);
     if (queued.length === 2) for (const item of queued.reverse()) send({ id: item.id, result: item.params });
   } else if (mode === 'approval' || mode === 'unsupported') {

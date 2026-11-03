@@ -2,7 +2,7 @@ import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 
 type JsonObject = Record<string, unknown>;
 type RequestId = string | number;
-type Pending = { resolve(value: unknown): void; reject(error: Error): void; timer: NodeJS.Timeout };
+type Pending = { method: string; resolve(value: unknown): void; reject(error: Error): void; timer: NodeJS.Timeout };
 export const isObject = (value: unknown): value is JsonObject =>
   value !== null && typeof value === 'object' && !Array.isArray(value);
 
@@ -24,6 +24,8 @@ export interface RpcOptions {
   args: string[];
   env?: NodeJS.ProcessEnv;
   requestTimeoutMs?: number;
+  /** Cold CLI state-index initialization can outlast ordinary metadata requests. */
+  initializeTimeoutMs?: number;
   maximumFrameBytes?: number;
   signal?: AbortSignal;
   onNotification?(message: JsonObject): void;
@@ -47,6 +49,8 @@ export class StdioRpcClient {
   private exitPromise: Promise<void>;
   private serverRequests = new Set<RequestId>();
   private usedServerIds = new Set<RequestId>();
+  private startupStderrTail = '';
+  private stateBackfillPending = false;
 
   constructor(options: RpcOptions) {
     this.options = options;
@@ -60,8 +64,13 @@ export class StdioRpcClient {
       this.child.once('error', () => { this.exited = true; this.fail(new RpcFailure('SPAWN_FAILED')); resolve(); });
     });
     this.child.stdout.on('data', (chunk: Buffer) => this.receive(chunk));
-    // stderr is intentionally drained without copying arbitrary private diagnostics into UI or logs.
-    this.child.stderr.on('data', () => {});
+    // Match only fixed startup diagnostics. Never expose stderr, paths or history in an error.
+    this.child.stderr.on('data', (chunk: Buffer) => {
+      if (this.stateBackfillPending) return;
+      const text = this.startupStderrTail + chunk.toString('utf8');
+      this.stateBackfillPending = /state db backfill is running at |timed out waiting for state db backfill at /.test(text);
+      this.startupStderrTail = this.stateBackfillPending ? '' : text.slice(-128);
+    });
     this.child.stdin.on('error', () => this.fail(new RpcFailure('TRANSPORT_CLOSED', true)));
     options.signal?.addEventListener('abort', this.abort, { once: true });
     if (options.signal?.aborted) this.abort();
@@ -71,13 +80,22 @@ export class StdioRpcClient {
 
   waitClosed(): Promise<void> { return this.exitPromise; }
 
-  request<T = unknown>(method: string, params: unknown, timeoutMs = this.options.requestTimeoutMs ?? 15_000): Promise<T> {
+  private deadline(method: string): number {
+    return method === 'initialize' ? this.options.initializeTimeoutMs ?? 60_000 : this.options.requestTimeoutMs ?? 15_000;
+  }
+
+  private startupFailure(method: string, error: RpcFailure): RpcFailure {
+    return method === 'initialize' && this.stateBackfillPending && ['RESPONSE_TIMEOUT', 'PROCESS_EXITED', 'DISCONNECTED'].includes(error.code)
+      ? new RpcFailure('CODEX_STATE_INDEX_PENDING') : error;
+  }
+
+  request<T = unknown>(method: string, params: unknown, timeoutMs = this.deadline(method)): Promise<T> {
     return this.requestWithId<T>(this.nextId++, method, params, timeoutMs);
   }
 
   /** Host-provided ID must already be persisted in the execution intent before this call. */
-  requestWithId<T = unknown>(id: RequestId, method: string, params: unknown, timeoutMs = this.options.requestTimeoutMs ?? 15_000): Promise<T> {
-    if (this.closed || this.stopRequested) return Promise.reject(new RpcFailure('DISCONNECTED'));
+  requestWithId<T = unknown>(id: RequestId, method: string, params: unknown, timeoutMs = this.deadline(method)): Promise<T> {
+    if (this.closed || this.stopRequested) return Promise.reject(this.startupFailure(method, new RpcFailure('DISCONNECTED')));
     if (this.pending.size >= 32) return Promise.reject(new RpcFailure('PENDING_LIMIT'));
     if ((typeof id === 'string' ? !id || id.length > 200 : !Number.isSafeInteger(id)) || this.usedClientIds.has(id)) return Promise.reject(new RpcFailure('INVALID_CLIENT_REQUEST_ID'));
     if (this.usedClientIds.size >= 4096) return Promise.reject(new RpcFailure('CONNECTION_REQUEST_LIMIT'));
@@ -85,9 +103,9 @@ export class StdioRpcClient {
     return new Promise<T>((resolve, reject) => {
       const timer = setTimeout(() => {
         this.pending.delete(id);
-        reject(new RpcFailure('RESPONSE_TIMEOUT', true));
+        reject(this.startupFailure(method, new RpcFailure('RESPONSE_TIMEOUT', true)));
       }, timeoutMs);
-      this.pending.set(id, { resolve: value => resolve(value as T), reject, timer });
+      this.pending.set(id, { method, resolve: value => resolve(value as T), reject, timer });
       void this.write({ id, method, params }).catch(() => this.fail(new RpcFailure('WRITE_FAILED', true)));
     });
   }
@@ -178,7 +196,7 @@ export class StdioRpcClient {
   private fail(error: RpcFailure): void {
     if (this.closed) return;
     this.closed = true;
-    for (const item of this.pending.values()) { clearTimeout(item.timer); item.reject(error); }
+    for (const item of this.pending.values()) { clearTimeout(item.timer); item.reject(this.startupFailure(item.method, error)); }
     this.pending.clear();
   }
 

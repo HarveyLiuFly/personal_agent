@@ -97,3 +97,28 @@ test('a diagnostic consumer failure does not break RPC error correlation or expo
     assert.deepEqual(await rpc.request('test/count', {}), { 'test/fail': 1, 'test/count': 1 });
   } finally { await rpc.close(); }
 });
+test('cold initialization has its own deadline; ordinary uncertain requests retain their deadline and are not repeated', async () => {
+  const rpc = client('slow-startup', { requestTimeoutMs: 30, initializeTimeoutMs: 500 });
+  try {
+    // Wait for the child to be ready before measuring the shorter ordinary deadline.
+    await rpc.request('test/ready', {}, 2_000);
+    assert.deepEqual(await rpc.request('initialize', {}), { ready: true });
+    await assert.rejects(rpc.request('test/timeout', {}), error => error instanceof RpcFailure && error.code === 'RESPONSE_TIMEOUT' && error.outcomeUnknown);
+    const counts = await rpc.request<Record<string, number>>('test/count', {}, 2_000);
+    assert.equal(counts.initialize, 1); assert.equal(counts['test/timeout'], 1);
+  } finally { await rpc.close(); }
+});
+for (const mode of ['backfill-exit', 'backfill-timeout']) {
+  test(`${mode} is a sanitized initialization failure and never a login failure or business success`, async () => {
+    const rpc = client(mode, { initializeTimeoutMs: 200 });
+    try {
+      await rpc.request('test/ready', {});
+      await assert.rejects(rpc.request('initialize', {}), error => error instanceof RpcFailure
+        && error.code === 'CODEX_STATE_INDEX_PENDING' && !error.outcomeUnknown && !JSON.stringify(error).includes('private-history'));
+      if (mode === 'backfill-timeout') {
+        await assert.rejects(rpc.request('test/timeout', {}, 30), error => error instanceof RpcFailure && error.code === 'RESPONSE_TIMEOUT' && error.outcomeUnknown);
+        assert.equal((await rpc.request<Record<string, number>>('test/count', {})).initialize, 1);
+      }
+    } finally { await rpc.close(); }
+  });
+}

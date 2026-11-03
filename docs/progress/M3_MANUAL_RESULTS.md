@@ -4,7 +4,7 @@
 
 ## 当前进度
 
-54项桌面用例 + 8组Host协助边界。**人工通过0，失败0；A01引导开始，其余61项待执行**。本轮新模型请求0。尚无用户实际观察，尚无人工截图；最终结论待走查。A01的程序启动成功仅证明准备工作，不等于用户确认界面可用。
+54项桌面用例 + 8组Host协助边界。**人工通过0，首轮失败1（A01；CONN-01已修复，待用户复走），其余61项待执行**。本轮新模型请求0。用户首轮点击“检查连接”后显示“连接未完成”；Agent只读UI补充具体错误码`RESPONSE_TIMEOUT`。修复后专用索引原生恢复为complete，真实窗口已显示“目录已连接 · 8 个模型”；Agent验证不替代用户复走。
 
 执行档案：独立 `.local/m3-manual-20261103/profile`；项目路径由该会话 `session.json` 的 `code/goal/other` 指向系统临时目录。运行数据库、完整路径清单、原始输出均留本地忽略目录；Git只收脱敏摘要。正式默认档案未被选为本轮目标。
 
@@ -25,7 +25,7 @@
 
 | 用例 | 状态 | 用户观察 | Host核对/证据 | 问题与下一步 |
 |---|---|---|---|---|
-| A01 | 执行中 | 待用户确认窗口/连接 | 空档案启动预检通过；Agent只读观察窗口初始“尚未检查连接”，不是人工结果 | 用户点击检查连接，再引导A02 |
+| A01 | 首轮失败；修复后待复走 | 用户首轮点击“检查连接”，显示“连接未完成” | 首轮initialize超时15002ms；修复后真实窗口“目录已连接 · 8 个模型”，原索引complete，0业务Run/Intent | CONN-01已修复；请用户确认/复走，不代填人工通过 |
 | A02 | 待执行 | — | — | 取消目录选择，再选择P |
 | A03 | 待执行 | — | — | — |
 | A04 | 待执行 | — | — | — |
@@ -93,6 +93,7 @@
 | 编号 | 发现方式/状态 | 复现与影响 | 决定 |
 |---|---|---|---|
 | UX-01 | 静态代码核对确认；人工复现待E07 | 验证页只显示结果/计数/Diff，Goal完成表单却要求verificationId。用户不能仅靠界面取编号。 | E07由Host只读提供真实收据并分列结果；人工独立闭环不判通过，后续修复与复走。 |
+| CONN-01 | 修复完成，Agent真实组件/窗口复验通过；用户复走待确认 | 首轮initialize 15002ms超时；真实冷启动需17615ms。原专用索引running旧租约自然恢复为complete，后续握手/8模型目录3024ms，窗口可见已连接，0推理。 | initialize独立60秒预算，普通RPC期限/Unknown不放宽；固定stderr分类，无自动重试。未手改/删除索引、未改共享主档案或复制认证。 |
 
 ## 模型与未决记录
 
@@ -100,4 +101,26 @@
 
 ## 下一步
 
-引导用户完成A01–A02，只核对窗口、连接和原生项目选择，不调用模型。之后A03–A06，再按计划分批继续；所有用户反馈当轮写回本记录。Source尚未准备生产HTTPS Provider，进入S01时单独接线；不阻塞其余桌面走查，不把既有HTTP Fixture称本轮第三方账号通过。
+A01首轮失败，CONN-01已修复并完成Agent真实组件/窗口验证；请用户确认当前窗口连接状态，再恢复A02原生目录取消/选择。不能用Agent探测替人工通过。后续回归按用户最新要求只做增量，全量仅用户明确要求时运行。Source尚未准备生产HTTPS Provider，不把既有HTTP Fixture称本轮第三方账号通过。
+
+## CONN-01 排查与修复过程（2026-11-03）
+
+用户实际反馈A01连接未完成。Agent只读读取UI错误码并执行同参数原生探测，initialize在15秒超时；进一步只在内存读取并脱敏stderr，确认启动等待回填状态、30秒后退出。最初“本机Codex历史索引运行中”的说明经只读SQLite细化：共享主档案为complete，专用sqlite_home为running，更新水位停留；未把它误判成认证失败，也未修改共享档案。
+
+独立**真实锁版CLI**冷启动验证：新sqlite_home用60秒initialize期限，17615ms完成initialize，20846ms完成8模型目录，0Thread/Turn/推理。新增initialize专用默认60秒预算；普通请求原15秒/执行原30秒及显式期限不变。仅匹配固定回填stderr标记，将initialize的超时/进程退出显示为CODEX_STATE_INDEX_PENDING；取消、其他方法的Unknown语义不被改写，没有自动发送/重试。UI展示索引未就绪与首次等待提示，不把“检查连接”称登录成功。
+
+组件验证17/17（真实Node子进程，合成stdio的慢启动、分片stderr/退出/超时/不重发等；不是模型）。常规pnpm check首轮571通过、18失败，全为本机沙箱禁止loopback监听/ps（EPERM）；授权环境复验588通过、1个既有终端强杀用例TERMINAL_WAIT_TIMEOUT。终端文件单独复验11/11，随后完整复跑**589/589、0失败/跳过，747协议类型、严格TS、17合同及构建通过**；保留前两次失败轨迹，不把重跑描述成从未失败。
+
+原专用索引等待期间由原生路径自然恢复complete；随后该原路径initialize/模型目录实际3024ms、8模型、0Thread/Turn。专用Electron冷重开后Agent只读UI见“目录已连接 · 8 个模型”，0项目/Task/Run/Intent；运行中只有一个持有该专用入口的Main。没有手改updated_at/status、没有删除索引、没有更换CLI哈希/复制凭据；产品后续变更与准备阶段71文件未变的历史核对分开记录。脱敏结果见[evidence/M3-manual-connection-fix.json](evidence/M3-manual-connection-fix.json)。
+
+上述全量已在用户最新指令前结束。用户随后明确要求“后续回归检查不需要全量，只要增量；除非要求全量”，已写入AGENTS和交接；今后默认增量，不因本次采用pnpm check而沿用全量策略。
+
+协议核对：[官方App Server文档](https://learn.chatgpt.com/docs/app-server)说明stdio/initialize/thread与turn接口；运行路径仍是Electron Main → 锁版CLI承载App Server → Codex Core，检查连接只做initialize/initialized/model-list，并不调用login或创建模型任务。
+
+## 运行时架构核对（用户追问，2026-11-03）
+
+用户质疑官方桌面客户端是否依赖CLI、当前方案是否偏离。按OpenAI Docs核对[App Server协议与启动示例](https://learn.chatgpt.com/docs/app-server)和[官方平台集成说明](https://developers.openai.com/blog/codex-as-a-platform)：官方推荐富客户端通过App Server管理认证、历史、流式事件和审批，示例本身以spawn("codex", ["app-server"])启动服务。这里是二进制承载的服务模式，不是启动终端交互界面/解析终端文字，也不是每次用codex exec提交任务。公开资料可支持集成路线，不足以证明官方桌面端所有私有生命周期实现。
+
+本项目静态核对：read-connection/inspectConnection使用短连接，ForegroundExecution为执行会话创建StdioRpcClient，存在重复初始化；二进制优先来自项目.local内受哈希/版本校验的官方发行物，另有显式配置/PATH解析。认证沿用受支持的本机登录，SQLite/日志目录独立。CONN-01说明冷启动/索引就绪管理存在实际缺口，不能把“官方推荐协议”当作产品成熟度证明。
+
+结论：保留App Server协议路线；后续架构审查应聚焦初始化就绪、状态迁移，以及**按角色/权限/隐私边界**的进程复用。不能直接将Router/Chat/Coding合成单一常驻进程，更不能为缩短等待共享私有状态或复制认证。本轮只完成已验证的连接修复和事实记录，没有擅自进行运行时重构；人工走查仍保留当前执行进度。
