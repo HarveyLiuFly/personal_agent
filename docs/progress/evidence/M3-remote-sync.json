@@ -1,0 +1,16 @@
+{
+  "status": "passed",
+  "observedAt": "2026-11-03T14:40:50.391162+00:00",
+  "method": "independent git ls-remote after push",
+  "sourceCommit": "819382fa9fbd7902fb4ef39daf8a5f9a5e4f881d",
+  "observedRemoteRefs": {
+    "refs/heads/main": "819382fa9fbd7902fb4ef39daf8a5f9a5e4f881d",
+    "refs/tags/checkpoint/M3": "819382fa9fbd7902fb4ef39daf8a5f9a5e4f881d",
+    "refs/tags/checkpoint/M3.1b": "819382fa9fbd7902fb4ef39daf8a5f9a5e4f881d",
+    "refs/tags/checkpoint/M3.2": "819382fa9fbd7902fb4ef39daf8a5f9a5e4f881d",
+    "refs/tags/checkpoint/M3.3": "819382fa9fbd7902fb4ef39daf8a5f9a5e4f881d",
+    "refs/tags/checkpoint/M3.4": "819382fa9fbd7902fb4ef39daf8a5f9a5e4f881d"
+  },
+  "forcePush": false,
+  "scope": "Feature/Gate commit and five checkpoint tags verified. This receipt is committed in a subsequent documentation-only update; tags remain pinned to the tested source."
+}
