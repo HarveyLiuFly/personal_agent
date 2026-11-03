@@ -24,6 +24,7 @@ export function HistoryApp({ children }: { children: React.ReactNode }) {
   const [canCode, setCanCode] = useState(false);
   const [canBrowseWorkspace,setCanBrowseWorkspace]=useState(false),[workspaceMode,setWorkspaceMode]=useState(false);
   const [canSubmit, setCanSubmit] = useState(false);
+  const [backgroundEnabled,setBackgroundEnabled]=useState(false);
   const [canManageTasks,setCanManageTasks]=useState(false),[requestedRun,setRequestedRun]=useState<{projectId:string;runId:string}>();
   const [projects, setProjects] = useState<ProjectView[]>([]);
   const [executionMode, setExecutionMode] = useState(true);
@@ -46,7 +47,7 @@ export function HistoryApp({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let stopped = false;
     void value(window.personalAgent.workspaceState()).then(state => {
-      if (stopped) return; setCanSubmit(state.canSubmit);setCanManageTasks(state.canManageTasks); setCanCode(state.canCode);setCanBrowseWorkspace(state.canBrowseWorkspace); setMode(state.mode); setProjects(state.projects);
+      if (stopped) return; setCanSubmit(state.canSubmit);setBackgroundEnabled(state.backgroundEnabled);setCanManageTasks(state.canManageTasks); setCanCode(state.canCode);setCanBrowseWorkspace(state.canBrowseWorkspace); setMode(state.mode); setProjects(state.projects);
       if (state.projects[0]) { setProject(state.projects[0]); }
     }).catch(() => { if (!stopped) setError('HOST_DISCONNECTED'); });
     return () => { stopped = true; };
@@ -96,7 +97,7 @@ export function HistoryApp({ children }: { children: React.ReactNode }) {
         {project && threads?.items.length === 0 && <p className="empty-nav">这个项目还没有已保存的会话。</p>}
       </nav>
       {threads?.nextCursor && <button className="text-button" data-action="next-threads" disabled={busy} onClick={() => void pageThreads(threads.nextCursor!)}>下一页会话 →</button>}
-      <div className="sidebar-footer"><span className="status-dot"/>本地工作区 · 前台执行</div>
+      <div className="sidebar-footer"><span className="status-dot"/>本地工作区 · {backgroundEnabled?'关闭窗口继续运行':'前台执行'}</div>
     </aside>
     <main>
       <header className="toolbar"><div><span className="eyebrow">PERSONAL WORKSPACE</span><h1>{project?.name ?? '我的工作区'}</h1></div>{children}</header>

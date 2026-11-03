@@ -1,0 +1,60 @@
+{
+  "checkpoint": "M2.4a",
+  "status": "passed_background_window_lifecycle_scope",
+  "baselineCommit": "7ed4288b2c631409c29f25ed900ec405a60d50a5",
+  "schemaRevision": 4,
+  "stageGate": "open",
+  "permissionManagement": "deferred_to_M5",
+  "checks": {
+    "discovered": 225,
+    "executed": 225,
+    "passed": 225,
+    "failed": 0,
+    "skipped": 0,
+    "designContracts": 17,
+    "stableGeneratedTypes": 747,
+    "typecheck": "passed",
+    "build": "passed"
+  },
+  "rendererFaultTests": {
+    "realSigkill": true,
+    "syntheticBackend": "passed",
+    "nativeModelBackend": "passed",
+    "newFaultLocation": "owned_electron_renderer_before_schedule_due"
+  },
+  "native": {
+    "observedAt": "2026-11-03T04:26:54.565Z",
+    "attempts": 1,
+    "model": "gpt-6.1-sol",
+    "modelTurns": 1,
+    "reportedTokens": 18082,
+    "runId": "46c7f80c-d382-4119-939f-eb18c0fe7291",
+    "ownerEpoch": 1,
+    "explicitQuitProcessExited": true
+  },
+  "apiWhitelistCount": 32,
+  "lifecycle": {
+    "owner": "existing_electron_main",
+    "rendererMayCloseAndReopen": true,
+    "ownerEpochOnReopen": "unchanged",
+    "applicationQuitStopsOwner": true,
+    "independentDaemonClaimed": false
+  },
+  "sourceAndBuildHashes": {
+    "apps/desktop/src/main.ts": "ca0edb8ee42cc308e1c5a45afcdd6a52cbd2176f679d6ca5cfc922785e41eff3",
+    "apps/desktop/src/desktop-window.ts": "cae848950a18a887e04dd4ab7800b9320cb4ce3485e38b016ed86af21b4e9818",
+    "apps/desktop/src/background-probe.ts": "1ece4b741171067b6ae28952ce262a15d1916a8cc66bca8908f35016d1af8f69",
+    "apps/desktop/src/bridge.ts": "af8d117108bce4c0543b2f43835995c3ffc87a3029215ab48f087fd83418e1a4",
+    "apps/desktop/renderer/history-app.tsx": "61c2c5c8e0890ff13fff70bb31f2fe9db363a005d48df225c2509dc04433b402",
+    "apps/desktop/renderer/schedule-manager.tsx": "544c317895711ad5c024f0b7dbe56aa335b8e07b2f75f82aba7e5d6dd2f22be5",
+    "scripts/smoke-desktop.mjs": "26aad4e35b1d17598a1e2943a92e5ee438bdd4e14a0ece373f273533b303a5a8",
+    "build/desktop/main.js": "e9507e2c74a67a4743c37a9585c7af909953fd48507dbe208165b63a61465078",
+    "build/desktop/preload.cjs": "e50158bbf2d97bf56802f1199276ad6cd67eb687471b5bb90e637a893d7272b4"
+  },
+  "remaining": [
+    "worktree_lifecycle_and_writes",
+    "user_pty",
+    "resource_backup_recovery",
+    "full_M2_gate"
+  ]
+}

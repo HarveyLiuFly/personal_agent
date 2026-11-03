@@ -18,7 +18,7 @@ export interface DesktopApi {
   listThreads(query: ProjectQuery): Promise<HostResult<Page<ThreadSummary>>>;
   listTurns(query: ThreadQuery): Promise<HostResult<Page<TurnView>>>;
   listItems(query: ItemQuery): Promise<HostResult<Page<ItemView>>>;
-  workspaceState(): Promise<HostResult<{ projects: ProjectView[]; canSubmit: boolean; canCode: boolean; canBrowseWorkspace:boolean;canManageTasks:boolean; mode: 'readOnly' | 'workspaceWrite' }>>;
+  workspaceState(): Promise<HostResult<{ projects: ProjectView[]; canSubmit: boolean; canCode: boolean; canBrowseWorkspace:boolean;canManageTasks:boolean;backgroundEnabled:boolean; mode: 'readOnly' | 'workspaceWrite' }>>;
   listTasks(query:{projectId:string}):Promise<HostResult<TaskSummary[]>>;
   applyTaskCommand(command:TaskCommand):Promise<HostResult<OperationReceipt>>;
   startTask(input:StartTask):Promise<HostResult<RunSummary>>;

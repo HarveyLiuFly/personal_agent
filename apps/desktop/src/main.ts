@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, Menu } from 'electron';
 import { readFileSync, mkdirSync, writeFileSync, mkdtempSync, realpathSync } from 'node:fs';
 import { mkdtemp, mkdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -28,6 +28,8 @@ import {runTaskProbe} from './task-probe.ts';
 import {runPlanProbe} from './plan-probe.ts';
 import {runScheduleProbe} from './schedule-probe.ts';
 import {ScheduleService} from '../../../packages/runtime/src/schedules.ts';
+import {createDesktopWindow} from './desktop-window.ts';
+import {runBackgroundProbe} from './background-probe.ts';
 
 const directory = dirname(fileURLToPath(import.meta.url));
 const root = resolve(directory, '../..');
@@ -45,6 +47,9 @@ let verifier: NodeVerification | undefined;
 let workspaceReader:WorkspaceService|undefined;
 let scheduleService:ScheduleService|undefined,scheduleTimer:ReturnType<typeof setInterval>|undefined;
 let taskService:TaskService|undefined,outboxPump:OutboxPump|undefined,outboxTimer:ReturnType<typeof setInterval>|undefined;
+const backgroundNativeSmoke=process.argv.includes('--m2-background-native-smoke');
+const backgroundSmoke=process.argv.includes('--m2-background-smoke');
+const backgroundProbe=backgroundSmoke||backgroundNativeSmoke;
 const nativeCodeContinuationSmoke=process.argv.includes('--m1-native-code-continuation-smoke');
 const nativeCodeSmoke=process.argv.includes('--m1-native-code-smoke')||nativeCodeContinuationSmoke;
 let nativeCodeWorkspace:string|undefined;
@@ -56,8 +61,11 @@ const scheduleAutoSmoke=process.argv.includes('--m2-scheduler-auto-smoke');
 const scheduleSmoke=process.argv.includes('--m2-scheduler-smoke')||scheduleAutoSmoke;
 const planSmoke=process.argv.includes('--m2-plans-smoke');
 const taskSmoke=process.argv.includes('--m2-tasks-smoke')||budgetSmoke||planSmoke||scheduleSmoke;
-const executionSmoke = process.argv.includes('--m1-execution-smoke') || interactionSmoke || continuationSmoke || taskSmoke;
+const executionSmoke = backgroundSmoke || process.argv.includes('--m1-execution-smoke') || interactionSmoke || continuationSmoke || taskSmoke;
 const historySmoke = process.argv.includes('--m1-history-smoke');
+const keepRunningWithoutWindow=backgroundProbe||!(nativeCodeSmoke||executionSmoke||historySmoke||acceptanceProbe||process.argv.includes('--m0-window-smoke'));
+let windowsReady=false,windowOpening:Promise<BrowserWindow>|undefined;
+if(backgroundNativeSmoke){mkdirSync(resolve(root,'.local'),{recursive:true});app.setPath('userData',mkdtempSync(resolve(root,'.local/desktop-background-native-')));}
 let fixtureDirectory: string | undefined;
   if (process.argv.includes('--m0-window-smoke')) app.setPath('userData', resolve(root, '.local/desktop-smoke-data'));
   if (historySmoke) app.setPath('userData', resolve(root, '.local/desktop-history-smoke-data'));
@@ -69,9 +77,9 @@ else if (!singleInstanceHeld) app.quit();
 else void boot().catch(async error => {
   const code = error instanceof Error && /^[A-Z0-9_]{1,100}$/.test(error.message) ? error.message : 'HOST_ERROR';
   console.error('DESKTOP_BOOT_FAILED', code);
-  if (acceptanceProbe || nativeCodeSmoke || executionSmoke || historySmoke || process.argv.includes('--m0-window-smoke')) {
+  if (backgroundProbe || acceptanceProbe || nativeCodeSmoke || executionSmoke || historySmoke || process.argv.includes('--m0-window-smoke')) {
     if (window) { try { writeFileSync(resolve(root, '.local/desktop-failure.png'), (await window.webContents.capturePage()).toPNG()); } catch {} }
-    const file = scheduleAutoSmoke?'M2.3d-desktop':scheduleSmoke?'M2.3c-desktop':planSmoke?'M2.2d-desktop':budgetSmoke?'M2.2c-desktop':taskSmoke?'M2.2b-desktop':acceptanceProbe?acceptanceProbe.kind==='workspace'?'M2.1a-desktop':`M1.4b-${acceptanceProbe.kind==='folder'?'native-folder':acceptanceProbe.kind==='restart'?'native-restart':'owner'}`:nativeCodeSmoke ? 'M1-native-code-desktop' : continuationSmoke?'M1.3c-desktop':interactionSmoke ? 'M1.2-desktop' : executionSmoke ? 'M1.1c-desktop' : historySmoke ? 'M1.1b-desktop' : 'M0-desktop-smoke';
+    const file = backgroundProbe?(backgroundNativeSmoke?'M2.4a-native-background':'M2.4a-desktop'):scheduleAutoSmoke?'M2.3d-desktop':scheduleSmoke?'M2.3c-desktop':planSmoke?'M2.2d-desktop':budgetSmoke?'M2.2c-desktop':taskSmoke?'M2.2b-desktop':acceptanceProbe?acceptanceProbe.kind==='workspace'?'M2.1a-desktop':`M1.4b-${acceptanceProbe.kind==='folder'?'native-folder':acceptanceProbe.kind==='restart'?'native-restart':'owner'}`:nativeCodeSmoke ? 'M1-native-code-desktop' : continuationSmoke?'M1.3c-desktop':interactionSmoke ? 'M1.2-desktop' : executionSmoke ? 'M1.1c-desktop' : historySmoke ? 'M1.1b-desktop' : 'M0-desktop-smoke';
     writeFileSync(resolve(root, `docs/progress/evidence/${file}.json`), JSON.stringify({ status: 'blocked', code, observedAt: new Date().toISOString() }) + '\n');
   }
   try { await execution?.close(); ledger?.close(); } catch {}
@@ -92,7 +100,7 @@ async function historyCommand<T>(event: Electron.IpcMainInvokeEvent, args: unkno
   active = true; controller = new AbortController();
   try { return { ok: true, value: await operation() }; }
   catch (error) { return { ok: false, errorCode: error instanceof RpcFailure || error instanceof LedgerError ? error.code : 'HOST_ERROR' }; }
-  finally { active = false; controller = undefined; if (quitting || BrowserWindow.getAllWindows().length === 0) app.quit(); }
+  finally { active = false; controller = undefined; if (quitting || (!keepRunningWithoutWindow&&BrowserWindow.getAllWindows().length === 0)) app.quit(); }
 }
 async function boot(): Promise<void> {
   await app.whenReady();
@@ -100,7 +108,7 @@ async function boot(): Promise<void> {
   if(nativeCodeSmoke){nativeCodeWorkspace=realpathSync(await mkdtemp(resolve(tmpdir(),'personal-agent-code-')));createCodeFixture(nativeCodeWorkspace);}
   let fixtureWorkspace: string | undefined;
   const fixtureMethods = new Set<string>();
-  if (historySmoke || executionSmoke) {
+  if (historySmoke || executionSmoke || backgroundNativeSmoke) {
     mkdirSync(resolve(root, '.local'), { recursive: true });
     fixtureDirectory = await mkdtemp(resolve(root, '.local/history-desktop-'));
     fixtureWorkspace = resolve(fixtureDirectory, 'workspace'); await mkdir(fixtureWorkspace);
@@ -116,7 +124,7 @@ async function boot(): Promise<void> {
       ...(verifier ? { prepareCode: (token, code, signal) => verifier!.prepare(token,code,signal) } : {}),
       ...(verifier ? {prepareContinuation:(token,sourceRunId,signal)=>verifier!.prepareContinuation(token,sourceRunId,signal)} : {}),
       ...(executionSmoke ? { connect: callbacks => new StdioRpcClient({ executable: resolveExecutable('node'),
-        args: [resolve(root, 'tests/fixtures/execution-server.ts'), scheduleAutoSmoke?'usage':taskSmoke?'interrupt-ok':interactionSmoke ? 'approval-accept' : 'slow', resolve(fixtureDirectory!, 'execution/ledger.db'), resolve(fixtureDirectory!, 'execution-receipts')], env: runtimeEnvironment(), ...callbacks }) } : {}) });
+        args: [resolve(root, 'tests/fixtures/execution-server.ts'), backgroundSmoke||scheduleAutoSmoke?'usage':taskSmoke?'interrupt-ok':interactionSmoke ? 'approval-accept' : 'slow', resolve(fixtureDirectory!, 'execution/ledger.db'), resolve(fixtureDirectory!, 'execution-receipts')], env: runtimeEnvironment(), ...callbacks }) } : {}) });
   }
   const history = new HistoryBrowser(async read => {
     if (!historySmoke && !executionSmoke) return readConnection(executable(), state, controller?.signal)(port=>read({request:async<T>(method:string,params:unknown)=>{acceptanceProbe?.readMethods.add(method);return port.request<T>(method,params);}}));
@@ -152,7 +160,7 @@ async function boot(): Promise<void> {
   if(ledger&&execution){taskService=new TaskService(ledger,execution);outboxPump=new OutboxPump(ledger);outboxTimer=setInterval(()=>{try{outboxPump?.step();}catch{/* Owner/DB failures never trigger model dispatch. */}void taskService?.stepPlans().catch(()=>{});},250);outboxTimer.unref();}
   if(ledger){scheduleService=new ScheduleService(ledger,execution);scheduleTimer=setInterval(()=>{try{scheduleService?.step();}catch{/* Failed admission transactions preserve their cursor; sent runs are never retried here. */}},1000);scheduleTimer.unref();}
   for(const [channel,method]of [['schedules:command','apply'],['schedules:list','list'],['schedules:occurrences','occurrences']] as const)ipcMain.handle(channel,(event,...args:unknown[])=>executionCommand(event,args,1,()=>{if(!scheduleService)throw new LedgerError('SCHEDULES_UNAVAILABLE');return scheduleService[method](args[0]);}));
-  ipcMain.handle('execution:workspaceState', (event, ...args: unknown[]) => executionCommand(event, args, 0, () => ({ projects: ledger?.projects() ?? [], canSubmit: Boolean(execution), canCode: Boolean(verifier), canBrowseWorkspace:Boolean(workspaceReader),canManageTasks:Boolean(taskService),mode: interactionSmoke ? 'workspaceWrite' as const : 'readOnly' as const })));
+  ipcMain.handle('execution:workspaceState', (event, ...args: unknown[]) => executionCommand(event, args, 0, () => ({ projects: ledger?.projects() ?? [], canSubmit: Boolean(execution), canCode: Boolean(verifier), canBrowseWorkspace:Boolean(workspaceReader),canManageTasks:Boolean(taskService),backgroundEnabled:keepRunningWithoutWindow,mode: interactionSmoke ? 'workspaceWrite' as const : 'readOnly' as const })));
   ipcMain.handle('tasks:list',(event,...args:unknown[])=>executionCommand(event,args,1,()=>{if(!taskService)throw new LedgerError('TASKS_UNAVAILABLE');return taskService.list(args[0]);}));
   ipcMain.handle('tasks:activity',(event,...args:unknown[])=>executionCommand(event,args,1,()=>{if(!taskService)throw new LedgerError('TASKS_UNAVAILABLE');return taskService.activity(args[0]);}));
   ipcMain.handle('runtime:resourceBudget',(event,...args:unknown[])=>executionCommand(event,args,0,()=>{if(!ledger)throw new LedgerError('TASKS_UNAVAILABLE');return ledger.resourceBudget();}));
@@ -220,7 +228,7 @@ async function boot(): Promise<void> {
     active=true;controller=new AbortController();
     try{if(!execution||!verifier)throw new LedgerError('VERIFICATION_UNAVAILABLE');execution.view(args[0]);const q=args[0] as {projectId:string;runId:string};await verifier.verify(q.projectId,q.runId,controller.signal);return{ok:true,value:review(args[0])};}
     catch(error){return{ok:false,errorCode:error instanceof LedgerError?error.code:'HOST_ERROR'};}
-    finally{active=false;controller=undefined;if(quitting||BrowserWindow.getAllWindows().length===0)app.quit();}
+    finally{active=false;controller=undefined;if(quitting||(!keepRunningWithoutWindow&&BrowserWindow.getAllWindows().length===0))app.quit();}
   });
   ipcMain.handle('runtime:inspect', async (event, ...args: unknown[]): Promise<ConnectionInfo> => {
     authorized(event);
@@ -230,17 +238,12 @@ async function boot(): Promise<void> {
     controller = new AbortController();
     try { return { status: 'connected', ...await inspectConnection(executable(), state, controller.signal) }; }
     catch (error) { return { status: 'error', errorCode: error instanceof RpcFailure || error instanceof LedgerError ? error.code : 'HOST_ERROR' }; }
-    finally { active = false; controller = undefined; if (quitting || BrowserWindow.getAllWindows().length === 0) app.quit(); }
+    finally { active = false; controller = undefined; if (quitting || (!keepRunningWithoutWindow&&BrowserWindow.getAllWindows().length === 0)) app.quit(); }
   });
-  window = new BrowserWindow({ width: 1120, height: 760, backgroundColor: '#0c1221', show: true,
-    webPreferences: { preload: resolve(directory, 'preload.cjs'), contextIsolation: true,
-      nodeIntegration: false, sandbox: true, webSecurity: true, devTools: false } });
-  window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
-  window.webContents.on('will-navigate', (event, url) => { if (url !== documentUrl) event.preventDefault(); });
-  window.webContents.session.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));
-  window.webContents.session.setPermissionCheckHandler(() => false);
-  window.webContents.on('will-attach-webview', event => event.preventDefault());
-  await window.loadFile(documentPath);
+  windowsReady=true;
+  Menu.setApplicationMenu(Menu.buildFromTemplate([{label:'Personal Agent',submenu:[{label:'显示主窗口',click:()=>{void showMainWindow().catch(()=>{});}},{type:'separator'},{label:'退出并停止运行',accelerator:'CmdOrCtrl+Q',click:()=>app.quit()}]},{role:'editMenu'},{role:'windowMenu'}]));
+  window=await showMainWindow();
+  if(backgroundProbe){await runBackgroundProbe(root,app,window,ledger!,execution!,resolve(fixtureDirectory!,'execution/ledger.db'),showMainWindow,backgroundNativeSmoke);return;}
   if(scheduleSmoke){await runScheduleProbe(root,app,window,execution!,scheduleAutoSmoke);return;}
   if(planSmoke){await runPlanProbe(root,app,window,execution!);return;}
   if(taskSmoke){await runTaskProbe(root,app,window,ledger!,execution!,budgetSmoke);return;}
@@ -456,8 +459,17 @@ async function boot(): Promise<void> {
   }
 
 }
-app.on('window-all-closed', () => { if (!active) app.quit(); });
+function showMainWindow():Promise<BrowserWindow>{
+  if(quitting)return Promise.reject(new LedgerError('RUNTIME_STOPPING'));
+  if(window&&!window.isDestroyed()){if(window.isMinimized())window.restore();window.show();window.focus();return Promise.resolve(window);}
+  if(!windowOpening)windowOpening=createDesktopWindow(directory,documentPath,documentUrl,created=>{window=created;},closed=>{if(window===closed)window=undefined;}).finally(()=>{windowOpening=undefined;});
+  return windowOpening;
+}
+app.on('activate',()=>{if(windowsReady&&!quitting)void showMainWindow().catch(()=>{});});
+app.on('second-instance',()=>{if(windowsReady&&!quitting)void showMainWindow().catch(()=>{});});
+app.on('window-all-closed',()=>{if(!keepRunningWithoutWindow&&!active)app.quit();});
 app.on('before-quit', event => {
+  quitting=true;
   clearInterval(outboxTimer);outboxTimer=undefined;clearInterval(scheduleTimer);scheduleTimer=undefined;
   if (active) { event.preventDefault(); quitting = true; controller?.abort(); }
   else if (execution?.busy) {
