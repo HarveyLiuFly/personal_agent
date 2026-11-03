@@ -1,0 +1,23 @@
+[1103/112710.062885:ERROR:electron/shell/common/mac/codesign_util.cc:79] task_name_for_pid: (os/kern) failure (5)
+[1103/112710.136345:ERROR:electron/shell/common/mac/codesign_util.cc:79] task_name_for_pid: (os/kern) failure (5)
+✔ default queue-only schedules never dispatch; explicit readonly once uses one Run, source receipt and Intent pipeline (160.170916ms)
+✔ automatic Cron and workspace-write profiles are rejected without granting execution (14.26075ms)
+✔ old contract v1 retains queue-only permission, and never acquires execute permission on upgrade (17.831917ms)
+✔ saved wake version defeats a later Task edit instead of using the latest version (22.287167ms)
+✔ budget waits create no Run or RPC and resume only after the blocking real period expires (769.795541ms)
+✔ revoking a queued automatic schedule stops dispatch while leaving its already applied wake factual (17.645833ms)
+✔ automatic work waits for the existing foreground execution without taking its session (1875.62625ms)
+✔ Source, policy, privacy and deadline are rechecked after queue delivery and before Run creation (83.54775ms)
+✔ unknown scheduled execution is never repeated by a new pump, key, or direct Host call (250.60025ms)
+✔ claim rollback leaves no Run, source event, manifest or reservation before a safe first claim (20.103042ms)
+✔ real SIGKILL around scheduled Run commit never repeats a committed claim after restart (484.393125ms)
+ℹ SCHEDULED_CLAIM_CRASH_RECEIPT {"phase":"inside","signal":"SIGKILL","exitCode":null,"projectId":"7903b947-d0f3-4314-a1e5-a87910fab90c","triggerId":"schedule-trigger:bd3ae153b68e91811f3b3fb4a05f78b569e8f455cac7670fcf666f18a75cc45e","runId":"718e204d-d026-4117-ad21-7214a7c3fec3","newClaimAfterRecovery":true,"runStatus":"preparing","totalRuns":1,"rpcOrModelStarted":false}
+ℹ SCHEDULED_CLAIM_CRASH_RECEIPT {"phase":"committed","signal":"SIGKILL","exitCode":null,"projectId":"5576f317-64ec-4664-83c9-6fbf4783c671","triggerId":"schedule-trigger:bd3ae153b68e91811f3b3fb4a05f78b569e8f455cac7670fcf666f18a75cc45e","runId":"fe64e504-4f58-40af-8b78-532a05431dac","newClaimAfterRecovery":false,"runStatus":"outcome_unknown","totalRuns":1,"rpcOrModelStarted":false}
+ℹ tests 11
+ℹ suites 0
+ℹ pass 11
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3864.162292

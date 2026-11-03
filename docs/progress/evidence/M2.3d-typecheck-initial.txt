@@ -1,0 +1,3 @@
+$ tsc --noEmit
+apps/desktop/renderer/schedule-manager.tsx(26,142): error TS2339: Property 'codeProfile' does not exist on type 'TaskSummary'.
+[ELIFECYCLE] Command failed with exit code 2.

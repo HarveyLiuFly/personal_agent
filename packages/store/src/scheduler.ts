@@ -4,9 +4,10 @@ import {calendarBaseline,nextCron,previousCron,scheduleTime,validateCron} from '
 import type {ScheduleConfig,ScheduleView,OccurrenceView} from '../../contracts/src/schedules.ts';
 type Row=Record<string,string|number|null>;
 const hash=(value:unknown)=>createHash('sha256').update(JSON.stringify(value)).digest('hex');
-export interface ScheduledTask {taskId:string;projectId:string;version:number;status:string;blocked:boolean;active:boolean;authority:unknown;inputHash:string}
+export interface ScheduledTask {taskId:string;projectId:string;version:number;status:string;blocked:boolean;active:boolean;authority:unknown;inputHash:string;mode:string}
 export interface SchedulerHost {task:(projectId:string,taskId:string)=>ScheduledTask;event:(taskId:string,type:string,payload:unknown)=>void;transition:(taskId:string,status:'queued'|'waiting_trigger')=>void}
-interface StoredSpec {contractVersion:1;config:ScheduleConfig;authority:unknown;inputHash:string;calendar:ReturnType<typeof calendarBaseline>;purpose:'queue_only'}
+interface StoredSpec {contractVersion:1|2;config:ScheduleConfig;authority:unknown;inputHash:string;calendar:ReturnType<typeof calendarBaseline>;purpose:'queue_only'|'execute_readonly_once'}
+export const scheduledRunKey=(triggerId:string)=>'scheduled-run:'+hash(triggerId);
 /** Private collaborator. Every mutation is called inside the same ledger's Owner-checked transaction. */
 export class SchedulerLedger {
  private db:DatabaseSync;private dotId:string;private fail:(code:string)=>never;private host:SchedulerHost;
@@ -16,18 +17,20 @@ export class SchedulerLedger {
  private exec(sql:string,...args:SQLInputValue[]){return this.db.prepare(sql).run(...args);}
  config(input:unknown):ScheduleConfig {
   if(!input||typeof input!=='object'||Array.isArray(input))return this.fail('INVALID_SCHEDULE_CONFIG');const c=input as ScheduleConfig;
-  const fields=['kind','timezone',c.kind==='once'?'atMs':'expression','misfirePolicy','overlapPolicy','maxCatchUp',...('expiresAtMs'in c?['expiresAtMs']:[])];
+  const fields=['kind','timezone',c.kind==='once'?'atMs':'expression','misfirePolicy','overlapPolicy','maxCatchUp',...('expiresAtMs'in c?['expiresAtMs']:[]),...('dispatchMode'in c?['dispatchMode']:[])];
   if(!['once','cron'].includes(c.kind)||Object.keys(c).length!==fields.length||!fields.every(k=>Object.hasOwn(c,k))||!['skip','coalesce','bounded_catch_up'].includes(c.misfirePolicy)||!['skip','coalesce'].includes(c.overlapPolicy)||!Number.isSafeInteger(c.maxCatchUp)||c.maxCatchUp<1||c.maxCatchUp>10)return this.fail('INVALID_SCHEDULE_CONFIG');
   const normalized=validateCron({expression:c.kind==='once'?'* * * * *':c.expression!,timezone:c.timezone});
   if(c.kind==='once'){scheduleTime(c.atMs);if(c.expiresAtMs===undefined||c.expiresAtMs<=c.atMs!||c.expiresAtMs-c.atMs!>86400000||c.maxCatchUp!==1)return this.fail('INVALID_ONCE_DEADLINE');}
   if(c.expiresAtMs!==undefined)scheduleTime(c.expiresAtMs);
-  return{kind:c.kind,timezone:c.timezone,...(c.kind==='once'?{atMs:c.atMs!}:{expression:normalized.expression}),misfirePolicy:c.misfirePolicy,overlapPolicy:c.overlapPolicy,maxCatchUp:c.maxCatchUp,...(c.expiresAtMs===undefined?{}:{expiresAtMs:c.expiresAtMs})};
+  if(c.dispatchMode!==undefined&&!['queue_only','execute_readonly_once'].includes(c.dispatchMode)||c.dispatchMode==='execute_readonly_once'&&c.kind!=='once')return this.fail('SCHEDULE_EXECUTION_MODE_UNAVAILABLE');
+  return{kind:c.kind,timezone:c.timezone,...(c.kind==='once'?{atMs:c.atMs!}:{expression:normalized.expression}),misfirePolicy:c.misfirePolicy,overlapPolicy:c.overlapPolicy,maxCatchUp:c.maxCatchUp,...(c.expiresAtMs===undefined?{}:{expiresAtMs:c.expiresAtMs}),...(c.dispatchMode===undefined?{}:{dispatchMode:c.dispatchMode})};
  }
  private row(projectId:string,scheduleId:string):Row {
   return this.one("SELECT s.*,t.workspace_id FROM schedules s JOIN tasks t USING(task_id) WHERE schedule_id=? AND t.workspace_id=? AND t.dot_id=? AND NOT EXISTS(SELECT 1 FROM privacy_tombstones p WHERE p.dot_id=t.dot_id AND p.source_ref IN (t.task_id,'task:'||t.task_id))",scheduleId,projectId,this.dotId)??this.fail('SCHEDULE_NOT_IN_PROJECT');
  }
  view(projectId:string,scheduleId:string):ScheduleView {
-  const row=this.row(projectId,scheduleId),spec=JSON.parse(String(row.spec_json)) as StoredSpec,supported=spec?.contractVersion===1;return{scheduleId,projectId,taskId:String(row.task_id),version:Number(row.version),state:row.state as ScheduleView['state'],config:supported?spec.config:null,requiresReplacement:!supported,nextFireAtMs:row.next_fire_at_ms===null?null:Number(row.next_fire_at_ms)};
+  const row=this.row(projectId,scheduleId),spec=JSON.parse(String(row.spec_json)) as StoredSpec,supported=spec?.contractVersion===1||spec?.contractVersion===2,claimed=this.one("SELECT run_id FROM task_events WHERE task_id=? AND event_type='scheduled_run_claimed' AND json_extract(payload_json,'$.scheduleId')=? AND json_extract(payload_json,'$.scheduleVersion')=? ORDER BY sequence DESC LIMIT 1",row.task_id!,scheduleId,row.version!),stopped=this.one("SELECT d.delivery_id FROM trigger_deliveries d JOIN schedule_occurrences o USING(trigger_id) WHERE o.schedule_id=? AND o.schedule_version=? AND d.reason_code LIKE 'AUTO_SKIPPED_%' LIMIT 1",scheduleId,row.version!);
+  return{scheduleId,projectId,taskId:String(row.task_id),version:Number(row.version),state:row.state as ScheduleView['state'],config:supported?spec.config:null,requiresReplacement:!supported,nextFireAtMs:row.next_fire_at_ms===null?null:Number(row.next_fire_at_ms),dispatchState:spec?.purpose!=='execute_readonly_once'?'not_requested':claimed?'dispatched':stopped||row.state!=='active'?'stopped':'waiting',runId:claimed?.run_id as string|null??null};
  }
  list(projectId:string):ScheduleView[] {
   return this.all("SELECT s.schedule_id FROM schedules s JOIN tasks t USING(task_id) WHERE t.workspace_id=? AND t.dot_id=? AND NOT EXISTS(SELECT 1 FROM privacy_tombstones p WHERE p.dot_id=t.dot_id AND p.source_ref IN (t.task_id,'task:'||t.task_id)) ORDER BY s.rowid DESC LIMIT 100",projectId,this.dotId).map(r=>this.view(projectId,String(r.schedule_id)));
@@ -44,9 +47,10 @@ export class SchedulerLedger {
   if(this.one("SELECT schedule_id FROM schedules WHERE task_id=? AND state IN ('active','paused')",taskId))return this.fail('TASK_SCHEDULE_EXISTS');
   if(Number(this.one("SELECT COUNT(*) AS n FROM schedules s JOIN tasks t USING(task_id) WHERE t.dot_id=? AND s.state IN ('active','paused')",this.dotId)!.n)>=100)return this.fail('SCHEDULE_LIMIT');
   const next=config.kind==='once'?config.atMs!:this.next(config,now);if(next===null||next<=now||config.expiresAtMs!==undefined&&next>=config.expiresAtMs)return this.fail('SCHEDULE_HAS_NO_VALID_OCCURRENCE');
-  const spec:StoredSpec={contractVersion:1,config,authority:task.authority,inputHash:task.inputHash,calendar:calendarBaseline(),purpose:'queue_only'};
+  if(config.dispatchMode==='execute_readonly_once'&&task.mode!=='readOnly')return this.fail('SCHEDULE_EXECUTION_MODE_UNAVAILABLE');
+  const spec:StoredSpec={contractVersion:2,config,authority:task.authority,inputHash:task.inputHash,calendar:calendarBaseline(),purpose:config.dispatchMode??'queue_only'};
   this.exec("INSERT INTO schedules VALUES (?,?,1,?,?,?,'active',?,?,?,?,?)",scheduleId,taskId,config.kind,JSON.stringify(spec),config.timezone,config.misfirePolicy,config.overlapPolicy,config.maxCatchUp,next,config.expiresAtMs??null);
-  this.host.transition(taskId,'waiting_trigger');this.host.event(taskId,'schedule_created',{scheduleId,version:1,nextFireAtMs:next,purpose:'queue_only'});return this.view(projectId,scheduleId);
+  this.host.transition(taskId,'waiting_trigger');this.host.event(taskId,'schedule_created',{scheduleId,version:1,nextFireAtMs:next,purpose:spec.purpose});return this.view(projectId,scheduleId);
  }
  private revoke(row:Row,state:'paused'|'cancelled'|'fulfilled',reason:string){
   this.exec('UPDATE schedules SET state=?,version=version+1,next_fire_at_ms=NULL WHERE schedule_id=?',state,row.schedule_id!);
@@ -62,11 +66,12 @@ export class SchedulerLedger {
   if(kind==='pause'||kind==='cancel'){if(!['active','paused'].includes(String(row.state)))return this.fail('SCHEDULE_NOT_EDITABLE');this.revoke(row,kind==='pause'?'paused':'cancelled','SCHEDULE_'+kind.toUpperCase());return this.view(projectId,scheduleId);}
   if(kind==='resume'&&row.state!=='paused'||kind==='replace'&&!['active','paused'].includes(String(row.state)))return this.fail('SCHEDULE_NOT_EDITABLE');
   const task=this.host.task(projectId,String(row.task_id));if(task.status!=='waiting_trigger'||task.blocked||task.active)return this.fail('TASK_NOT_SCHEDULABLE');
-  const previous=JSON.parse(String(row.spec_json)) as StoredSpec;if(!config&&previous?.contractVersion!==1)return this.fail('SCHEDULE_CONTRACT_UNSUPPORTED');
+  const previous=JSON.parse(String(row.spec_json)) as StoredSpec;if(!config&&previous?.contractVersion!==1&&previous?.contractVersion!==2)return this.fail('SCHEDULE_CONTRACT_UNSUPPORTED');
   const c=config??previous.config,next=c.kind==='once'?c.atMs!:this.next(c,now);
   if(next===null||c.expiresAtMs!==undefined&&now>=c.expiresAtMs)return this.fail('SCHEDULE_HAS_NO_VALID_OCCURRENCE');
   if(kind==='replace'&&next<=now)return this.fail('SCHEDULE_HAS_NO_VALID_OCCURRENCE');
-  this.revoke(row,'paused','SCHEDULE_VERSION_CHANGED');const spec:StoredSpec={contractVersion:1,config:c,authority:task.authority,inputHash:task.inputHash,calendar:calendarBaseline(),purpose:'queue_only'};
+  if(c.dispatchMode==='execute_readonly_once'&&task.mode!=='readOnly')return this.fail('SCHEDULE_EXECUTION_MODE_UNAVAILABLE');
+  this.revoke(row,'paused','SCHEDULE_VERSION_CHANGED');const spec:StoredSpec={contractVersion:2,config:c,authority:task.authority,inputHash:task.inputHash,calendar:calendarBaseline(),purpose:c.dispatchMode??'queue_only'};
   this.exec("UPDATE schedules SET kind=?,spec_json=?,timezone=?,state='active',misfire_policy=?,overlap_policy=?,max_catch_up=?,next_fire_at_ms=?,expires_at_ms=? WHERE schedule_id=?",c.kind,JSON.stringify(spec),c.timezone,c.misfirePolicy,c.overlapPolicy,c.maxCatchUp,next,c.expiresAtMs??null,scheduleId);
   this.host.event(task.taskId,'schedule_updated',{scheduleId,version:expectedVersion+1,nextFireAtMs:next});return this.view(projectId,scheduleId);
  }
@@ -74,12 +79,13 @@ export class SchedulerLedger {
   const occurrenceId='occurrence:'+hash([row.schedule_id,row.version,at]);this.exec('INSERT OR IGNORE INTO schedule_occurrences VALUES (?,?,?,?,NULL,?)',occurrenceId,row.schedule_id!,row.version!,at,state);return occurrenceId;
  }
  private completeIdle(scheduleId:string){
-  this.exec("UPDATE schedules SET state='fulfilled' WHERE schedule_id=? AND state='active' AND next_fire_at_ms IS NULL AND NOT EXISTS(SELECT 1 FROM schedule_occurrences o WHERE o.schedule_id=schedules.schedule_id AND o.state='waiting_host') AND NOT EXISTS(SELECT 1 FROM trigger_deliveries d JOIN schedule_occurrences o ON o.trigger_id=d.trigger_id WHERE o.schedule_id=schedules.schedule_id AND d.state IN ('pending','claimed'))",scheduleId);
+  this.exec("UPDATE schedules SET state='fulfilled' WHERE schedule_id=? AND state='active' AND next_fire_at_ms IS NULL AND NOT EXISTS(SELECT 1 FROM schedule_occurrences o WHERE o.schedule_id=schedules.schedule_id AND o.state='waiting_host') AND NOT EXISTS(SELECT 1 FROM trigger_deliveries d JOIN schedule_occurrences o ON o.trigger_id=d.trigger_id WHERE o.schedule_id=schedules.schedule_id AND (d.state IN ('pending','claimed') OR (json_extract(schedules.spec_json,'$.purpose')='execute_readonly_once' AND d.state='acknowledged' AND (d.reason_code IS NULL OR d.reason_code LIKE 'AUTO_WAIT_%'))))",scheduleId);
  }
  private valid(row:Row):ScheduledTask {
   const task=this.host.task(String(row.workspace_id),String(row.task_id)),spec=JSON.parse(String(row.spec_json)) as StoredSpec;
-  if(!spec||spec.contractVersion!==1||!spec.calendar)return this.fail('SCHEDULE_CONTRACT_UNSUPPORTED');
-  if(hash(spec.calendar)!==hash(calendarBaseline()))return this.fail('CALENDAR_BASELINE_CHANGED');if(spec.purpose!=='queue_only'||hash(task.authority)!==hash(spec.authority)||task.inputHash!==spec.inputHash)return this.fail('SCHEDULE_AUTHORIZATION_CHANGED');return task;
+  if(!spec||spec.contractVersion!==1&&spec.contractVersion!==2||!spec.calendar)return this.fail('SCHEDULE_CONTRACT_UNSUPPORTED');
+  if(hash(spec.calendar)!==hash(calendarBaseline()))return this.fail('CALENDAR_BASELINE_CHANGED');
+  if(spec.purpose!=='queue_only'&&(spec.contractVersion!==2||spec.purpose!=='execute_readonly_once'||spec.config.kind!=='once'||spec.config.dispatchMode!=='execute_readonly_once'||task.mode!=='readOnly')||hash(task.authority)!==hash(spec.authority)||task.inputHash!==spec.inputHash)return this.fail('SCHEDULE_AUTHORIZATION_CHANGED');return task;
  }
  private enqueue(row:Row,occurrenceId:string,now:number){
   const sourceId='internal-scheduler:'+this.dotId,binding='profile-internal-clock-v1:'+this.dotId;
@@ -132,5 +138,27 @@ export class SchedulerLedger {
    if(task!.status!=='waiting_trigger'||task!.blocked||task!.active)continue;
    this.host.transition(task!.taskId,'queued');this.exec("UPDATE trigger_deliveries SET state='acknowledged' WHERE delivery_id=?",row.delivery_id!);this.host.event(task!.taskId,'schedule_wake_applied',{scheduleId:row.schedule_id,occurrenceId:row.occurrence_id,triggerId:row.trigger_id,purpose:'queue_only'});this.completeIdle(String(row.schedule_id));delivered++;
   }return delivered;
+ }
+ autoCandidates():Array<{projectId:string;triggerId:string}> {
+  return this.all("SELECT d.trigger_id,t.workspace_id FROM trigger_deliveries d JOIN schedule_occurrences o USING(trigger_id) JOIN schedules s USING(schedule_id) JOIN tasks t ON t.task_id=s.task_id WHERE d.dot_id=? AND d.state='acknowledged' AND d.delivery_kind='wake' AND s.state='active' AND s.version=o.schedule_version AND json_extract(s.spec_json,'$.purpose')='execute_readonly_once' AND (d.reason_code IS NULL OR d.reason_code LIKE 'AUTO_WAIT_%') AND NOT EXISTS(SELECT 1 FROM task_events e WHERE e.task_id=s.task_id AND e.event_type='scheduled_run_claimed' AND json_extract(e.payload_json,'$.triggerId')=d.trigger_id) ORDER BY d.rowid LIMIT 100",this.dotId).map(row=>({projectId:String(row.workspace_id),triggerId:String(row.trigger_id)}));
+ }
+ private dispatchRow(projectId:string,triggerId:string):Row {
+  return this.one("SELECT s.*,t.workspace_id,d.task_id AS delivery_task_id,d.state AS delivery_state,d.reason_code,d.delivery_id,o.schedule_version,o.scheduled_at_ms,o.occurrence_id,i.source_id,i.verification_ref,src.identity_binding_ref,src.enabled AS source_enabled FROM trigger_deliveries d JOIN incoming_triggers i USING(trigger_id) JOIN sources src USING(source_id) JOIN schedule_occurrences o USING(trigger_id) JOIN schedules s USING(schedule_id) JOIN tasks t ON t.task_id=s.task_id WHERE d.trigger_id=? AND d.dot_id=? AND t.workspace_id=? AND d.delivery_kind='wake'",triggerId,this.dotId,projectId)??this.fail('SCHEDULE_TRIGGER_NOT_IN_PROJECT');
+ }
+ admission(projectId:string,triggerId:string,now:number){
+  const row=this.dispatchRow(projectId,triggerId),task=this.valid(row),spec=JSON.parse(String(row.spec_json)) as StoredSpec;
+  if(spec.purpose!=='execute_readonly_once'||spec.contractVersion!==2||row.delivery_task_id!==task.taskId||row.delivery_state!=='acknowledged'||row.schedule_version!==row.version||row.state!=='active'||row.reason_code!==null&&!String(row.reason_code).startsWith('AUTO_WAIT_'))return this.fail('SCHEDULE_DISPATCH_REVOKED');
+  if(row.source_id!=='internal-scheduler:'+this.dotId||row.identity_binding_ref!=='profile-internal-clock-v1:'+this.dotId||row.source_enabled!==1||row.verification_ref!=='scheduler-contract:'+hash(spec))return this.fail('SCHEDULER_SOURCE_UNTRUSTED');
+  if(row.expires_at_ms===null||now>=Number(row.expires_at_ms)||now<Number(row.scheduled_at_ms))return this.fail('SCHEDULE_DISPATCH_EXPIRED');
+  const receipt=this.one("SELECT task_version FROM task_events WHERE task_id=? AND event_type='schedule_wake_applied' AND json_extract(payload_json,'$.triggerId')=?",task.taskId,triggerId)??this.fail('SCHEDULE_WAKE_UNCONFIRMED');
+  if(task.version!==receipt.task_version)return this.fail('TASK_VERSION_CONFLICT');if(task.status!=='queued'||task.active||task.blocked)return this.fail('TASK_NOT_DISPATCHABLE');
+  return{taskId:task.taskId,expectedVersion:Number(receipt.task_version),submissionKey:scheduledRunKey(triggerId),scheduleId:String(row.schedule_id),scheduleVersion:Number(row.version),occurrenceId:String(row.occurrence_id),inputHash:task.inputHash};
+ }
+ claimed(projectId:string,triggerId:string){const row=this.dispatchRow(projectId,triggerId);this.exec("UPDATE trigger_deliveries SET reason_code='AUTO_DISPATCHED' WHERE delivery_id=?",row.delivery_id!);this.completeIdle(String(row.schedule_id));}
+ dispatchWait(projectId:string,triggerId:string,code:string){
+  if(!/^[A-Z0-9_]{1,100}$/.test(code))return this.fail('INVALID_DIAGNOSTIC');const row=this.dispatchRow(projectId,triggerId);
+  if(this.one("SELECT event_id FROM task_events WHERE task_id=? AND event_type='scheduled_run_claimed' AND json_extract(payload_json,'$.triggerId')=?",row.task_id!,triggerId))return;
+  const temporary=['RUNTIME_BUSY','TOKEN_BUDGET_EXHAUSTED','COST_ESTIMATE_UNAVAILABLE','WORKSPACE_BUSY'].includes(code),reason=(temporary?'AUTO_WAIT_':'AUTO_SKIPPED_')+code;
+  if(row.reason_code===reason)return;this.exec('UPDATE trigger_deliveries SET reason_code=? WHERE delivery_id=?',reason,row.delivery_id!);this.host.event(String(row.task_id),temporary?'schedule_dispatch_waiting':'schedule_dispatch_stopped',{scheduleId:row.schedule_id,triggerId,code});this.completeIdle(String(row.schedule_id));
  }
 }

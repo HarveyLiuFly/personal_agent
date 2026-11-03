@@ -11,7 +11,7 @@ import type {CodeTaskSpec} from '../../contracts/src/views.ts';
 import type {TaskSummary,TaskCommand,OperationReceipt,ActivityPage,TaskPlanCommand,TaskPlanView,TaskPlanNode,TaskPlanOperation} from '../../contracts/src/tasks.ts';
 import {BudgetLedger} from './budget.ts';
 import type {BudgetPolicy} from './budget.ts';
-import {SchedulerLedger} from './scheduler.ts';
+import {SchedulerLedger,scheduledRunKey} from './scheduler.ts';
 import type {ScheduleCommand} from '../../contracts/src/schedules.ts';
 import {ScheduleTimeError,scheduleTime} from '../../runtime/src/calendar.ts';
 
@@ -36,7 +36,7 @@ export interface ReconciliationClaim {
 }
 export interface OutboxClaim {outboxId:string;claimEpoch:number;runtimeEpoch:number;eventId:string;taskId:string;expiresAt:number}
 export interface QueuedRun {token:RunToken;created:boolean;text:string;code?:CodeTaskSpec;threadId?:string;sourceRunId?:string}
-export interface LedgerOptions {/** Trusted fault injection only; never accepted over IPC. */afterOutboxProjectionForTests?:()=>void;afterPlanEffectForTests?:(index:number)=>void;afterScheduleTickForTests?:()=>void;/** Trusted clock injection; never accepted over IPC. */schedulerClock?:()=>number;/** Seeds a new local policy only. Never accepted over execution IPC. */budgetPolicy?:BudgetPolicy}
+export interface LedgerOptions {/** Trusted fault injection only; never accepted over IPC. */afterOutboxProjectionForTests?:()=>void;afterPlanEffectForTests?:(index:number)=>void;afterScheduleTickForTests?:()=>void;afterScheduledClaimForTests?:()=>void;/** Trusted clock injection; never accepted over IPC. */schedulerClock?:()=>number;/** Seeds a new local policy only. Never accepted over execution IPC. */budgetPolicy?:BudgetPolicy}
 
 /** Host-only local store. startOwner requires the caller to hold the OS single-instance lock. */
 export class ExecutionLedger {
@@ -81,7 +81,7 @@ export class ExecutionLedger {
       this.scheduler=new SchedulerLedger(this.#db,this.dotId,fail,{task:(projectId,taskId)=>{
         this.workspace(projectId);const task=this.taskRow(projectId,taskId),authority=this.taskAuthority(task),constraints=JSON.parse(String(task.constraints_json));
         if(typeof constraints.inputHash!=='string'||typeof constraints.text!=='string')return fail('TASK_INPUT_UNAVAILABLE');
-        return{taskId,projectId,version:Number(task.version),status:String(task.status),blocked:task.dispatch_blocked===1,active:Boolean(this.one(`SELECT run_id FROM task_runs WHERE task_id=? AND status IN ${active}`,taskId)),authority,inputHash:constraints.inputHash};
+        return{taskId,projectId,version:Number(task.version),status:String(task.status),blocked:task.dispatch_blocked===1,active:Boolean(this.one(`SELECT run_id FROM task_runs WHERE task_id=? AND status IN ${active}`,taskId)),authority,inputHash:constraints.inputHash,mode:String(constraints.mode)};
       },event:(taskId,type,payload)=>{this.event(taskId,null,type,payload);},transition:(taskId,status)=>{this.transition(taskId,status);}});
       if (path !== ':memory:') chmodSync(path, 0o600);
     } catch (error) { this.#db.close(); throw error; }
@@ -408,8 +408,10 @@ export class ExecutionLedger {
   deliverScheduleWakes(){return this.tx(()=>{this.owner();return{queued:this.scheduler.deliver(this.schedulerNow())};});}
   claimTask(projectId:string,taskId:string,expectedVersion:number,key:string):QueuedRun {
     if(!id(key)||!id(taskId)||!Number.isSafeInteger(expectedVersion)||expectedVersion<1)return fail('INVALID_TASK_COMMAND');this.workspace(projectId);
-    return this.tx(()=>{
-      this.owner();const task=this.taskRow(projectId,taskId),data=JSON.parse(String(task.constraints_json)) as {text?:string;mode:'readOnly'|'workspaceWrite';code?:CodeTaskSpec};
+    return this.tx(()=>{this.owner();return this.claimTaskInTransaction(projectId,taskId,expectedVersion,key);});
+  }
+  private claimTaskInTransaction(projectId:string,taskId:string,expectedVersion:number,key:string):QueuedRun {
+      const task=this.taskRow(projectId,taskId),data=JSON.parse(String(task.constraints_json)) as {text?:string;mode:'readOnly'|'workspaceWrite';code?:CodeTaskSpec};
       if(typeof data.text!=='string'||!data.text.trim())return fail('TASK_INPUT_UNAVAILABLE');
       const prior=this.one('SELECT * FROM task_runs WHERE idempotency_key=?',key);
       if(prior){if(prior.task_id!==taskId||Number(prior.task_snapshot_version)!==expectedVersion+1)return fail('IDEMPOTENCY_CONFLICT');return{token:{runId:String(prior.run_id),epoch:Number(prior.runtime_epoch),taskFence:Number(prior.task_fence)},created:false,text:data.text,...(data.code?{code:data.code}:{})};}
@@ -431,8 +433,20 @@ export class ExecutionLedger {
       this.exec("INSERT INTO prompt_manifests VALUES (?,?,'coding',?,?,?, ?,?,'[]',NULL)",randomUUID(),runId,data.mode==='workspaceWrite'?'execution':'read-only',JSON.stringify({submission:hashInput([taskId,key,expectedVersion]),user:hashInput(data.text)}),hashInput({mode:data.mode}),epochs.policy_epoch!,epochs.privacy_epoch!);
       this.event(taskId,runId,'run_claimed',{mode:data.mode});this.sealOperation(operation.operationId,taskId,'completed',runId);
       return{token:{runId,epoch:this.#epoch,taskFence:Number(current.write_fence)},created:true,text:data.text,...(code?{code}:{}),...(binding?{threadId:String(binding.execution_thread_id),sourceRunId:String(source!.run_id)}:{})};
+  }
+  scheduledCandidates(){this.owner();return this.scheduler.autoCandidates();}
+  claimScheduledTask(projectId:string,triggerId:string):QueuedRun&{submissionKey:string} {
+    if(!id(projectId)||!id(triggerId))return fail('INVALID_SCHEDULE_QUERY');this.workspace(projectId);
+    return this.tx(()=>{this.owner();const key=scheduledRunKey(triggerId),prior=this.one('SELECT r.* FROM task_runs r JOIN tasks t USING(task_id) WHERE r.idempotency_key=? AND t.workspace_id=? AND t.dot_id=?',key,projectId,this.dotId);
+      if(prior){const event=this.one("SELECT event_id FROM task_events WHERE run_id=? AND event_type='scheduled_run_claimed' AND json_extract(payload_json,'$.triggerId')=?",prior.run_id!,triggerId);if(!event)return fail('SCHEDULE_RUN_BINDING_MISMATCH');return{token:{runId:String(prior.run_id),epoch:Number(prior.runtime_epoch),taskFence:Number(prior.task_fence)},created:false,text:'',submissionKey:key};}
+      const admitted=this.scheduler.admission(projectId,triggerId,this.schedulerNow()),queued=this.claimTaskInTransaction(projectId,admitted.taskId,admitted.expectedVersion,key);
+      this.event(admitted.taskId,queued.token.runId,'scheduled_run_claimed',{triggerId,scheduleId:admitted.scheduleId,scheduleVersion:admitted.scheduleVersion,occurrenceId:admitted.occurrenceId,expectedTaskVersion:admitted.expectedVersion,submissionKeyHash:hashInput(key)});
+      const manifest=this.one('SELECT module_hashes_json FROM prompt_manifests WHERE run_id=?',queued.token.runId)!;
+      this.exec('UPDATE prompt_manifests SET module_hashes_json=? WHERE run_id=?',JSON.stringify({...JSON.parse(String(manifest.module_hashes_json)),schedule:hashInput({triggerId,...admitted})}),queued.token.runId);
+      this.scheduler.claimed(projectId,triggerId);this.options.afterScheduledClaimForTests?.();return{...queued,submissionKey:key};
     });
   }
+  scheduleDispatchWait(projectId:string,triggerId:string,code:string){this.tx(()=>{this.owner();this.scheduler.dispatchWait(projectId,triggerId,code);});}
   claimOutbox(limit=50,leaseMs=30000):OutboxClaim[] {
     if(!Number.isSafeInteger(limit)||limit<1||limit>100||!Number.isSafeInteger(leaseMs)||leaseMs<1000||leaseMs>60000)return fail('INVALID_OUTBOX_CLAIM');
     return this.tx(()=>{

@@ -1,0 +1,79 @@
+{
+  "checkpoint": "M2.3d",
+  "status": "passed_explicit_once_readonly_scheduled_execution_scope",
+  "baselineCommit": "967b5b68c5cb4146a2f2dd615186732bff27c05a",
+  "schemaRevision": 4,
+  "scheduleContractVersion": 2,
+  "legacyContract1": "queue_only",
+  "stageGate": "open",
+  "checks": {
+    "discovered": 225,
+    "executed": 225,
+    "passed": 225,
+    "failed": 0,
+    "skipped": 0,
+    "newScheduledExecutionTests": 11,
+    "electronNodeScheduledTests": 11,
+    "realSigkillFaultLocationsTotal": 8,
+    "designContracts": 17,
+    "generatedTypes": 747,
+    "typecheck": "passed",
+    "build": "passed"
+  },
+  "nativeModel": {
+    "status": "passed",
+    "observedAt": "2026-11-03T03:31:00.810Z",
+    "attempts": 1,
+    "model": "gpt-6.1-sol",
+    "inferenceRequested": true,
+    "totalRuns": 1,
+    "turnStarts": 1,
+    "reportedTokens": 17620,
+    "toolItems": 0,
+    "runStatus": "completed",
+    "taskStatus": "needs_review",
+    "sourceRunLinked": true,
+    "nativePolicyVerified": true
+  },
+  "desktop": {
+    "status": "passed",
+    "realElectronAndSqlite": true,
+    "backend": "synthetic_stdio",
+    "syntheticTurnStarts": 1,
+    "modelTurns": 0,
+    "automaticModelDispatch": true
+  },
+  "m0Regression": {
+    "status": "passed",
+    "apiWhitelistCount": 32,
+    "inferenceRequested": false
+  },
+  "lifecycle": {
+    "owner": "electron_main",
+    "continuesAfterMainExit": false,
+    "cronAutomaticDispatch": false,
+    "codeAutomaticDispatch": false
+  },
+  "sourceAndBuildHashes": {
+    "packages/store/src/ledger.ts": "54dfa28d6414b7cbd3ebc4c9e9de3a02431988592d79d9974b2440d8c98bc983",
+    "packages/store/src/scheduler.ts": "e10a115797c2fc81362e36add34f5af15ac16f480235377c94a7f8e363fd5892",
+    "packages/runtime/src/execution.ts": "7061c4a82a06af74a0c96b495bbfba2397eb2df93caf841572b833c1e7499212",
+    "packages/runtime/src/schedules.ts": "6bef3f8cd372b9ee6ca1efc64867f52eb161c69a438ac6fca8794a5dd1c13999",
+    "packages/contracts/src/schedules.ts": "784222fedb6316ee396a84f1d53967242ae30bd0c41e1398dbfb644665dd8cf1",
+    "apps/desktop/src/main.ts": "c704109413212befbd8e63a8db83dd721282fa6ae5fa7c6aafedfd26bde237bd",
+    "apps/desktop/src/schedule-probe.ts": "361f24cb4e0bcdcfc4a72a3530f03ba04faa266f010658dc2d61bdba0c66a648",
+    "apps/desktop/renderer/schedule-manager.tsx": "96f11dcf41c9b09b4ed5a4344d49cff622782cffe81f90895e5ab1f4b7826050",
+    "apps/desktop/renderer/task-manager.tsx": "c0794340aab03241988a5baf99eb84774dee164ed18400e2f944bdea96ccdbc6",
+    "scripts/smoke-scheduled.ts": "ab1ba401d6137b542eef7208a456c41ff58f3c20bd5f2749e6f627004b44dc53",
+    "tests/scheduled-execution.test.ts": "ceaa24e5843dc46d4332c0fb777cc500882ce5f0e058dc0b37444a532c53f0a0",
+    "tests/fixtures/scheduled-claim-worker.ts": "2eb766ef3c86a848bf0270a984e57c211738cf94063615e0708eb3d9dab508ea",
+    "build/desktop/main.js": "7a1f61c92f81918ade02145129166fdecfc5613ba6117016bc1ffde48e7970bd",
+    "build/desktop/preload.cjs": "e50158bbf2d97bf56802f1199276ad6cd67eb687471b5bb90e637a893d7272b4"
+  },
+  "remaining": [
+    "daemon_protected_ipc_and_gui_detach",
+    "pty_worktree_lifecycle",
+    "full_resource_limits_and_backup_gate",
+    "full_native_stage_gate"
+  ]
+}

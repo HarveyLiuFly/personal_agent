@@ -29,6 +29,8 @@
     "smoke:workspace": "node --disable-warning=ExperimentalWarning scripts/smoke-workspace.ts",
     "smoke:workspace:desktop": "node --disable-warning=ExperimentalWarning scripts/smoke-native-desktop.mjs --workspace",
     "smoke:plans:desktop": "node scripts/smoke-desktop.mjs --plans",
+    "smoke:scheduled:desktop": "node scripts/smoke-desktop.mjs --scheduler-auto",
+    "smoke:scheduled": "node --disable-warning=ExperimentalWarning scripts/smoke-scheduled.ts",
     "smoke:scheduler:desktop": "node scripts/smoke-desktop.mjs --scheduler",
     "probe:calendar": "node --disable-warning=ExperimentalWarning scripts/probe-calendar.ts",
     "smoke:tasks:desktop": "node scripts/smoke-desktop.mjs --tasks",

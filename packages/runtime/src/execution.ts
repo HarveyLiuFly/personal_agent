@@ -95,6 +95,16 @@ export class ForegroundExecution {
     }
     return summary(this.store.runForHost(queued.token.runId));
   }
+  /** Host-only scheduled admission. No Desktop API forwards trigger IDs to this method. */
+  startScheduled(projectId:string,triggerId:string):RunSummary {
+    if(this.busy)throw new LedgerError('RUNTIME_BUSY');
+    const queued=this.store.claimScheduledTask(projectId,triggerId);
+    if(queued.created){
+      const session:Session={token:queued.token,projectId,submissionKey:queued.submissionKey,mode:'readOnly',...(queued.threadId?{resumeThreadId:queued.threadId,sourceRunId:queued.sourceRunId}:{}),abort:new AbortController()};this.session=session;
+      this.completion=this.execute(session,queued.text).finally(()=>{if(this.session===session)this.session=undefined;});
+    }
+    return summary(this.store.runForHost(queued.token.runId));
+  }
   continueRun(input:unknown):RunSummary {
     const q=query(input,['projectId','runId','text','submissionKey']);
     if(!identity(q.projectId)||!identity(q.runId)||!identity(q.submissionKey)||typeof q.text!=='string')throw new LedgerError('INVALID_EXECUTION_QUERY');

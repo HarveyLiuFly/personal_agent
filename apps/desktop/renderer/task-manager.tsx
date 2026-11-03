@@ -30,7 +30,7 @@ export function TaskManager({project,canCode,onBusyChange,onStarted}:{project:Pr
    {code&&<div className="code-options"><label>测试入口<input value={target} disabled={busy} onChange={e=>{setTarget(e.target.value);createKey.current=undefined;}}/></label><label>允许修改的文件<input value={paths} disabled={busy} onChange={e=>{setPaths(e.target.value);createKey.current=undefined;}} placeholder="逗号分隔"/></label></div>}
    <button data-action="queue-create" disabled={busy||!text.trim()||code&&(!target.trim()||!paths.trim())}>保存到队列</button>
   </form>
-  <ScheduleManager key={'schedule:'+project.id} projectId={project.id} tasks={tasks} busy={busy} perform={perform}/>
+  <ScheduleManager key={'schedule:'+project.id} projectId={project.id} tasks={tasks} busy={busy} perform={perform} onOpenRun={onStarted}/>
   <TaskPlans key={project.id} projectId={project.id} tasks={tasks} busy={busy} perform={perform}/>
   <div className="task-manager-grid"><section aria-label="任务队列"><p className="history-note">显示最近更新的 100 项任务；只有“开始”会派发执行。</p>{tasks.map(task=><article className="queue-task" data-queued-task={task.taskId} data-queued-status={task.status} key={task.taskId}><strong>{task.title}</strong><span className="badge">{labels[task.status]}</span>
    <div className="queue-actions">{task.status==='queued'&&!task.blocked&&<button data-task-action="start" disabled={busy||running||!budget||budget.activeRuns>0||budget.availableTokens<budget.reservationPerRun} onClick={()=>void perform(async()=>{const run=await value(window.personalAgent.startTask({projectId:project.id,taskId:task.taskId,expectedVersion:task.version,submissionKey:crypto.randomUUID()}));if(alive.current)onStarted(run.runId);})}>开始</button>}
