@@ -1,0 +1,64 @@
+Initial calendar tests
+✔ numeric five-field Cron is normalized and validates a named timezone without using the host default (21.310084ms)
+✔ next is exclusive and previous inclusive at the exact minute, with seconds never inherited (1.458458ms)
+✔ New York nonexistent spring time is skipped rather than silently shifted to another hour (1.84225ms)
+✔ New York repeated fall time selects only its earlier UTC occurrence in either direction (1.587958ms)
+✔ every-minute expressions suppress all repeated fall minutes, not just daily Cron (8.359209ms)
+✔ Lord Howe half-hour repeated time also selects the earlier occurrence (1.29225ms)
+✖ Lord Howe half-hour gap is skipped while the next ordinary day remains valid (135.628541ms)
+✔ leap dates and month boundaries retain calendar semantics (3.764542ms)
+✔ latest missed occurrence is computed directly over years instead of replaying every minute (0.28925ms)
+✔ malformed, nondeterministic, ambiguous day fields and extra fields are rejected (0.959625ms)
+✔ unsupported dates and impossible future occurrences fail closed without silently changing the expression (2.210083ms)
+ℹ tests 11
+ℹ suites 0
+ℹ pass 10
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 270.286917
+
+✖ failing tests:
+
+test at tests/calendar.test.ts:24:1
+✖ Lord Howe half-hour gap is skipped while the next ordinary day remains valid (135.628541ms)
+  Error: CRON_NO_OCCURRENCE
+      at fail (file://<repo>/packages/runtime/src/calendar.ts:7:40)
+      at previousCron (file://<repo>/packages/runtime/src/calendar.ts:54:85)
+      at TestContext.<anonymous> (file://<repo>/tests/calendar.test.ts:25:175)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    code: 'CRON_NO_OCCURRENCE'
+  }
+
+Initial typecheck
+$ tsc --noEmit
+packages/runtime/src/calendar.ts(40,34): error TS2345: Argument of type 'number' is not assignable to parameter of type '0 | 1 | 12 | 9 | 10 | 32 | 2 | 3 | 20 | 4 | 16 | 5 | 6 | 7 | 50 | 19 | 8 | 11 | 13 | 28 | 36 | 59 | 14 | 15 | 17 | 18 | 21 | 22 | 23 | 24 | 25 | 26 | 27 | 29 | 30 | 31 | 33 | 34 | 35 | 37 | 38 | 39 | 40 | ... 16 more ... | 58'.
+packages/runtime/src/calendar.ts(40,68): error TS2345: Argument of type 'number' is not assignable to parameter of type '0 | 1 | 12 | 9 | 10 | 2 | 3 | 20 | 4 | 16 | 5 | 6 | 7 | 19 | 8 | 11 | 13 | 14 | 15 | 17 | 18 | 21 | 22 | 23'.
+packages/runtime/src/calendar.ts(40,101): error TS2345: Argument of type 'number' is not assignable to parameter of type '1 | 12 | 9 | 10 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 11'.
+packages/runtime/src/calendar.ts(40,140): error TS2345: Argument of type 'number' is not assignable to parameter of type 'DayOfMonthRange'.
+packages/runtime/src/calendar.ts(40,175): error TS2362: The left-hand side of an arithmetic operation must be of type 'any', 'number', 'bigint' or an enum type.
+[ELIFECYCLE] Command failed with exit code 2.
+
+Probe harness typecheck
+$ node scripts/check.mjs
+$ node scripts/generate-protocol.mjs --verify
+Verified 747 generated types from codex-cli 0.163.0 (darwin-arm64) against pinned schema and repository.
+$ tsc --noEmit
+scripts/probe-calendar.ts(12,25): error TS2769: No overload matches this call.
+  Overload 1 of 8, '(command: string, args: readonly string[], options: SpawnSyncOptionsWithStringEncoding): SpawnSyncReturns<string>', gave the following error.
+    Argument of type 'string | typeof CrossProcessExports' is not assignable to parameter of type 'string'.
+      Type 'typeof CrossProcessExports' is not assignable to type 'string'.
+  Overload 2 of 8, '(command: string, args: readonly string[], options: SpawnSyncOptionsWithBufferEncoding): SpawnSyncReturns<NonSharedBuffer>', gave the following error.
+    Argument of type 'string | typeof CrossProcessExports' is not assignable to parameter of type 'string'.
+      Type 'typeof CrossProcessExports' is not assignable to type 'string'.
+  Overload 3 of 8, '(command: string, args?: readonly string[] | undefined, options?: SpawnSyncOptions | undefined): SpawnSyncReturns<string | NonSharedBuffer>', gave the following error.
+    Argument of type 'string | typeof CrossProcessExports' is not assignable to parameter of type 'string'.
+      Type 'typeof CrossProcessExports' is not assignable to type 'string'.
+[ELIFECYCLE] Command failed with exit code 2.
+[ELIFECYCLE] Command failed with exit code 2.

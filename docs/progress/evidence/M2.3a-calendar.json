@@ -1,0 +1,63 @@
+{
+  "status": "passed",
+  "observedAt": "2026-11-03T02:49:45.433Z",
+  "kind": "real_cli_node_and_electron_node_calendar",
+  "modelTurns": 0,
+  "guiOrDaemonClaimed": false,
+  "cronParser": "5.10.3",
+  "luxonLocked": "3.7.2",
+  "results": [
+    {
+      "kind": "cli_node",
+      "status": "passed",
+      "baseline": {
+        "cronParser": "5.10.3",
+        "node": "24.19.0",
+        "icu": "78.3",
+        "tz": "2026b",
+        "defaultPolicy": {
+          "ambiguous": "earlier_once",
+          "nonexistent": "skip"
+        },
+        "rangeUTC": {
+          "from": "2020-01-01T00:00:00.000Z",
+          "untilExclusive": "2100-01-01T00:00:00.000Z"
+        }
+      },
+      "checks": {
+        "nyGap": true,
+        "nyRepeat": true,
+        "halfHourGap": true
+      }
+    },
+    {
+      "kind": "electron_embedded_node",
+      "status": "passed",
+      "baseline": {
+        "cronParser": "5.10.3",
+        "node": "24.22.1",
+        "icu": "78.2",
+        "tz": "2026e",
+        "defaultPolicy": {
+          "ambiguous": "earlier_once",
+          "nonexistent": "skip"
+        },
+        "rangeUTC": {
+          "from": "2020-01-01T00:00:00.000Z",
+          "untilExclusive": "2100-01-01T00:00:00.000Z"
+        }
+      },
+      "checks": {
+        "nyGap": true,
+        "nyRepeat": true,
+        "halfHourGap": true
+      }
+    }
+  ],
+  "hashes": {
+    "packages/runtime/src/calendar.ts": "ea009bc3c04078b4dd2f678d3163c7df63d88186ce0e462d0bfa2f192eaf332e",
+    "tests/calendar.test.ts": "34560c48f7b2b6a6dce17dac6180bcbf5a0992e5e9b29268764f3efb244370e8",
+    "pnpm-lock.yaml": "0fa34b6c635f160bb42e4bacf6075d0bd3f482d1da8cd40cff3925064ff89ee1",
+    "installed_cron_parser_entry": "71cc2bfedca63581688961f8b8b8b4a15cbe6aeab426d342c1477bf1de86b040"
+  }
+}

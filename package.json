@@ -5,7 +5,9 @@
   "type": "module",
   "main": "build/desktop/main.js",
   "packageManager": "pnpm@11.25.0",
-  "engines": { "node": ">=24.19.0 <25" },
+  "engines": {
+    "node": ">=24.19.0 <25"
+  },
   "scripts": {
     "dev": "node scripts/dev.mjs",
     "build": "node scripts/build.mjs",
@@ -20,17 +22,18 @@
     "smoke:history:local": "node --disable-warning=ExperimentalWarning scripts/probe-history.ts",
     "smoke:history:desktop": "node scripts/smoke-desktop.mjs --history",
     "smoke:code:desktop": "node scripts/smoke-desktop.mjs --native-code",
-    "smoke:code:continue:desktop":"node scripts/smoke-desktop.mjs --native-code-continue",
-    "smoke:owner:desktop":"node --disable-warning=ExperimentalWarning scripts/smoke-native-desktop.mjs --owner",
-    "smoke:folder:desktop":"node --disable-warning=ExperimentalWarning scripts/smoke-native-desktop.mjs --folder",
+    "smoke:code:continue:desktop": "node scripts/smoke-desktop.mjs --native-code-continue",
+    "smoke:owner:desktop": "node --disable-warning=ExperimentalWarning scripts/smoke-native-desktop.mjs --owner",
+    "smoke:folder:desktop": "node --disable-warning=ExperimentalWarning scripts/smoke-native-desktop.mjs --folder",
     "smoke:verification": "node --disable-warning=ExperimentalWarning scripts/smoke-verification.ts",
-    "smoke:workspace":"node --disable-warning=ExperimentalWarning scripts/smoke-workspace.ts",
-    "smoke:workspace:desktop":"node --disable-warning=ExperimentalWarning scripts/smoke-native-desktop.mjs --workspace",
-    "smoke:plans:desktop":"node scripts/smoke-desktop.mjs --plans",
-    "smoke:tasks:desktop":"node scripts/smoke-desktop.mjs --tasks",
-    "smoke:budget":"node --disable-warning=ExperimentalWarning scripts/smoke-budget.ts",
-    "smoke:budget:desktop":"node scripts/smoke-desktop.mjs --budget",
-    "smoke:continuation:desktop":"node scripts/smoke-desktop.mjs --continuation",
+    "smoke:workspace": "node --disable-warning=ExperimentalWarning scripts/smoke-workspace.ts",
+    "smoke:workspace:desktop": "node --disable-warning=ExperimentalWarning scripts/smoke-native-desktop.mjs --workspace",
+    "smoke:plans:desktop": "node scripts/smoke-desktop.mjs --plans",
+    "probe:calendar": "node --disable-warning=ExperimentalWarning scripts/probe-calendar.ts",
+    "smoke:tasks:desktop": "node scripts/smoke-desktop.mjs --tasks",
+    "smoke:budget": "node --disable-warning=ExperimentalWarning scripts/smoke-budget.ts",
+    "smoke:budget:desktop": "node scripts/smoke-desktop.mjs --budget",
+    "smoke:continuation:desktop": "node scripts/smoke-desktop.mjs --continuation",
     "smoke:interactions:desktop": "node scripts/smoke-desktop.mjs --interactions",
     "smoke:execution:desktop": "node scripts/smoke-desktop.mjs --execution",
     "smoke:execution": "node --disable-warning=ExperimentalWarning scripts/smoke-execution.ts",
@@ -38,6 +41,7 @@
     "check": "node scripts/check.mjs"
   },
   "dependencies": {
+    "cron-parser": "5.10.3",
     "react": "19.3.1",
     "react-dom": "19.3.1"
   },

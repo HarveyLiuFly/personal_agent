@@ -1,0 +1,22 @@
+[1103/105010.014683:ERROR:electron/shell/common/mac/codesign_util.cc:79] task_name_for_pid: (os/kern) failure (5)
+[1103/105010.088246:ERROR:electron/shell/common/mac/codesign_util.cc:79] task_name_for_pid: (os/kern) failure (5)
+✔ numeric five-field Cron is normalized and validates a named timezone without using the host default (15.618417ms)
+✔ next is exclusive and previous inclusive at the exact minute, with seconds never inherited (2.235209ms)
+✔ New York nonexistent spring time is skipped rather than silently shifted to another hour (1.242458ms)
+✔ New York repeated fall time selects only its earlier UTC occurrence in either direction (1.730958ms)
+✔ every-minute expressions suppress all repeated fall minutes, not just daily Cron (2.132459ms)
+✔ Lord Howe half-hour repeated time also selects the earlier occurrence (0.958416ms)
+✔ Lord Howe half-hour gap is skipped while the next ordinary day remains valid (1.464917ms)
+✔ leap dates and month boundaries retain calendar semantics (5.614708ms)
+✔ latest missed occurrence is computed directly over years instead of replaying every minute (1.134042ms)
+✔ malformed, nondeterministic, ambiguous day fields and extra fields are rejected (1.176125ms)
+✔ unsupported dates and impossible future occurrences fail closed without silently changing the expression (1.653041ms)
+✔ independent UTC-minute enumeration agrees across four DST boundaries without duplicate local slots (616.661708ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 12
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 774.87025
