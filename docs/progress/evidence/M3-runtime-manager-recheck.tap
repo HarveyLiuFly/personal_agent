@@ -1,0 +1,88 @@
+TAP version 13
+# Subtest: catalog and paginated history reuse one live PID and initialize exactly once, including concurrent callers
+ok 1 - catalog and paginated history reuse one live PID and initialize exactly once, including concurrent callers
+  ---
+  duration_ms: 191.691458
+  type: 'test'
+  ...
+# Subtest: read leases cannot dispatch a model or be retained after release
+ok 2 - read leases cannot dispatch a model or be retained after release
+  ---
+  duration_ms: 75.156083
+  type: 'test'
+  ...
+# Subtest: a process exit fails the current request once; only a subsequent explicit read builds a new generation
+ok 3 - a process exit fails the current request once; only a subsequent explicit read builds a new generation
+  ---
+  duration_ms: 145.807291
+  type: 'test'
+  ...
+# Subtest: abort stops only the active lease process; queued cancellation neither kills nor enters the preceding lease
+ok 4 - abort stops only the active lease process; queued cancellation neither kills nor enters the preceding lease
+  ---
+  duration_ms: 196.076333
+  type: 'test'
+  ...
+# Subtest: privacy reset fences queued and leaked readers, closes the process, and permits a fresh explicit connection
+ok 5 - privacy reset fences queued and leaked readers, closes the process, and permits a fresh explicit connection
+  ---
+  duration_ms: 147.581458
+  type: 'test'
+  ...
+# Subtest: shutdown during initialization prevents late readiness and closes all dedicated children before returning
+ok 6 - shutdown during initialization prevents late readiness and closes all dedicated children before returning
+  ---
+  duration_ms: 354.241917
+  type: 'test'
+  ...
+# Subtest: reset during initialize cannot publish a ready connection or admit a stale dedicated lease
+ok 7 - reset during initialize cannot publish a ready connection or admit a stale dedicated lease
+  ---
+  duration_ms: 352.810167
+  type: 'test'
+  ...
+# Subtest: queue capacity is bounded and repeated backfill errors cool down without spawning or retrying requests
+ok 8 - queue capacity is bounded and repeated backfill errors cool down without spawning or retrying requests
+  ---
+  duration_ms: 200.329334
+  type: 'test'
+  ...
+# Subtest: auth/config file identity change retires the old process; raw file content is never included in diagnostics
+ok 9 - auth/config file identity change retires the old process; raw file content is never included in diagnostics
+  ---
+  duration_ms: 140.489292
+  type: 'test'
+  ...
+# Subtest: request-ID exhaustion rotates before the next read instead of replaying a failed request
+ok 10 - request-ID exhaustion rotates before the next read instead of replaying a failed request
+  ---
+  duration_ms: 139.279584
+  type: 'test'
+  ...
+# Subtest: ordinary metadata timeout remains uncertain and is not resubmitted automatically
+ok 11 - ordinary metadata timeout remains uncertain and is not resubmitted automatically
+  ---
+  duration_ms: 572.303917
+  type: 'test'
+  ...
+# Subtest: a revoked descriptor closes an already cached process and cannot reuse it during pending privacy cleanup
+ok 12 - a revoked descriptor closes an already cached process and cannot reuse it during pending privacy cleanup
+  ---
+  duration_ms: 149.260209
+  type: 'test'
+  ...
+# Subtest: identity changes during a read fence its result and close the old connection instead of publishing stale data
+ok 13 - identity changes during a read fence its result and close the old connection instead of publishing stale data
+  ---
+  duration_ms: 137.081958
+  type: 'test'
+  ...
+1..13
+# tests 13
+# suites 0
+# pass 13
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 2908.684708

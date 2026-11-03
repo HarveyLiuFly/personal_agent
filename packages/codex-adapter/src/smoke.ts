@@ -12,6 +12,7 @@ import type { ThreadStartResponse } from './generated/v2/ThreadStartResponse.ts'
 import type { TurnStartParams } from './generated/v2/TurnStartParams.ts';
 import type { TurnStartResponse } from './generated/v2/TurnStartResponse.ts';
 import type { ThreadReadResponse } from './generated/v2/ThreadReadResponse.ts';
+import type {ReadPort} from './history.ts';
 
 export interface SmokeResult {
   status: 'passed';
@@ -31,16 +32,20 @@ const initialization = {
   capabilities: { experimentalApi: false, requestAttestation: false },
 };
 
+export async function inspectCatalog(port:ReadPort):Promise<{models:number;defaultModel:string}>{
+  const response=await port.request<ModelListResponse>('model/list',{});
+  if(!Array.isArray(response.data))throw new RpcFailure('INVALID_MODEL_CATALOG');
+  const model=response.data.find(item=>item.isDefault&&!item.hidden);
+  if(!model)throw new RpcFailure('NO_DEFAULT_MODEL');
+  return{models:response.data.length,defaultModel:model.id};
+}
+
 export async function inspectConnection(executable: string, stateDirectory: string, signal?: AbortSignal): Promise<{ models: number; defaultModel: string }> {
   const rpc = new StdioRpcClient({ executable, args: launchArguments(stateDirectory), env: runtimeEnvironment(), signal });
   try {
     await rpc.request<InitializeResponse>('initialize', initialization);
     await rpc.notify('initialized');
-    const response = await rpc.request<ModelListResponse>('model/list', {});
-    if (!Array.isArray(response.data)) throw new RpcFailure('INVALID_MODEL_CATALOG');
-    const model = response.data.find(item => item.isDefault && !item.hidden);
-    if (!model) throw new RpcFailure('NO_DEFAULT_MODEL');
-    return { models: response.data.length, defaultModel: model.id };
+    return await inspectCatalog(rpc);
   } finally { await rpc.close(); }
 }
 

@@ -42,3 +42,11 @@ export function launchArguments(stateDirectory: string): string[] {
     '-c', 'history.persistence="none"', '-c', 'analytics.enabled=false',
     '-c', 'features.unbounded_connection_retries=false', 'app-server', '--stdio'];
 }
+
+/** Process-level restrictions; thread-level checks still verify the actual effective policy. */
+export function restrictedAppServerArguments(directory:string,noTools=false):string[]{
+  const base=launchArguments(directory);
+  return [...base.slice(0,-2),...['mcp_servers={}','features.apps=false','features.plugins=false','features.hooks=false',
+    'features.goals=false','features.multi_agent=false','features.browser_use=false','features.computer_use=false','features.memories=false',
+    ...(noTools?['features.shell_tool=false','features.unified_exec=false','features.view_image=false','features.image_generation=false','features.sleep_tool=false','features.skill_search=false','features.tool_suggest=false','web_search="disabled"']:[])].flatMap(value=>['-c',value]),...base.slice(-2)];
+}

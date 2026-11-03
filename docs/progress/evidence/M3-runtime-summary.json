@@ -1,0 +1,149 @@
+{
+  "checkpoint": "M3.runtime",
+  "date": "2026-11-04",
+  "baseCommit": "2f5665091eb043cecf7f93a6e41cb1c68dcb4116",
+  "platform": "darwin-arm64",
+  "schemaRevision": 6,
+  "desktopApiCount": 63,
+  "implementation": {
+    "metadata": "one Main-owned restricted connection reused by catalog/history/reconciliation; one handshake per connection",
+    "execution": "dedicated per-Run processes; shared index warmup and child registration; actual closure receipts retained",
+    "identity": "checked before and after read; CLI pin plus args/env/config/auth-file metadata; no copied credentials",
+    "cleanup": "reset fences old readers; pending privacy ticket prevents reconnection; Main exit and restore close all children",
+    "backfillCooldown": "30 seconds after failure is observed; initialization duration does not consume cooldown"
+  },
+  "incremental": {
+    "firstPass": 86,
+    "managerAfterTwoAddedCases": 13,
+    "distinctTests": 88,
+    "failed": 0,
+    "skipped": 0,
+    "fullSuiteRun": false,
+    "typecheck": "passed",
+    "build": "passed",
+    "realBusinessBackend": "SQLite/Node process with synthetic stdio execution fixture; not model inference"
+  },
+  "native": {
+    "evidence": "M3-runtime-native.json",
+    "samePidReused": true,
+    "oneInitializeBeforeRotation": true,
+    "dedicatedActualExit": true,
+    "resetActualExit": true,
+    "shutdownActualExit": true,
+    "modelRequests": 0,
+    "threadStarts": 0,
+    "history": "empty controlled public project; not contentful model history"
+  },
+  "desktop": {
+    "observedBy": "Agent CUA actions and OS process checks; not human case pass",
+    "samples": [
+      {
+        "step": "first-check",
+        "processes": [
+          {
+            "kind": "Main",
+            "pid": 55388,
+            "parent": 1319
+          },
+          {
+            "kind": "AppServer",
+            "pid": 55435,
+            "parent": 55388
+          }
+        ]
+      },
+      {
+        "step": "second-check-same-pid",
+        "processes": [
+          {
+            "kind": "Main",
+            "pid": 55388,
+            "parent": 1319
+          },
+          {
+            "kind": "AppServer",
+            "pid": 55435,
+            "parent": 55388
+          }
+        ]
+      },
+      {
+        "step": "window-closed-and-reopened-same-main-and-server",
+        "processes": [
+          {
+            "kind": "Main",
+            "pid": 55388,
+            "parent": 1319
+          },
+          {
+            "kind": "AppServer",
+            "pid": 55435,
+            "parent": 55388
+          }
+        ],
+        "visibleStatus": "目录已连接 · 8 个模型"
+      },
+      {
+        "step": "explicit-quit-physically-closed",
+        "gone": [
+          "Main",
+          "AppServer"
+        ],
+        "modelRequests": 0
+      }
+    ],
+    "manualProfileLedgerCounts": {
+      "projects": 0,
+      "tasks": 0,
+      "task_runs": 0,
+      "execution_intents": 0
+    }
+  },
+  "failuresRetained": [
+    "Initial typecheck rejected TS parameter properties under erasableSyntaxOnly; replaced by explicit fields before passing."
+  ],
+  "modelRequests": 0,
+  "manualA01": "original human failure retained; user retest pending",
+  "implementationHashes": [
+    {
+      "file": "apps/desktop/src/main.ts",
+      "sha256": "34428812aa0b0e7a4505c5ddeda68bcb54c4e264c2543b5273367085ac1d9557"
+    },
+    {
+      "file": "packages/codex-adapter/src/app-server.ts",
+      "sha256": "2aba6bcbee09f124a4e7ce93b9762b396730ddbd7375c4c31a7cdf7700b752c4"
+    },
+    {
+      "file": "packages/codex-adapter/src/rpc.ts",
+      "sha256": "704dcce70d0a3ad3db511240b5c0e69f732174dc34ee07012f99f91ed67d103b"
+    },
+    {
+      "file": "packages/codex-adapter/src/launch.ts",
+      "sha256": "3e1f6db3bf9bfbfb06996c330e130b601603528b1629c22da2cd5308732f2819"
+    },
+    {
+      "file": "packages/codex-adapter/src/smoke.ts",
+      "sha256": "ea9d92df11ac49be9f41758853a43d8705af1985b68226b4e5a647f4aa523e7f"
+    },
+    {
+      "file": "packages/runtime/src/execution.ts",
+      "sha256": "5f806c51a73d7fa0383ea3eaa513665c217f1d617071009263862201491e7997"
+    },
+    {
+      "file": "tests/app-server.test.ts",
+      "sha256": "263d8b59df378d485f3cb5c85314111d1908832637f7883374067cd4e91d6699"
+    },
+    {
+      "file": "tests/app-server-execution.test.ts",
+      "sha256": "0e34307fb6e0d8004931c0259a41e3d84a84f5ee0fd44f9394df8918e4886934"
+    },
+    {
+      "file": "tests/fixtures/app-server.ts",
+      "sha256": "06c5a0a9a8dc78d3c184f54b575322cc76edba2f40b2870b426358abe816c32f"
+    },
+    {
+      "file": "scripts/probe-app-server-runtime.ts",
+      "sha256": "6dd525c7e4639cce3c62019d8b2a06efad28715e5e06b7b3e95642ef039d7b98"
+    }
+  ]
+}

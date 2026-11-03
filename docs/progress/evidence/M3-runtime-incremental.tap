@@ -1,0 +1,526 @@
+TAP version 13
+# Subtest: two Task turns reuse metadata but physically close separate execution processes before closure receipts
+ok 1 - two Task turns reuse metadata but physically close separate execution processes before closure receipts
+  ---
+  duration_ms: 1410.170084
+  type: 'test'
+  ...
+# Subtest: lost dedicated acceptance remains Unknown while metadata reuse never resends a thread or turn
+ok 2 - lost dedicated acceptance remains Unknown while metadata reuse never resends a thread or turn
+  ---
+  duration_ms: 30218.3415
+  type: 'test'
+  ...
+# Subtest: privacy revocation stops actual execution and reset closes cached metadata before physical cleanup can start
+ok 3 - privacy revocation stops actual execution and reset closes cached metadata before physical cleanup can start
+  ---
+  duration_ms: 184.873541
+  type: 'test'
+  ...
+# Subtest: catalog and paginated history reuse one live PID and initialize exactly once, including concurrent callers
+ok 4 - catalog and paginated history reuse one live PID and initialize exactly once, including concurrent callers
+  ---
+  duration_ms: 318.627334
+  type: 'test'
+  ...
+# Subtest: read leases cannot dispatch a model or be retained after release
+ok 5 - read leases cannot dispatch a model or be retained after release
+  ---
+  duration_ms: 99.988958
+  type: 'test'
+  ...
+# Subtest: a process exit fails the current request once; only a subsequent explicit read builds a new generation
+ok 6 - a process exit fails the current request once; only a subsequent explicit read builds a new generation
+  ---
+  duration_ms: 195.920667
+  type: 'test'
+  ...
+# Subtest: abort stops only the active lease process; queued cancellation neither kills nor enters the preceding lease
+ok 7 - abort stops only the active lease process; queued cancellation neither kills nor enters the preceding lease
+  ---
+  duration_ms: 450.245833
+  type: 'test'
+  ...
+# Subtest: privacy reset fences queued and leaked readers, closes the process, and permits a fresh explicit connection
+ok 8 - privacy reset fences queued and leaked readers, closes the process, and permits a fresh explicit connection
+  ---
+  duration_ms: 227.429291
+  type: 'test'
+  ...
+# Subtest: shutdown during initialization prevents late readiness and closes all dedicated children before returning
+ok 9 - shutdown during initialization prevents late readiness and closes all dedicated children before returning
+  ---
+  duration_ms: 361.571917
+  type: 'test'
+  ...
+# Subtest: reset during initialize cannot publish a ready connection or admit a stale dedicated lease
+ok 10 - reset during initialize cannot publish a ready connection or admit a stale dedicated lease
+  ---
+  duration_ms: 347.524791
+  type: 'test'
+  ...
+# Subtest: queue capacity is bounded and repeated backfill errors cool down without spawning or retrying requests
+ok 11 - queue capacity is bounded and repeated backfill errors cool down without spawning or retrying requests
+  ---
+  duration_ms: 197.598417
+  type: 'test'
+  ...
+# Subtest: auth/config file identity change retires the old process; raw file content is never included in diagnostics
+ok 12 - auth/config file identity change retires the old process; raw file content is never included in diagnostics
+  ---
+  duration_ms: 142.803083
+  type: 'test'
+  ...
+# Subtest: request-ID exhaustion rotates before the next read instead of replaying a failed request
+ok 13 - request-ID exhaustion rotates before the next read instead of replaying a failed request
+  ---
+  duration_ms: 131.247292
+  type: 'test'
+  ...
+# Subtest: ordinary metadata timeout remains uncertain and is not resubmitted automatically
+ok 14 - ordinary metadata timeout remains uncertain and is not resubmitted automatically
+  ---
+  duration_ms: 568.447625
+  type: 'test'
+  ...
+# Subtest: real stdio fixture sees committed intents before both requests and final projection preserves repeated deltas
+ok 15 - real stdio fixture sees committed intents before both requests and final projection preserves repeated deltas
+  ---
+  duration_ms: 1190.494416
+  type: 'test'
+  ...
+# Subtest: duplicate keys after completion return the stored result without another transport
+ok 16 - duplicate keys after completion return the stored result without another transport
+  ---
+  duration_ms: 168.884542
+  type: 'test'
+  ...
+# Subtest: lost acceptance remains unknown even when a completed event was observed; no automatic resend
+ok 17 - lost acceptance remains unknown even when a completed event was observed; no automatic resend
+  ---
+  duration_ms: 1642.13625
+  type: 'test'
+  ...
+# Subtest: a disconnected server and a silent turn preserve Unknown and mark the snapshot stale
+ok 18 - a disconnected server and a silent turn preserve Unknown and mark the snapshot stale
+  ---
+  duration_ms: 2213.704833
+  type: 'test'
+  ...
+# Subtest: confirmed invalid protocol parameters reject once and do not leave a sending intent
+ok 19 - confirmed invalid protocol parameters reject once and do not leave a sending intent
+  ---
+  duration_ms: 111.282083
+  type: 'test'
+  ...
+# Subtest: queries reject arbitrary keys, raw paths and foreign run IDs before exporting content
+ok 20 - queries reject arbitrary keys, raw paths and foreign run IDs before exporting content
+  ---
+  duration_ms: 127.58575
+  type: 'test'
+  ...
+# Subtest: concurrent different submission cannot create an orphan ledger run
+ok 21 - concurrent different submission cannot create an orphan ledger run
+  ---
+  duration_ms: 908.672291
+  type: 'test'
+  ...
+# Subtest: closing owner while running records Unknown and waits for the child process shutdown
+ok 22 - closing owner while running records Unknown and waits for the child process shutdown
+  ---
+  duration_ms: 106.687166
+  type: 'test'
+  ...
+# Subtest: nonempty thread MCP inventory blocks a model turn even if disable overrides were supplied
+ok 23 - nonempty thread MCP inventory blocks a model turn even if disable overrides were supplied
+  ---
+  duration_ms: 98.933375
+  type: 'test'
+  ...
+# Subtest: configured servers explicitly disabled with zero tools are accepted as a closed inventory
+ok 24 - configured servers explicitly disabled with zero tools are accepted as a closed inventory
+  ---
+  duration_ms: 126.728292
+  type: 'test'
+  ...
+# Subtest: an inherited automatic approval reviewer cannot bypass the Host broker before a model turn
+ok 25 - an inherited automatic approval reviewer cannot bypass the Host broker before a model turn
+  ---
+  duration_ms: 94.302084
+  type: 'test'
+  ...
+# Subtest: native network, write-root and temporary-directory expansion fail before any model turn
+ok 26 - native network, write-root and temporary-directory expansion fail before any model turn
+  ---
+  duration_ms: 276.895125
+  type: 'test'
+  ...
+# Subtest: code execution requires a successful frozen contract before any RPC connection or model request
+ok 27 - code execution requires a successful frozen contract before any RPC connection or model request
+  ---
+  duration_ms: 20.876458
+  type: 'test'
+  ...
+# Subtest: stopping during contract preparation aborts without starting the native executor
+ok 28 - stopping during contract preparation aborts without starting the native executor
+  ---
+  duration_ms: 23.747083
+  type: 'test'
+  ...
+# Subtest: a changed code contract cannot reuse a submission key while preparation is in progress
+ok 29 - a changed code contract cannot reuse a submission key while preparation is in progress
+  ---
+  duration_ms: 24.013125
+  type: 'test'
+  ...
+# Subtest: known ended tasks continue with a fenced new Run and durable resume before sending, retaining the original binding
+ok 30 - known ended tasks continue with a fenced new Run and durable resume before sending, retaining the original binding
+  ---
+  duration_ms: 234.654875
+  type: 'test'
+  ...
+# Subtest: Unknown tasks never become a new continuation
+ok 31 - Unknown tasks never become a new continuation
+  ---
+  duration_ms: 1608.884625
+  type: 'test'
+  ...
+# Subtest: folder grants canonicalize symlinks, deduplicate roots and export detached view objects
+ok 32 - folder grants canonicalize symlinks, deduplicate roots and export detached view objects
+  ---
+  duration_ms: 106.505833
+  type: 'test'
+  ...
+# Subtest: unknown project IDs and arbitrary path or extra RPC parameters fail before accessing the backend
+ok 33 - unknown project IDs and arbitrary path or extra RPC parameters fail before accessing the backend
+  ---
+  duration_ms: 15.417542
+  type: 'test'
+  ...
+# Subtest: thread queries fix cwd and page size, and export bounded summaries without raw metadata
+ok 34 - thread queries fix cwd and page size, and export bounded summaries without raw metadata
+  ---
+  duration_ms: 9.160875
+  type: 'test'
+  ...
+# Subtest: a mixed-scope server page is rejected atomically and grants no thread navigation authority
+ok 35 - a mixed-scope server page is rejected atomically and grants no thread navigation authority
+  ---
+  duration_ms: 25.3845
+  type: 'test'
+  ...
+# Subtest: thread IDs seen under one folder cannot be read under another folder grant
+ok 36 - thread IDs seen under one folder cannot be read under another folder grant
+  ---
+  duration_ms: 4.576083
+  type: 'test'
+  ...
+# Subtest: fresh thread metadata is checked before reading message history
+ok 37 - fresh thread metadata is checked before reading message history
+  ---
+  duration_ms: 6.880542
+  type: 'test'
+  ...
+# Subtest: native pagination cursors are replaced with scoped handles and refresh invalidates old handles
+ok 38 - native pagination cursors are replaced with scoped handles and refresh invalidates old handles
+  ---
+  duration_ms: 4.84475
+  type: 'test'
+  ...
+# Subtest: turn authority and every returned item entry are checked before content export
+ok 39 - turn authority and every returned item entry are checked before content export
+  ---
+  duration_ms: 3.261208
+  type: 'test'
+  ...
+# Subtest: large tool/message output stays within per-item and aggregate budgets and excludes private tool fields
+ok 40 - large tool/message output stays within per-item and aggregate budgets and excludes private tool fields
+  ---
+  duration_ms: 4.412333
+  type: 'test'
+  ...
+# Subtest: oversized server pages fail closed rather than silently dropping unexpected rows
+ok 41 - oversized server pages fail closed rather than silently dropping unexpected rows
+  ---
+  duration_ms: 2.978166
+  type: 'test'
+  ...
+# Subtest: legacy history uses bounded read-only snapshots and local paging without Resume or paginated RPC calls
+ok 42 - legacy history uses bounded read-only snapshots and local paging without Resume or paginated RPC calls
+  ---
+  duration_ms: 6.789625
+  type: 'test'
+  ...
+# Subtest: replacing an authorized project directory invalidates its grant before any history read
+ok 43 - replacing an authorized project directory invalidates its grant before any history read
+  ---
+  duration_ms: 5.080333
+  type: 'test'
+  ...
+# Subtest: read errors propagate without automatic retries or fallback execution methods
+ok 44 - read errors propagate without automatic retries or fallback execution methods
+  ---
+  duration_ms: 3.1915
+  type: 'test'
+  ...
+# Subtest: controlled artifacts are physically removed by exact key while other receipts, active SQLite, sources and credentials stay intact
+ok 45 - controlled artifacts are physically removed by exact key while other receipts, active SQLite, sources and credentials stay intact
+  ---
+  duration_ms: 9.499208
+  type: 'test'
+  ...
+# Subtest: app-owned backup/rehearsal/runtime and Codex-state copies are removed without deleting the active legacy ledger
+ok 46 - app-owned backup/rehearsal/runtime and Codex-state copies are removed without deleting the active legacy ledger
+  ---
+  duration_ms: 12.49675
+  type: 'test'
+  ...
+# Subtest: an active runtime generation remains usable while current export and old legacy/runtime copies are purged
+ok 47 - an active runtime generation remains usable while current export and old legacy/runtime copies are purged
+  ---
+  duration_ms: 11.007958
+  type: 'test'
+  ...
+# Subtest: invalid keys, unexpected snapshot names and symlinks are rejected without following user paths
+ok 48 - invalid keys, unexpected snapshot names and symlinks are rejected without following user paths
+  ---
+  duration_ms: 11.801792
+  type: 'test'
+  ...
+# Subtest: a replaced storage-root inode is rejected even if the canonical path string stays identical
+ok 49 - a replaced storage-root inode is rejected even if the canonical path string stays identical
+  ---
+  duration_ms: 14.324583
+  type: 'test'
+  ...
+# Subtest: an external verification root cannot authorize deleting an outside receipt
+ok 50 - an external verification root cannot authorize deleting an outside receipt
+  ---
+  duration_ms: 9.886209
+  type: 'test'
+  ...
+# Subtest: MemoryService performs real logical SQLite revocation before Host stop/file purge and actual VACUUM/WAL truncation
+ok 51 - MemoryService performs real logical SQLite revocation before Host stop/file purge and actual VACUUM/WAL truncation
+  ---
+  duration_ms: 58.463625
+  type: 'test'
+  ...
+# Subtest: Unknown or failed execution shutdown preserves logical deletion and refuses physical completion until retry confirms actual stop
+ok 52 - Unknown or failed execution shutdown preserves logical deletion and refuses physical completion until retry confirms actual stop
+  ---
+  duration_ms: 17.801041
+  type: 'test'
+  ...
+# Subtest: Artifact and source purge failures are bounded, sanitized and resumable without compaction or repeated forget
+ok 53 - Artifact and source purge failures are bounded, sanitized and resumable without compaction or repeated forget
+  ---
+  duration_ms: 25.781708
+  type: 'test'
+  ...
+# Subtest: Failed actual compaction cannot claim local physical erasure and can be retried after readers release
+ok 54 - Failed actual compaction cannot claim local physical erasure and can be retried after readers release
+  ---
+  duration_ms: 21.862125
+  type: 'test'
+  ...
+# Subtest: Malformed purge acknowledgements, fabricated cleanup tickets and failed Ledger validation cannot produce completion
+ok 55 - Malformed purge acknowledgements, fabricated cleanup tickets and failed Ledger validation cannot produce completion
+  ---
+  duration_ms: 11.635208
+  type: 'test'
+  ...
+# Subtest: Concurrent retries share one cleanup operation and returned receipt mutation cannot forge internal completion
+ok 56 - Concurrent retries share one cleanup operation and returned receipt mutation cannot forge internal completion
+  ---
+  duration_ms: 26.865458
+  type: 'test'
+  ...
+# Subtest: A real SQLite WAL reader keeps physical cleanup incomplete until its snapshot is closed
+ok 57 - A real SQLite WAL reader keeps physical cleanup incomplete until its snapshot is closed
+  ---
+  duration_ms: 5478.7565
+  type: 'test'
+  ...
+# Subtest: a lost acceptance reconciles only from unique matching native-shaped terminal history after executor closure
+ok 58 - a lost acceptance reconciles only from unique matching native-shaped terminal history after executor closure
+  ---
+  duration_ms: 68.815
+  type: 'test'
+  ...
+# Subtest: reconciliation never dispatches, resumes or adds a replacement run and is not repeatable after resolution
+ok 59 - reconciliation never dispatches, resumes or adds a replacement run and is not repeatable after resolution
+  ---
+  duration_ms: 71.536791
+  type: 'test'
+  ...
+# Subtest: crash without executor closure and unconfirmed server responses remain blocked before any history connection
+ok 60 - crash without executor closure and unconfirmed server responses remain blocked before any history connection
+  ---
+  duration_ms: 123.934208
+  type: 'test'
+  ...
+# Subtest: wrong scope, ambiguous input, running history, changed snapshots and unsupported projections cannot unblock Unknown
+ok 61 - wrong scope, ambiguous input, running history, changed snapshots and unsupported projections cannot unblock Unknown
+  ---
+  duration_ms: 716.903125
+  type: 'test'
+  ...
+# Subtest: foreign project IDs, paths and extra raw RPC fields fail before history access
+ok 62 - foreign project IDs, paths and extra raw RPC fields fail before history access
+  ---
+  duration_ms: 59.010167
+  type: 'test'
+  ...
+# Subtest: idle restore physically activates a new generation, preserving newer source DB and source files
+ok 63 - idle restore physically activates a new generation, preserving newer source DB and source files
+  ---
+  duration_ms: 446.1785
+  type: 'test'
+  ...
+# Subtest: same preparation key returns original copy, and changes before activation require an explicit new preparation
+ok 64 - same preparation key returns original copy, and changes before activation require an explicit new preparation
+  ---
+  duration_ms: 414.079
+  type: 'test'
+  ...
+# Subtest: extra fields, foreign IDs, malformed pointers and changed physical copies are rejected
+ok 65 - extra fields, foreign IDs, malformed pointers and changed physical copies are rejected
+  ---
+  duration_ms: 171.228
+  type: 'test'
+  ...
+# Subtest: actual cold restore Host SIGKILL at before_pointer retains a complete old or new active generation
+ok 66 - actual cold restore Host SIGKILL at before_pointer retains a complete old or new active generation
+  ---
+  duration_ms: 327.895375
+  type: 'test'
+  ...
+# Subtest: actual cold restore Host SIGKILL at commit_intent retains a complete old or new active generation
+ok 67 - actual cold restore Host SIGKILL at commit_intent retains a complete old or new active generation
+  ---
+  duration_ms: 275.187416
+  type: 'test'
+  ...
+# Subtest: actual cold restore Host SIGKILL at activated retains a complete old or new active generation
+ok 68 - actual cold restore Host SIGKILL at activated retains a complete old or new active generation
+  ---
+  duration_ms: 297.568833
+  type: 'test'
+  ...
+# Subtest: a lost committed active pointer fails closed and never rolls back to the previous runtime
+ok 69 - a lost committed active pointer fails closed and never rolls back to the previous runtime
+  ---
+  duration_ms: 158.698875
+  type: 'test'
+  ...
+# Subtest: out-of-order responses retain the correct request identity
+ok 70 - out-of-order responses retain the correct request identity
+  ---
+  duration_ms: 103.320916
+  type: 'test'
+  ...
+# Subtest: server request with a colliding numeric ID is denied without resolving the client request
+ok 71 - server request with a colliding numeric ID is denied without resolving the client request
+  ---
+  duration_ms: 108.352292
+  type: 'test'
+  ...
+# Subtest: an unsupported server request fails closed
+ok 72 - an unsupported server request fails closed
+  ---
+  duration_ms: 253.801125
+  type: 'test'
+  ...
+# Subtest: UTF-8 frames split inside a code point preserve repeated text
+ok 73 - UTF-8 frames split inside a code point preserve repeated text
+  ---
+  duration_ms: 159.058708
+  type: 'test'
+  ...
+# Subtest: malformed input closes the connection and rejects pending execution as unknown
+ok 74 - malformed input closes the connection and rejects pending execution as unknown
+  ---
+  duration_ms: 86.893666
+  type: 'test'
+  ...
+# Subtest: oversize input closes the connection and rejects pending execution as unknown
+ok 75 - oversize input closes the connection and rejects pending execution as unknown
+  ---
+  duration_ms: 123.839833
+  type: 'test'
+  ...
+# Subtest: utf8 input closes the connection and rejects pending execution as unknown
+ok 76 - utf8 input closes the connection and rejects pending execution as unknown
+  ---
+  duration_ms: 70.910125
+  type: 'test'
+  ...
+# Subtest: a response deadline does not automatically resubmit an uncertain request
+ok 77 - a response deadline does not automatically resubmit an uncertain request
+  ---
+  duration_ms: 126.185625
+  type: 'test'
+  ...
+# Subtest: process exit rejects all outstanding requests and is not a successful empty result
+ok 78 - process exit rejects all outstanding requests and is not a successful empty result
+  ---
+  duration_ms: 72.127875
+  type: 'test'
+  ...
+# Subtest: closed clients reject new work and cleanup can be awaited more than once
+ok 79 - closed clients reject new work and cleanup can be awaited more than once
+  ---
+  duration_ms: 72.070334
+  type: 'test'
+  ...
+# Subtest: durable client request IDs cannot be reused after success or while pending
+ok 80 - durable client request IDs cannot be reused after success or while pending
+  ---
+  duration_ms: 88.264041
+  type: 'test'
+  ...
+# Subtest: owner cancellation rejects pending work and waits for its child process to stop
+ok 81 - owner cancellation rejects pending work and waits for its child process to stop
+  ---
+  duration_ms: 65.453166
+  type: 'test'
+  ...
+# Subtest: the native child preserves configured authentication/proxy bindings but cannot inherit the parent agent tool bridge or sandbox identity
+ok 82 - the native child preserves configured authentication/proxy bindings but cannot inherit the parent agent tool bridge or sandbox identity
+  ---
+  duration_ms: 0.295
+  type: 'test'
+  ...
+# Subtest: a diagnostic consumer failure does not break RPC error correlation or expose private error text
+ok 83 - a diagnostic consumer failure does not break RPC error correlation or expose private error text
+  ---
+  duration_ms: 64.756292
+  type: 'test'
+  ...
+# Subtest: cold initialization has its own deadline; ordinary uncertain requests retain their deadline and are not repeated
+ok 84 - cold initialization has its own deadline; ordinary uncertain requests retain their deadline and are not repeated
+  ---
+  duration_ms: 219.445042
+  type: 'test'
+  ...
+# Subtest: backfill-exit is a sanitized initialization failure and never a login failure or business success
+ok 85 - backfill-exit is a sanitized initialization failure and never a login failure or business success
+  ---
+  duration_ms: 76.046417
+  type: 'test'
+  ...
+# Subtest: backfill-timeout is a sanitized initialization failure and never a login failure or business success
+ok 86 - backfill-timeout is a sanitized initialization failure and never a login failure or business success
+  ---
+  duration_ms: 308.408875
+  type: 'test'
+  ...
+1..86
+# tests 86
+# suites 0
+# pass 86
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 32195.349916

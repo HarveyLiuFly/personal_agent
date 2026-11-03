@@ -3,7 +3,8 @@ import type { RunToken, RunRecord } from '../../store/src/ledger.ts';
 import { StdioRpcClient, RpcFailure, isObject } from '../../codex-adapter/src/rpc.ts';
 import type { RpcOptions } from '../../codex-adapter/src/rpc.ts';
 import { ThreadProjection } from '../../codex-adapter/src/projection.ts';
-import { launchArguments, runtimeEnvironment } from '../../codex-adapter/src/launch.ts';
+import { restrictedAppServerArguments, runtimeEnvironment } from '../../codex-adapter/src/launch.ts';
+import type {AppServerRuntime} from '../../codex-adapter/src/app-server.ts';
 import type { ThreadStartParams } from '../../codex-adapter/src/generated/v2/ThreadStartParams.ts';
 import type { ThreadResumeParams } from '../../codex-adapter/src/generated/v2/ThreadResumeParams.ts';
 import type { TurnStartParams } from '../../codex-adapter/src/generated/v2/TurnStartParams.ts';
@@ -26,13 +27,11 @@ function summary(row: RunRecord): RunSummary {
 export interface ExecutionRoleProfile {role:string;developerInstructions:string;userContext?:string;contextRefs:Array<{ref:string;revision:string}>;outputSchema?:TurnStartParams['outputSchema'];ephemeral:boolean;tools:'none'|'readOnly';contextHash:string}
 interface Session { checkpointId?:string;contextSourceRefs?:string[]; profile?:ExecutionRoleProfile; token: RunToken; projectId: string; submissionKey: string; mode: 'readOnly'|'workspaceWrite'; code?: CodeTaskSpec; sourceRunId?:string;resumeThreadId?:string; abort: AbortController; rpc?: StdioRpcClient; projection?: ThreadProjection; threadId?: string; turnId?: string; intentId?: string; broker?: InteractionBroker; interrupt?: Promise<void>; stopTimer?: NodeJS.Timeout; turnEnded?: boolean;usagePending?:Array<{threadId:string;turnId:string;total:unknown}>;usageOverflow?:boolean }
 export function executionArguments(directory: string,noTools=false,privateRole=false): string[] {
-  const base = launchArguments(directory);
-  // M1 enables local built-in tools only; external connectors and autonomous features have separate gates.
-  return [...base.slice(0, -2), ...['mcp_servers={}', 'features.apps=false', 'features.plugins=false', 'features.hooks=false',
-    'features.goals=false', 'features.multi_agent=false', 'features.browser_use=false', 'features.computer_use=false','features.memories=false',...(noTools?['features.shell_tool=false','features.unified_exec=false','features.view_image=false','features.image_generation=false','features.sleep_tool=false','features.skill_search=false','features.tool_suggest=false','features.memories=false','web_search="disabled"']:[])].flatMap(value => ['-c', value]), ...base.slice(-2)];
+  return restrictedAppServerArguments(directory,noTools);
 }
 export interface ExecutionOptions {
   executable: string; stateDirectory: string; codexHome?: string; timeoutMs?: number;
+  runtime?:AppServerRuntime;
   mode?: 'readOnly' | 'workspaceWrite'; interactionTimeoutMs?: number;
   interruptTimeoutMs?: number;
   prepareCode?: (token: RunToken, code: CodeTaskSpec, signal: AbortSignal) => Promise<void>;
@@ -248,7 +247,9 @@ export class ForegroundExecution {
       const bundle=session.profile?undefined:this.store.contextForRun(session.token.runId,{role:'coding',mode:mode==='workspaceWrite'?'execution':'read-only',sourceRefs:session.contextSourceRefs??this.store.taskContextRefs(session.token.runId),...(session.checkpointId?{checkpointId:session.checkpointId}:{}),maximumInputUnits:24000,framingReserveUnits:4096,capabilities:{model_inference:true,workspace_read:true,workspace_write:mode==='workspaceWrite'}});
       if(bundle){text=bundle.userContext;this.store.bindRoleInput(session.token,text);}
       if (session.abort.signal.aborted) throw new LedgerError('RUN_CANCELLED_BEFORE_SEND');
-      session.rpc = this.options.connect ? this.options.connect(callbacks) : new StdioRpcClient({
+      const runtimeFence=this.options.runtime?await this.options.runtime.prepare(session.abort.signal):undefined;
+      if(session.abort.signal.aborted)throw new LedgerError('RUN_CANCELLED_BEFORE_SEND');
+      const rpcOptions:RpcOptions={
         executable: this.options.executable, args: executionArguments(this.options.stateDirectory,session.profile?.tools==='none',Boolean(session.profile)),
         requestTimeoutMs: 30_000,
         env: { ...runtimeEnvironment(), ...(this.options.codexHome ? { CODEX_HOME: this.options.codexHome } : {}) }, ...callbacks,
@@ -256,7 +257,8 @@ export class ForegroundExecution {
           const text = isObject(error) && typeof error.message === 'string' ? error.message : '';
           this.diagnostics.remoteFailureCategory = /experimental|capabilit|opt.?in/i.test(text) ? 'capability_requirement' : /thread.*not.*found|unknown thread/i.test(text) ? 'thread_not_loaded' : /invalid.*param|unknown.*field/i.test(text) ? 'invalid_parameters' : 'unclassified';
         },
-      });
+      };
+      session.rpc=this.options.connect?this.options.connect(callbacks):this.options.runtime?this.options.runtime.openDedicated(rpcOptions,runtimeFence!):new StdioRpcClient(rpcOptions);
       const rpc = session.rpc;
       this.diagnostics.phase = 'initialize';
       await rpc.request('initialize', { clientInfo: { name: 'personal_agent_desktop', version: '0.1.0' }, capabilities: { experimentalApi: false } });

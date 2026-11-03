@@ -79,6 +79,9 @@ export class StdioRpcClient {
   private abort = (): void => { this.fail(new RpcFailure('CLIENT_ABORTED', true)); this.signal('SIGTERM'); };
 
   waitClosed(): Promise<void> { return this.exitPromise; }
+  get processId(): number | null { return this.child.pid ?? null; }
+  get usable(): boolean { return !this.closed && !this.stopRequested && !this.exited; }
+  get requestCount(): number { return this.usedClientIds.size; }
 
   private deadline(method: string): number {
     return method === 'initialize' ? this.options.initializeTimeoutMs ?? 60_000 : this.options.requestTimeoutMs ?? 15_000;

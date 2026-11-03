@@ -41,14 +41,15 @@ import { ForegroundExecution } from '../../../packages/runtime/src/execution.ts'
 import { HistoryReconciliation } from '../../../packages/runtime/src/reconciliation.ts';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { inspectConnection } from '../../../packages/codex-adapter/src/smoke.ts';
+import { inspectConnection,inspectCatalog } from '../../../packages/codex-adapter/src/smoke.ts';
+import {AppServerRuntime} from '../../../packages/codex-adapter/src/app-server.ts';
 import { resolveExecutable, resolveVerifierNode } from '../../../packages/codex-adapter/src/launch.ts';
 import { verifiedCodex } from '../../../packages/codex-adapter/src/binary.ts';
 import { RpcFailure, StdioRpcClient } from '../../../packages/codex-adapter/src/rpc.ts';
 import { HistoryBrowser } from '../../../packages/codex-adapter/src/history.ts';
 import type { ReadPort } from '../../../packages/codex-adapter/src/history.ts';
 import { readConnection } from '../../../packages/codex-adapter/src/read-connection.ts';
-import { runtimeEnvironment } from '../../../packages/codex-adapter/src/launch.ts';
+import { runtimeEnvironment,restrictedAppServerArguments } from '../../../packages/codex-adapter/src/launch.ts';
 import type { HostResult } from '../../../packages/contracts/src/views.ts';
 import type { ConnectionInfo } from './bridge.ts';
 import {nativeProbe,rejectedSecondary,runNativeProbe} from './native-probes.ts';
@@ -76,6 +77,7 @@ let ledger: ExecutionLedger | undefined;
 let backupService:BackupService|undefined;
 const resourceSampler=new MainResourceSampler();
 let execution: ForegroundExecution | undefined;
+let appServer:AppServerRuntime|undefined,appServerStopping=false;
 let chatRoutes:ChatRouteService|undefined,goalService:GoalService|undefined,memoryService:MemoryService|undefined,goalTimer:ReturnType<typeof setInterval>|undefined;
 let sourcePoller:AuthenticatedSourcePoller|undefined,privacyCleanup:LocalPrivacyCleanup|undefined;
 let verifier: NodeVerification | undefined;
@@ -138,7 +140,7 @@ else void boot().catch(async error => {
     const file = autonomySmoke?'M3.4-autonomy-desktop':chatSmoke?'M3.1b-main-chat-regression':skillsSmoke?'M2.8a-desktop':resourcesSmoke?'M2.2e-desktop':rehearsalSmoke?'M2.7b-desktop':backupSmoke?'M2.7a-desktop':worktreeCodeSmoke?(worktreeCodePreflight?'M2.1b-worktree-preflight':'M2.1b-worktree-native'):toolsSmoke?'M2.1b-tools-desktop':recoverySmoke?'M2.5b-desktop':terminalSmoke?'M2.6a-desktop':worktreeSmoke?'M2.5a-desktop':backgroundProbe?(backgroundNativeSmoke?'M2.4a-native-background':'M2.4a-desktop'):scheduleAutoSmoke?'M2.3d-desktop':scheduleSmoke?'M2.3c-desktop':planSmoke?'M2.2d-desktop':budgetSmoke?'M2.2c-desktop':taskSmoke?'M2.2b-desktop':acceptanceProbe?acceptanceProbe.kind==='workspace'?'M2.1a-desktop':`M1.4b-${acceptanceProbe.kind==='folder'?'native-folder':acceptanceProbe.kind==='restart'?'native-restart':'owner'}`:nativeCodeSmoke ? 'M1-native-code-desktop' : continuationSmoke?'M1.3c-desktop':interactionSmoke ? 'M1.2-desktop' : executionSmoke ? 'M1.1c-desktop' : historySmoke ? 'M1.1b-desktop' : 'M0-desktop-smoke';
     writeFileSync(resolve(root, `docs/progress/evidence/${file}.json`), JSON.stringify({ status: 'blocked', code, observedAt: new Date().toISOString() }) + '\n');
   }
-  try {await terminalService?.stop();await worktreeService?.stop();await execution?.close(); ledger?.close();}catch{}
+  try {await terminalService?.stop();await worktreeService?.stop();await execution?.close();await appServer?.close(); ledger?.close();}catch{}
   app.exit(1);
 });
 
@@ -174,6 +176,10 @@ async function boot(): Promise<void> {
     if(worktreeCodeSmoke){createCodeFixture(fixtureWorkspace);writeFileSync(resolve(fixtureWorkspace,'src/math.mjs'),'export const sum = (a, b) => a - b;\n// SOURCE_DIRTY_KEPT\n');}
   }
   if (!historySmoke) {
+    if(!fixtureDirectory&&!executionSmoke)appServer=new AppServerRuntime(()=>{
+      if(ledger?.pendingMemoryCleanup().length)throw new RpcFailure('PRIVACY_CLEANUP_PENDING');
+      return{executable:executable(),args:restrictedAppServerArguments(state,true),env:runtimeEnvironment()};
+    });
     const storageRoot=fixtureDirectory??app.getPath('userData'),runtimePaths=activeRuntimePaths(storageRoot,resolve(storageRoot,'verification'));
     const sources=loadSourceConfiguration(resolve(app.getPath('userData'),'source-connections.json'));
     sourcePoller=new AuthenticatedSourcePoller({connections:sources.connections,directory:resolve(storageRoot,'source-payloads')});
@@ -191,14 +197,17 @@ async function boot(): Promise<void> {
       try {worktreeService=new WorktreeService(ledger,{git:resolveWorkspaceGit(),node:resolveVerifierNode(root),worker:resolve(directory,'worktree-worker.mjs'),stateDirectory:resolve(fixtureDirectory??app.getPath('userData'),'worktrees'),reveal:path=>{if(recoveryProbeState)recoveryProbeState.revealed.push(path);else shell.showItemInFolder(path);},...(recoverySmoke?{afterArchived:()=>{recoveryProbeState!.archiveStops++;throw new LedgerError('CONTROLLED_RECOVERY_GAP');}}:{})});}catch{}
       try {workspaceReader=new WorkspaceService(id=>ledger!.workspace(id),{node:resolveVerifierNode(root),cli:executable(),git:resolveWorkspaceGit(),worker:resolve(directory,'workspace-reader.mjs'),stateDirectory:resolve(app.getPath('userData'),'workspace-read'),managedGit:id=>ledger!.worktreeMetadata(id)});}catch{}
     }
-    execution = new ForegroundExecution(ledger, { executable: executionSmoke ? resolveExecutable('node') : executable(), stateDirectory: state, mode: interactionSmoke ? 'workspaceWrite' : 'readOnly',
+    execution = new ForegroundExecution(ledger, { executable: executionSmoke ? resolveExecutable('node') : executable(), stateDirectory: state,runtime:appServer, mode: interactionSmoke ? 'workspaceWrite' : 'readOnly',
       ...(verifier ? { prepareCode: (token, code, signal) => verifier!.prepare(token,code,signal) } : {}),
       ...(verifier ? {prepareContinuation:(token,sourceRunId,signal)=>verifier!.prepareContinuation(token,sourceRunId,signal)} : {}),
       ...(executionSmoke ? { connect: callbacks => new StdioRpcClient({ executable: resolveExecutable('node'),
         args: [resolve(root, 'tests/fixtures/execution-server.ts'), toolsSmoke?'tool-status':backgroundSmoke||scheduleAutoSmoke?'usage':taskSmoke?'interrupt-ok':interactionSmoke ? 'approval-accept' : 'slow', resolve(fixtureDirectory!, 'execution/ledger.db'), resolve(fixtureDirectory!, 'execution-receipts')], env: runtimeEnvironment(), ...callbacks }) } : {}) });
   }
   const history = new HistoryBrowser(async read => {
-    if (!chatSmoke && !skillsSmoke && !resourcesSmoke && !backupSmoke && !worktreeCodeSmoke && !historySmoke && !executionSmoke && !worktreeSmoke && !terminalSmoke && !recoverySmoke) return readConnection(executable(), state, controller?.signal)(port=>read({request:async<T>(method:string,params:unknown)=>{acceptanceProbe?.readMethods.add(method);return port.request<T>(method,params);}}));
+    if (!chatSmoke && !skillsSmoke && !resourcesSmoke && !backupSmoke && !worktreeCodeSmoke && !historySmoke && !executionSmoke && !worktreeSmoke && !terminalSmoke && !recoverySmoke) {
+      const operation=async(port:ReadPort)=>read({request:async<T>(method:string,params:unknown)=>{acceptanceProbe?.readMethods.add(method);return port.request<T>(method,params);}});
+      return appServer?appServer.read(operation,controller?.signal):readConnection(executable(),state,controller?.signal)(operation);
+    }
     // Fixed internal integration fixture. No Renderer API selects a process, path, or fixture mode.
     const rpc = new StdioRpcClient({ executable: resolveExecutable('node'),
       args: [resolve(root, 'tests/fixtures/history-server.ts'), fixtureWorkspace!], env: runtimeEnvironment(), signal: controller?.signal });
@@ -233,7 +242,7 @@ async function boot(): Promise<void> {
   if(ledger&&execution){
     taskService=new TaskService(ledger,execution);chatRoutes=new ChatRouteService(ledger,execution,taskService,{profile:input=>routeRoleProfile(ledger!,input)});
     goalService=new GoalService(ledger,execution,{sourcePoller,sources:ledger.goalSourceCatalog().map(s=>({sourceId:s.sourceId,cursor:()=>ledger!.goalSourceCursor(s.sourceId)})),send:showGoalNotification});
-    memoryService=new MemoryService({cleanupId:logical=>'privacy:'+logical.privacyEpoch,forget:input=>ledger!.forgetMemory(input),revokeRuns:async ids=>{const result=await execution!.revokeForPrivacy(ids);return{stoppedRunIds:result.closedRunIds,unknownRunIds:result.unresolvedRunIds};},purgeArtifacts:async keys=>{const result=privacyCleanup!.purgeArtifacts(keys);ledger!.confirmArtifactPurge(result.purgedKeys);return result;},purgeSourcePayloads:async refs=>{sourcePoller!.purgeAllPayloads();privacyCleanup!.purgeSnapshots();return{purgedRefs:refs};},compact:()=>ledger!.compactMemory()});
+    memoryService=new MemoryService({cleanupId:logical=>'privacy:'+logical.privacyEpoch,forget:input=>ledger!.forgetMemory(input),revokeRuns:async ids=>{const result=await execution!.revokeForPrivacy(ids);await appServer?.reset();return{stoppedRunIds:result.closedRunIds,unknownRunIds:result.unresolvedRunIds};},purgeArtifacts:async keys=>{const result=privacyCleanup!.purgeArtifacts(keys);ledger!.confirmArtifactPurge(result.purgedKeys);return result;},purgeSourcePayloads:async refs=>{sourcePoller!.purgeAllPayloads();privacyCleanup!.purgeSnapshots();return{purgedRefs:refs};},compact:()=>ledger!.compactMemory()});
     for(const pending of ledger.pendingMemoryCleanup())memoryService.restoreCleanup(pending.cleanupId,pending.logical);
     goalTimer=setInterval(()=>{if(!runtimeTransition)void goalService?.tick().catch(()=>{});},15000);goalTimer.unref();
     outboxPump=new OutboxPump(ledger);outboxTimer=setInterval(()=>{if(runtimeTransition)return;try{outboxPump?.step();}catch{/* Owner/DB failures never trigger model dispatch. */}void taskService?.stepPlans().catch(()=>{});void chatRoutes?.tick().catch(()=>{});},250);outboxTimer.unref();
@@ -277,7 +286,7 @@ async function boot(): Promise<void> {
         if(active||execution?.busy)throw new LedgerError('RUNTIME_BUSY');
         const checked=restoreService.checkActivation(input),result={...backupService.command({kind:'verify',backupId:checked.view.backupId!}),restore:checked.view};
         runtimeTransition=true;clearInterval(goalTimer);clearInterval(scheduleTimer);clearInterval(outboxTimer);
-        await terminalService?.stop();await worktreeService?.stop();await execution?.close();restoreService.checkActivation(input);ledger?.close();ledger=undefined;
+        await terminalService?.stop();await worktreeService?.stop();await execution?.close();await appServer?.close();restoreService.checkActivation(input);ledger?.close();ledger=undefined;
         restoreService.activateAfterOwnerStopped(checked.id);
         if(!process.argv.includes('--m2-restore-smoke'))app.relaunch();setTimeout(()=>app.quit(),150);
         return{ok:true,value:result};
@@ -333,7 +342,7 @@ async function boot(): Promise<void> {
   ipcMain.handle('execution:view', (event, ...args: unknown[]) => executionCommand(event, args, 1, () => {
     if (!execution) throw new LedgerError('EXECUTION_UNAVAILABLE'); return execution.view(args[0]);
   }));
-  const reconciliation=ledger?new HistoryReconciliation(ledger,read=>readConnection(executable(),state,controller?.signal)(read)):undefined;
+  const reconciliation=ledger?new HistoryReconciliation(ledger,read=>appServer?appServer.read(read,controller?.signal):readConnection(executable(),state,controller?.signal)(read)):undefined;
   ipcMain.handle('execution:reconcile',(event,...args:unknown[])=>historyCommand(event,args,1,async()=>{
     if(!execution||!reconciliation)throw new LedgerError('EXECUTION_UNAVAILABLE');
     execution.view(args[0]);await reconciliation.reconcile(args[0]);return execution.view(args[0]);
@@ -373,7 +382,7 @@ async function boot(): Promise<void> {
     if (active || execution?.busy) return { status: 'error', errorCode: 'RUNTIME_BUSY' };
     active = true;
     controller = new AbortController();
-    try { return { status: 'connected', ...await inspectConnection(executable(), state, controller.signal) }; }
+    try { return { status: 'connected', ...await (appServer?appServer.read(inspectCatalog,controller.signal):inspectConnection(executable(),state,controller.signal)) }; }
     catch (error) { return { status: 'error', errorCode: error instanceof RpcFailure || error instanceof LedgerError ? error.code : 'HOST_ERROR' }; }
     finally { active = false; controller = undefined; if (quitting || (!keepRunningWithoutWindow&&BrowserWindow.getAllWindows().length === 0)) app.quit(); }
   });
@@ -624,6 +633,8 @@ app.on('before-quit', event => {
   if (active) { event.preventDefault(); quitting = true; controller?.abort(); }
   else if (execution?.busy) {
     event.preventDefault(); void execution.close().finally(() => app.quit());
+  } else if(appServer&&!appServerStopping){
+    event.preventDefault();appServerStopping=true;void appServer.close().finally(()=>{appServer=undefined;app.quit();});
   } else if (fixtureDirectory) {
     event.preventDefault(); const owned = fixtureDirectory; fixtureDirectory = undefined;
     ledger?.close(); ledger = undefined;

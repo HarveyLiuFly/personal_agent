@@ -1,0 +1,130 @@
+{
+  "status": "passed",
+  "checkpoint": "M3.runtime",
+  "platform": "darwin-arm64",
+  "cliVersion": "codex-cli 0.163.0",
+  "kind": "real pinned CLI stdio initialize/catalog/empty public history; no model execution",
+  "firstCatalogModels": 8,
+  "samePidReused": true,
+  "initializationsBeforeRotation": 1,
+  "configurationRotationClosedOldPid": true,
+  "dedicatedPidActuallyClosed": true,
+  "privacyResetActuallyClosed": true,
+  "shutdownActuallyClosed": true,
+  "modelRequests": 0,
+  "threadsStarted": 0,
+  "samples": [
+    {
+      "step": "first-catalog",
+      "runtime": {
+        "state": "ready",
+        "generation": 1,
+        "starts": 1,
+        "initializations": 1,
+        "reused": 0,
+        "queued": 0,
+        "metadataPid": 54885,
+        "dedicatedProcesses": 0,
+        "failureCode": null
+      }
+    },
+    {
+      "step": "second-catalog-and-empty-public-history",
+      "runtime": {
+        "state": "ready",
+        "generation": 1,
+        "starts": 1,
+        "initializations": 1,
+        "reused": 2,
+        "queued": 0,
+        "metadataPid": 54885,
+        "dedicatedProcesses": 0,
+        "failureCode": null
+      }
+    },
+    {
+      "step": "environment-identity-rotation",
+      "runtime": {
+        "state": "ready",
+        "generation": 2,
+        "starts": 2,
+        "initializations": 2,
+        "reused": 2,
+        "queued": 0,
+        "metadataPid": 54896,
+        "dedicatedProcesses": 0,
+        "failureCode": null
+      }
+    },
+    {
+      "step": "dedicated-native-initialized-no-thread",
+      "runtime": {
+        "state": "ready",
+        "generation": 2,
+        "starts": 2,
+        "initializations": 2,
+        "reused": 3,
+        "queued": 0,
+        "metadataPid": 54896,
+        "dedicatedProcesses": 1,
+        "failureCode": null
+      }
+    },
+    {
+      "step": "dedicated-actually-closed",
+      "runtime": {
+        "state": "ready",
+        "generation": 2,
+        "starts": 2,
+        "initializations": 2,
+        "reused": 3,
+        "queued": 0,
+        "metadataPid": 54896,
+        "dedicatedProcesses": 0,
+        "failureCode": null
+      }
+    },
+    {
+      "step": "privacy-fence-closed",
+      "runtime": {
+        "state": "idle",
+        "generation": 2,
+        "starts": 2,
+        "initializations": 2,
+        "reused": 3,
+        "queued": 0,
+        "metadataPid": null,
+        "dedicatedProcesses": 0,
+        "failureCode": null
+      }
+    },
+    {
+      "step": "explicit-read-after-reset",
+      "runtime": {
+        "state": "ready",
+        "generation": 3,
+        "starts": 3,
+        "initializations": 3,
+        "reused": 3,
+        "queued": 0,
+        "metadataPid": 54901,
+        "dedicatedProcesses": 0,
+        "failureCode": null
+      }
+    },
+    {
+      "step": "shutdown",
+      "runtime": {
+        "state": "closed",
+        "generation": 3,
+        "starts": 3,
+        "initializations": 3,
+        "reused": 3,
+        "queued": 0,
+        "metadataPid": null,
+        "dedicatedProcesses": 0,
+        "failureCode": null
+      }
+    }
+  ]
+}

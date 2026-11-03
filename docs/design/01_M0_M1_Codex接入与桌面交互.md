@@ -43,6 +43,10 @@ codex app-server generate-ts --experimental --out "$protocol_tmp/experimental"
 
 适配器内部使用生成类型，领域层使用 `domain.ts`。原始 stdio stdout 仅处理协议帧；stderr 脱敏记录；限制最大帧、队列、超时、并发请求和重启次数。子进程环境由允许清单构造，保留授权方式必需的受控绑定，不直接全量传播宿主环境；Codex 变量仅保留受支持的 Home/API Key，不继承父客户端工具桥、Thread/Session 身份或“已在沙箱”标记。配置可执行路径时验证来源、真实路径与工作目录，不拼接 Shell 字符串。
 
+Main通过AppServerRuntime管理进程生命周期。模型目录、授权范围内的历史分页和只读核对共享受限元数据进程，每连接只初始化一次；读取方法白名单禁止thread/start、resume、turn/start和配置修改。并发读取使用有界串行lease，离开lease后旧port失效。首次初始化使用独立60秒预算，回填未就绪有脱敏错误和短冷却；失败请求不自动重放，下一次明确读取才允许新代。每次复用核对锁版二进制、启动参数/环境及本机配置/认证文件元数据，身份变化关闭旧连接。
+
+真实执行先等待同SQLite目录的初始化就绪，然后登记独立进程；Router/Chat/Coding保留原角色/权限隔离，每Run结束仍等待真实进程退出才记executor_closed。项目Skill使用单独无凭据Home，不混入共享连接。退出、运行代激活和遗忘先关闭全部受管进程并使旧lease失效；待物理清理未完成时禁止重建元数据进程。关闭窗口继续由Main持有进程，显式退出统一关闭；这不是独立Daemon。
+
 ### 2.2 Item 与事件的正确处理
 
 `(thread_id, turn_id, item_id)` 是 Item 身份，不是每条 Delta 的唯一身份。
