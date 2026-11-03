@@ -11,6 +11,7 @@ import type {CodeTaskSpec} from '../../contracts/src/views.ts';
 import type {TaskSummary,TaskCommand,OperationReceipt,ActivityPage,TaskPlanCommand,TaskPlanView,TaskPlanNode,TaskPlanOperation} from '../../contracts/src/tasks.ts';
 import {BudgetLedger} from './budget.ts';
 import type {BudgetPolicy} from './budget.ts';
+import type {ResourceOccupancy} from '../../contracts/src/budget.ts';
 import {TerminalLedger} from './terminal.ts';
 import type {OpenTerminal,TerminalHostSession,TerminalInputReceipt,TerminalSession,WriteTerminal} from '../../contracts/src/terminal.ts';
 import {SchedulerLedger,scheduledRunKey} from './scheduler.ts';
@@ -918,6 +919,21 @@ export class ExecutionLedger {
     this.tx(()=>{this.owner();const run=this.runForHost(token.runId);if(run.epoch!==token.epoch||token.epoch!==this.#epoch)return fail('STALE_RUN');this.event(run.taskId,run.runId,'executor_closed',{connectionEpoch,runtimeEpoch:token.epoch});if(run.status==='outcome_unknown')this.budget.unknown(run.runId,true);});
   }
   resourceBudget(){return this.tx(()=>{this.owner();return this.budget.snapshot();});}
+  /** Read-only scoped ledger counts. These are not live process probes or a promise of task admission. */
+  resourceOccupancy():ResourceOccupancy {return this.tx(()=>{
+    this.owner();
+    const count=(sql:string)=>Number(this.one(sql,this.dotId)!.n);
+    return{
+      modelActive:count("SELECT count(*) AS n FROM task_runs WHERE dot_id=? AND status IN ('preparing','submitting','running','waiting_input','waiting_approval')"),
+      modelUnknown:count("SELECT count(*) AS n FROM task_runs WHERE dot_id=? AND status='outcome_unknown'"),
+      terminalActive:count("SELECT count(*) AS n FROM terminal_sessions WHERE dot_id=? AND state IN ('prepared','starting','running','stopping')"),
+      terminalUnknown:count("SELECT count(*) AS n FROM terminal_sessions WHERE dot_id=? AND state='outcome_unknown'"),
+      worktreeActive:count("SELECT count(*) AS n FROM worktree_operations WHERE dot_id=? AND state IN ('prepared','dispatching')"),
+      worktreeUnknown:count("SELECT count(*) AS n FROM worktree_operations WHERE dot_id=? AND state='outcome_unknown'"),
+      writeLeases:count('SELECT count(*) AS n FROM workspace_write_leases l JOIN workspaces w USING(workspace_id) WHERE w.dot_id=?'),
+      queuedTasks:count("SELECT count(*) AS n FROM tasks t WHERE t.dot_id=? AND t.status='queued' AND t.dispatch_blocked=0 AND NOT EXISTS(SELECT 1 FROM privacy_tombstones p WHERE p.dot_id=t.dot_id AND p.source_ref IN (t.task_id,'task:'||t.task_id))"),
+    };
+  });}
   /** Host-only consistent export, never a Renderer-selected destination. VACUUM includes committed WAL. */
   snapshotForBackup(destination:string):void {
     this.owner();

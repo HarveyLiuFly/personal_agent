@@ -1,0 +1,79 @@
+[1103/171535.504396:ERROR:electron/shell/common/mac/codesign_util.cc:79] task_name_for_pid: (os/kern) failure (5)
+TAP version 13
+# [1103/171535.580058:ERROR:electron/shell/common/mac/codesign_util.cc:79] task_name_for_pid: (os/kern) failure (5)
+# Subtest: empty scoped occupancy is zero and repeated reads do not create budget buckets or execution data
+ok 1 - empty scoped occupancy is zero and repeated reads do not create budget buckets or execution data
+  ---
+  duration_ms: 29.80525
+  type: 'test'
+  ...
+# Subtest: every supported lifecycle is counted as active, unknown or terminal without inferring process liveness
+ok 2 - every supported lifecycle is counted as active, unknown or terminal without inferring process liveness
+  ---
+  duration_ms: 28.042458
+  type: 'test'
+  ...
+# Subtest: Unknown rows remain held separately and only model workspace-write lease rows contribute to writeLeases
+ok 3 - Unknown rows remain held separately and only model workspace-write lease rows contribute to writeLeases
+  ---
+  duration_ms: 27.287291
+  type: 'test'
+  ...
+# Subtest: queued count excludes dispatch-blocked and both Task tombstone spellings without claiming dispatchability
+ok 4 - queued count excludes dispatch-blocked and both Task tombstone spellings without claiming dispatchability
+  ---
+  duration_ms: 27.79275
+  type: 'test'
+  ...
+# Subtest: cross-Dot Run, PTY, Git operation, lease and queue metadata never leak into local counts
+ok 5 - cross-Dot Run, PTY, Git operation, lease and queue metadata never leak into local counts
+  ---
+  duration_ms: 26.725334
+  type: 'test'
+  ...
+# Subtest: occupancy survives missing workspace directories and does not change budget, schedule or source state
+ok 6 - occupancy survives missing workspace directories and does not change budget, schedule or source state
+  ---
+  duration_ms: 30.414833
+  type: 'test'
+  ...
+# Subtest: only the current Owner can read occupancy, and failed stale reads leave all metadata unchanged
+ok 7 - only the current Owner can read occupancy, and failed stale reads leave all metadata unchanged
+  ---
+  duration_ms: 28.506542
+  type: 'test'
+  ...
+# [1103/171535.580002:ERROR:electron/shell/common/mac/codesign_util.cc:79] task_name_for_pid: (os/kern) failure (5)
+# Subtest: first CPU sample is unknown, RSS is real input, and a monotonic interval yields one-core percentage
+ok 8 - first CPU sample is unknown, RSS is real input, and a monotonic interval yields one-core percentage
+  ---
+  duration_ms: 1.306042
+  type: 'test'
+  ...
+# Subtest: sampling cache avoids repeated reads, returned views cannot mutate it, and wall-clock jumps do not change CPU math
+ok 9 - sampling cache avoids repeated reads, returned views cannot mutate it, and wall-clock jumps do not change CPU math
+  ---
+  duration_ms: 0.413167
+  type: 'test'
+  ...
+# Subtest: backwards monotonic time, counter reset and invalid CPU input remain unknown rather than fabricate usage
+ok 10 - backwards monotonic time, counter reset and invalid CPU input remain unknown rather than fabricate usage
+  ---
+  duration_ms: 0.308959
+  type: 'test'
+  ...
+# Subtest: invalid RSS and timestamps reject instead of displaying zero, while native sampler returns bounded metadata only
+ok 11 - invalid RSS and timestamps reject instead of displaying zero, while native sampler returns bounded metadata only
+  ---
+  duration_ms: 1.085542
+  type: 'test'
+  ...
+1..11
+# tests 11
+# suites 0
+# pass 11
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 348.633833

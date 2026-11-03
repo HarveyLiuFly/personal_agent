@@ -141,3 +141,7 @@ pre { white-space: pre-wrap; overflow-wrap: anywhere; font-family: ui-monospace,
 .backup-manager article {padding:12px 0;border-top:1px solid #304258;}
 .backup-manager article>div {display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-size:13px;}
 .backup-manager article>button {font-size:12px;padding:6px 10px;}
+.runtime-resources {padding:12px;border:1px solid #35485f;border-radius:8px;margin:12px 0;font-size:12px;}
+.runtime-resources small {color:#93a8c1;line-height:1.6;}
+.resource-grid {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:12px 0;}
+@media(max-width:850px){.resource-grid{grid-template-columns:1fr;}}

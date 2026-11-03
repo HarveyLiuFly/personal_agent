@@ -4,6 +4,7 @@ import type {TaskSummary,TaskCommand,ActivityPage} from '../../../packages/contr
 import type {ResourceBudget} from '../../../packages/contracts/src/budget.ts';
 import {TaskPlans} from './task-plans.tsx';
 import {ScheduleManager} from './schedule-manager.tsx';
+import {ResourceView} from './resource-view.tsx';
 const labels:Record<string,string>={created:'待排队',queued:'已排队',running:'执行中',waiting_input:'等待补充',waiting_approval:'等待批准',waiting_trigger:'等待触发',paused:'已暂停',needs_review:'待审查',completed:'已验证完成',failed:'执行失败',cancelled:'已取消',outcome_unknown:'结果待核对'};
 const events:Record<string,string>={task_created:'已创建任务',operation_applied:'命令已处理',operation_stop_requested:'已请求停止',operation_outcome_unknown:'停止结果待核对',run_claimed:'已领取执行',run_continued:'已续接执行',run_finished:'执行已结束',native_policy_verified:'运行权限已核对',intent_sending:'执行请求已发送',intent_accepted:'执行请求已确认',history_reconciled:'已核对执行结果',verification_recorded:'已记录独立验证'};
 async function value<T>(request:Promise<HostResult<T>>){const r=await request;if(!r.ok)throw new Error(r.errorCode);return r.value;}
@@ -12,9 +13,9 @@ export function TaskManager({project,canCode,onBusyChange,onStarted}:{project:Pr
  const [tasks,setTasks]=useState<TaskSummary[]>([]),[activity,setActivity]=useState<ActivityPage>({items:[],nextCursor:null,delivery:{pending:0,claimed:0,deadLetter:0}}),[cursor,setCursor]=useState(0);
  const [text,setText]=useState(''),[code,setCode]=useState(false),[target,setTarget]=useState(''),[paths,setPaths]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState<string>();
  const [editing,setEditing]=useState<{task:TaskSummary;title:string}>();const alive=useRef(true),pending=useRef(false),createKey=useRef<string|undefined>(undefined);
- const [budget,setBudget]=useState<ResourceBudget>();
+ const [budget,setBudget]=useState<ResourceBudget>(),[resourcesStale,setResourcesStale]=useState(false);
  useEffect(()=>{let stopped=false,timer:ReturnType<typeof setTimeout>;alive.current=true;
-  const poll=async()=>{try{const rows=await value(window.personalAgent.listTasks({projectId:project.id})),feed=await value(window.personalAgent.listTaskActivity({projectId:project.id,cursor})),nextBudget=await value(window.personalAgent.resourceBudget());if(!stopped){setTasks(rows);setActivity(feed);setBudget(nextBudget);}}catch{if(!stopped)setError('无法更新任务队列，请稍后刷新。');}finally{if(!stopped)timer=setTimeout(()=>void poll(),500);}};
+  const poll=async()=>{try{try{const nextBudget=await value(window.personalAgent.resourceBudget());if(!stopped){setBudget(nextBudget);setResourcesStale(false);}}catch{if(!stopped)setResourcesStale(true);}const rows=await value(window.personalAgent.listTasks({projectId:project.id})),feed=await value(window.personalAgent.listTaskActivity({projectId:project.id,cursor}));if(!stopped){setTasks(rows);setActivity(feed);}}catch{if(!stopped)setError('无法更新任务队列，请稍后刷新。');}finally{if(!stopped)timer=setTimeout(()=>void poll(),500);}};
   void poll();return()=>{stopped=true;clearTimeout(timer);};
  },[project.id,cursor]);
  useEffect(()=>()=>{alive.current=false;onBusyChange(false);},[project.id]);
@@ -24,7 +25,9 @@ export function TaskManager({project,canCode,onBusyChange,onStarted}:{project:Pr
  const running=tasks.some(t=>t.activeRunId!==null),queued=tasks.filter(t=>t.status==='queued').length;
  return <details className="task-manager" data-task-manager><summary>任务队列与活动 <span className="badge">排队 {queued}</span></summary><div className="task-manager-content">
   {error&&<div className="notice error" role="alert">{error}</div>}
-  {budget&&<div className="budget-summary" data-resource-budget><strong>本机共享 Token 预算 · UTC 日周期</strong><p>剩余 {budget.availableTokens.toLocaleString()} / {budget.limitTokens.toLocaleString()} · 上游报告 {budget.reportedTokens.toLocaleString()} · 当前预留 {budget.reservedTokens.toLocaleString()}</p><small>未确认预留 {budget.unknownHeldTokens.toLocaleString()}（含历史周期） · 活动执行 {budget.activeRuns} / {budget.maxConcurrentRuns}。仅统计预算启用后的派发；美元费用未知，套餐额度以服务商为准。</small></div>}
+  {budget&&<div className="budget-summary" data-resource-budget><strong>本机共享 Token 预算 · UTC 日周期</strong><p>剩余 {budget.availableTokens.toLocaleString()} / {budget.limitTokens.toLocaleString()} · 上游报告 {budget.reportedTokens.toLocaleString()} · 当前预留 {budget.reservedTokens.toLocaleString()}</p><small>未确认预留 {budget.unknownHeldTokens.toLocaleString()}（含历史周期） · 执行占用 {budget.activeRuns} / {budget.maxConcurrentRuns}。仅统计预算启用后的派发；美元费用未知，套餐额度以服务商为准。</small></div>}
+  {budget&&<ResourceView budget={budget} stale={resourcesStale}/>}
+  {!budget&&resourcesStale&&<p className="notice">资源查询失败，暂未获得预算与占用信息。</p>}
   <form className="queue-create" onSubmit={e=>{e.preventDefault();void create();}}><label>加入队列<textarea data-queue-draft aria-label="排队任务内容" value={text} maxLength={32768} disabled={busy} onChange={e=>{setText(e.target.value);createKey.current=undefined;}} placeholder="先保存任务，点击开始后才执行。" rows={2}/></label>
    {canCode&&<label className="queue-code"><input type="checkbox" data-queue-code-profile checked={code} disabled={busy} onChange={e=>{setCode(e.target.checked);createKey.current=undefined;}}/>代码任务 · 固定 Node 测试</label>}
    {code&&<div className="code-options"><label>测试入口<input value={target} disabled={busy} onChange={e=>{setTarget(e.target.value);createKey.current=undefined;}}/></label><label>允许修改的文件<input value={paths} disabled={busy} onChange={e=>{setPaths(e.target.value);createKey.current=undefined;}} placeholder="逗号分隔"/></label></div>}

@@ -2,6 +2,8 @@ import {runWorktreeRecoveryProbe} from './worktree-recovery-probe.ts';
 import {runToolProbe} from './tool-probe.ts';
 import {BackupService} from '../../../packages/backup/src/service.ts';
 import {runBackupProbe} from './backup-probe.ts';
+import {MainResourceSampler} from '../../../packages/runtime/src/resources.ts';
+import {runResourceProbe} from './resource-probe.ts';
 import type {BackupCommand} from '../../../packages/contracts/src/backups.ts';
 import {runWorktreeCodeProbe} from './worktree-code-probe.ts';
 import {runTerminalProbe} from './terminal-probe.ts';
@@ -54,6 +56,7 @@ let quitting = false;
 let window: BrowserWindow | undefined;
 let ledger: ExecutionLedger | undefined;
 let backupService:BackupService|undefined;
+const resourceSampler=new MainResourceSampler();
 let execution: ForegroundExecution | undefined;
 let verifier: NodeVerification | undefined;
 let terminalService:TerminalService|undefined;
@@ -65,6 +68,7 @@ let scheduleService:ScheduleService|undefined,scheduleTimer:ReturnType<typeof se
 let taskService:TaskService|undefined,outboxPump:OutboxPump|undefined,outboxTimer:ReturnType<typeof setInterval>|undefined;
 const recoverySmoke=process.argv.includes('--m2-worktree-recovery-smoke');
 const toolsSmoke=process.argv.includes('--m2-tools-smoke');
+const resourcesSmoke=process.argv.includes('--m2-resources-smoke');
 const rehearsalSmoke=process.argv.includes('--m2-rehearsal-smoke');
 const backupSmoke=rehearsalSmoke||process.argv.includes('--m2-backups-smoke');
 let backupSmokeFirstCopy=backupSmoke;
@@ -89,9 +93,9 @@ const planSmoke=process.argv.includes('--m2-plans-smoke');
 const taskSmoke=process.argv.includes('--m2-tasks-smoke')||budgetSmoke||planSmoke||scheduleSmoke;
 const executionSmoke = toolsSmoke || backgroundSmoke || process.argv.includes('--m1-execution-smoke') || interactionSmoke || continuationSmoke || taskSmoke;
 const historySmoke = process.argv.includes('--m1-history-smoke');
-const keepRunningWithoutWindow=backgroundProbe||terminalSmoke||!(backupSmoke||worktreeCodeSmoke||recoverySmoke||worktreeSmoke||nativeCodeSmoke||executionSmoke||historySmoke||acceptanceProbe||process.argv.includes('--m0-window-smoke'));
+const keepRunningWithoutWindow=backgroundProbe||terminalSmoke||!(resourcesSmoke||backupSmoke||worktreeCodeSmoke||recoverySmoke||worktreeSmoke||nativeCodeSmoke||executionSmoke||historySmoke||acceptanceProbe||process.argv.includes('--m0-window-smoke'));
 let windowsReady=false,windowOpening:Promise<BrowserWindow>|undefined;
-if(backupSmoke||worktreeCodeSmoke||backgroundNativeSmoke||worktreeSmoke||terminalSmoke||recoverySmoke){mkdirSync(resolve(root,'.local'),{recursive:true});app.setPath('userData',mkdtempSync(resolve(root,'.local/desktop-background-native-')));}
+if(resourcesSmoke||backupSmoke||worktreeCodeSmoke||backgroundNativeSmoke||worktreeSmoke||terminalSmoke||recoverySmoke){mkdirSync(resolve(root,'.local'),{recursive:true});app.setPath('userData',mkdtempSync(resolve(root,'.local/desktop-background-native-')));}
 let fixtureDirectory: string | undefined;
   if (process.argv.includes('--m0-window-smoke')) app.setPath('userData', resolve(root, '.local/desktop-smoke-data'));
   if (historySmoke) app.setPath('userData', resolve(root, '.local/desktop-history-smoke-data'));
@@ -103,9 +107,9 @@ else if (!singleInstanceHeld) app.quit();
 else void boot().catch(async error => {
   const code = error instanceof Error && /^[A-Z0-9_]{1,100}$/.test(error.message) ? error.message : 'HOST_ERROR';
   console.error('DESKTOP_BOOT_FAILED', code);
-  if (backupSmoke || worktreeCodeSmoke || recoverySmoke || terminalSmoke || worktreeSmoke || backgroundProbe || acceptanceProbe || nativeCodeSmoke || executionSmoke || historySmoke || process.argv.includes('--m0-window-smoke')) {
+  if (resourcesSmoke || backupSmoke || worktreeCodeSmoke || recoverySmoke || terminalSmoke || worktreeSmoke || backgroundProbe || acceptanceProbe || nativeCodeSmoke || executionSmoke || historySmoke || process.argv.includes('--m0-window-smoke')) {
     if (window) { try { writeFileSync(resolve(root, '.local/desktop-failure.png'), (await window.webContents.capturePage()).toPNG()); } catch {} }
-    const file = rehearsalSmoke?'M2.7b-desktop':backupSmoke?'M2.7a-desktop':worktreeCodeSmoke?(worktreeCodePreflight?'M2.1b-worktree-preflight':'M2.1b-worktree-native'):toolsSmoke?'M2.1b-tools-desktop':recoverySmoke?'M2.5b-desktop':terminalSmoke?'M2.6a-desktop':worktreeSmoke?'M2.5a-desktop':backgroundProbe?(backgroundNativeSmoke?'M2.4a-native-background':'M2.4a-desktop'):scheduleAutoSmoke?'M2.3d-desktop':scheduleSmoke?'M2.3c-desktop':planSmoke?'M2.2d-desktop':budgetSmoke?'M2.2c-desktop':taskSmoke?'M2.2b-desktop':acceptanceProbe?acceptanceProbe.kind==='workspace'?'M2.1a-desktop':`M1.4b-${acceptanceProbe.kind==='folder'?'native-folder':acceptanceProbe.kind==='restart'?'native-restart':'owner'}`:nativeCodeSmoke ? 'M1-native-code-desktop' : continuationSmoke?'M1.3c-desktop':interactionSmoke ? 'M1.2-desktop' : executionSmoke ? 'M1.1c-desktop' : historySmoke ? 'M1.1b-desktop' : 'M0-desktop-smoke';
+    const file = resourcesSmoke?'M2.2e-desktop':rehearsalSmoke?'M2.7b-desktop':backupSmoke?'M2.7a-desktop':worktreeCodeSmoke?(worktreeCodePreflight?'M2.1b-worktree-preflight':'M2.1b-worktree-native'):toolsSmoke?'M2.1b-tools-desktop':recoverySmoke?'M2.5b-desktop':terminalSmoke?'M2.6a-desktop':worktreeSmoke?'M2.5a-desktop':backgroundProbe?(backgroundNativeSmoke?'M2.4a-native-background':'M2.4a-desktop'):scheduleAutoSmoke?'M2.3d-desktop':scheduleSmoke?'M2.3c-desktop':planSmoke?'M2.2d-desktop':budgetSmoke?'M2.2c-desktop':taskSmoke?'M2.2b-desktop':acceptanceProbe?acceptanceProbe.kind==='workspace'?'M2.1a-desktop':`M1.4b-${acceptanceProbe.kind==='folder'?'native-folder':acceptanceProbe.kind==='restart'?'native-restart':'owner'}`:nativeCodeSmoke ? 'M1-native-code-desktop' : continuationSmoke?'M1.3c-desktop':interactionSmoke ? 'M1.2-desktop' : executionSmoke ? 'M1.1c-desktop' : historySmoke ? 'M1.1b-desktop' : 'M0-desktop-smoke';
     writeFileSync(resolve(root, `docs/progress/evidence/${file}.json`), JSON.stringify({ status: 'blocked', code, observedAt: new Date().toISOString() }) + '\n');
   }
   try {await terminalService?.stop();await worktreeService?.stop();await execution?.close(); ledger?.close();}catch{}
@@ -134,10 +138,10 @@ async function boot(): Promise<void> {
   if(nativeCodeSmoke){nativeCodeWorkspace=realpathSync(await mkdtemp(resolve(tmpdir(),'personal-agent-code-')));createCodeFixture(nativeCodeWorkspace);}
   let fixtureWorkspace: string | undefined;
   const fixtureMethods = new Set<string>();
-  if (backupSmoke || worktreeCodeSmoke || historySmoke || executionSmoke || backgroundNativeSmoke || worktreeSmoke || terminalSmoke || recoverySmoke) {
+  if (resourcesSmoke || backupSmoke || worktreeCodeSmoke || historySmoke || executionSmoke || backgroundNativeSmoke || worktreeSmoke || terminalSmoke || recoverySmoke) {
     mkdirSync(resolve(root, '.local'), { recursive: true });
     fixtureDirectory = worktreeCodeSmoke?realpathSync(await mkdtemp('/private/tmp/personal-agent-worktree-code-')):await mkdtemp(resolve(root, '.local/history-desktop-'));
-    fixtureWorkspace = resolve(fixtureDirectory, 'workspace'); await mkdir(fixtureWorkspace);if(worktreeSmoke||terminalSmoke||recoverySmoke)createWorktreeFixture(fixtureWorkspace);
+    fixtureWorkspace = resolve(fixtureDirectory, 'workspace'); await mkdir(fixtureWorkspace);if(resourcesSmoke||worktreeSmoke||terminalSmoke||recoverySmoke)createWorktreeFixture(fixtureWorkspace);
     if(worktreeCodeSmoke){createCodeFixture(fixtureWorkspace);writeFileSync(resolve(fixtureWorkspace,'src/math.mjs'),'export const sum = (a, b) => a - b;\n// SOURCE_DIRTY_KEPT\n');}
   }
   if (!historySmoke) {
@@ -157,7 +161,7 @@ async function boot(): Promise<void> {
         args: [resolve(root, 'tests/fixtures/execution-server.ts'), toolsSmoke?'tool-status':backgroundSmoke||scheduleAutoSmoke?'usage':taskSmoke?'interrupt-ok':interactionSmoke ? 'approval-accept' : 'slow', resolve(fixtureDirectory!, 'execution/ledger.db'), resolve(fixtureDirectory!, 'execution-receipts')], env: runtimeEnvironment(), ...callbacks }) } : {}) });
   }
   const history = new HistoryBrowser(async read => {
-    if (!backupSmoke && !worktreeCodeSmoke && !historySmoke && !executionSmoke && !worktreeSmoke && !terminalSmoke && !recoverySmoke) return readConnection(executable(), state, controller?.signal)(port=>read({request:async<T>(method:string,params:unknown)=>{acceptanceProbe?.readMethods.add(method);return port.request<T>(method,params);}}));
+    if (!resourcesSmoke && !backupSmoke && !worktreeCodeSmoke && !historySmoke && !executionSmoke && !worktreeSmoke && !terminalSmoke && !recoverySmoke) return readConnection(executable(), state, controller?.signal)(port=>read({request:async<T>(method:string,params:unknown)=>{acceptanceProbe?.readMethods.add(method);return port.request<T>(method,params);}}));
     // Fixed internal integration fixture. No Renderer API selects a process, path, or fixture mode.
     const rpc = new StdioRpcClient({ executable: resolveExecutable('node'),
       args: [resolve(root, 'tests/fixtures/history-server.ts'), fixtureWorkspace!], env: runtimeEnvironment(), signal: controller?.signal });
@@ -193,7 +197,7 @@ async function boot(): Promise<void> {
   ipcMain.handle('execution:workspaceState', (event, ...args: unknown[]) => executionCommand(event, args, 0, () => ({ projects: ledger?.projects() ?? [], canSubmit: Boolean(execution), canCode: Boolean(verifier), canBrowseWorkspace:Boolean(workspaceReader),canManageTasks:Boolean(taskService),backgroundEnabled:keepRunningWithoutWindow,canUseTerminal:Boolean(terminalService),mode: interactionSmoke ? 'workspaceWrite' as const : 'readOnly' as const })));
   ipcMain.handle('tasks:list',(event,...args:unknown[])=>executionCommand(event,args,1,()=>{if(!taskService)throw new LedgerError('TASKS_UNAVAILABLE');return taskService.list(args[0]);}));
   ipcMain.handle('tasks:activity',(event,...args:unknown[])=>executionCommand(event,args,1,()=>{if(!taskService)throw new LedgerError('TASKS_UNAVAILABLE');return taskService.activity(args[0]);}));
-  ipcMain.handle('runtime:resourceBudget',(event,...args:unknown[])=>executionCommand(event,args,0,()=>{if(!ledger)throw new LedgerError('TASKS_UNAVAILABLE');return ledger.resourceBudget();}));
+  ipcMain.handle('runtime:resourceBudget',(event,...args:unknown[])=>executionCommand(event,args,0,()=>{if(!ledger)throw new LedgerError('TASKS_UNAVAILABLE');let mainProcess;try{mainProcess=resourceSampler.sample();}catch{}return{...ledger.resourceBudget(),occupancy:ledger.resourceOccupancy(),...(mainProcess?{mainProcess}:{})};}));
   ipcMain.handle('backups:list',(event,...args:unknown[])=>executionCommand(event,args,0,()=>{if(!backupService)throw new LedgerError('BACKUPS_UNAVAILABLE');return backupService.list();}));
   ipcMain.handle('backups:command',(event,...args:unknown[])=>executionCommand(event,args,1,()=>{if(!backupService)throw new LedgerError('BACKUPS_UNAVAILABLE');return backupService.command(args[0] as BackupCommand);}));
   ipcMain.handle('tasks:plans',(event,...args:unknown[])=>executionCommand(event,args,1,()=>{if(!taskService)throw new LedgerError('TASKS_UNAVAILABLE');return taskService.plans(args[0]);}));
@@ -291,6 +295,7 @@ async function boot(): Promise<void> {
   windowsReady=true;
   Menu.setApplicationMenu(Menu.buildFromTemplate([{label:'Personal Agent',submenu:[{label:'显示主窗口',click:()=>{void showMainWindow().catch(()=>{});}},{type:'separator'},{label:'退出并停止运行',accelerator:'CmdOrCtrl+Q',click:()=>app.quit()}]},{role:'editMenu'},{role:'windowMenu'}]));
   window=await showMainWindow();
+  if(resourcesSmoke){await runResourceProbe(root,app,window,ledger!,execution!,resolve(fixtureDirectory!,'execution/ledger.db'));return;}
   if(toolsSmoke){await runToolProbe(root,app,window,ledger!);return;}
   if(backupSmoke){await runBackupProbe(root,app,window,ledger!,resolve(fixtureDirectory!,'execution/ledger.db'),resolve(fixtureDirectory!,'backups'),rehearsalSmoke);return;}
   if(worktreeCodeSmoke){await runWorktreeCodeProbe(root,app,window,ledger!,execution!,fixtureWorkspace!,resolve(fixtureDirectory!,'execution/ledger.db'),worktreeCodePreflight);return;}

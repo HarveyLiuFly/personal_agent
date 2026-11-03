@@ -1,0 +1,98 @@
+{
+  "checkpoint": "M2.2e",
+  "status": "passed_shared_occupancy_and_main_process_sampling",
+  "observedAt": "2026-11-03T09:29:24.899961+00:00",
+  "baselineCommit": "10bb3cacdcc9d9a0f32ef6d138c0eef5fe8e17bb",
+  "stageGate": "open",
+  "schemaRevision": 6,
+  "fixedDesktopApiCount": 44,
+  "permissionManagement": "deferred_to_M5",
+  "checks": {
+    "discovered": 307,
+    "executed": 307,
+    "passed": 307,
+    "failed": 0,
+    "skipped": 0,
+    "designContracts": 17,
+    "stableGeneratedTypes": 747,
+    "resourceElectronCases": 11,
+    "occupancyCases": 7,
+    "samplerCases": 4,
+    "typecheck": "passed",
+    "build": "passed"
+  },
+  "occupancy": {
+    "queryOwnerCheckedAndDotScoped": true,
+    "pureLedgerRead": true,
+    "activeAndUnknownSeparate": true,
+    "leaseExpiryNotProcessStop": true,
+    "queuedExcludesBlockedAndTombstoned": true,
+    "noProjectFilesystemRead": true,
+    "noAdmissionRuleChanges": true
+  },
+  "sampling": {
+    "scope": "main_process_only",
+    "rssSource": "process.memoryUsage.rss",
+    "cpuSource": "process.cpuUsage_delta_over_monotonic_time",
+    "oneCorePercent": 100,
+    "maximumSampleFrequencyHz": 1,
+    "longGapUnknownAfterMs": 10000,
+    "firstSampleUnknown": true,
+    "invalidInputNeverDisplayedAsZero": true,
+    "pathsPidsEnvironmentExported": false,
+    "workersOrWholeSystemClaimed": false
+  },
+  "desktop": {
+    "realMainSamplerAndPty": true,
+    "actualSupervisorAndShellSeenAliveThenESRCH": true,
+    "terminalOccupancySeenAndReleased": true,
+    "modelAdmissionRejectedBeforeRunIntentReservation": true,
+    "sourceDirectoryActuallyRenamedAfterShellStop": true,
+    "metadataAndFreshUIStillReadable": true,
+    "history": "synthetic_metadata",
+    "modelInferences": 0,
+    "nativeThreadTurnDispatches": 0
+  },
+  "parallelWork": {
+    "subagent": [
+      "Store resourceOccupancy",
+      "seven SQLite unit cases"
+    ],
+    "primary": [
+      "Main sampler",
+      "four sampler cases",
+      "Host and UI",
+      "native desktop integration"
+    ],
+    "sameImplementationFileConcurrentWrites": false
+  },
+  "initialFailures": {
+    "firstOccupancyTests": {
+      "passed": 7,
+      "failed": 0
+    },
+    "restrictedTypecheck": "two test SQL binding undefined types; corrected to explicit strings",
+    "productionCountSemanticsChangedToPass": false
+  },
+  "existingLedgerFaultLocations": 16,
+  "existingBackupRehearsalFilesystemFaultLocations": 4,
+  "newCrashLocations": 0,
+  "remaining": [
+    "necessary_editor_and_capability_directory",
+    "running_environment_restore_activation_and_reconciliation",
+    "full_M2_gate"
+  ],
+  "sourceAndBuildHashes": {
+    "packages/contracts/src/budget.ts": "76f3f013ed29fe0f230c37dc58d0625a12fd819b843602c1fa95e190a885eedf",
+    "packages/store/src/ledger.ts": "c9bcfa53c32b9e6a80ea8eeb89206c345eba843cbde3b215341e2767455a6c77",
+    "packages/runtime/src/resources.ts": "1bae5322c7dc686fb91e56616829e0258490dbe6f0271f84c51bba12546a058d",
+    "apps/desktop/renderer/task-manager.tsx": "6b38202b0312a496d65e7bc0ae2d90f5b6bd63658bd8efacb37880a8396f4f9c",
+    "apps/desktop/renderer/resource-view.tsx": "4032120baec6ed84365b7f53b07664e44f0dbd053db7fce337fcbf5cc61c622a",
+    "apps/desktop/src/main.ts": "80cb3df780128dbf2815645e5eeecf32989666cb2d424ae403cc309f6f621785",
+    "apps/desktop/src/resource-probe.ts": "c16486618547ed29dd481af51842c2411e27caaacc17f3bf5556cf105edbcab4",
+    "scripts/smoke-desktop.mjs": "9cd47974396cbad105a68998d827881e0de346966a8c0253629f323a61b9c582",
+    "tests/resource-occupancy.test.ts": "7325d8510c68de284b3912bafe6122e97caf719186cac7c5fc7767b66dfaee8d",
+    "tests/resource-sampler.test.ts": "c7dd53bb4f499f13ab1c103fd7271d51947f7fd65d6336ac7903f32a8f650bdd",
+    "build/desktop/main.js": "5079fd9d52d420611672be01b7a4b3aea8082adc782feecf248c94aff939fa5d"
+  }
+}
