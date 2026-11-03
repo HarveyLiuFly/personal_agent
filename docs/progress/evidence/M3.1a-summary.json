@@ -1,0 +1,161 @@
+{
+  "checkpoint": "M3.1a",
+  "status": "passed_durable_main_chat_explicit_readonly_task_routing",
+  "observedAt": "2026-11-03T11:59:08.709388+00:00",
+  "baselineCommit": "0e86eb31cd7de348d17beb34e93f81b5d1d0854c",
+  "stageGate": "open",
+  "schemaRevision": 6,
+  "fixedDesktopApiCount": 47,
+  "permissionManagement": "M5",
+  "checks": {
+    "tests": 365,
+    "passed": 365,
+    "failed": 0,
+    "skipped": 0,
+    "newPureRouterCases": 12,
+    "newRealSqliteCases": 11,
+    "electronTargetedCases": 23,
+    "designContracts": 17,
+    "generatedProtocolTypes": 747,
+    "typecheck": "passed",
+    "build": "passed",
+    "finalVisualIncrementalTypecheckBuildAndDesktop": "passed"
+  },
+  "conversation": {
+    "singleDotConversationAndGlobalFocus": true,
+    "currentView": "selected_project_filtered",
+    "atomic": [
+      "message",
+      "decision",
+      "query_operation",
+      "task_link",
+      "focus_or_pending"
+    ],
+    "messageIdentity": "stable_client_message_id_and_canonical_input_hash",
+    "replayBeforeFocusCas": true,
+    "queryOnly": "no_task_mutation_or_dispatch",
+    "registryWithoutFilesystemGrant": true,
+    "projectTaskAndMessageVisibilityChecked": true
+  },
+  "routing": {
+    "kind": "pure_deterministic_rules_no_model",
+    "commands": [
+      "/query [task-id]",
+      "/note text"
+    ],
+    "queryObjectOrder": [
+      "explicit_ui_task",
+      "explicit_text_task_id",
+      "valid_focus",
+      "unique_title"
+    ],
+    "unknownOrConflictingReference": "clarify",
+    "nonQueryActions": "clarify_no_execution",
+    "unmatchedText": "persist_note_with_no_model_answer",
+    "candidateVersionAndPendingIdChecked": true,
+    "focusRevisionCas": true,
+    "backgroundChangesFocus": false
+  },
+  "limits": {
+    "messageUtf16": 8192,
+    "recentMessages": 50,
+    "displayUnitsPerMessage": 2000,
+    "totalDisplayedMessageUnits": 65536,
+    "candidateRegistryTasks": 100,
+    "clarificationChoices": 20,
+    "recentPending": 10,
+    "pendingLifetimeMs": 900000,
+    "chatMessagesStored": 10000
+  },
+  "desktop": {
+    "status": "passed",
+    "observedAt": "2026-11-03T11:57:42.443Z",
+    "kind": "real_electron_sqlite_durable_main_chat_readonly_registry",
+    "history": "synthetic_navigation_metadata",
+    "router": "deterministic_no_model",
+    "inferenceRequested": false,
+    "modelTurns": 0,
+    "result": {
+      "pendingShown": true,
+      "pendingDraftKept": true,
+      "plainText": true,
+      "taskDraftKept": true,
+      "reopenedSameMessages": true,
+      "sameIdDeduped": true,
+      "conflictRejected": true,
+      "focusCasRejected": true,
+      "extraRejected": true,
+      "sandboxed": true,
+      "isolated": true,
+      "noRequire": true,
+      "apiCount": true,
+      "registryAvailableAfterSourceMoved": true,
+      "noRuns": true,
+      "noIntents": true,
+      "noBudgetReservation": true,
+      "originalTaskVersions": true,
+      "queryOperations": true
+    },
+    "display": "native_desktop",
+    "exitCode": 0,
+    "signal": null,
+    "timedOut": false,
+    "platform": "darwin-arm64"
+  },
+  "sqliteReopen": "real_new_Ledger_Owner_same_persisted_messages_and_focus_no_extra_operation_not_new_Electron_process",
+  "modelInferences": 0,
+  "runsCreated": 0,
+  "executionIntentsCreated": 0,
+  "budgetReservationsCreated": 0,
+  "parallelWork": {
+    "subagent": [
+      "pure_router",
+      "12_pure_cases",
+      "readonly_ledger_and_UI_review"
+    ],
+    "primary": [
+      "shared_Ledger_transactions",
+      "DTO_IPC_UI",
+      "11_SQLite_cases",
+      "real_desktop_and_integration",
+      "documentation_and_Git"
+    ],
+    "sameImplementationFileConcurrentEdits": false
+  },
+  "initialFindings": {
+    "initialTypecheck": "two variables not narrowed after arrow fail; explicit return fail fixed",
+    "componentTestsFailed": 0,
+    "multilineTaskTitleCompatibilityFixedAndTested": true,
+    "pendingSelectionPreservesSeparateUnsentDraft": true,
+    "visualLayoutAndNewestMessageScrollVerified": true
+  },
+  "notDelivered": [
+    "structured_model_router",
+    "chat_initiated_task_control_or_continuation",
+    "all_project_unified_feed",
+    "Context_Builder_and_Prompt_registry",
+    "Memory_and_full_forgetting",
+    "Goal_external_Source_and_long_term_loop"
+  ],
+  "next": "M3.1b_candidate_search_structured_router_and_validated_operations",
+  "sourceAndBuildHashes": {
+    "packages/contracts/src/chat.ts": "c442c03a2bfc4e732d55256a51589f26eaca114398afcb89cc628a15f0fae13a",
+    "packages/runtime/src/chat-router.ts": "46745d3448f9d1dbb1ec14a288c809dea1504b31b2c17a8fad3f86a5496f9495",
+    "packages/store/src/ledger.ts": "596300fac1266f83cc87af6849b17f9f35c1c37b4c12e4db9e8c4e7994ede1e7",
+    "apps/desktop/src/main.ts": "2cfc46764158797188372fc61d35d34193e1371761c2ad8db165994e67d9bfd7",
+    "apps/desktop/src/preload.ts": "6563da8789fcb588de0f8d9cec35e0b09d427710a289d0c62d38731a57f4b38e",
+    "apps/desktop/src/bridge.ts": "50058521630575041c050ccc552519313c08eb4cc2503bcf3b9a8ff01e82c232",
+    "apps/desktop/renderer/main-chat.tsx": "56919f16e4259c8593eac939946a7c0784236dd17f1d68888585bc9fd1bf136b",
+    "apps/desktop/renderer/history-app.tsx": "9b977919ebb1994f37b8c1e9f35f5df3a3cfd1e357d82705eacd3fa575730640",
+    "apps/desktop/renderer/style.css": "b56e5f9a08ae10631c097912ec94fc32971970620ef45b5f9da82b6dcef1e002",
+    "apps/desktop/src/main-chat-probe.ts": "8d79bf988a9d9ab92b1e88d750407052cb76d0f4b920c843327220d2cac710af",
+    "tests/chat-router.test.ts": "72b599bf6fb7e97ebe7fb167064ddcde8cf67735b967f585adb7d4878b512d4a",
+    "tests/main-chat.test.ts": "ab74115831df43e7f0a1c3ed7d46b91db477683a96fc294e5a0dcc1919381c83",
+    "scripts/smoke-desktop.mjs": "7d1c62f07a12d33ad4a96cd8658b1186f323f33bb2ad85d12441d176c0c81a59",
+    "build/desktop/main.js": "ace392635f7cbafc46f6be95929b5e33f7d3b8c97020a18b3ef6e1dcd0c68359",
+    "build/desktop/renderer/assets/terminal-panel-BrP-ENHg.css": "0e5386f16cb4be78a2fe911e014a810da76ea2db47d8c8b2a966516b2fd5270b",
+    "build/desktop/renderer/assets/index-0m-7-mCv.css": "4ea08a1142dc3464e17f687f6e3a8de9d204d33a25bea136ffa687e1e68a60fe",
+    "build/desktop/renderer/assets/index-Dt-pIIPI.js": "dcc732d760f74875ad907f9ba6471c656cd8d4d1a3ae625cceb65a6bde9e6275",
+    "build/desktop/renderer/assets/terminal-panel-CbpgD2MK.js": "18e60dd198afd0e8f7ff844961c97de127ef4fa9b62ac9bc5457728dd6e7a4af"
+  }
+}

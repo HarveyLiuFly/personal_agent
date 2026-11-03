@@ -27,6 +27,7 @@
     "smoke:restore:desktop": "node scripts/smoke-restore.mjs",
     "smoke:rehearsal:desktop": "node scripts/smoke-desktop.mjs --rehearsal",
     "smoke:resources:desktop": "node scripts/smoke-desktop.mjs --resources",
+    "smoke:main-chat:desktop": "node scripts/smoke-desktop.mjs --main-chat",
     "smoke:skills:desktop": "node scripts/smoke-desktop.mjs --skills",
     "smoke:skills:native": "node --disable-warning=ExperimentalWarning scripts/probe-project-skills.ts",
     "smoke:worktree-code:preflight": "node scripts/smoke-desktop.mjs --worktree-code-preflight",

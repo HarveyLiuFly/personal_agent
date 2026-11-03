@@ -2,6 +2,8 @@ import { contextBridge, ipcRenderer } from 'electron';
 import type { DesktopApi } from './bridge.ts';
 
 const api: DesktopApi = Object.freeze<DesktopApi>({
+  readMainChat:query=>ipcRenderer.invoke('chat:read',query),
+  submitMainChat:input=>ipcRenderer.invoke('chat:submit',input),
   listProjectSkills:query=>ipcRenderer.invoke('skills:list',query),
   listBackups:()=>ipcRenderer.invoke('backups:list'),
   applyBackupCommand:input=>ipcRenderer.invoke('backups:command',input),

@@ -1,3 +1,4 @@
+import type {MainChatInput,MainChatView} from '../../../packages/contracts/src/chat.ts';
 import type {OpenTerminal,TerminalView,TerminalInputReceipt,WriteTerminal} from '../../../packages/contracts/src/terminal.ts';
 import type {WorktreeCommand,WorktreePage,WorktreeInspection} from '../../../packages/contracts/src/worktrees.ts';
 import type { HostResult, ProjectView, ThreadSummary, TurnView, ItemView, Page, ProjectQuery, ThreadQuery, ItemQuery } from '../../../packages/contracts/src/views.ts';
@@ -16,6 +17,8 @@ export interface ConnectionInfo {
 }
 export interface SmokeInfo { status: 'passed' | 'error'; finalText?: string; threadId?: string; turnId?: string; errorCode?: string }
 export interface DesktopApi {
+  readMainChat(input:{projectId:string}):Promise<HostResult<MainChatView>>;
+  submitMainChat(input:MainChatInput):Promise<HostResult<MainChatView>>;
   listProjectSkills(query:{projectId:string}):Promise<HostResult<ProjectSkillsView>>;
   listBackups():Promise<HostResult<BackupPage>>;
   applyBackupCommand(input:BackupCommand):Promise<HostResult<BackupCommandResult>>;

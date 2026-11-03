@@ -21,6 +21,8 @@
 
 [M2 进展](M2.md)：**M2 Gate 已在 macOS arm64、锁版 CLI 0.163.0、本机 Main 后台窗口模式通过**，定位 `checkpoint/M2`，[逐工作包收据](evidence/M2-gate.json)。342/342、17 合同/747 类型/TS/构建通过，Electron 恢复/策略/项目隔离35项和真实Host暂停1项通过。真实工作树代码四项独立测试、无窗口模型计划、实际运行代恢复和恢复后1次真实请求均有独立证据；本轮原生请求18,097报告Token，同Run新进程核实无重发。Schema6/45 IPC，16账本+7备份/恢复文件系统故障位置分别记录。MCP/插件/子Agent与独立Daemon未启用，权限管理在M5；交给M3的是现有唯一Owner/Store/Gateway、任务/Outbox和基础计划预算。
 
+[M3 进展](M3.md)：已启动，首点 `checkpoint/M3.1a` 完成持久主聊天、显式 Task/Focus/Pending 和确定性只读查询，复用原账本，0 推理/Run/Intent。365/365、Electron 新增23/23、真实桌面及47 API回归通过，Schema6不变。结构化模型Router、控制/纠错、Context/Memory与Goal/Source继续按切片开发；M3 Gate开放，权限管理仍在M5。
+
 用户决定转到本地电脑的 Codex 继续；接手请先读 [本地交接](LOCAL_HANDOFF.md)。云端代码/记录已同步，M0.3 改由本机实际验证；原云环境设置/发布不再是本地开发前提。
 
 本机平台最初以 `M0.local` 完成 macOS arm64 的官方 CLI/Schema、工具链与原生沙箱窗口验证，当时常规检查 46/46 通过。详见[本机接续记录](LOCAL_BASELINE.md)。M0.3 本机真实模型随后一次通过；后续 M1 各检查点的实际新增结果见下文，当前阶段状态以上方总述为准。

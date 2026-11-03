@@ -1,3 +1,5 @@
+import {routeMainChat} from '../../runtime/src/chat-router.ts';
+import type {MainChatInput,MainChatView,MainChatEntry} from '../../contracts/src/chat.ts';
 import { createHash, randomUUID } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { chmodSync, existsSync, lstatSync, mkdirSync, readFileSync, realpathSync, statSync } from 'node:fs';
@@ -332,12 +334,56 @@ export class ExecutionLedger {
     if(task.goal_id){const goal=this.one("SELECT plan_version FROM goals WHERE goal_id=? AND dot_id=? AND status='active'",task.goal_id,this.dotId)??fail('GOAL_NOT_ACTIVE');return{...epochs,goal_plan_version:goal.plan_version!};}return epochs;
   }
   tasks(projectId:string):TaskSummary[] {
-    this.workspace(projectId);
+    this.workspace(projectId);return this.registeredTasks(projectId);
+  }
+  private registeredTasks(projectId:string):TaskSummary[]{
     return this.all("SELECT * FROM tasks WHERE workspace_id=? AND dot_id=? AND NOT EXISTS(SELECT 1 FROM privacy_tombstones p WHERE p.dot_id=tasks.dot_id AND p.source_ref IN (tasks.task_id,'task:'||tasks.task_id)) ORDER BY updated_at_ms DESC,rowid DESC LIMIT 100",projectId,this.dotId).map(t=>({
       projectId,taskId:String(t.task_id),title:String(t.title),status:t.status as TaskStatus,version:Number(t.version),blocked:t.dispatch_blocked===1,
       activeRunId:this.one(`SELECT run_id FROM task_runs WHERE task_id=? AND status IN ${active}`,t.task_id!)?.run_id as string??null,
       mode:JSON.parse(String(t.constraints_json)).mode==='workspaceWrite'?'workspaceWrite':'readOnly',updatedAt:Number(t.updated_at_ms),
     }));
+  }
+  private chatProject(projectId:string):void {
+    this.owner();if(!id(projectId)||!this.one("SELECT workspace_id FROM workspaces WHERE workspace_id=? AND dot_id=? AND state<>'archived'",projectId,this.dotId))fail('UNKNOWN_PROJECT');
+  }
+  private chatVisible(messageId:string):boolean {
+    return Boolean(this.one("SELECT m.message_id FROM messages m WHERE m.message_id=? AND m.dot_id=? AND m.deleted_at_ms IS NULL AND NOT EXISTS(SELECT 1 FROM privacy_tombstones p WHERE p.dot_id=m.dot_id AND p.source_ref IN (m.message_id,'message:'||m.message_id)) AND NOT EXISTS(SELECT 1 FROM message_task_links l JOIN privacy_tombstones p ON p.dot_id=l.dot_id AND p.source_ref IN (l.task_id,'task:'||l.task_id) WHERE l.message_id=m.message_id)",messageId,this.dotId));
+  }
+  mainChat(input:unknown):MainChatView {
+    if(!input||typeof input!=='object'||Array.isArray(input)||Object.keys(input).length!==1||!Object.hasOwn(input,'projectId')||!id((input as {projectId?:unknown}).projectId))return fail('INVALID_CHAT_QUERY');
+    const projectId=(input as {projectId:string}).projectId;this.chatProject(projectId);this.exec("UPDATE pending_interactions SET state='expired' WHERE dot_id=? AND kind='clarification' AND state='pending' AND expires_at_ms<=? AND json_extract(options_json,'$.source')='main-chat-rules-v1'",this.dotId,Date.now());const tasks=this.registeredTasks(projectId),conversation=this.one('SELECT conversation_id FROM conversations WHERE dot_id=?',this.dotId),focus=conversation?this.one('SELECT * FROM focus_states WHERE conversation_id=? AND dot_id=?',conversation.conversation_id!,this.dotId):undefined,focused=tasks.find(t=>t.taskId===focus?.focused_task_id);
+    const rows=this.all("SELECT m.*,d.decision_json FROM messages m JOIN router_decisions d USING(message_id) WHERE m.dot_id=? AND d.router_revision='main-chat-rules-v1' AND json_extract(d.decision_json,'$.projectId')=? ORDER BY m.created_at_ms DESC,m.rowid DESC LIMIT 201",this.dotId,projectId);
+    const messages:MainChatEntry[]=[];let remaining=65536,truncated=rows.length>50;
+    for(const row of rows){if(!this.chatVisible(String(row.message_id)))continue;if(messages.length>=50){truncated=true;break;}const data=JSON.parse(String(row.decision_json)),original=String(row.content),max=Math.min(2000,remaining);let text=original.slice(0,max);if(/[\uD800-\uDBFF]$/.test(text))text=text.slice(0,-1);remaining-=text.length;if(!text){truncated=true;break;}messages.push({messageId:String(row.message_id),text,createdAt:Number(row.created_at_ms),kind:data.kind,reason:data.reason,task:data.task??null,pendingInteractionId:data.pendingInteractionId??null,truncated:text!==original});truncated||=text!==original;}
+    const pending=conversation?this.all("SELECT * FROM pending_interactions WHERE dot_id=? AND kind='clarification' AND state='pending' AND expires_at_ms>? AND json_extract(options_json,'$.source')='main-chat-rules-v1' AND json_extract(options_json,'$.projectId')=? ORDER BY rowid DESC LIMIT 11",this.dotId,Date.now(),projectId).filter(p=>this.chatVisible(String(p.origin_message_id))).slice(0,10).map(p=>{const options=JSON.parse(String(p.options_json));return{id:String(p.interaction_id),messageId:String(p.origin_message_id),expiresAt:Number(p.expires_at_ms),choices:(options.choices as Array<{taskId:string;title:string;version:number}>).filter(c=>tasks.some(t=>t.taskId===c.taskId&&t.version===c.version))};}):[];
+    return{projectId,conversationId:conversation?String(conversation.conversation_id):null,focus:focused&&focus?{task:focused,revision:Number(focus.revision)}:null,focusRevision:Number(focus?.revision??0),tasks,messages:messages.reverse(),pending,truncated};
+  }
+  submitMainChat(input:unknown):MainChatView {
+    const object=input as Record<string,unknown>;if(!input||typeof input!=='object'||Array.isArray(input)||!['projectId','messageId','text','focusRevision'].every(k=>Object.hasOwn(object,k))||Object.keys(object).some(k=>!['projectId','messageId','text','focusRevision','taskId','pendingInteractionId'].includes(k))||!id(object.projectId)||!id(object.messageId)||typeof object.text!=='string'||!object.text.trim()||object.text.length>8192||object.text.includes('\0')||!Number.isSafeInteger(object.focusRevision)||Number(object.focusRevision)<0||('taskId'in object&&!id(object.taskId))||('pendingInteractionId'in object&&!id(object.pendingInteractionId)))return fail('INVALID_CHAT_MESSAGE');
+    const q=input as MainChatInput;this.chatProject(q.projectId);const normalized={projectId:q.projectId,text:q.text,focusRevision:q.focusRevision,...(q.taskId?{taskId:q.taskId}:{}),...(q.pendingInteractionId?{pendingInteractionId:q.pendingInteractionId}:{})},inputHash=hashInput(normalized);
+    this.tx(()=>{
+      this.owner();const previous=this.one('SELECT m.content_hash,d.router_revision FROM messages m LEFT JOIN router_decisions d USING(message_id) WHERE m.message_id=? AND m.dot_id=?',q.messageId,this.dotId);
+      if(previous){if(previous.content_hash!==inputHash||previous.router_revision!=='main-chat-rules-v1')fail('IDEMPOTENCY_CONFLICT');if(!this.chatVisible(q.messageId))fail('CHAT_MESSAGE_UNAVAILABLE');return;}
+      if(Number(this.one("SELECT count(*) AS n FROM router_decisions WHERE router_revision='main-chat-rules-v1'")!.n)>=10000)fail('CHAT_MESSAGE_LIMIT');
+      const conversationId=this.conversation(),focus=this.one('SELECT * FROM focus_states WHERE conversation_id=? AND dot_id=?',conversationId,this.dotId),revision=Number(focus?.revision??0);if(revision!==q.focusRevision)fail('CHAT_FOCUS_CHANGED');
+      const tasks=this.registeredTasks(q.projectId);let route=routeMainChat(q.text,tasks,q.taskId,tasks.some(t=>t.taskId===focus?.focused_task_id)?String(focus!.focused_task_id):undefined);
+      if(q.pendingInteractionId){
+        if(q.text.trim()!=='/query'||!q.taskId)fail('INVALID_CHAT_CLARIFICATION');
+        const pending=this.one("SELECT * FROM pending_interactions WHERE interaction_id=? AND dot_id=? AND kind='clarification' AND state='pending'",q.pendingInteractionId,this.dotId);if(!pending||Number(pending.expires_at_ms)<=Date.now()||!this.chatVisible(String(pending.origin_message_id)))return fail('CHAT_CLARIFICATION_EXPIRED');
+        const options=JSON.parse(String(pending.options_json));if(options.source!=='main-chat-rules-v1'||options.projectId!==q.projectId)fail('CHAT_CLARIFICATION_SCOPE');const choice=options.choices.find((c:{taskId:string})=>c.taskId===q.taskId),current=tasks.find(t=>t.taskId===q.taskId);if(!choice||!current)return fail('CHAT_CANDIDATE_NOT_GRANTED');if(choice.version!==current.version)fail('CHAT_CANDIDATE_STALE');route={kind:'query',taskId:q.taskId,candidates:[],reason:'pending_selection'};
+        this.exec("UPDATE pending_interactions SET state='resolved' WHERE interaction_id=?",q.pendingInteractionId);
+      }
+      const task=route.kind==='query'?tasks.find(t=>t.taskId===route.taskId):undefined;if(route.kind==='query'&&!task)fail('CHAT_TASK_UNAVAILABLE');
+      const createdAt=Date.now(),decisionId='main-chat:'+q.messageId,pendingId=route.kind==='clarify'?randomUUID():null,data={projectId:q.projectId,kind:route.kind,reason:route.reason,task:task??null,pendingInteractionId:pendingId};
+      this.exec("INSERT INTO messages(message_id,conversation_id,dot_id,role,content,content_hash,route_state,created_at_ms) VALUES (?,?,?,'user',?,?,?,?)",q.messageId,conversationId,this.dotId,q.text,inputHash,route.kind==='clarify'?'clarification':'decided',createdAt);
+      this.exec('INSERT INTO router_decisions VALUES (?,?,?,?,?,?)',decisionId,q.messageId,'main-chat-rules-v1',JSON.stringify(route.candidates.map(id=>tasks.find(t=>t.taskId===id)).filter(Boolean).map(t=>({taskId:t!.taskId,version:t!.version}))),JSON.stringify(data),createdAt);
+      if(task){
+        this.exec("INSERT INTO message_task_links VALUES (?,?,?,'reference')",q.messageId,task.taskId,this.dotId);
+        this.exec("INSERT INTO operations VALUES (?,?,0,?,'QUERY_TASK','completed',?,?,?,?)",randomUUID(),decisionId,task.taskId,task.version,JSON.stringify({projectId:q.projectId,taskId:task.taskId}),hashInput([q.projectId,task.taskId,task.version]),'main-chat:'+q.messageId);
+        this.exec('INSERT INTO focus_states VALUES (?,?,?,?,?) ON CONFLICT(conversation_id) DO UPDATE SET focused_task_id=excluded.focused_task_id,established_by_message_id=excluded.established_by_message_id,revision=excluded.revision',conversationId,this.dotId,task.taskId,q.messageId,revision+1);
+      }
+      if(pendingId){const choices=route.candidates.map(id=>tasks.find(t=>t.taskId===id)).filter(Boolean).map(t=>({taskId:t!.taskId,title:t!.title,version:t!.version}));this.exec("INSERT INTO pending_interactions VALUES (?,?,?,NULL,'clarification','pending',NULL,?,?)",pendingId,this.dotId,q.messageId,JSON.stringify({source:'main-chat-rules-v1',projectId:q.projectId,choices}),createdAt+15*60000);}
+    });return this.mainChat({projectId:q.projectId});
   }
   taskForHost(projectId:string,taskId:string):{mode:'readOnly'|'workspaceWrite'} {
     this.workspace(projectId);const task=this.taskRow(projectId,taskId);return{mode:JSON.parse(String(task.constraints_json)).mode==='workspaceWrite'?'workspaceWrite':'readOnly'};

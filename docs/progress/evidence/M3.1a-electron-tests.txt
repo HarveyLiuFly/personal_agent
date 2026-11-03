@@ -1,0 +1,148 @@
+TAP version 13
+# Subtest: explicit query command requires a single known object, without a global-query fallback
+ok 1 - explicit query command requires a single known object, without a global-query fallback
+  ---
+  duration_ms: 1.239584
+  type: 'test'
+  ...
+# Subtest: UI object, explicit text ID, valid Focus and unique title have deterministic priority
+ok 2 - UI object, explicit text ID, valid Focus and unique title have deterministic priority
+  ---
+  duration_ms: 0.864167
+  type: 'test'
+  ...
+# Subtest: Chinese and English state questions remain read-only and require an object
+ok 3 - Chinese and English state questions remain read-only and require an object
+  ---
+  duration_ms: 0.135209
+  type: 'test'
+  ...
+# Subtest: duplicate titles and multiple IDs clarify rather than silently choosing a task
+ok 4 - duplicate titles and multiple IDs clarify rather than silently choosing a task
+  ---
+  duration_ms: 0.107209
+  type: 'test'
+  ...
+# Subtest: unknown explicit IDs never fall back to UI selection, Focus or a matching title
+ok 5 - unknown explicit IDs never fall back to UI selection, Focus or a matching title
+  ---
+  duration_ms: 0.149792
+  type: 'test'
+  ...
+# Subtest: selected objects do not turn actions or mixed query/action language into queries
+ok 6 - selected objects do not turn actions or mixed query/action language into queries
+  ---
+  duration_ms: 0.112416
+  type: 'test'
+  ...
+# Subtest: explicit note body stays inert and unknown text never invokes a model or changes Focus
+ok 7 - explicit note body stays inert and unknown text never invokes a model or changes Focus
+  ---
+  duration_ms: 0.146583
+  type: 'test'
+  ...
+# Subtest: exact IDs do not match prefixes, case aliases or normalized paths
+ok 8 - exact IDs do not match prefixes, case aliases or normalized paths
+  ---
+  duration_ms: 0.076417
+  type: 'test'
+  ...
+# Subtest: candidate output is bounded and contains only supplied identifiers
+ok 9 - candidate output is bounded and contains only supplied identifiers
+  ---
+  duration_ms: 0.152541
+  type: 'test'
+  ...
+# Subtest: malformed and oversized inputs return fixed errors without private diagnostic content
+ok 10 - malformed and oversized inputs return fixed errors without private diagnostic content
+  ---
+  duration_ms: 1.448334
+  type: 'test'
+  ...
+# Subtest: legal multiline and tabbed Task titles do not poison another explicit Task query
+ok 11 - legal multiline and tabbed Task titles do not poison another explicit Task query
+  ---
+  duration_ms: 0.369917
+  type: 'test'
+  ...
+# Subtest: routing does not mutate or read extra candidate data, and emits no title/body/path
+ok 12 - routing does not mutate or read extra candidate data, and emits no title/body/path
+  ---
+  duration_ms: 0.260291
+  type: 'test'
+  ...
+# Subtest: query persists one message/decision/operation/link/focus and no Task effect or inference
+ok 13 - query persists one message/decision/operation/link/focus and no Task effect or inference
+  ---
+  duration_ms: 14.449167
+  type: 'test'
+  ...
+# Subtest: same ID and payload is idempotent before Focus CAS, later Focus is not reset, and changed content conflicts
+ok 14 - same ID and payload is idempotent before Focus CAS, later Focus is not reset, and changed content conflicts
+  ---
+  duration_ms: 12.999625
+  type: 'test'
+  ...
+# Subtest: explicit object does not turn a cancel request into a query or task side effect; notes never change focus
+ok 15 - explicit object does not turn a cancel request into a query or task side effect; notes never change focus
+  ---
+  duration_ms: 15.592541
+  type: 'test'
+  ...
+# Subtest: multiple pending clarifications require the exact pending ID and resolve only the chosen question
+ok 16 - multiple pending clarifications require the exact pending ID and resolve only the chosen question
+  ---
+  duration_ms: 12.532459
+  type: 'test'
+  ...
+# Subtest: changed candidate versions and expired questions cannot apply a stale clarification
+ok 17 - changed candidate versions and expired questions cannot apply a stale clarification
+  ---
+  duration_ms: 12.844208
+  type: 'test'
+  ...
+# Subtest: cross-project registry and clarification IDs never expose or select a foreign task
+ok 18 - cross-project registry and clarification IDs never expose or select a foreign task
+  ---
+  duration_ms: 12.737958
+  type: 'test'
+  ...
+# Subtest: Task and message tombstones hide prior query snapshots and Focus without destroying Host execution records
+ok 19 - Task and message tombstones hide prior query snapshots and Focus without destroying Host execution records
+  ---
+  duration_ms: 11.108
+  type: 'test'
+  ...
+# Subtest: Registry-only queries remain available when the physical source directory is unavailable
+ok 20 - Registry-only queries remain available when the physical source directory is unavailable
+  ---
+  duration_ms: 10.19825
+  type: 'test'
+  ...
+# Subtest: invalid query, extra fields and invalid message inputs leave no partial decision
+ok 21 - invalid query, extra fields and invalid message inputs leave no partial decision
+  ---
+  duration_ms: 8.637167
+  type: 'test'
+  ...
+# Subtest: a fresh SQLite Owner reconstructs the same discussion and Focus without another operation
+ok 22 - a fresh SQLite Owner reconstructs the same discussion and Focus without another operation
+  ---
+  duration_ms: 12.964
+  type: 'test'
+  ...
+# Subtest: message projection is bounded, keeps raw persisted text and does not split a surrogate pair
+ok 23 - message projection is bounded, keeps raw persisted text and does not split a surrogate pair
+  ---
+  duration_ms: 11.90175
+  type: 'test'
+  ...
+1..23
+# tests 23
+# suites 0
+# pass 23
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 271.317375
