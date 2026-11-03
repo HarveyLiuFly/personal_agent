@@ -1,0 +1,69 @@
+{
+  "checkpoint": "M3.manual-plan",
+  "scope": "Preparation only; no human cases passed; real production Electron Main/SQLite, public bug fixtures",
+  "platform": "darwin-arm64",
+  "node": "24.19.0",
+  "syntax": "passed",
+  "productionBuild": "passed",
+  "prepareIdempotence": "passed",
+  "invalidFlag": "rejected",
+  "preflightWithSourceConfiguration": "rejected before launch; temporary empty configuration removed",
+  "boot": {
+    "format": 1,
+    "userData": "<isolated-session>/profile",
+    "productionEntry": true,
+    "sandbox": true,
+    "contextIsolation": true,
+    "nodeIntegration": false,
+    "webSecurity": true,
+    "humanCasesExecuted": 0,
+    "modelSubmissions": 0,
+    "ok": true
+  },
+  "emptyLedgerCounts": {
+    "projects": 0,
+    "tasks": 0,
+    "task_runs": 0,
+    "execution_intents": 0
+  },
+  "fixtures": [
+    {
+      "project": "code",
+      "clean": true,
+      "tests": 4,
+      "passed": 0,
+      "expectedFailures": 4,
+      "skipped": 0,
+      "exitCode": 1
+    },
+    {
+      "project": "goal",
+      "clean": true,
+      "tests": 4,
+      "passed": 0,
+      "expectedFailures": 4,
+      "skipped": 0,
+      "exitCode": 1
+    },
+    {
+      "project": "other",
+      "clean": true,
+      "tests": 4,
+      "passed": 0,
+      "expectedFailures": 4,
+      "skipped": 0,
+      "exitCode": 1
+    }
+  ],
+  "productImplementationHashesUnchanged": 71,
+  "humanCases": {
+    "desktop": 54,
+    "hostAssistedGroups": 8,
+    "passed": 0,
+    "inProgress": 1,
+    "pending": 61
+  },
+  "modelRequests": 0,
+  "regularSuite": "not rerun for standalone walkthrough helper/documentation",
+  "helperSha256": "3c20eb39331c5a1b50659564551e30e34d6a987abb813123ec8f2cda3cfa4d50"
+}

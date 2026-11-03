@@ -23,6 +23,8 @@
 
 [M3 进展](M3.md)：**M3 Gate已在macOS arm64/锁版CLI0.163.0/本机Main后台范围闭合**，定位 `checkpoint/M3`，[逐包收据](evidence/M3-gate.json)。主聊天/结构化Router与独立Chat、逐操作/纠错、来源化Context/CP换代、真实Memory修订/分域/遗忘、Goal/Source/预算/通知均接唯一Store/Gateway，Schema6/63固定API。586/586、Electron核心199/199、17合同/747类型/TS/构建及真实GUI通过；8次实际模型请求已报告175,520 Token，另两笔各32k未知预留如实保留。真实代码Goal、同Goal冷进程修订/唤醒/实际停止、第三进程核对、新Thread与本地物理清理有独立证据；SDK停止Unknown不算业务成功。自有鉴权HTTP不是第三方账号/OS推送验收，权限管理仍M5。M4尚未启动。
 
+M3人工走查另行开展：[`M3.manual-plan`完整用例](M3_MANUAL_WALKTHROUGH.md)含54项桌面操作与8组Host协助边界，[实时执行表](M3_MANUAL_RESULTS.md)。专用档案/3个公开故障项目/真实沙箱启动预检已准备，0新模型请求；人工结果尚待用户执行，不能用既有Gate替代。静态发现Goal核验ID在界面不可直接取得（UX-01），将单独登记人工体验缺口。
+
 用户决定转到本地电脑的 Codex 继续；接手请先读 [本地交接](LOCAL_HANDOFF.md)。云端代码/记录已同步，M0.3 改由本机实际验证；原云环境设置/发布不再是本地开发前提。
 
 本机平台最初以 `M0.local` 完成 macOS arm64 的官方 CLI/Schema、工具链与原生沙箱窗口验证，当时常规检查 46/46 通过。详见[本机接续记录](LOCAL_BASELINE.md)。M0.3 本机真实模型随后一次通过；后续 M1 各检查点的实际新增结果见下文，当前阶段状态以上方总述为准。

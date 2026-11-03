@@ -8,6 +8,8 @@
 
 M2本机模式以Electron Main为唯一后台Owner；关闭窗口/Renderer崩溃继续，显式退出停止。恢复保留旧目录/安全备份及源码，合并最新删除/策略/预算，停旧计划/批准，已提交指针缺失拒绝回退；含未决占用/未知用量先在原环境核对。备份仅账本与已发布收据，认证/源码/原始Codex历史/终端输出不包含。项目Skill是隔离发现预览，MCP/插件/子Agent未启用、远端目录未加载；独立Daemon/外部Socket、休眠中执行、可写IDE及其他平台需独立开放验收。正式身份/权限管理继续M5，M3接入现有Store/Gateway，不新建第二套执行循环。开发仓库只有main；模型Unknown不自动重发，旧验证Hash不可绕过。下文原云交接内容仅保留历史事实，不覆盖本段当前状态。
 
+用户正在准备M3人工走查，先读[完整用例](M3_MANUAL_WALKTHROUGH.md)和[当前执行表](M3_MANUAL_RESULTS.md)。54项桌面+8组协助边界均须本轮实际结果；仅启动/隔离预检已完成，不是人工通过。使用`node scripts/manual-walkthrough.mjs`进入独立档案，勿用正式档案做遗忘/恢复。每次按1–3项引导并把用户观察与Host核对分开登记；当前下一步A01–A02，尚无新模型请求。UX-01是verificationId未在验证页显示的界面缺口，目标完成步骤暂需Host只读协助。
+
 ## 1. Git 与交付范围
 
 - 仓库：`https://github.com/HarveyLiuFly/personal_agent`，远程分支 `main`。
