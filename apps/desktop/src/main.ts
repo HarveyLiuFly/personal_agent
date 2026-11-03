@@ -21,6 +21,7 @@ import { runtimeEnvironment } from '../../../packages/codex-adapter/src/launch.t
 import type { HostResult } from '../../../packages/contracts/src/views.ts';
 import type { ConnectionInfo } from './bridge.ts';
 import {nativeProbe,rejectedSecondary,runNativeProbe} from './native-probes.ts';
+import {WorkspaceService,resolveWorkspaceGit} from '../../../packages/workspace/src/service.ts';
 
 const directory = dirname(fileURLToPath(import.meta.url));
 const root = resolve(directory, '../..');
@@ -35,6 +36,7 @@ let window: BrowserWindow | undefined;
 let ledger: ExecutionLedger | undefined;
 let execution: ForegroundExecution | undefined;
 let verifier: NodeVerification | undefined;
+let workspaceReader:WorkspaceService|undefined;
 const nativeCodeContinuationSmoke=process.argv.includes('--m1-native-code-continuation-smoke');
 const nativeCodeSmoke=process.argv.includes('--m1-native-code-smoke')||nativeCodeContinuationSmoke;
 let nativeCodeWorkspace:string|undefined;
@@ -56,7 +58,7 @@ else void boot().catch(async error => {
   console.error('DESKTOP_BOOT_FAILED', code);
   if (acceptanceProbe || nativeCodeSmoke || executionSmoke || historySmoke || process.argv.includes('--m0-window-smoke')) {
     if (window) { try { writeFileSync(resolve(root, '.local/desktop-failure.png'), (await window.webContents.capturePage()).toPNG()); } catch {} }
-    const file = acceptanceProbe?`M1.4b-${acceptanceProbe.kind==='folder'?'native-folder':acceptanceProbe.kind==='restart'?'native-restart':'owner'}`:nativeCodeSmoke ? 'M1-native-code-desktop' : continuationSmoke?'M1.3c-desktop':interactionSmoke ? 'M1.2-desktop' : executionSmoke ? 'M1.1c-desktop' : historySmoke ? 'M1.1b-desktop' : 'M0-desktop-smoke';
+    const file = acceptanceProbe?acceptanceProbe.kind==='workspace'?'M2.1a-desktop':`M1.4b-${acceptanceProbe.kind==='folder'?'native-folder':acceptanceProbe.kind==='restart'?'native-restart':'owner'}`:nativeCodeSmoke ? 'M1-native-code-desktop' : continuationSmoke?'M1.3c-desktop':interactionSmoke ? 'M1.2-desktop' : executionSmoke ? 'M1.1c-desktop' : historySmoke ? 'M1.1b-desktop' : 'M0-desktop-smoke';
     writeFileSync(resolve(root, `docs/progress/evidence/${file}.json`), JSON.stringify({ status: 'blocked', code, observedAt: new Date().toISOString() }) + '\n');
   }
   try { await execution?.close(); ledger?.close(); } catch {}
@@ -95,6 +97,7 @@ async function boot(): Promise<void> {
     ownerEpoch=ledger.startOwner(randomUUID(), true); // OS single-instance lock was acquired before boot().
     if (!executionSmoke && process.platform === 'darwin' && process.arch === 'arm64') {
       try { verifier = new NodeVerification(ledger,{node:resolveVerifierNode(root),cli:executable(),reporter:resolve(directory,'verification-reporter.mjs'),stateDirectory:resolve(app.getPath('userData'),'verification')}); } catch {}
+      try {workspaceReader=new WorkspaceService(id=>ledger!.workspace(id),{node:resolveVerifierNode(root),cli:executable(),git:resolveWorkspaceGit(),worker:resolve(directory,'workspace-reader.mjs'),stateDirectory:resolve(app.getPath('userData'),'workspace-read')});}catch{}
     }
     execution = new ForegroundExecution(ledger, { executable: executionSmoke ? resolveExecutable('node') : executable(), stateDirectory: state, mode: interactionSmoke ? 'workspaceWrite' : 'readOnly',
       ...(verifier ? { prepareCode: (token, code, signal) => verifier!.prepare(token,code,signal) } : {}),
@@ -116,6 +119,7 @@ async function boot(): Promise<void> {
     } finally { await rpc.close(); }
   }, ledger ? path => ledger!.registerWorkspace(path) : undefined);
   ipcMain.handle('history:chooseProject', (event, ...args: unknown[]) => historyCommand(event, args, 0, async () => {
+    if(acceptanceProbe?.kind==='workspace')return history.registerDirectory(acceptanceProbe.folderDirectory!);
     if (fixtureWorkspace) return history.registerDirectory(fixtureWorkspace);
     if (nativeCodeWorkspace) return history.registerDirectory(nativeCodeWorkspace);
     if(acceptanceProbe?.kind==='folder')acceptanceProbe.dialogOpened=true;
@@ -132,7 +136,10 @@ async function boot(): Promise<void> {
     try { return { ok: true, value: operation() }; }
     catch (error) { return { ok: false, errorCode: error instanceof LedgerError || error instanceof RpcFailure ? error.code : 'HOST_ERROR' }; }
   }
-  ipcMain.handle('execution:workspaceState', (event, ...args: unknown[]) => executionCommand(event, args, 0, () => ({ projects: ledger?.projects() ?? [], canSubmit: Boolean(execution), canCode: Boolean(verifier), mode: interactionSmoke ? 'workspaceWrite' as const : 'readOnly' as const })));
+  ipcMain.handle('execution:workspaceState', (event, ...args: unknown[]) => executionCommand(event, args, 0, () => ({ projects: ledger?.projects() ?? [], canSubmit: Boolean(execution), canCode: Boolean(verifier), canBrowseWorkspace:Boolean(workspaceReader),mode: interactionSmoke ? 'workspaceWrite' as const : 'readOnly' as const })));
+  for(const [channel,operation]of [['workspace:overview','overview'],['workspace:directory','list'],['workspace:file','preview'],['workspace:diff','diff']] as const){
+    ipcMain.handle(channel,(event,...args:unknown[])=>historyCommand(event,args,1,async()=>{if(!workspaceReader)throw new LedgerError('WORKSPACE_READER_UNAVAILABLE');return workspaceReader[operation](args[0],controller?.signal);}));
+  }
   // Re-register persisted grants in the read-only browser; invalid directories remain blocked by Store.
   for (const project of ledger?.projects() ?? []) {
     try { ledger!.workspace(project.id); await history.registerDirectory(project.directory); } catch {}
@@ -226,7 +233,7 @@ async function boot(): Promise<void> {
     const passed = r.rendered === true && r.hasRequire === false && r.sandboxed === true && r.isolated === true
       && r.uiConnected === true && !app.commandLine.hasSwitch('no-sandbox')
       && (r.connection as ConnectionInfo)?.status === 'connected'
-      && JSON.stringify(r.bridgeKeys) === JSON.stringify(['chooseProject', 'continueRun', 'getRun', 'getVerification', 'inspect', 'interruptRun', 'listInteractions', 'listItems', 'listRuns', 'listThreads', 'listTurns', 'reconcileRun', 'replyInteraction', 'security', 'submitMessage', 'verifyRun', 'workspaceState']);
+      && JSON.stringify(r.bridgeKeys) === JSON.stringify(['chooseProject', 'continueRun', 'getRun', 'getVerification','getWorkspace','getWorkspaceDiff', 'inspect', 'interruptRun', 'listInteractions', 'listItems', 'listRuns', 'listThreads', 'listTurns','listWorkspaceDirectory','readWorkspaceFile', 'reconcileRun', 'replyInteraction', 'security', 'submitMessage', 'verifyRun', 'workspaceState']);
     const evidence = { observedAt: new Date().toISOString(), kind: 'real_electron_window_smoke',
       status: passed ? 'passed' : 'blocked',
       browserSandbox: app.commandLine.hasSwitch('no-sandbox') ? 'disabled' : 'enabled', result };

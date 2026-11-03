@@ -1,0 +1,28 @@
+{
+  "status": "passed",
+  "kind": "real_electron_filesystem_git_and_native_sandbox",
+  "backend": "real_git_native_sandbox_reader",
+  "folderDialogSelection": "fixed_fixture_substitution",
+  "indexUnchanged": true,
+  "result": {
+    "protectedEntryDisabled": true,
+    "markupPlainText": true,
+    "noImage": true,
+    "noScript": true,
+    "stagedSeparated": true,
+    "unstagedShown": true,
+    "malformedRejected": true,
+    "rawPathRejected": true,
+    "expiredHandleRejected": true,
+    "sandboxed": true,
+    "isolated": true,
+    "hasRequire": false
+  },
+  "modelTurns": 0,
+  "observedAt": "2026-11-03T00:26:46.197Z",
+  "platform": "darwin-arm64",
+  "cliVersion": "codex-cli 0.163.0",
+  "electronVersion": "45.2.1",
+  "nodeVersion": "24.22.1",
+  "inferenceRequested": false
+}

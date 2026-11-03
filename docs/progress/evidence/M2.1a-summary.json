@@ -1,0 +1,80 @@
+{
+  "checkpoint": "M2.1a",
+  "status": "passed_limited_read_only_scope",
+  "stageGate": "open",
+  "baselineCommit": "81a72b1dd23c1705c2b7f4e0a8e7c1d8543dd8c2",
+  "platform": "darwin-arm64",
+  "cliVersion": "codex-cli 0.163.0",
+  "gitVersion": "git version 2.50.1 (Apple Git-155)",
+  "nodeVersion": "24.19.0",
+  "electronVersion": "45.2.1",
+  "electronNodeVersion": "24.22.1",
+  "inferenceRequested": false,
+  "schemaChanged": false,
+  "runtimeOwner": "electron_main_foreground",
+  "componentTests": {
+    "discovered": 123,
+    "executed": 123,
+    "passed": 123,
+    "failed": 0,
+    "skipped": 0,
+    "workspaceNewTests": 14,
+    "workspaceComponentSandbox": "direct_node_only"
+  },
+  "designContracts": 17,
+  "lockedGeneratedTypes": 747,
+  "typecheck": "passed",
+  "build": "passed",
+  "nativeSandbox": {
+    "status": "passed",
+    "observedAt": "2026-11-03T00:32:14.788Z",
+    "evidence": "M2.1a-native-workspace.json",
+    "realGit": true,
+    "realFilesystem": true,
+    "realOsSandbox": true,
+    "networkConnections": 0
+  },
+  "desktop": {
+    "status": "passed",
+    "observedAt": "2026-11-03T00:32:33.311Z",
+    "evidence": "M2.1a-desktop.json",
+    "backend": "real_git_filesystem_native_sandbox",
+    "folderSelection": "fixed_fixture_substitution",
+    "modelTurns": 0,
+    "screenshot": "screenshots/M2-workspace-desktop.png"
+  },
+  "regressions": {
+    "M0": "M2.1a-M0-desktop-regression.json",
+    "continuation": "M2.1a-continuation-regression.json",
+    "continuationBackend": "synthetic_stdio",
+    "M2.1a-M0-desktop-regression": {
+      "status": "passed",
+      "observedAt": "2026-11-03T00:32:55.186Z"
+    },
+    "M2.1a-continuation-regression": {
+      "status": "passed",
+      "observedAt": "2026-11-03T00:32:58.736Z"
+    }
+  },
+  "sourceAndBuildHashes": {
+    "packages/workspace/src/reader.mjs": "3385b70b269eaee5c9bca70d227e23c3e4d4cb3f3f350bb2f43ca11a3b17ada4",
+    "packages/workspace/src/service.ts": "1a5485e0fc834873a85fb705e4e4487e52e36463fa6a062588eac968f6345125",
+    "packages/contracts/src/workspace.ts": "c01f0bc7278c33b8b634e5218f91b0798d55adbe87e263f8d471cc6a100c50be",
+    "apps/desktop/renderer/workspace-panel.tsx": "a63643c3c2bf1dce1f7ce032a467f86ddef4742fb72bc58b18b7dd20cb72741c",
+    "build/desktop/main.js": "1ca84e4697746ee0e7d01ecb037fa6a96421bf42742f762c7fe1e589dc4fe423",
+    "build/desktop/preload.cjs": "722f1bdd02f5fb17ef0e164858029d38ae84f426a1363907fad0c500cacbe2ac",
+    "build/desktop/workspace-reader.mjs": "3385b70b269eaee5c9bca70d227e23c3e4d4cb3f3f350bb2f43ca11a3b17ada4"
+  },
+  "notImplemented": [
+    "workspace_writes",
+    "pty",
+    "linked_worktrees",
+    "submodules",
+    "operation_outbox",
+    "workspace_write_leases",
+    "daemon",
+    "background_scheduling",
+    "backup_and_crash_gate"
+  ],
+  "nextCheckpoint": "M2.2 persistent Operation/CAS/workspace write lease/Outbox foundation"
+}

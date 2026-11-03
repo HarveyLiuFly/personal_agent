@@ -1,0 +1,23 @@
+{
+  "status": "passed",
+  "observedAt": "2026-11-03T00:29:03.083Z",
+  "kind": "real_filesystem_git_and_native_read_only_sandbox",
+  "platform": "darwin-arm64",
+  "cliVersion": "codex-cli 0.163.0",
+  "inferenceRequested": false,
+  "gitBackend": "real_system_git",
+  "sandbox": "real_locked_cli_permission_profile",
+  "ordinaryGitStatus": true,
+  "stagedAndUnstagedDiffSeparated": true,
+  "plainTextPreview": true,
+  "protectedFileNoGrant": true,
+  "indexUnchanged": true,
+  "sourceUnchangedByReads": true,
+  "outsideReadBlocked": true,
+  "protectedRootFileReadBlocked": true,
+  "workspaceWriteBlocked": true,
+  "loopbackNetworkBlocked": true,
+  "serverConnections": 0,
+  "parentToolBridgeAbsent": true,
+  "authenticationEnvironmentAbsent": true
+}

@@ -6,18 +6,21 @@ import {ExecutionLedger,hashInput} from '../../../packages/store/src/ledger.ts';
 import {NodeVerification,workspaceFiles} from '../../../packages/verification/src/verification.ts';
 import type {ForegroundExecution} from '../../../packages/runtime/src/execution.ts';
 import {verifiedCodex} from '../../../packages/codex-adapter/src/binary.ts';
+import {resolveWorkspaceGit} from '../../../packages/workspace/src/service.ts';
+import {createWorkspaceFixture} from '../../../tests/fixtures/workspace-project.ts';
 export interface NativeProbe {
- kind:'owner-primary'|'owner-secondary'|'folder'|'restart';stateDirectory:string;folderDirectory?:string;
+ kind:'owner-primary'|'owner-secondary'|'folder'|'restart'|'workspace';stateDirectory:string;folderDirectory?:string;
  dialogOpened:boolean;selectionMatched:boolean;readMethods:Set<string>;
 }
 /** Fixed internal acceptance modes. No Renderer IPC controls paths or test execution. */
 export function nativeProbe(root:string,args:readonly string[]):NativeProbe|undefined {
- const flags=[['--m1-owner-primary','owner-primary'],['--m1-owner-secondary','owner-secondary'],['--m1-native-folder-smoke','folder'],['--m1-native-restart-smoke','restart']] as const;
+ const flags=[['--m1-owner-primary','owner-primary'],['--m1-owner-secondary','owner-secondary'],['--m1-native-folder-smoke','folder'],['--m1-native-restart-smoke','restart'],['--m2-workspace-smoke','workspace']] as const;
  const selected=flags.filter(([flag])=>args.includes(flag));if(!selected.length)return;
  if(selected.length!==1)throw new Error('INVALID_NATIVE_PROBE_FLAGS');
  const kind=selected[0]![1],local=resolve(root,'.local');mkdirSync(local,{recursive:true});let stateDirectory:string,folderDirectory:string|undefined;
- if(kind==='folder'){
-  stateDirectory=mkdtempSync(join(local,'desktop-folder-smoke-'));folderDirectory=realpathSync(mkdtempSync(join(tmpdir(),'personal-agent-folder-native-')));writeFileSync(join(folderDirectory,'public-fixture.txt'),'Controlled native folder selection fixture.\n');
+ if(kind==='folder'||kind==='workspace'){
+  stateDirectory=mkdtempSync(join(local,kind==='workspace'?'desktop-workspace-smoke-':'desktop-folder-smoke-'));folderDirectory=realpathSync(mkdtempSync(join(tmpdir(),kind==='workspace'?'personal-agent-workspace-desktop-':'personal-agent-folder-native-')));
+  if(kind==='workspace')createWorkspaceFixture(folderDirectory,resolveWorkspaceGit());else writeFileSync(join(folderDirectory,'public-fixture.txt'),'Controlled native folder selection fixture.\n');
  }else{
   const value=args.find(arg=>arg.startsWith('--probe-state='))?.slice('--probe-state='.length);if(!value)throw new Error('NATIVE_PROBE_STATE_REQUIRED');
   stateDirectory=realpathSync(value);const prefix=kind==='restart'?'desktop-native-code-':'desktop-owner-smoke-';
@@ -29,10 +32,30 @@ export function rejectedSecondary(probe:NativeProbe,lockHeld:boolean):void {
  writeFileSync(join(probe.stateDirectory,'secondary-result.json'),JSON.stringify({lockRejected:!lockHeld,ledgerOpened:false,pid:process.pid})+'\n',{mode:0o600});
 }
 export async function runNativeProbe(root:string,probe:NativeProbe,app:App,window:BrowserWindow,host:{ledger:ExecutionLedger;verifier?:NodeVerification;execution:ForegroundExecution;ownerEpoch:number}):Promise<void>{
- const output=(name:string,result:Record<string,unknown>)=>{const evidence={...result,observedAt:new Date().toISOString(),platform:process.platform+'-'+process.arch,cliVersion:verifiedCodex(root).lock.cliVersion,electronVersion:process.versions.electron,nodeVersion:process.versions.node,inferenceRequested:false};const file=join(root,`docs/progress/evidence/M1.4b-${name}.json`);writeFileSync(file,JSON.stringify(evidence,null,2)+'\n');writeFileSync(file.replace('.json',`-${evidence.observedAt.replaceAll(':','-').replaceAll('.','-')}.json`),JSON.stringify(evidence,null,2)+'\n');};
+ const output=(name:string,result:Record<string,unknown>)=>{const evidence={...result,observedAt:new Date().toISOString(),platform:process.platform+'-'+process.arch,cliVersion:verifiedCodex(root).lock.cliVersion,electronVersion:process.versions.electron,nodeVersion:process.versions.node,inferenceRequested:false};const file=join(root,`docs/progress/evidence/${name==='workspace'?'M2.1a-desktop':'M1.4b-'+name}.json`);writeFileSync(file,JSON.stringify(evidence,null,2)+'\n');writeFileSync(file.replace('.json',`-${evidence.observedAt.replaceAll(':','-').replaceAll('.','-')}.json`),JSON.stringify(evidence,null,2)+'\n');};
  if(probe.kind==='owner-primary'){
   writeFileSync(join(probe.stateDirectory,'owner-ready.json'),JSON.stringify({pid:process.pid,ownerEpoch:host.ownerEpoch,windowLoaded:true})+'\n',{mode:0o600});
   const deadline=Date.now()+45000,timer=setInterval(()=>{if(existsSync(join(probe.stateDirectory,'close-owner'))||Date.now()>deadline){clearInterval(timer);app.quit();}},100);timer.unref();return;
+ }
+ if(probe.kind==='workspace'){
+  const beforeIndex=hashInput(readFileSync(join(probe.folderDirectory!,'.git/index')).toString('base64'));
+  const result=await window.webContents.executeJavaScript(`(async()=>{
+   const wait=async check=>{const deadline=Date.now()+25000;while(!check()){if(Date.now()>deadline)throw new Error('WORKSPACE_UI_TIMEOUT');await new Promise(r=>setTimeout(r,50));}};
+   document.querySelector('[data-action="choose-project"]').click();await wait(()=>document.querySelector('[data-action="open-workspace"]'));await wait(()=>!document.querySelector('[data-action="open-workspace"]').disabled);document.querySelector('[data-action="open-workspace"]').click();
+   await wait(()=>document.querySelector('[data-workspace-path="src"]'));await wait(()=>!document.querySelector('[data-action="refresh-workspace"]').disabled);
+   const protectedEntryDisabled=document.querySelector('[data-workspace-path=".env"]').disabled;
+   document.querySelector('[data-workspace-path="src"]').click();await wait(()=>document.querySelector('[data-workspace-path="src/html.txt"]'));await wait(()=>!document.querySelector('[data-workspace-path="src/html.txt"]').disabled);document.querySelector('[data-workspace-path="src/html.txt"]').click();await wait(()=>document.querySelector('[data-workspace-preview]')?.textContent.includes('<img'));
+   const markupPlainText=document.querySelector('[data-workspace-preview]').textContent.includes('<img'),noImage=document.querySelector('[data-workspace-panel] img')===null,noScript=window.__workspaceInjected!==true;
+   document.querySelector('[data-action="workspace-git"]').click();await wait(()=>document.querySelector('[data-git-path="src/math.txt"]'));await wait(()=>!document.querySelector('[data-git-path="src/math.txt"] [data-diff-part="staged"]').disabled);document.querySelector('[data-git-path="src/math.txt"] [data-diff-part="staged"]').click();await wait(()=>document.querySelector('[data-workspace-preview]')?.textContent.includes('+staged fixture'));
+   const stagedSeparated=!document.querySelector('[data-workspace-preview]').textContent.includes('+unstaged fixture');await wait(()=>!document.querySelector('[data-git-path="src/math.txt"] [data-diff-part="unstaged"]').disabled);document.querySelector('[data-git-path="src/math.txt"] [data-diff-part="unstaged"]').click();await wait(()=>document.querySelector('[data-workspace-preview]')?.textContent.includes('+unstaged fixture'));
+   const state=await window.personalAgent.workspaceState(),projectId=state.value.projects[0].id;
+   const malformed=await window.personalAgent.getWorkspace({projectId,path:'/etc/passwd'}),foreign=await window.personalAgent.readWorkspaceFile({projectId,entryId:'/etc/passwd'});
+   const granted=(await window.personalAgent.getWorkspace({projectId})).value,oldId=granted.directory.entries.find(e=>e.name==='README.md').id;await window.personalAgent.getWorkspace({projectId});const stale=await window.personalAgent.readWorkspaceFile({projectId,entryId:oldId});
+   return{protectedEntryDisabled,markupPlainText,noImage,noScript,stagedSeparated,unstagedShown:document.querySelector('[data-workspace-preview]').textContent.includes('+unstaged fixture'),malformedRejected:!malformed.ok,rawPathRejected:!foreign.ok,expiredHandleRejected:!stale.ok,sandboxed:window.personalAgent.security.sandboxed,isolated:window.personalAgent.security.isolated,hasRequire:typeof require!=='undefined'};
+  })()`);
+  const indexUnchanged=beforeIndex===hashInput(readFileSync(join(probe.folderDirectory!,'.git/index')).toString('base64'));
+  const passed=Object.entries(result).every(([key,value])=>key==='hasRequire'?value===false:value===true)&&indexUnchanged&&host.execution.diagnostics.clientTurnStarts===0;
+  output('workspace',{status:passed?'passed':'blocked',kind:'real_electron_filesystem_git_and_native_sandbox',backend:'real_git_native_sandbox_reader',folderDialogSelection:'fixed_fixture_substitution',indexUnchanged,result,modelTurns:host.execution.diagnostics.clientTurnStarts});writeFileSync(join(root,'.local/M2-workspace-desktop.png'),(await window.webContents.capturePage()).toPNG());app.quit();return;
  }
  if(probe.kind==='folder'){
   const result=await window.webContents.executeJavaScript(`(async()=>{

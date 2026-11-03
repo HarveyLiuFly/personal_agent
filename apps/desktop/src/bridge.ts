@@ -1,5 +1,6 @@
 import type { HostResult, ProjectView, ThreadSummary, TurnView, ItemView, Page, ProjectQuery, ThreadQuery, ItemQuery } from '../../../packages/contracts/src/views.ts';
 import type { ContinueMessage, InteractionView, ReplyInteraction, VerificationView, RunQuery, RunSummary, RunView, SubmitMessage } from '../../../packages/contracts/src/views.ts';
+import type {WorkspaceQuery,WorkspaceEntryQuery,WorkspaceDiffQuery,WorkspaceOverview,WorkspaceDirectory,WorkspacePreview,WorkspaceDiff} from '../../../packages/contracts/src/workspace.ts';
 export interface ConnectionInfo {
   status: 'connected' | 'error';
   models?: number;
@@ -14,7 +15,11 @@ export interface DesktopApi {
   listThreads(query: ProjectQuery): Promise<HostResult<Page<ThreadSummary>>>;
   listTurns(query: ThreadQuery): Promise<HostResult<Page<TurnView>>>;
   listItems(query: ItemQuery): Promise<HostResult<Page<ItemView>>>;
-  workspaceState(): Promise<HostResult<{ projects: ProjectView[]; canSubmit: boolean; canCode: boolean; mode: 'readOnly' | 'workspaceWrite' }>>;
+  workspaceState(): Promise<HostResult<{ projects: ProjectView[]; canSubmit: boolean; canCode: boolean; canBrowseWorkspace:boolean; mode: 'readOnly' | 'workspaceWrite' }>>;
+  getWorkspace(query:WorkspaceQuery):Promise<HostResult<WorkspaceOverview>>;
+  listWorkspaceDirectory(query:WorkspaceEntryQuery):Promise<HostResult<WorkspaceDirectory>>;
+  readWorkspaceFile(query:WorkspaceEntryQuery):Promise<HostResult<WorkspacePreview>>;
+  getWorkspaceDiff(query:WorkspaceDiffQuery):Promise<HostResult<WorkspaceDiff>>;
   submitMessage(input: SubmitMessage): Promise<HostResult<RunSummary>>;
   continueRun(input:ContinueMessage):Promise<HostResult<RunSummary>>;
   listRuns(query: { projectId: string }): Promise<HostResult<RunSummary[]>>;

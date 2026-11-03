@@ -4,8 +4,8 @@ import {mkdtemp,mkdir,readFile,writeFile,rm} from 'node:fs/promises';
 import {resolve,join} from 'node:path';
 import electron from 'electron';
 import {openDisplay} from './virtual-display.mjs';
-const root=resolve(import.meta.dirname,'..'),owner=process.argv.includes('--owner'),folder=process.argv.includes('--folder');
-const name=owner?'owner':folder?'native-folder':'native-restart',file=join(root,`docs/progress/evidence/M1.4b-${name}.json`);
+const root=resolve(import.meta.dirname,'..'),owner=process.argv.includes('--owner'),folder=process.argv.includes('--folder'),workspace=process.argv.includes('--workspace');
+const name=workspace?'workspace':owner?'owner':folder?'native-folder':'native-restart',file=join(root,`docs/progress/evidence/${workspace?'M2.1a-desktop':'M1.4b-'+name}.json`);
 await mkdir(join(root,'.local'),{recursive:true});await writeFile(file,JSON.stringify({status:'running',observedAt:new Date().toISOString()})+'\n');
 let display,evidence;const children=[];
 const sleep=ms=>new Promise(done=>setTimeout(done,ms));
@@ -27,8 +27,8 @@ try{
   const third=launch('--m1-owner-primary',state),reopened=await ready(state,third),latest=database(state);if(reopened.ownerEpoch!==initial.ownerEpoch+1||latest.runtime_epoch!==before.runtime_epoch+1||latest.instance_id===before.instance_id)throw new Error('OWNER_RESTART_EPOCH_INVALID');await closeOwner(state,third);
   evidence={status:'passed',observedAt:new Date().toISOString(),kind:'real_electron_os_single_instance_and_owner_restart',platform:process.platform+'-'+process.arch,display:display.kind,inferenceRequested:false,firstWindowLoaded:true,secondProcessLockRejected:true,secondProcessOpenedLedger:false,epochWhileOwnerAlive:initial.ownerEpoch,epochAfterRejectedSecond:after.runtime_epoch,epochAfterNewOwner:reopened.ownerEpoch,finalOwnerState:database(state).state,processesLaunched:3};
  }else{
-  const state=process.argv.find(arg=>arg.startsWith('--state='))?.slice('--state='.length);if(!folder&&!state)throw new Error('RESTART_STATE_REQUIRED');
-  const child=launch(folder?'--m1-native-folder-smoke':'--m1-native-restart-smoke',state),outcome=await bounded(child.exit,folder?120000:50000),result=JSON.parse(await readFile(file,'utf8'));
+  const state=process.argv.find(arg=>arg.startsWith('--state='))?.slice('--state='.length);if(!folder&&!workspace&&!state)throw new Error('RESTART_STATE_REQUIRED');
+  const child=launch(workspace?'--m2-workspace-smoke':folder?'--m1-native-folder-smoke':'--m1-native-restart-smoke',state),outcome=await bounded(child.exit,folder?120000:60000),result=JSON.parse(await readFile(file,'utf8'));
   evidence={...result,observedAt:new Date().toISOString(),display:display.kind,...outcome,platform:process.platform+'-'+process.arch,status:result.status==='passed'&&outcome.exitCode===0?'passed':'blocked'};
  }
 }catch(error){evidence={status:'blocked',observedAt:new Date().toISOString(),kind:'real_electron_native_'+name,inferenceRequested:false,code:error instanceof Error&&/^[A-Z0-9_]+$/.test(error.message)?error.message:'HOST_ERROR'};}

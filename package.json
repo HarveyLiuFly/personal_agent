@@ -24,6 +24,8 @@
     "smoke:owner:desktop":"node --disable-warning=ExperimentalWarning scripts/smoke-native-desktop.mjs --owner",
     "smoke:folder:desktop":"node --disable-warning=ExperimentalWarning scripts/smoke-native-desktop.mjs --folder",
     "smoke:verification": "node --disable-warning=ExperimentalWarning scripts/smoke-verification.ts",
+    "smoke:workspace":"node --disable-warning=ExperimentalWarning scripts/smoke-workspace.ts",
+    "smoke:workspace:desktop":"node --disable-warning=ExperimentalWarning scripts/smoke-native-desktop.mjs --workspace",
     "smoke:continuation:desktop":"node scripts/smoke-desktop.mjs --continuation",
     "smoke:interactions:desktop": "node scripts/smoke-desktop.mjs --interactions",
     "smoke:execution:desktop": "node scripts/smoke-desktop.mjs --execution",
