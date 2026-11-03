@@ -15,3 +15,14 @@ export interface OperationReceipt {
 export interface ActivityItem {sequence:number;eventId:string;taskId:string;eventType:string;taskVersion:number;runId:string|null}
 export interface ActivityPage {items:ActivityItem[];nextCursor:number|null;delivery:{pending:number;claimed:number;deadLetter:number}}
 export interface StartTask {projectId:string;taskId:string;expectedVersion:number;submissionKey:string}
+export interface TaskPlanNode {
+ kind:'rename'|'pause'|'cancel'|'resume';taskId:string;expectedVersion?:number;versionFrom?:number;
+ title?:string;dependsOn:number[];
+}
+export interface TaskPlanCommand {projectId:string;commandKey:string;nodes:TaskPlanNode[]}
+export interface TaskPlanOperation {
+ operationId:string;index:number;kind:TaskPlanNode['kind'];taskId:string;dependsOn:number[];
+ state:'pending'|'blocked'|'executing'|'completed'|'failed'|'cancelled'|'outcome_unknown';
+ receipt?:OperationReceipt;errorCode?:string;
+}
+export interface TaskPlanView {planId:string;projectId:string;createdAt:number;status:'pending'|'running'|'completed'|'cancelled'|'needs_review'|'outcome_unknown';operations:TaskPlanOperation[]}

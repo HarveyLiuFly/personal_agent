@@ -1,0 +1,58 @@
+{
+  "checkpoint": "M2.2d",
+  "status": "passed_bounded_task_operation_dag_scope",
+  "stageGate": "open",
+  "baselineCommit": "a98233a2f7c83dc685c53cb244a9817da9799e4f",
+  "platform": "darwin-arm64",
+  "schemaRevision": 4,
+  "checks": {
+    "discovered": 184,
+    "executed": 184,
+    "passed": 184,
+    "failed": 0,
+    "skipped": 0,
+    "newPlanStoreTests": 13,
+    "newPlanRuntimeTests": 2,
+    "realSigkillTargetsTotal": 4,
+    "designContracts": 17,
+    "generatedTypes": 747,
+    "typecheck": "passed",
+    "build": "passed"
+  },
+  "desktop": {
+    "status": "passed",
+    "realElectronAndSqlite": true,
+    "backend": "synthetic_stdio_not_called",
+    "inferenceRequested": false,
+    "modelTurns": 0,
+    "folderDialogSelection": "fixed_fixture_substitution",
+    "evidence": "M2.2d-desktop.json"
+  },
+  "m0Regression": {
+    "status": "passed",
+    "apiWhitelistCount": 29,
+    "inferenceRequested": false,
+    "evidence": "M2.2d-M0-desktop-regression.json"
+  },
+  "sourceAndBuildHashes": {
+    "packages/store/src/ledger.ts": "5ad97bf9bea851fa79472b24bf65cd40e49a35399a45eaca4457c3d251dfdcb5",
+    "packages/runtime/src/tasks.ts": "964a09700a120df85abfc5dd1f71ff5c9ae8e67a80bd8b3f340888e023a54eb1",
+    "packages/contracts/src/tasks.ts": "e58a3dc1e8f901f7040823c61aa64d7afa3a1000aeb7a61bf8c855907b9979f1",
+    "apps/desktop/src/main.ts": "0c70b0f7e15eb7447a93873f1409f1974d904b7c948d75840028f49a374c20c0",
+    "apps/desktop/src/preload.ts": "32100d8bb3aef2b6d97b2afc8afe53cf8cd2c74f4eb92b990544524404966bba",
+    "apps/desktop/src/bridge.ts": "505ed8bda311d3b3d34220cb23f2021287f33ca32d5d0e740140f47138758b57",
+    "apps/desktop/src/plan-probe.ts": "a8aaa6b236985f70c90f591edef4efb899a4965d8c7f33bc11588c33f80d3d40",
+    "apps/desktop/renderer/task-plans.tsx": "bcff8aeca84853610d50cd23c3fa3d2e683a3d71988eef6b7177e2f1edb0e73c",
+    "apps/desktop/renderer/task-manager.tsx": "f652db59242de3e7b01054bb13c8870bc6b114713a9eeed557db2fe0aca6b6ca",
+    "build/desktop/main.js": "450c30f004f0cf62b86a7c4ef192003cb9e26c2dd7a5c2d14b6b993cfe989aa6",
+    "build/desktop/preload.cjs": "02652cc2dbec7490e9b3dfc9a889bcd58e02974d5a388896f0d3f8ef8bcc186f",
+    "docs/design/contracts/schema.sql": "a6368c594384a914bff78285778e86082704b711f57211c3aa07c53a34ff91aa"
+  },
+  "remaining": [
+    "scheduler_source_once_cron",
+    "daemon_protected_ipc",
+    "pty_worktree_lifecycle",
+    "full_resource_limits_and_pricing",
+    "backup_and_full_stage_gate"
+  ]
+}

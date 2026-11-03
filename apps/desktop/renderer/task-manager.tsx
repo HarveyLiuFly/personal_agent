@@ -2,6 +2,7 @@ import React,{useEffect,useRef,useState} from 'react';
 import type {ProjectView,HostResult} from '../../../packages/contracts/src/views.ts';
 import type {TaskSummary,TaskCommand,ActivityPage} from '../../../packages/contracts/src/tasks.ts';
 import type {ResourceBudget} from '../../../packages/contracts/src/budget.ts';
+import {TaskPlans} from './task-plans.tsx';
 const labels:Record<string,string>={created:'待排队',queued:'已排队',running:'执行中',waiting_input:'等待补充',waiting_approval:'等待批准',waiting_trigger:'等待触发',paused:'已暂停',needs_review:'待审查',completed:'已验证完成',failed:'执行失败',cancelled:'已取消',outcome_unknown:'结果待核对'};
 const events:Record<string,string>={task_created:'已创建任务',operation_applied:'命令已处理',operation_stop_requested:'已请求停止',operation_outcome_unknown:'停止结果待核对',run_claimed:'已领取执行',run_continued:'已续接执行',run_finished:'执行已结束',native_policy_verified:'运行权限已核对',intent_sending:'执行请求已发送',intent_accepted:'执行请求已确认',history_reconciled:'已核对执行结果',verification_recorded:'已记录独立验证'};
 async function value<T>(request:Promise<HostResult<T>>){const r=await request;if(!r.ok)throw new Error(r.errorCode);return r.value;}
@@ -28,6 +29,7 @@ export function TaskManager({project,canCode,onBusyChange,onStarted}:{project:Pr
    {code&&<div className="code-options"><label>测试入口<input value={target} disabled={busy} onChange={e=>{setTarget(e.target.value);createKey.current=undefined;}}/></label><label>允许修改的文件<input value={paths} disabled={busy} onChange={e=>{setPaths(e.target.value);createKey.current=undefined;}} placeholder="逗号分隔"/></label></div>}
    <button data-action="queue-create" disabled={busy||!text.trim()||code&&(!target.trim()||!paths.trim())}>保存到队列</button>
   </form>
+  <TaskPlans key={project.id} projectId={project.id} tasks={tasks} busy={busy} perform={perform}/>
   <div className="task-manager-grid"><section aria-label="任务队列"><p className="history-note">显示最近更新的 100 项任务；只有“开始”会派发执行。</p>{tasks.map(task=><article className="queue-task" data-queued-task={task.taskId} data-queued-status={task.status} key={task.taskId}><strong>{task.title}</strong><span className="badge">{labels[task.status]}</span>
    <div className="queue-actions">{task.status==='queued'&&!task.blocked&&<button data-task-action="start" disabled={busy||running||!budget||budget.activeRuns>0||budget.availableTokens<budget.reservationPerRun} onClick={()=>void perform(async()=>{const run=await value(window.personalAgent.startTask({projectId:project.id,taskId:task.taskId,expectedVersion:task.version,submissionKey:crypto.randomUUID()}));if(alive.current)onStarted(run.runId);})}>开始</button>}
     {['queued','running','waiting_input','waiting_approval','waiting_trigger'].includes(task.status)&&!task.blocked&&<button data-task-action="pause" disabled={busy} onClick={()=>void command(task,'pause')}>暂停</button>}

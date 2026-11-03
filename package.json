@@ -26,6 +26,7 @@
     "smoke:verification": "node --disable-warning=ExperimentalWarning scripts/smoke-verification.ts",
     "smoke:workspace":"node --disable-warning=ExperimentalWarning scripts/smoke-workspace.ts",
     "smoke:workspace:desktop":"node --disable-warning=ExperimentalWarning scripts/smoke-native-desktop.mjs --workspace",
+    "smoke:plans:desktop":"node scripts/smoke-desktop.mjs --plans",
     "smoke:tasks:desktop":"node scripts/smoke-desktop.mjs --tasks",
     "smoke:budget":"node --disable-warning=ExperimentalWarning scripts/smoke-budget.ts",
     "smoke:budget:desktop":"node scripts/smoke-desktop.mjs --budget",

@@ -8,7 +8,7 @@ import type { TaskStatus } from '../../../docs/design/contracts/domain.ts';
 import type { VerificationPlan, VerificationReceipt } from '../../verification/src/verification.ts';
 import type { InteractionView, ProjectView, ThreadView } from '../../contracts/src/views.ts';
 import type {CodeTaskSpec} from '../../contracts/src/views.ts';
-import type {TaskSummary,TaskCommand,OperationReceipt,ActivityPage} from '../../contracts/src/tasks.ts';
+import type {TaskSummary,TaskCommand,OperationReceipt,ActivityPage,TaskPlanCommand,TaskPlanView,TaskPlanNode,TaskPlanOperation} from '../../contracts/src/tasks.ts';
 import {BudgetLedger} from './budget.ts';
 import type {BudgetPolicy} from './budget.ts';
 
@@ -17,6 +17,7 @@ const fail = (code: string): never => { throw new LedgerError(code); };
 export const hashInput = (input: unknown): string => createHash('sha256').update(JSON.stringify(input)).digest('hex');
 const id = (value: unknown): value is string => typeof value === 'string' && value.length > 0 && value.length <= 200 && !/[\x00-\x1f]/.test(value);
 const active = "('preparing','submitting','running','waiting_input','waiting_approval','outcome_unknown')";
+const taskCommandKinds={create:'CREATE_TASK',rename:'UPDATE_TASK',pause:'PAUSE_TASK',cancel:'CANCEL_TASK',resume:'CONTINUE_TASK'} as const;
 type Row = Record<string, string | number | null>;
 export interface RunToken { runId: string; epoch: number; taskFence: number }
 export interface Intent { intentId: string; kind: string; state: string; inputHash: string; threadId: string | null; turnId: string | null; rpcId: string | null }
@@ -32,7 +33,7 @@ export interface ReconciliationClaim {
 }
 export interface OutboxClaim {outboxId:string;claimEpoch:number;runtimeEpoch:number;eventId:string;taskId:string;expiresAt:number}
 export interface QueuedRun {token:RunToken;created:boolean;text:string;code?:CodeTaskSpec;threadId?:string;sourceRunId?:string}
-export interface LedgerOptions {/** Trusted fault injection only; never accepted over IPC. */afterOutboxProjectionForTests?:()=>void;/** Seeds a new local policy only. Never accepted over execution IPC. */budgetPolicy?:BudgetPolicy}
+export interface LedgerOptions {/** Trusted fault injection only; never accepted over IPC. */afterOutboxProjectionForTests?:()=>void;afterPlanEffectForTests?:(index:number)=>void;/** Seeds a new local policy only. Never accepted over execution IPC. */budgetPolicy?:BudgetPolicy}
 
 /** Host-only local store. startOwner requires the caller to hold the OS single-instance lock. */
 export class ExecutionLedger {
@@ -225,51 +226,148 @@ export class ExecutionLedger {
     const op=this.one("SELECT kind FROM operations WHERE task_id=? AND kind IN ('PAUSE_TASK','CANCEL_TASK') AND state IN ('executing','outcome_unknown')",taskId);
     return op?.kind==='PAUSE_TASK'?'paused':op?.kind==='CANCEL_TASK'?'cancelled':null;
   }
-  taskCommand(input:TaskCommand):OperationReceipt {
+  private validateTaskCommand(input:TaskCommand){
     if(!input||typeof input!=='object'||Array.isArray(input)||!id(input.projectId)||!id(input.commandKey))return fail('INVALID_TASK_COMMAND');
     const fields=input.kind==='create'?['projectId','commandKey','kind','text',...('code'in input?['code']:[])]:['projectId','commandKey','kind','taskId','expectedVersion',...(input.kind==='rename'?['title']:[])];
     if(Object.keys(input).length!==fields.length||Object.keys(input).some(k=>!fields.includes(k)))return fail('INVALID_TASK_COMMAND');
-    const kinds={create:'CREATE_TASK',rename:'UPDATE_TASK',pause:'PAUSE_TASK',cancel:'CANCEL_TASK',resume:'CONTINUE_TASK'} as const;
-    if(!Object.hasOwn(kinds,input.kind))return fail('INVALID_TASK_COMMAND');
+    if(!Object.hasOwn(taskCommandKinds,input.kind))return fail('INVALID_TASK_COMMAND');
     if(input.kind==='create'){
       if(typeof input.text!=='string'||!input.text.trim()||input.text.length>32768)return fail('INVALID_TASK_INPUT');
       if('code'in input){const c=input.code,path=(p:unknown)=>typeof p==='string'&&p.length>0&&p.length<=300&&!/[\x00-\x1f\\]/.test(p)&&p.split('/').every(x=>x&&x!=='.'&&x!=='..'&&!['.git','.codex','.agents','.aws'].includes(x));
         if(!c||typeof c!=='object'||Object.keys(c).length!==3||c.profile!=='node-test'||!path(c.target)||!Array.isArray(c.allowedPaths)||c.allowedPaths.length<1||c.allowedPaths.length>20||!c.allowedPaths.every(path)||c.allowedPaths.includes(c.target))return fail('INVALID_VERIFICATION_PROFILE');}
     }else if(!id(input.taskId)||!Number.isSafeInteger(input.expectedVersion)||input.expectedVersion<1||input.kind==='rename'&&(typeof input.title!=='string'||!input.title.trim()||input.title.length>120))return fail('INVALID_TASK_COMMAND');
-    this.workspace(input.projectId);
     const normalized=input.kind==='create'?{projectId:input.projectId,kind:input.kind,text:input.text,...(input.code?{code:{profile:input.code.profile,target:input.code.target,allowedPaths:input.code.allowedPaths}}:{})}:{projectId:input.projectId,kind:input.kind,taskId:input.taskId,expectedVersion:input.expectedVersion,...(input.kind==='rename'?{title:input.title}:{})};
+    return normalized;
+  }
+  taskCommand(input:TaskCommand):OperationReceipt {
+    const normalized=this.validateTaskCommand(input);this.workspace(input.projectId);
     return this.tx(()=>{
-      this.owner();const opened=this.openOperation(input.commandKey,kinds[input.kind],normalized,input.kind==='create'?null:input.taskId,input.kind==='create'?null:input.expectedVersion);
+      this.owner();const opened=this.openOperation(input.commandKey,taskCommandKinds[input.kind],normalized,input.kind==='create'?null:input.taskId,input.kind==='create'?null:input.expectedVersion);
       if(!opened.created)return this.operationReceipt(opened.operationId);
-      if(input.kind==='create'){
-        if(Number(this.one('SELECT COUNT(*) AS n FROM tasks WHERE dot_id=?',this.dotId)!.n)>=10000)return fail('TASK_LIMIT');
-        const epochs=this.one('SELECT policy_epoch,privacy_epoch FROM dots WHERE dot_id=?',this.dotId)!,taskId=randomUUID(),constraints={mode:input.code?'workspaceWrite':'readOnly',inputHash:hashInput(normalized),text:input.text,policyEpoch:epochs.policy_epoch,privacyEpoch:epochs.privacy_epoch,...(input.code?{code:input.code}:{})};
-        this.exec("INSERT INTO tasks(task_id,dot_id,workspace_id,title,constraints_json,status,created_at_ms,updated_at_ms) VALUES (?,?,?,?,?,'created',?,?)",taskId,this.dotId,input.projectId,input.text.slice(0,120),JSON.stringify(constraints),Date.now(),Date.now());
-        this.event(taskId,null,'task_created');this.transition(taskId,'queued');return this.sealOperation(opened.operationId,taskId,'completed',null);
-      }
-      const task=this.taskRow(input.projectId,input.taskId);if(task.version!==input.expectedVersion)return fail('TASK_VERSION_CONFLICT');
-      if(this.one("SELECT operation_id FROM operations WHERE task_id=? AND state IN ('executing','outcome_unknown')",input.taskId))return fail('TASK_STOP_PENDING');
-      const run=this.one(`SELECT * FROM task_runs WHERE task_id=? AND status IN ${active}`,input.taskId);
-      if(input.kind==='rename'){
-        this.taskAuthority(task);
-        if(run||['completed','cancelled','outcome_unknown'].includes(String(task.status)))return fail('TASK_NOT_EDITABLE');
-        this.exec('UPDATE tasks SET title=?,version=version+1,updated_at_ms=? WHERE task_id=?',input.title,Date.now(),input.taskId);
-      }else if(input.kind==='resume'){
-        this.taskAuthority(task);
-        if(typeof JSON.parse(String(task.constraints_json)).text!=='string')return fail('TASK_INPUT_UNAVAILABLE');
-        if(run||task.status==='outcome_unknown'||!['created','paused','failed','waiting_trigger'].includes(String(task.status)))return fail('TASK_NOT_RESUMABLE');
-        this.transition(input.taskId,'queued');this.exec('UPDATE tasks SET dispatch_blocked=0 WHERE task_id=?',input.taskId);
-      }else{
-        const target=input.kind==='pause'?'paused':'cancelled';
-        if(run){
-          if(task.status!=='outcome_unknown'&&!taskTransitions[task.status as TaskStatus].includes(target))return fail('INVALID_TASK_TRANSITION');
-          this.exec('UPDATE tasks SET dispatch_blocked=1,version=version+1,updated_at_ms=? WHERE task_id=?',Date.now(),input.taskId);
-          return this.sealOperation(opened.operationId,input.taskId,task.status==='outcome_unknown'?'outcome_unknown':'executing',String(run.run_id));
-        }
-        this.transition(input.taskId,target);this.exec('UPDATE tasks SET dispatch_blocked=1 WHERE task_id=?',input.taskId);
-      }
-      return this.sealOperation(opened.operationId,input.taskId,'completed',null);
+      return this.applyTaskOperation(input,opened.operationId,normalized);
     });
+  }
+  private applyTaskOperation(input:TaskCommand,operationId:string,normalized:unknown):OperationReceipt {
+    if(input.kind==='create'){
+      if(Number(this.one('SELECT COUNT(*) AS n FROM tasks WHERE dot_id=?',this.dotId)!.n)>=10000)return fail('TASK_LIMIT');
+      const epochs=this.one('SELECT policy_epoch,privacy_epoch FROM dots WHERE dot_id=?',this.dotId)!,taskId=randomUUID(),constraints={mode:input.code?'workspaceWrite':'readOnly',inputHash:hashInput(normalized),text:input.text,policyEpoch:epochs.policy_epoch,privacyEpoch:epochs.privacy_epoch,...(input.code?{code:input.code}:{})};
+      this.exec("INSERT INTO tasks(task_id,dot_id,workspace_id,title,constraints_json,status,created_at_ms,updated_at_ms) VALUES (?,?,?,?,?,'created',?,?)",taskId,this.dotId,input.projectId,input.text.slice(0,120),JSON.stringify(constraints),Date.now(),Date.now());
+      this.event(taskId,null,'task_created');this.transition(taskId,'queued');return this.sealOperation(operationId,taskId,'completed',null);
+    }
+    const task=this.taskRow(input.projectId,input.taskId);if(task.version!==input.expectedVersion)return fail('TASK_VERSION_CONFLICT');
+    if(this.one("SELECT operation_id FROM operations WHERE task_id=? AND state IN ('executing','outcome_unknown')",input.taskId))return fail('TASK_STOP_PENDING');
+    const run=this.one(`SELECT * FROM task_runs WHERE task_id=? AND status IN ${active}`,input.taskId);
+    if(input.kind==='rename'){
+      this.taskAuthority(task);
+      if(run||['completed','cancelled','outcome_unknown'].includes(String(task.status)))return fail('TASK_NOT_EDITABLE');
+      this.exec('UPDATE tasks SET title=?,version=version+1,updated_at_ms=? WHERE task_id=?',input.title,Date.now(),input.taskId);
+    }else if(input.kind==='resume'){
+      this.taskAuthority(task);
+      if(typeof JSON.parse(String(task.constraints_json)).text!=='string')return fail('TASK_INPUT_UNAVAILABLE');
+      if(run||task.status==='outcome_unknown'||!['created','paused','failed','waiting_trigger'].includes(String(task.status)))return fail('TASK_NOT_RESUMABLE');
+      this.transition(input.taskId,'queued');this.exec('UPDATE tasks SET dispatch_blocked=0 WHERE task_id=?',input.taskId);
+    }else{
+      const target=input.kind==='pause'?'paused':'cancelled';
+      if(run){
+        if(task.status!=='outcome_unknown'&&!taskTransitions[task.status as TaskStatus].includes(target))return fail('INVALID_TASK_TRANSITION');
+        this.exec('UPDATE tasks SET dispatch_blocked=1,version=version+1,updated_at_ms=? WHERE task_id=?',Date.now(),input.taskId);
+        return this.sealOperation(operationId,input.taskId,task.status==='outcome_unknown'?'outcome_unknown':'executing',String(run.run_id));
+      }
+      this.transition(input.taskId,target);this.exec('UPDATE tasks SET dispatch_blocked=1 WHERE task_id=?',input.taskId);
+    }
+    return this.sealOperation(operationId,input.taskId,'completed',null);
+  }
+  private planCommand(projectId:string,node:TaskPlanNode,expectedVersion:number,key:string):TaskCommand {
+    const base={projectId,taskId:node.taskId,expectedVersion,commandKey:key};return node.kind==='rename'?{...base,kind:'rename',title:node.title??''}:{...base,kind:node.kind};
+  }
+  submitTaskPlan(input:unknown):TaskPlanView {
+    if(!input||typeof input!=='object'||Array.isArray(input))return fail('INVALID_TASK_PLAN');const q=input as TaskPlanCommand;
+    if(Object.keys(q).length!==3||!['projectId','commandKey','nodes'].every(k=>Object.hasOwn(q,k))||!id(q.projectId)||!id(q.commandKey)||!Array.isArray(q.nodes)||q.nodes.length<1||q.nodes.length>20)return fail('INVALID_TASK_PLAN');
+    const nodes=Array.from(q.nodes).map((node,index):TaskPlanNode=>{
+      if(!node||typeof node!=='object'||Array.isArray(node)||!['rename','pause','cancel','resume'].includes(node.kind))return fail('INVALID_TASK_PLAN_NODE');
+      const numeric=Object.hasOwn(node,'expectedVersion'),reference=Object.hasOwn(node,'versionFrom'),fields=['kind','taskId','dependsOn',numeric?'expectedVersion':'versionFrom',...(node.kind==='rename'?['title']:[])];
+      if(numeric===reference||Object.keys(node).length!==fields.length||Object.keys(node).some(k=>!fields.includes(k))||!Array.isArray(node.dependsOn)||node.dependsOn.length>19||new Set(node.dependsOn).size!==node.dependsOn.length||Array.from(node.dependsOn).some(n=>!Number.isSafeInteger(n)||n<0||n>=q.nodes.length||n===index))return fail('INVALID_TASK_PLAN_NODE');
+      if(reference&&(!Number.isSafeInteger(node.versionFrom)||node.versionFrom!<0||node.versionFrom!>=q.nodes.length||!node.dependsOn.includes(node.versionFrom!)))return fail('INVALID_PLAN_VERSION_REFERENCE');
+      this.validateTaskCommand(this.planCommand(q.projectId,node,numeric?node.expectedVersion!:1,'plan-validation'));
+      return{kind:node.kind,taskId:node.taskId,...(numeric?{expectedVersion:node.expectedVersion!}:{versionFrom:node.versionFrom!}),dependsOn:[...node.dependsOn].sort((a,b)=>a-b),...(node.kind==='rename'?{title:node.title!}:{})} satisfies TaskPlanNode;
+    });
+    const color=nodes.map(()=>0),visit=(index:number)=>{if(color[index]===1)return fail('TASK_PLAN_CYCLE');if(color[index]===2)return;color[index]=1;for(const dependency of nodes[index]!.dependsOn)visit(dependency);color[index]=2;};nodes.forEach((_,index)=>visit(index));
+    for(const node of nodes)if(node.versionFrom!==undefined&&nodes[node.versionFrom]!.taskId!==node.taskId)return fail('PLAN_VERSION_SCOPE_MISMATCH');
+    this.workspace(q.projectId);const planId='task-plan:'+hashInput([this.dotId,q.commandKey]),planHash=hashInput({projectId:q.projectId,nodes});
+    return this.tx(()=>{
+      this.owner();const previous=this.planRecord(planId,false);
+      if(previous){const data=JSON.parse(String(previous.decision_json));if(data.planHash!==planHash||data.projectId!==q.projectId)return fail('IDEMPOTENCY_CONFLICT');return this.taskPlan(q.projectId,planId);}
+      const snapshots=nodes.map(n=>{const task=this.taskRow(q.projectId,n.taskId);return{taskId:n.taskId,version:task.version,status:task.status};});
+      if(this.pendingTaskPlans().length>=20)return fail('TASK_PLAN_LIMIT');
+      const messageId=randomUUID(),content=JSON.stringify({projectId:q.projectId,nodes}),ids=nodes.map(()=>randomUUID());
+      this.exec("INSERT INTO messages(message_id,conversation_id,dot_id,role,content,content_hash,route_state,created_at_ms) VALUES (?,?,?,'user',?,?,'decided',?)",messageId,this.conversation(),this.dotId,content,hashInput(content),Date.now());
+      this.exec('INSERT INTO router_decisions VALUES (?,?,?,?,?,?)',planId,messageId,'desktop-task-plan-v1',JSON.stringify(snapshots),JSON.stringify({projectId:q.projectId,planHash,origin:'explicit_user',operationIds:ids}),Date.now());
+      nodes.forEach((node,index)=>this.exec("INSERT INTO operations VALUES (?,?,?,?,?,'pending',?,?,?,NULL)",ids[index]!,planId,index,node.taskId,taskCommandKinds[node.kind],node.expectedVersion??null,JSON.stringify(node),hashInput(node)));
+      nodes.forEach((node,index)=>node.dependsOn.forEach(dependency=>this.exec('INSERT INTO operation_dependencies VALUES (?,?)',ids[index]!,ids[dependency]!)));
+      return this.taskPlan(q.projectId,planId);
+    });
+  }
+  private planRecord(planId:string,required=true):Row|undefined {
+    const row=this.one("SELECT d.* FROM router_decisions d JOIN messages m USING(message_id) WHERE decision_id=? AND router_revision='desktop-task-plan-v1' AND m.dot_id=?",planId,this.dotId);if(!row&&required)return fail('TASK_PLAN_NOT_FOUND');return row;
+  }
+  private taskPlanHidden(planId:string):boolean {
+    return Boolean(this.one("SELECT o.operation_id FROM operations o JOIN privacy_tombstones p ON p.dot_id=? AND p.source_ref IN (o.task_id,'task:'||o.task_id) WHERE o.decision_id=? LIMIT 1",this.dotId,planId));
+  }
+  taskPlan(projectId:string,planId:string):TaskPlanView {
+    this.workspace(projectId);const record=this.planRecord(planId)!;if(JSON.parse(String(record.decision_json)).projectId!==projectId)return fail('TASK_PLAN_NOT_IN_PROJECT');
+    if(this.taskPlanHidden(planId))return fail('TASK_PLAN_NOT_FOUND');
+    const operations=this.all('SELECT * FROM operations WHERE decision_id=? ORDER BY operation_index',planId).map(op=>{
+      const node=JSON.parse(String(op.input_json)) as TaskPlanNode,view:TaskPlanOperation={operationId:String(op.operation_id),index:Number(op.operation_index),kind:node.kind,taskId:String(op.task_id),state:op.state as TaskPlanOperation['state'],dependsOn:node.dependsOn};
+      if(['completed','executing','outcome_unknown'].includes(view.state))view.receipt=this.operationReceipt(view.operationId);
+      if(typeof op.result_ref==='string'&&op.result_ref.startsWith('error:'))view.errorCode=op.result_ref.slice(6);return view;
+    });
+    const allDone=operations.every(o=>o.state==='completed'),unknown=operations.some(o=>o.state==='outcome_unknown'),unfinished=operations.some(o=>['pending','blocked','executing'].includes(o.state));
+    const status=allDone?'completed':unknown?'outcome_unknown':operations.every(o=>o.state==='cancelled')?'cancelled':!unfinished?'needs_review':operations.every(o=>o.state==='pending')?'pending':'running';return{planId,projectId,createdAt:Number(record.created_at_ms),status,operations};
+  }
+  cancelTaskPlan(projectId:string,planId:string,key:string):TaskPlanView {
+    if(!id(key))return fail('INVALID_TASK_PLAN');this.taskPlan(projectId,planId);
+    return this.tx(()=>{this.owner();const op=this.openOperation('cancel-plan:'+key,'CANCEL_TASK_PLAN',{projectId,planId},null,null);
+      if(op.created){this.exec("UPDATE operations SET state='cancelled',result_ref='error:PLAN_CANCELLED' WHERE decision_id=? AND state IN ('pending','blocked')",planId);this.exec("UPDATE operations SET state='completed',result_ref=? WHERE operation_id=?",'plan:'+planId,op.operationId);}
+      return this.taskPlan(projectId,planId);
+    });
+  }
+  taskPlans(projectId:string):TaskPlanView[] {
+    this.workspace(projectId);return this.all("SELECT d.decision_id FROM router_decisions d JOIN messages m USING(message_id) WHERE m.dot_id=? AND d.router_revision='desktop-task-plan-v1' AND json_extract(d.decision_json,'$.projectId')=? AND NOT EXISTS(SELECT 1 FROM operations o JOIN privacy_tombstones p ON p.dot_id=m.dot_id AND p.source_ref IN (o.task_id,'task:'||o.task_id) WHERE o.decision_id=d.decision_id) ORDER BY d.created_at_ms DESC,d.rowid DESC LIMIT 20",this.dotId,projectId).map(row=>this.taskPlan(projectId,String(row.decision_id)));
+  }
+  pendingTaskPlans():Array<{planId:string;projectId:string}> {
+    return this.all("SELECT DISTINCT d.decision_id,d.decision_json FROM router_decisions d JOIN messages m USING(message_id) JOIN operations o USING(decision_id) WHERE m.dot_id=? AND d.router_revision='desktop-task-plan-v1' AND o.state IN ('pending','blocked','executing','outcome_unknown') AND NOT EXISTS(SELECT 1 FROM operations hidden JOIN privacy_tombstones p ON p.dot_id=m.dot_id AND p.source_ref IN (hidden.task_id,'task:'||hidden.task_id) WHERE hidden.decision_id=d.decision_id) ORDER BY d.created_at_ms,d.rowid LIMIT 20",this.dotId).map(row=>({planId:String(row.decision_id),projectId:JSON.parse(String(row.decision_json)).projectId as string}));
+  }
+  advanceTaskPlan(projectId:string,planId:string,maxSteps=20):TaskPlanView {
+    if(!Number.isSafeInteger(maxSteps)||maxSteps<1||maxSteps>20)return fail('INVALID_PLAN_STEP_LIMIT');
+    for(let step=0;step<maxSteps;step++){
+      const changed=this.tx(()=>{
+        this.owner();const plan=this.taskPlan(projectId,planId),rows=this.all('SELECT * FROM operations WHERE decision_id=? ORDER BY operation_index',planId);let blockedChanged=false;
+        for(const op of rows){
+          if(!['pending','blocked'].includes(String(op.state)))continue;const node=JSON.parse(String(op.input_json)) as TaskPlanNode;
+          if(hashInput(node)!==op.input_hash)return fail('TASK_PLAN_INTEGRITY_CHANGED');
+          const dependencies=this.all('SELECT p.* FROM operation_dependencies d JOIN operations p ON p.operation_id=d.prerequisite_id WHERE d.operation_id=?',op.operation_id!);
+          if(dependencies.length!==node.dependsOn.length||dependencies.some(d=>d.decision_id!==planId||!node.dependsOn.includes(Number(d.operation_index))))return fail('TASK_PLAN_INTEGRITY_CHANGED');
+          if(dependencies.some(d=>['failed','cancelled'].includes(String(d.state)))){
+            this.exec("UPDATE operations SET state='cancelled',result_ref='error:DEPENDENCY_FAILED' WHERE operation_id=?",op.operation_id!);this.event(String(op.task_id),null,'operation_dependency_cancelled',{operationId:op.operation_id,planId});return true;
+          }
+          if(dependencies.some(d=>d.state!=='completed')){if(op.state!=='blocked'){this.exec("UPDATE operations SET state='blocked' WHERE operation_id=?",op.operation_id!);blockedChanged=true;}continue;}
+          const source=node.versionFrom===undefined?undefined:plan.operations[node.versionFrom];
+          if(node.versionFrom!==undefined&&(!source?.receipt||source.taskId!==node.taskId||source.state!=='completed'))return fail('INVALID_PLAN_VERSION_REFERENCE');
+          const expectedVersion=node.expectedVersion??source!.receipt!.taskVersion,command=this.planCommand(projectId,node,expectedVersion,planId+':'+op.operation_index);
+          this.exec('UPDATE operations SET expected_task_version=? WHERE operation_id=?',expectedVersion,op.operation_id!);
+          this.#db.exec('SAVEPOINT task_plan_effect');
+          try{
+            const normalized=this.validateTaskCommand(command);this.applyTaskOperation(command,String(op.operation_id),normalized);this.options.afterPlanEffectForTests?.(Number(op.operation_index));this.#db.exec('RELEASE task_plan_effect');
+          }catch(error){
+            this.#db.exec('ROLLBACK TO task_plan_effect; RELEASE task_plan_effect');
+            if(!(error instanceof LedgerError))throw error;
+            this.exec("UPDATE operations SET state='failed',result_ref=? WHERE operation_id=?",'error:'+error.code,op.operation_id!);this.event(String(op.task_id),null,'operation_failed',{operationId:op.operation_id,planId,code:error.code});
+          }
+          return true;
+        }return blockedChanged;
+      });
+      if(!changed)break;
+    }return this.taskPlan(projectId,planId);
   }
   claimTask(projectId:string,taskId:string,expectedVersion:number,key:string):QueuedRun {
     if(!id(key)||!id(taskId)||!Number.isSafeInteger(expectedVersion)||expectedVersion<1)return fail('INVALID_TASK_COMMAND');this.workspace(projectId);

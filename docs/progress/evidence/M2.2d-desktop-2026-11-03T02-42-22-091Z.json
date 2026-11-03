@@ -1,0 +1,27 @@
+{
+  "status": "passed",
+  "observedAt": "2026-11-03T02:42:22.091Z",
+  "kind": "real_electron_and_sqlite_task_plans",
+  "backend": "synthetic_stdio_not_called",
+  "folderDialogSelection": "fixed_fixture_substitution",
+  "inferenceRequested": false,
+  "modelTurns": 0,
+  "result": {
+    "allPaused": true,
+    "partialFailureShown": true,
+    "selectionVersionPreserved": true,
+    "withdrawalKeptCommitted": true,
+    "withdrawalCancelledPending": true,
+    "invalidRejected": true,
+    "extraRejected": true,
+    "noModelRuns": true,
+    "sandboxed": true,
+    "isolated": true,
+    "hasRequire": false
+  },
+  "display": "native_desktop",
+  "exitCode": 0,
+  "signal": null,
+  "timedOut": false,
+  "platform": "darwin-arm64"
+}

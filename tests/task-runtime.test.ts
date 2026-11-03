@@ -50,3 +50,17 @@ test('upstream cumulative usage notifications settle new and resumed turns witho
  const f=fixture(t,'usage'),queued=await f.create(),first=f.execution.startTask({projectId:f.project.id,taskId:queued.taskId,expectedVersion:2,submissionKey:'metered-first'});await f.execution.wait();assert.equal(f.store.resourceBudget().reportedTokens,25);assert.equal(f.store.resourceBudget().unknownHeldTokens,0);
  f.execution.continueRun({projectId:f.project.id,runId:first.runId,text:'metered continuation fixture',submissionKey:'metered-second'});await f.execution.wait();const budget=f.store.resourceBudget();assert.equal(budget.reportedTokens,50);assert.equal(budget.reservedTokens,0);assert.equal(budget.activeRuns,0);
 });
+test('plan pump confirms an active stop before its dependent resume without starting a new Turn',async t=>{
+ const f=fixture(t,'interrupt-ok'),queued=await f.create();f.execution.startTask({projectId:f.project.id,taskId:queued.taskId,expectedVersion:2,submissionKey:'plan-run'});await f.waitTurn();
+ const input={projectId:f.project.id,commandKey:'runtime-plan',nodes:[{kind:'pause',taskId:queued.taskId,expectedVersion:f.store.tasks(f.project.id)[0]!.version,dependsOn:[]},{kind:'resume',taskId:queued.taskId,versionFrom:0,dependsOn:[0]}]};
+ const initial=await f.service.applyPlan(input);await f.execution.wait();await f.service.stepPlans();const plan=f.service.plans({projectId:f.project.id})[0]!;
+ assert.equal(plan.planId,initial.planId);assert.equal(plan.status,'completed');assert.deepEqual(plan.operations.map(o=>o.receipt!.status),['paused','queued']);assert.equal(f.store.tasks(f.project.id)[0]!.status,'queued');assert.equal(f.connections(),1);assert.equal(f.execution.diagnostics.clientTurnStarts,1);assert.equal(f.store.runs(f.project.id).length,1);
+ assert.equal((await f.service.applyPlan(input)).planId,plan.planId);assert.equal(f.execution.diagnostics.clientTurnStarts,1);
+});
+test('plan pump leaves unknown dependencies blocked while processing another independent node',async t=>{
+ const f=fixture(t,'interrupt-timeout'),queued=await f.create();f.execution.startTask({projectId:f.project.id,taskId:queued.taskId,expectedVersion:2,submissionKey:'unknown-plan-run'});await f.waitTurn();const independent=await f.create('independent');
+ const plan=await f.service.applyPlan({projectId:f.project.id,commandKey:'unknown-runtime-plan',nodes:[{kind:'pause',taskId:queued.taskId,expectedVersion:f.store.tasks(f.project.id).find(t=>t.taskId===queued.taskId)!.version,dependsOn:[]},{kind:'resume',taskId:queued.taskId,versionFrom:0,dependsOn:[0]},{kind:'cancel',taskId:independent.taskId,expectedVersion:2,dependsOn:[]}]});await f.execution.wait();await f.service.stepPlans();await f.service.stepPlans();
+ const result=f.store.taskPlan(f.project.id,plan.planId);assert.equal(result.status,'outcome_unknown');assert.deepEqual(result.operations.map(o=>o.state),['outcome_unknown','blocked','completed']);assert.equal(f.connections(),1);assert.equal(f.execution.diagnostics.clientTurnStarts,1);
+ const withdrawn=f.service.cancelPlan({projectId:f.project.id,planId:plan.planId,commandKey:'withdraw-unknown'});assert.deepEqual(withdrawn.operations.map(o=>o.state),['outcome_unknown','cancelled','completed']);assert.equal(withdrawn.status,'outcome_unknown');assert.equal(f.store.runs(f.project.id).length,1);
+ assert.throws(()=>f.service.plans({projectId:f.project.id,sql:'x'}),/INVALID_TASK_QUERY/);assert.throws(()=>f.service.cancelPlan({projectId:f.project.id,planId:plan.planId,commandKey:'bad',argv:[]}),/INVALID_TASK_PLAN/);
+});

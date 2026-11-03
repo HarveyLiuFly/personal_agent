@@ -1,7 +1,7 @@
 import type { HostResult, ProjectView, ThreadSummary, TurnView, ItemView, Page, ProjectQuery, ThreadQuery, ItemQuery } from '../../../packages/contracts/src/views.ts';
 import type { ContinueMessage, InteractionView, ReplyInteraction, VerificationView, RunQuery, RunSummary, RunView, SubmitMessage } from '../../../packages/contracts/src/views.ts';
 import type {WorkspaceQuery,WorkspaceEntryQuery,WorkspaceDiffQuery,WorkspaceOverview,WorkspaceDirectory,WorkspacePreview,WorkspaceDiff} from '../../../packages/contracts/src/workspace.ts';
-import type {TaskSummary,TaskCommand,OperationReceipt,StartTask,ActivityPage} from '../../../packages/contracts/src/tasks.ts';
+import type {TaskSummary,TaskCommand,OperationReceipt,StartTask,ActivityPage,TaskPlanCommand,TaskPlanView} from '../../../packages/contracts/src/tasks.ts';
 import type {ResourceBudget} from '../../../packages/contracts/src/budget.ts';
 export interface ConnectionInfo {
   status: 'connected' | 'error';
@@ -23,6 +23,9 @@ export interface DesktopApi {
   startTask(input:StartTask):Promise<HostResult<RunSummary>>;
   listTaskActivity(query:{projectId:string;cursor?:number}):Promise<HostResult<ActivityPage>>;
   resourceBudget():Promise<HostResult<ResourceBudget>>;
+  applyTaskPlan(input:TaskPlanCommand):Promise<HostResult<TaskPlanView>>;
+  listTaskPlans(query:{projectId:string}):Promise<HostResult<TaskPlanView[]>>;
+  cancelTaskPlan(query:{projectId:string;planId:string;commandKey:string}):Promise<HostResult<TaskPlanView>>;
   getWorkspace(query:WorkspaceQuery):Promise<HostResult<WorkspaceOverview>>;
   listWorkspaceDirectory(query:WorkspaceEntryQuery):Promise<HostResult<WorkspaceDirectory>>;
   readWorkspaceFile(query:WorkspaceEntryQuery):Promise<HostResult<WorkspacePreview>>;
