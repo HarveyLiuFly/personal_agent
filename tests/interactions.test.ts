@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import {legacySchema} from './fixtures/schema-history.ts';
 import { mkdtempSync,mkdirSync,readFileSync,readdirSync,realpathSync,rmSync,statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -79,13 +80,13 @@ test('new owner cancels pending requests and the old broker cannot grant them',a
 test('revision 2 migration creates a verified private snapshot including WAL data and preserves old records',t=>{
  const root=realpathSync(mkdtempSync(join(tmpdir(),'personal-agent-migration-'))),file=join(root,'store.db');
  t.after(()=>rmSync(root,{recursive:true,force:true}));
- const oldSql=schema.replace(/CREATE TABLE runtime_requests \([\s\S]*?\n\);/,'').replace('INSERT INTO schema_metadata VALUES (1, 3)','INSERT INTO schema_metadata VALUES (1, 2)');
+ const oldSql=legacySchema(schema,2);
  const old=new DatabaseSync(file);old.exec(oldSql);old.prepare('INSERT INTO profiles VALUES (?,?,0)').run('legacy','retained-wal-record');
  const migrated=new ExecutionLedger(file,schema);migrated.close();old.close();
  const backups=readdirSync(root).filter(name=>name.endsWith('.backup'));assert.equal(backups.length,1);
  const backup=new DatabaseSync(join(root,backups[0]!),{readOnly:true});assert.equal(backup.prepare('SELECT schema_revision FROM schema_metadata').get()!.schema_revision,2);
  assert.equal(backup.prepare('SELECT display_name FROM profiles').get()!.display_name,'retained-wal-record');backup.close();
  assert.equal(statSync(join(root,backups[0]!)).mode&0o777,0o600);
- const current=new DatabaseSync(file,{readOnly:true});assert.equal(current.prepare('SELECT schema_revision FROM schema_metadata').get()!.schema_revision,3);
+ const current=new DatabaseSync(file,{readOnly:true});assert.equal(current.prepare('SELECT schema_revision FROM schema_metadata').get()!.schema_revision,4);
  assert.equal(current.prepare('SELECT display_name FROM profiles').get()!.display_name,'retained-wal-record');assert.ok(current.prepare("SELECT name FROM sqlite_master WHERE name='runtime_requests'").get());current.close();
 });

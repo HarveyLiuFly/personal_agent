@@ -1,0 +1,92 @@
+{
+  "checkpoint": "M2.2c",
+  "status": "passed_token_and_single_foreground_admission_scope",
+  "stageGate": "open",
+  "baselineCommit": "7d392224326cb62cb2a4e66456abc84bef91bd0e",
+  "platform": "darwin-arm64",
+  "schemaRevision": 4,
+  "schemaMigrations": [
+    2,
+    3
+  ],
+  "migrationBackup": "private_verified_consistent_sqlite_snapshot_with_wal",
+  "checks": {
+    "discovered": 169,
+    "executed": 169,
+    "passed": 169,
+    "failed": 0,
+    "skipped": 0,
+    "newBudgetTests": 16,
+    "newUsageRuntimeTests": 1,
+    "realSigkillTargetsTotal": 3,
+    "designContracts": 17,
+    "generatedTypes": 747,
+    "typecheck": "passed",
+    "build": "passed"
+  },
+  "nativeModel": {
+    "status": "passed",
+    "observedAt": "2026-11-03T01:42:06.469Z",
+    "model": "gpt-6.1-sol",
+    "inferenceRequested": true,
+    "attempts": 1,
+    "turnStarts": 1,
+    "toolItems": 0,
+    "reportedTokens": 17620,
+    "reservedTokensAfter": 0,
+    "unknownHeldTokensAfter": 0,
+    "activeRunsAfter": 0,
+    "taskStatus": "needs_review",
+    "estimatedUsd": null,
+    "billingAccuracyClaimed": false,
+    "evidence": "M2.2c-native-budget.json"
+  },
+  "desktop": {
+    "status": "passed",
+    "observedAt": "2026-11-03T01:56:58.099Z",
+    "realElectronAndSqlite": true,
+    "backend": "synthetic_stdio",
+    "inferenceRequested": false,
+    "fixtureDailyTokens": 150,
+    "fixtureReservationTokens": 60,
+    "holdsAfterTwoTurns": 120,
+    "remainingAfterHolds": 30,
+    "uiAndApiBlockedNewRun": true,
+    "evidence": "M2.2c-desktop.json"
+  },
+  "m0Regression": {
+    "status": "passed",
+    "observedAt": "2026-11-03T01:58:41.427Z",
+    "apiWhitelistCount": 26,
+    "inferenceRequested": false
+  },
+  "policyDefaults": {
+    "dailyTokens": 1000000,
+    "reservationTokens": 32000,
+    "maxActiveRuns": 1,
+    "estimatedUsd": null,
+    "coverage": "runs_admitted_since_budget_enabled"
+  },
+  "sourceAndBuildHashes": {
+    "packages/store/src/budget.ts": "f7e99d9aeb5bc9ce1efb411eb94f3523439c43c297cf99ed94fed7dbc5512de4",
+    "packages/store/src/ledger.ts": "9fa4a40f190921c3a46108b1d315c6ea04b5b0b0163ce31c46267e92772777cf",
+    "packages/runtime/src/execution.ts": "261071f597fc3319c2709fc8b665234bca8c85dc34a3595598982e563e1b5de6",
+    "packages/contracts/src/budget.ts": "f2d01e14b1e6ca77c7d6d8a64f84f0750b6b5ca3d0dee28ac74e2336db3fe341",
+    "docs/design/contracts/schema.sql": "a6368c594384a914bff78285778e86082704b711f57211c3aa07c53a34ff91aa",
+    "scripts/smoke-budget.ts": "cf1b502f924e2484b7aa68670b640fefff13f734938bf754d628c8002805ec49",
+    "apps/desktop/src/main.ts": "31afaa7eaaa634c8fbe844492e5dd484b55caeadef733f0a8eaabd58a79f1e72",
+    "apps/desktop/src/preload.ts": "529f2b6949691350f6ba27446c914d07bb6164e17b2894297e8997fa9b4ac966",
+    "apps/desktop/src/task-probe.ts": "d70fa0b21359912758c44c0c475e9b7cd894be69828b3b6db1b88793abc2d087",
+    "apps/desktop/renderer/task-manager.tsx": "79297ed35e82962b0f9ac8f2fbb2177cb03a3fc1356a558c972bbfb229ade99f",
+    "build/desktop/main.js": "453b64672261d3aabad3e0c310cf58b2e88fcbe8c852cdd2044898b7e7635e21",
+    "build/desktop/preload.cjs": "cf45c5aa00811a80f7dcc86915367755ecd61ebe3dcb2f6281232aca13195f04"
+  },
+  "remaining": [
+    "multi_operation_dag",
+    "scheduler_source_once_cron",
+    "daemon_protected_ipc",
+    "pty_worktree_lifecycle",
+    "full_resource_limits_and_pricing",
+    "backup_and_full_stage_gate"
+  ]
+}

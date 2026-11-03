@@ -1,0 +1,8 @@
+$ node scripts/check.mjs
+$ node scripts/generate-protocol.mjs --verify
+Verified 747 generated types from codex-cli 0.163.0 (darwin-arm64) against pinned schema and repository.
+$ tsc --noEmit
+tests/fixtures/execution-server.ts(42,174): error TS18048: 'total' is possibly 'undefined'.
+tests/fixtures/execution-server.ts(42,301): error TS18048: 'last' is possibly 'undefined'.
+[ELIFECYCLE] Command failed with exit code 2.
+[ELIFECYCLE] Command failed with exit code 2.

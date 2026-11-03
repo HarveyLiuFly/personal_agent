@@ -46,3 +46,7 @@ test('task entry points reject extra/prototype fields, cross-project targets and
  assert.throws(()=>f.execution.startTask({projectId:other.id,taskId:queued.taskId,expectedVersion:2,submissionKey:'foreign'}),/TASK_NOT_IN_PROJECT/);assert.throws(()=>f.execution.startTask({projectId:f.project.id,taskId:queued.taskId,expectedVersion:2,submissionKey:'raw',argv:['x']}),/INVALID_EXECUTION_QUERY/);
  await assert.rejects(f.service.apply({projectId:f.project.id,commandKey:'code',kind:'create',text:'code fixture',code:{profile:'node-test',target:'test.mjs',allowedPaths:['src.mjs']}}),/CODE_EXECUTION_UNAVAILABLE/);assert.equal(f.connections(),0);assert.equal(f.store.tasks(f.project.id).length,1);
 });
+test('upstream cumulative usage notifications settle new and resumed turns without counting last twice',async t=>{
+ const f=fixture(t,'usage'),queued=await f.create(),first=f.execution.startTask({projectId:f.project.id,taskId:queued.taskId,expectedVersion:2,submissionKey:'metered-first'});await f.execution.wait();assert.equal(f.store.resourceBudget().reportedTokens,25);assert.equal(f.store.resourceBudget().unknownHeldTokens,0);
+ f.execution.continueRun({projectId:f.project.id,runId:first.runId,text:'metered continuation fixture',submissionKey:'metered-second'});await f.execution.wait();const budget=f.store.resourceBudget();assert.equal(budget.reportedTokens,50);assert.equal(budget.reservedTokens,0);assert.equal(budget.activeRuns,0);
+});

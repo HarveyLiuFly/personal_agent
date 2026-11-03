@@ -47,7 +47,8 @@ let nativeCodeWorkspace:string|undefined;
 if(nativeCodeSmoke){mkdirSync(resolve(root,'.local'),{recursive:true});app.setPath('userData',mkdtempSync(resolve(root,'.local/desktop-native-code-')));}
 const interactionSmoke = process.argv.includes('--m1-interaction-smoke');
 const continuationSmoke=process.argv.includes('--m1-continuation-smoke');
-const taskSmoke=process.argv.includes('--m2-tasks-smoke');
+const budgetSmoke=process.argv.includes('--m2-budget-ui-smoke');
+const taskSmoke=process.argv.includes('--m2-tasks-smoke')||budgetSmoke;
 const executionSmoke = process.argv.includes('--m1-execution-smoke') || interactionSmoke || continuationSmoke || taskSmoke;
 const historySmoke = process.argv.includes('--m1-history-smoke');
 let fixtureDirectory: string | undefined;
@@ -63,7 +64,7 @@ else void boot().catch(async error => {
   console.error('DESKTOP_BOOT_FAILED', code);
   if (acceptanceProbe || nativeCodeSmoke || executionSmoke || historySmoke || process.argv.includes('--m0-window-smoke')) {
     if (window) { try { writeFileSync(resolve(root, '.local/desktop-failure.png'), (await window.webContents.capturePage()).toPNG()); } catch {} }
-    const file = taskSmoke?'M2.2b-desktop':acceptanceProbe?acceptanceProbe.kind==='workspace'?'M2.1a-desktop':`M1.4b-${acceptanceProbe.kind==='folder'?'native-folder':acceptanceProbe.kind==='restart'?'native-restart':'owner'}`:nativeCodeSmoke ? 'M1-native-code-desktop' : continuationSmoke?'M1.3c-desktop':interactionSmoke ? 'M1.2-desktop' : executionSmoke ? 'M1.1c-desktop' : historySmoke ? 'M1.1b-desktop' : 'M0-desktop-smoke';
+    const file = budgetSmoke?'M2.2c-desktop':taskSmoke?'M2.2b-desktop':acceptanceProbe?acceptanceProbe.kind==='workspace'?'M2.1a-desktop':`M1.4b-${acceptanceProbe.kind==='folder'?'native-folder':acceptanceProbe.kind==='restart'?'native-restart':'owner'}`:nativeCodeSmoke ? 'M1-native-code-desktop' : continuationSmoke?'M1.3c-desktop':interactionSmoke ? 'M1.2-desktop' : executionSmoke ? 'M1.1c-desktop' : historySmoke ? 'M1.1b-desktop' : 'M0-desktop-smoke';
     writeFileSync(resolve(root, `docs/progress/evidence/${file}.json`), JSON.stringify({ status: 'blocked', code, observedAt: new Date().toISOString() }) + '\n');
   }
   try { await execution?.close(); ledger?.close(); } catch {}
@@ -98,7 +99,7 @@ async function boot(): Promise<void> {
     fixtureWorkspace = resolve(fixtureDirectory, 'workspace'); await mkdir(fixtureWorkspace);
   }
   if (!historySmoke) {
-    ledger = new ExecutionLedger(resolve(fixtureDirectory ?? app.getPath('userData'), 'execution/ledger.db'), readFileSync(resolve(directory, 'schema.sql'), 'utf8'));
+    ledger = new ExecutionLedger(resolve(fixtureDirectory ?? app.getPath('userData'), 'execution/ledger.db'), readFileSync(resolve(directory, 'schema.sql'), 'utf8'),budgetSmoke?{budgetPolicy:{dailyTokens:150,reservationTokens:60}}:{});
     ownerEpoch=ledger.startOwner(randomUUID(), true); // OS single-instance lock was acquired before boot().
     if (!executionSmoke && process.platform === 'darwin' && process.arch === 'arm64') {
       try { verifier = new NodeVerification(ledger,{node:resolveVerifierNode(root),cli:executable(),reporter:resolve(directory,'verification-reporter.mjs'),stateDirectory:resolve(app.getPath('userData'),'verification')}); } catch {}
@@ -145,6 +146,7 @@ async function boot(): Promise<void> {
   ipcMain.handle('execution:workspaceState', (event, ...args: unknown[]) => executionCommand(event, args, 0, () => ({ projects: ledger?.projects() ?? [], canSubmit: Boolean(execution), canCode: Boolean(verifier), canBrowseWorkspace:Boolean(workspaceReader),canManageTasks:Boolean(taskService),mode: interactionSmoke ? 'workspaceWrite' as const : 'readOnly' as const })));
   ipcMain.handle('tasks:list',(event,...args:unknown[])=>executionCommand(event,args,1,()=>{if(!taskService)throw new LedgerError('TASKS_UNAVAILABLE');return taskService.list(args[0]);}));
   ipcMain.handle('tasks:activity',(event,...args:unknown[])=>executionCommand(event,args,1,()=>{if(!taskService)throw new LedgerError('TASKS_UNAVAILABLE');return taskService.activity(args[0]);}));
+  ipcMain.handle('runtime:resourceBudget',(event,...args:unknown[])=>executionCommand(event,args,0,()=>{if(!ledger)throw new LedgerError('TASKS_UNAVAILABLE');return ledger.resourceBudget();}));
   ipcMain.handle('tasks:start',(event,...args:unknown[])=>executionCommand(event,args,1,()=>{if(!execution||active)throw new LedgerError('RUNTIME_BUSY');return execution.startTask(args[0]);}));
   ipcMain.handle('tasks:command',async(event,...args:unknown[])=>{
     authorized(event);if(args.length!==1)return{ok:false,errorCode:'UNEXPECTED_ARGUMENTS'};
@@ -223,7 +225,7 @@ async function boot(): Promise<void> {
   window.webContents.session.setPermissionCheckHandler(() => false);
   window.webContents.on('will-attach-webview', event => event.preventDefault());
   await window.loadFile(documentPath);
-  if(taskSmoke){await runTaskProbe(root,app,window,ledger!,execution!);return;}
+  if(taskSmoke){await runTaskProbe(root,app,window,ledger!,execution!,budgetSmoke);return;}
   if(acceptanceProbe){await runNativeProbe(root,acceptanceProbe,app,window,{ledger:ledger!,execution:execution!,...(verifier?{verifier}:{}),ownerEpoch});return;}
   if (process.argv.includes('--m0-window-smoke')) {
     // Fixed test-only evaluation; no Renderer API accepts JS or a command string.
@@ -248,7 +250,7 @@ async function boot(): Promise<void> {
     const passed = r.rendered === true && r.hasRequire === false && r.sandboxed === true && r.isolated === true
       && r.uiConnected === true && !app.commandLine.hasSwitch('no-sandbox')
       && (r.connection as ConnectionInfo)?.status === 'connected'
-      && JSON.stringify(r.bridgeKeys) === JSON.stringify(['applyTaskCommand','chooseProject', 'continueRun', 'getRun', 'getVerification','getWorkspace','getWorkspaceDiff', 'inspect', 'interruptRun', 'listInteractions', 'listItems', 'listRuns','listTaskActivity','listTasks', 'listThreads', 'listTurns','listWorkspaceDirectory','readWorkspaceFile', 'reconcileRun', 'replyInteraction', 'security','startTask', 'submitMessage', 'verifyRun', 'workspaceState']);
+      && JSON.stringify(r.bridgeKeys) === JSON.stringify(['applyTaskCommand','chooseProject', 'continueRun', 'getRun', 'getVerification','getWorkspace','getWorkspaceDiff', 'inspect', 'interruptRun', 'listInteractions', 'listItems', 'listRuns','listTaskActivity','listTasks', 'listThreads', 'listTurns','listWorkspaceDirectory','readWorkspaceFile', 'reconcileRun', 'replyInteraction','resourceBudget', 'security','startTask', 'submitMessage', 'verifyRun', 'workspaceState']);
     const evidence = { observedAt: new Date().toISOString(), kind: 'real_electron_window_smoke',
       status: passed ? 'passed' : 'blocked',
       browserSandbox: app.commandLine.hasSwitch('no-sandbox') ? 'disabled' : 'enabled', result };

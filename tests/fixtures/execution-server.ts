@@ -37,6 +37,10 @@ for await (const line of createInterface({ input: process.stdin })) {
     notify('item/completed', { threadId, turnId, item: { id: 'fixture-user', type: 'userMessage', content: m.params.input } });
     notify('item/started', { threadId, turnId, item: { id: 'fixture-assistant', type: 'agentMessage', text: '' } });
     for (const delta of ['a','a','b']) { notify('item/agentMessage/delta', { threadId, turnId, itemId: 'fixture-assistant', delta }); }
+    if(mode.startsWith('usage')){
+      const db=database?new DatabaseSync(database,{readOnly:true}):undefined,base=Number(db?.prepare('SELECT total_tokens FROM thread_usage WHERE thread_id=?').get(threadId)?.total_tokens??0);db?.close();
+      for(const [total,last]of [[base+10,10],[base+10,10],[base+25,15]] as const)notify('thread/tokenUsage/updated',{threadId,turnId,tokenUsage:{total:{totalTokens:total,inputTokens:total-5,cachedInputTokens:0,cacheWriteInputTokens:0,outputTokens:5,reasoningOutputTokens:0},last:{totalTokens:last,inputTokens:last-5,cachedInputTokens:0,cacheWriteInputTokens:0,outputTokens:5,reasoningOutputTokens:0},modelContextWindow:100000}});
+    }
     if (mode.startsWith('approval') || mode === 'input') {
       requests.set('server-request', result => {
         if (receipts && result.decision === 'accept') writeFileSync(receipts + '.effect', 'accepted-once');

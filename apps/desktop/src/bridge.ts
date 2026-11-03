@@ -2,6 +2,7 @@ import type { HostResult, ProjectView, ThreadSummary, TurnView, ItemView, Page, 
 import type { ContinueMessage, InteractionView, ReplyInteraction, VerificationView, RunQuery, RunSummary, RunView, SubmitMessage } from '../../../packages/contracts/src/views.ts';
 import type {WorkspaceQuery,WorkspaceEntryQuery,WorkspaceDiffQuery,WorkspaceOverview,WorkspaceDirectory,WorkspacePreview,WorkspaceDiff} from '../../../packages/contracts/src/workspace.ts';
 import type {TaskSummary,TaskCommand,OperationReceipt,StartTask,ActivityPage} from '../../../packages/contracts/src/tasks.ts';
+import type {ResourceBudget} from '../../../packages/contracts/src/budget.ts';
 export interface ConnectionInfo {
   status: 'connected' | 'error';
   models?: number;
@@ -21,6 +22,7 @@ export interface DesktopApi {
   applyTaskCommand(command:TaskCommand):Promise<HostResult<OperationReceipt>>;
   startTask(input:StartTask):Promise<HostResult<RunSummary>>;
   listTaskActivity(query:{projectId:string;cursor?:number}):Promise<HostResult<ActivityPage>>;
+  resourceBudget():Promise<HostResult<ResourceBudget>>;
   getWorkspace(query:WorkspaceQuery):Promise<HostResult<WorkspaceOverview>>;
   listWorkspaceDirectory(query:WorkspaceEntryQuery):Promise<HostResult<WorkspaceDirectory>>;
   readWorkspaceFile(query:WorkspaceEntryQuery):Promise<HostResult<WorkspacePreview>>;

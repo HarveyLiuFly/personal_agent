@@ -12,7 +12,7 @@ CREATE TABLE schema_metadata (
   singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
   schema_revision INTEGER NOT NULL CHECK (schema_revision > 0)
 );
-INSERT INTO schema_metadata VALUES (1, 3);
+INSERT INTO schema_metadata VALUES (1, 4);
 
 CREATE TABLE profiles (
   profile_id TEXT PRIMARY KEY,
@@ -592,7 +592,36 @@ CREATE TABLE budget_reservations (
   run_id TEXT NOT NULL REFERENCES task_runs(run_id),
   units INTEGER NOT NULL CHECK (units >= 0),
   state TEXT NOT NULL CHECK (state IN ('active','settled','held_unknown')),
+  actual_units INTEGER CHECK (actual_units IS NULL OR actual_units >= 0),
+  settlement_hash TEXT,
   UNIQUE(bucket_id, run_id)
+);
+
+CREATE TABLE budget_policies (
+  dot_id TEXT PRIMARY KEY REFERENCES dots(dot_id),
+  daily_token_limit INTEGER NOT NULL CHECK (daily_token_limit > 0),
+  reservation_tokens INTEGER NOT NULL CHECK (reservation_tokens > 0),
+  max_active_runs INTEGER NOT NULL CHECK (max_active_runs = 1)
+);
+
+CREATE TABLE run_usage (
+  run_id TEXT PRIMARY KEY REFERENCES task_runs(run_id),
+  thread_id TEXT,
+  baseline_tokens INTEGER CHECK (baseline_tokens IS NULL OR baseline_tokens >= 0),
+  latest_total_tokens INTEGER CHECK (latest_total_tokens IS NULL OR latest_total_tokens >= 0),
+  invalid_count INTEGER NOT NULL DEFAULT 0 CHECK (invalid_count >= 0),
+  finalized INTEGER NOT NULL DEFAULT 0 CHECK (finalized IN (0,1)),
+  observation_hash TEXT,
+  updated_at_ms INTEGER NOT NULL
+);
+
+CREATE TABLE thread_usage (
+  thread_id TEXT PRIMARY KEY,
+  dot_id TEXT NOT NULL REFERENCES dots(dot_id),
+  total_tokens INTEGER CHECK (total_tokens IS NULL OR total_tokens >= 0),
+  last_run_id TEXT NOT NULL REFERENCES task_runs(run_id),
+  baseline_known INTEGER NOT NULL CHECK (baseline_known IN (0,1)),
+  updated_at_ms INTEGER NOT NULL
 );
 
 CREATE TABLE verification_specs (

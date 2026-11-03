@@ -1,0 +1,23 @@
+{
+  "status": "passed",
+  "observedAt": "2026-11-03T01:42:06.469Z",
+  "kind": "real_locked_app_server_read_only_model_and_reported_token_usage",
+  "platform": "darwin-arm64",
+  "cliVersion": "codex-cli 0.163.0",
+  "inferenceRequested": true,
+  "model": "gpt-6.1-sol",
+  "attempts": 1,
+  "turnStarts": 1,
+  "runStatus": "completed",
+  "taskStatus": "needs_review",
+  "expectedPublicReply": true,
+  "toolItems": 0,
+  "reportedTokens": 17620,
+  "reservedTokens": 0,
+  "unknownHeldTokens": 0,
+  "activeRuns": 0,
+  "estimatedUsd": null,
+  "nativePolicyVerified": true,
+  "privateProfile": "isolated_owned_fixture",
+  "note": "Observed provider-reported tokens, not subscription billing. No Task completion claimed."
+}

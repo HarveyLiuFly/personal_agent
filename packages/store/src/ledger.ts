@@ -9,6 +9,8 @@ import type { VerificationPlan, VerificationReceipt } from '../../verification/s
 import type { InteractionView, ProjectView, ThreadView } from '../../contracts/src/views.ts';
 import type {CodeTaskSpec} from '../../contracts/src/views.ts';
 import type {TaskSummary,TaskCommand,OperationReceipt,ActivityPage} from '../../contracts/src/tasks.ts';
+import {BudgetLedger} from './budget.ts';
+import type {BudgetPolicy} from './budget.ts';
 
 export class LedgerError extends Error { readonly code: string; constructor(code: string) { super(code); this.code = code; } }
 const fail = (code: string): never => { throw new LedgerError(code); };
@@ -30,7 +32,7 @@ export interface ReconciliationClaim {
 }
 export interface OutboxClaim {outboxId:string;claimEpoch:number;runtimeEpoch:number;eventId:string;taskId:string;expiresAt:number}
 export interface QueuedRun {token:RunToken;created:boolean;text:string;code?:CodeTaskSpec;threadId?:string;sourceRunId?:string}
-export interface LedgerOptions {/** Trusted fault injection only; never accepted over IPC. */afterOutboxProjectionForTests?:()=>void}
+export interface LedgerOptions {/** Trusted fault injection only; never accepted over IPC. */afterOutboxProjectionForTests?:()=>void;/** Seeds a new local policy only. Never accepted over execution IPC. */budgetPolicy?:BudgetPolicy}
 
 /** Host-only local store. startOwner requires the caller to hold the OS single-instance lock. */
 export class ExecutionLedger {
@@ -38,6 +40,7 @@ export class ExecutionLedger {
   #epoch = 0;
   #instance = '';
   private options:LedgerOptions;
+  private budget:BudgetLedger;
   readonly profileId = 'local-profile';
   readonly dotId = 'local-dot';
   constructor(path: string, schemaSql: string, options:LedgerOptions={}) {
@@ -53,17 +56,23 @@ export class ExecutionLedger {
       if (tables.length === 0) this.#db.exec(schemaSql);
       else if (!tables.some(row => row.name === 'schema_metadata')) fail('LEDGER_SCHEMA_UNSUPPORTED');
       const revision = this.one('SELECT schema_revision FROM schema_metadata WHERE singleton=1')?.schema_revision;
-      if (revision === 2) {
-        const ddl = schemaSql.match(/CREATE TABLE runtime_requests \([\s\S]*?\n\);/)?.[0] ?? fail('LEDGER_MIGRATION_UNAVAILABLE');
+      if (revision === 2 || revision === 3) {
+        const ddl=(name:string)=>schemaSql.match(new RegExp('CREATE TABLE '+name+' \\([\\s\\S]*?\\n\\);'))?.[0]??fail('LEDGER_MIGRATION_UNAVAILABLE');
         if (path !== ':memory:') {
-          const backupPath = `${path}.revision2-${randomUUID()}.backup`;
+          const backupPath = `${path}.revision${revision}-${randomUUID()}.backup`;
           this.#db.prepare('VACUUM INTO ?').run(backupPath); chmodSync(backupPath, 0o600);
           const backup = new DatabaseSync(backupPath, { readOnly: true });
           try { if (backup.prepare('PRAGMA quick_check').get()?.quick_check !== 'ok' || backup.prepare('PRAGMA foreign_key_check').all().length) fail('LEDGER_BACKUP_INVALID'); }
           finally { backup.close(); }
         }
-        this.tx(() => { this.#db.exec(ddl); this.exec('UPDATE schema_metadata SET schema_revision=3 WHERE singleton=1'); });
-      } else if (revision !== 3) fail('LEDGER_SCHEMA_UNSUPPORTED');
+        this.tx(() => {
+          if(revision===2)this.#db.exec(ddl('runtime_requests'));
+          this.#db.exec('ALTER TABLE budget_reservations ADD COLUMN actual_units INTEGER CHECK (actual_units IS NULL OR actual_units>=0); ALTER TABLE budget_reservations ADD COLUMN settlement_hash TEXT;');
+          for(const name of ['budget_policies','run_usage','thread_usage'])this.#db.exec(ddl(name));
+          this.exec('UPDATE schema_metadata SET schema_revision=4 WHERE singleton=1');
+        });
+      } else if (revision !== 4) fail('LEDGER_SCHEMA_UNSUPPORTED');
+      this.budget=new BudgetLedger(this.#db,this.dotId,fail,options.budgetPolicy);
       if (path !== ':memory:') chmodSync(path, 0o600);
     } catch (error) { this.#db.close(); throw error; }
   }
@@ -97,6 +106,7 @@ export class ExecutionLedger {
     const epoch = this.tx(() => {
       this.exec('INSERT OR IGNORE INTO profiles VALUES (?,?,?)', this.profileId, '本机', Date.now());
       this.exec('INSERT OR IGNORE INTO dots(dot_id,profile_id,display_name) VALUES (?,?,?)', this.dotId, this.profileId, 'Personal Agent');
+      this.budget.initialize();
       const next = Number(this.one('SELECT runtime_epoch FROM runtime_owners WHERE profile_id=?', this.profileId)?.runtime_epoch ?? 0) + 1;
       this.exec("INSERT INTO runtime_owners VALUES (?,?,?,'main','ready',?) ON CONFLICT(profile_id) DO UPDATE SET runtime_epoch=excluded.runtime_epoch,instance_id=excluded.instance_id,state='ready',updated_at_ms=excluded.updated_at_ms", this.profileId, next, instanceId, Date.now());
       this.exec("UPDATE runtime_requests SET state=CASE WHEN state='responding' THEN 'outcome_unknown' ELSE 'cancelled' END WHERE state IN ('pending','responding')");
@@ -108,6 +118,7 @@ export class ExecutionLedger {
         const task = this.one('SELECT status FROM tasks WHERE task_id=?', run.task_id!)!;
         if (task.status !== 'outcome_unknown') this.transition(String(run.task_id), 'outcome_unknown');
         this.exec('UPDATE tasks SET dispatch_blocked=1 WHERE task_id=?', run.task_id!);
+        this.budget.unknown(String(run.run_id),true);
         this.event(String(run.task_id), String(run.run_id), 'owner_recovery_unknown');
         this.stopOperation(String(run.task_id),'outcome_unknown',String(run.run_id));
       }
@@ -276,6 +287,7 @@ export class ExecutionLedger {
       const operation=this.openOperation('dispatch:'+key,'DISPATCH_TASK',{projectId,taskId,expectedVersion},taskId,expectedVersion);
       this.transition(taskId,'running');this.exec('UPDATE tasks SET write_fence=write_fence+1 WHERE task_id=?',taskId);const current=this.taskRow(projectId,taskId),runId=randomUUID();
       this.exec("INSERT INTO task_runs(run_id,task_id,dot_id,operation_id,idempotency_key,executor_kind,status,task_snapshot_version,goal_plan_version,task_fence,runtime_epoch,policy_epoch,privacy_epoch,worker_id,lease_until_ms,started_at_ms) VALUES (?,?,?,?,?,'codex','preparing',?,?,?,?,?,?,?,?,?)",runId,taskId,this.dotId,operation.operationId,key,current.version!,epochs.goal_plan_version??null,current.write_fence!,this.#epoch,epochs.policy_epoch!,epochs.privacy_epoch!,this.#instance,Date.now()+60000,Date.now());
+      this.budget.reserve(runId,current.goal_id as string|null);
       if(data.mode==='workspaceWrite'){
         if(this.one('SELECT run_id FROM workspace_write_leases WHERE workspace_id=?',projectId))return fail('WORKSPACE_BUSY');
         this.exec("UPDATE workspaces SET write_fence=write_fence+1,state='busy' WHERE workspace_id=?",projectId);const ws=this.one('SELECT write_fence FROM workspaces WHERE workspace_id=?',projectId)!;
@@ -358,6 +370,7 @@ export class ExecutionLedger {
       this.event(taskId, null, 'task_created'); this.transition(taskId, 'queued'); this.transition(taskId, 'running');
       this.exec('UPDATE tasks SET write_fence=write_fence+1 WHERE task_id=?', taskId);
       this.exec("INSERT INTO task_runs(run_id,task_id,dot_id,idempotency_key,executor_kind,status,task_snapshot_version,task_fence,runtime_epoch,policy_epoch,privacy_epoch,worker_id,lease_until_ms,started_at_ms) VALUES (?,?,?,?,'codex','preparing',3,1,?,1,1,?,?,?)", runId, taskId, this.dotId, key, this.#epoch, this.#instance, Date.now() + 60_000, Date.now());
+      this.budget.reserve(runId,null);
       if (mode === 'workspaceWrite') {
         if (this.one('SELECT run_id FROM workspace_write_leases WHERE workspace_id=?', workspaceId)) return fail('WORKSPACE_BUSY');
         this.exec('UPDATE workspaces SET write_fence=write_fence+1,state=\'busy\' WHERE workspace_id=?', workspaceId);
@@ -387,6 +400,7 @@ export class ExecutionLedger {
       this.transition(source.taskId,'queued');this.transition(source.taskId,'running');this.exec('UPDATE tasks SET write_fence=write_fence+1 WHERE task_id=?',source.taskId);
       const current=this.one('SELECT version,write_fence FROM tasks WHERE task_id=?',source.taskId)!,runId=randomUUID(),fence=Number(current.write_fence);
       this.exec("INSERT INTO task_runs(run_id,task_id,dot_id,idempotency_key,executor_kind,status,task_snapshot_version,task_fence,runtime_epoch,policy_epoch,privacy_epoch,worker_id,lease_until_ms,started_at_ms) VALUES (?,?,?,?,'codex','preparing',?,?,?,1,1,?,?,?)",runId,source.taskId,this.dotId,key,current.version!,fence,this.#epoch,this.#instance,Date.now()+60000,Date.now());
+      this.budget.reserve(runId,task.goal_id as string|null);
       if(source.mode==='workspaceWrite'){
         if(this.one('SELECT run_id FROM workspace_write_leases WHERE workspace_id=?',workspaceId))return fail('WORKSPACE_BUSY');
         this.exec("UPDATE workspaces SET write_fence=write_fence+1,state='busy' WHERE workspace_id=?",workspaceId);
@@ -480,6 +494,7 @@ export class ExecutionLedger {
       } else if (intent.kind === 'turn_start' && !id(result.turnId)) return fail('INVALID_TURN_RESPONSE');
       if (intent.threadId && result.threadId && intent.threadId !== result.threadId) return fail('THREAD_NOT_BOUND');
       this.exec("UPDATE execution_intents SET state='accepted',execution_thread_id=COALESCE(execution_thread_id,?),execution_turn_id=COALESCE(execution_turn_id,?),response_ref=? WHERE intent_id=?", result.threadId ?? null, result.turnId ?? null, `rpc:${intent.rpcId}`, intentId);
+      if(intent.kind==='thread_start'||intent.kind==='thread_resume')this.budget.bind(token.runId,String(result.threadId??intent.threadId),intent.kind==='thread_start');
       this.exec("UPDATE task_runs SET status='running' WHERE run_id=?", token.runId);
       this.event(String(run.task_id), token.runId, 'intent_accepted', { intentId, ...result });
     });
@@ -493,6 +508,7 @@ export class ExecutionLedger {
       if (this.one('SELECT status FROM tasks WHERE task_id=?', run.task_id!)?.status !== 'outcome_unknown') this.transition(String(run.task_id), 'outcome_unknown');
       this.exec("UPDATE task_runs SET status='outcome_unknown' WHERE run_id=?", token.runId);
       this.exec('UPDATE tasks SET dispatch_blocked=1 WHERE task_id=?', run.task_id!);
+      this.budget.unknown(token.runId);
       this.event(String(run.task_id), token.runId, 'run_outcome_unknown');
       this.stopOperation(String(run.task_id),'outcome_unknown',token.runId);
     });
@@ -524,6 +540,7 @@ export class ExecutionLedger {
       this.exec('UPDATE task_runs SET status=?,finished_at_ms=? WHERE run_id=?', outcome, Date.now(), token.runId);
       this.exec('DELETE FROM workspace_write_leases WHERE run_id=?', token.runId);
       this.exec("UPDATE workspaces SET state='ready' WHERE workspace_id=?", run.workspace_id!);
+      const usage=this.budget.finish(token.runId);this.event(String(run.task_id),token.runId,usage.known?'budget_settled':'budget_usage_unknown',{reportedTokens:usage.tokens,source:usage.known?'matched_reported_usage_or_no_turn_sent':'unconfirmed_usage_held'});
       this.event(String(run.task_id), token.runId, 'run_finished', { outcome, verification: 'pending' });
       this.stopOperation(String(run.task_id),'completed',token.runId);
     });
@@ -604,7 +621,16 @@ export class ExecutionLedger {
     this.tx(() => { this.owner(); const run=this.runForHost(token.runId);if(run.epoch!==token.epoch||token.epoch!==this.#epoch)return fail('STALE_RUN');this.event(run.taskId,run.runId,'run_diagnostic',{code}); });
   }
   executorClosed(token: RunToken, connectionEpoch: number): void {
-    this.tx(()=>{this.owner();const run=this.runForHost(token.runId);if(run.epoch!==token.epoch||token.epoch!==this.#epoch)return fail('STALE_RUN');this.event(run.taskId,run.runId,'executor_closed',{connectionEpoch,runtimeEpoch:token.epoch});});
+    this.tx(()=>{this.owner();const run=this.runForHost(token.runId);if(run.epoch!==token.epoch||token.epoch!==this.#epoch)return fail('STALE_RUN');this.event(run.taskId,run.runId,'executor_closed',{connectionEpoch,runtimeEpoch:token.epoch});if(run.status==='outcome_unknown')this.budget.unknown(run.runId,true);});
+  }
+  resourceBudget(){return this.tx(()=>{this.owner();return this.budget.snapshot();});}
+  recordTokenUsage(token:RunToken,threadId:string,turnId:string,total:unknown):void {
+    this.tx(()=>{
+      this.owner();const run=this.one('SELECT r.*,t.write_fence FROM task_runs r JOIN tasks t USING(task_id) WHERE r.run_id=? AND r.dot_id=?',token.runId,this.dotId);
+      if(!run||token.epoch!==this.#epoch||run.runtime_epoch!==this.#epoch||run.task_fence!==token.taskFence||run.write_fence!==token.taskFence)return fail('STALE_RUN_USAGE');
+      if(!this.one("SELECT intent_id FROM execution_intents WHERE run_id=? AND kind='turn_start' AND state='accepted' AND execution_thread_id=? AND execution_turn_id=?",token.runId,threadId,turnId))return fail('USAGE_SCOPE_MISMATCH');
+      const result=this.budget.observe(token.runId,threadId,total);if(result!=='duplicate')this.event(String(run.task_id),token.runId,result==='invalid'?'token_usage_invalid':'token_usage_observed',result==='invalid'?{code:'INVALID_USAGE_COUNTER'}:{reportedThreadTotal:total});
+    });
   }
   matchesUserInput(runId: string, text: string): boolean {
     this.runForHost(runId);const row=this.one('SELECT module_hashes_json FROM prompt_manifests WHERE run_id=?',runId);

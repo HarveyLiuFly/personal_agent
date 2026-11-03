@@ -13,6 +13,7 @@ const api: DesktopApi = Object.freeze<DesktopApi>({
   applyTaskCommand:command=>ipcRenderer.invoke('tasks:command',command),
   startTask:input=>ipcRenderer.invoke('tasks:start',input),
   listTaskActivity:query=>ipcRenderer.invoke('tasks:activity',query),
+  resourceBudget:()=>ipcRenderer.invoke('runtime:resourceBudget'),
   getWorkspace:query=>ipcRenderer.invoke('workspace:overview',query),
   listWorkspaceDirectory:query=>ipcRenderer.invoke('workspace:directory',query),
   readWorkspaceFile:query=>ipcRenderer.invoke('workspace:file',query),

@@ -23,7 +23,7 @@ function summary(row: RunRecord): RunSummary {
   const { runId, taskId, title, status, taskStatus, threadId, turnId, blocked, mode, errorCode } = row;
   return { runId, taskId, title, status, taskStatus, threadId, turnId, blocked, mode, errorCode };
 }
-interface Session { token: RunToken; projectId: string; submissionKey: string; mode: 'readOnly'|'workspaceWrite'; code?: CodeTaskSpec; sourceRunId?:string;resumeThreadId?:string; abort: AbortController; rpc?: StdioRpcClient; projection?: ThreadProjection; threadId?: string; turnId?: string; intentId?: string; broker?: InteractionBroker; interrupt?: Promise<void>; stopTimer?: NodeJS.Timeout; turnEnded?: boolean }
+interface Session { token: RunToken; projectId: string; submissionKey: string; mode: 'readOnly'|'workspaceWrite'; code?: CodeTaskSpec; sourceRunId?:string;resumeThreadId?:string; abort: AbortController; rpc?: StdioRpcClient; projection?: ThreadProjection; threadId?: string; turnId?: string; intentId?: string; broker?: InteractionBroker; interrupt?: Promise<void>; stopTimer?: NodeJS.Timeout; turnEnded?: boolean;usagePending?:Array<{threadId:string;turnId:string;total:unknown}>;usageOverflow?:boolean }
 export function executionArguments(directory: string): string[] {
   const base = launchArguments(directory);
   // M1 enables local built-in tools only; external connectors and autonomous features have separate gates.
@@ -152,6 +152,10 @@ export class ForegroundExecution {
     const completed = new Promise<void>(resolve => { resolveTurn = resolve; });
     let ready!: () => void;
     const turnReady = new Promise<void>(resolve => { ready = resolve; });
+    const observeUsage=(data:{threadId:string;turnId:string;total:unknown})=>{
+      if(data.threadId!==session.threadId||data.turnId!==session.turnId)return;
+      try{this.store.recordTokenUsage(session.token,data.threadId,data.turnId,data.total);}catch(error){failure=error;resolveTurn();void session.rpc?.close();}
+    };
     session.broker = new InteractionBroker(this.store, this.options.interactionTimeoutMs);
     let cwd = '';
     const context = (): InteractionContext => ({ token: session.token, connectionEpoch: epoch, projectId: session.projectId,
@@ -164,6 +168,10 @@ export class ForegroundExecution {
     const callbacks: Pick<RpcOptions, 'onNotification' | 'onServerRequest' | 'onServerResponse'> = {
       onNotification: message => {
         this.diagnostics.notificationCount++;
+        if(message.method==='thread/tokenUsage/updated'&&isObject(message.params)&&typeof message.params.threadId==='string'&&typeof message.params.turnId==='string'){
+          const p=message.params,data={threadId:p.threadId as string,turnId:p.turnId as string,total:isObject(p.tokenUsage)&&isObject(p.tokenUsage.total)?p.tokenUsage.total.totalTokens:undefined};
+          if(session.turnId)observeUsage(data);else{session.usagePending??=[];if(session.usagePending.length>=16){session.usagePending.shift();session.usageOverflow=true;}session.usagePending.push(data);}return;
+        }
         if (!session.projection) return;
         session.projection.receive(epoch, ++sequence, message);
         if (!saveTimer) saveTimer = setTimeout(() => { saveTimer = undefined; try { flush(); } catch (error) { failure = error; resolveTurn(); } }, 100);
@@ -254,6 +262,7 @@ export class ForegroundExecution {
       const accepted = await rpc.requestWithId(turnRpcId, 'turn/start', turnParams);
       if (!isObject(accepted) || !isObject(accepted.turn) || !identity(accepted.turn.id)) throw new RpcFailure('INVALID_TURN_RESPONSE', true);
       this.store.accepted(session.token, turnIntent.intentId, { turnId: accepted.turn.id }); session.turnId = accepted.turn.id;
+      if(session.usageOverflow)observeUsage({threadId:session.threadId,turnId:session.turnId,total:undefined});for(const pending of session.usagePending??[])observeUsage(pending);session.usagePending=[];
       ready();
       this.diagnostics.phase = 'turn/completed';
       await Promise.race([completed, rpc.waitClosed().then(() => { throw new RpcFailure('PROCESS_EXITED', true); }), new Promise<never>((_, reject) => { deadline = setTimeout(() => reject(new RpcFailure('TURN_TIMEOUT', true)), this.options.timeoutMs ?? 180_000); })]);
