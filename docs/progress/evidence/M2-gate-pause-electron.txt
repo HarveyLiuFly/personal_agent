@@ -1,0 +1,17 @@
+TAP version 13
+# Subtest: actual SIGSTOP/SIGCONT Host pause catches up one queue-only UTC occurrence with stable IDs and zero inference
+ok 1 - actual SIGSTOP/SIGCONT Host pause catches up one queue-only UTC occurrence with stable IDs and zero inference
+  ---
+  duration_ms: 2174.597041
+  type: 'test'
+  ...
+# SCHEDULER_PAUSE_RECEIPT {"scope":"actual_Node_Host_pause_resume_not_physical_device_sleep","clock":"real_Date.now_UTC_no_injection","dueAtMs":1793705383734,"stoppedAtMs":1793705382260,"resumedAtMs":1793705383995,"queuedAtMs":1793705383999,"observedPsState":"T","queueCount":1,"identity":{"occurrence_id":"occurrence:cf410a758db094a6b8b0682f89b66b809c6a97c1d5517ec17eada9546e979d0b","trigger_id":"schedule-trigger:fbb3b04bc7927bcd193756fc7ab9bd39a4f1ca3fc9356535b2738f91f64e7619","delivery_id":"d141b1f3-080d-4a6d-b8b5-3a8a7ef87a58","delivery_state":"acknowledged"},"occurrences":1,"triggers":1,"deliveries":1,"pumpSteps":10,"modelRuns":0,"executionIntents":0,"budgetReservations":0,"modelInferenceRequested":false,"physicalDeviceSleepTested":false,"exitCode":0}
+1..1
+# tests 1
+# suites 0
+# pass 1
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 2265.451792

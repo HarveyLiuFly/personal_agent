@@ -1,0 +1,236 @@
+{
+  "milestone": "M2",
+  "status": "passed",
+  "observedAt": "2026-11-03T11:32:20.383639+00:00",
+  "tag": "checkpoint/M2",
+  "baselineCommit": "ac22749aae8394db3644439a646b5c6c4fece58a",
+  "scope": {
+    "platform": "darwin-arm64",
+    "cliVersion": "codex-cli 0.163.0",
+    "runtime": "single_Electron_Main_background_owner",
+    "gui": "sandboxed_Renderer_detachable_recreatable",
+    "schemaRevision": 6,
+    "fixedDesktopApiCount": 45,
+    "admission": "one_active_model_Run_shared_local_budget",
+    "restore": "idle_only_ledger_and_published_verification_receipts"
+  },
+  "checks": {
+    "discovered": 342,
+    "executed": 342,
+    "passed": 342,
+    "failed": 0,
+    "skipped": 0,
+    "designContracts": 17,
+    "generatedProtocolTypes": 747,
+    "typecheck": "passed",
+    "productionBuild": "passed",
+    "recoveryEpochPrivacyPtyElectronCases": 35,
+    "actualHostPauseElectronCases": 1
+  },
+  "matrix": [
+    {
+      "package": "DESK-007",
+      "status": "passed_enabled_scope",
+      "features": [
+        "sandboxed_workspace_file_git_edit_preview",
+        "managed_worktree_and_conservative_recovery",
+        "real_user_pty",
+        "cross_project_actual_pty_isolation",
+        "actual_native_code_then_four_independent_tests"
+      ],
+      "evidence": [
+        "M2.1a-native-workspace.json",
+        "M2.5a-desktop.json",
+        "M2.5b-desktop.json",
+        "M2.6a-desktop.json",
+        "M2.1b-worktree-native.json",
+        "M2.7c-checks.txt"
+      ]
+    },
+    {
+      "package": "DESK-008",
+      "status": "passed_enabled_scope",
+      "features": [
+        "actual_project_skill_metadata_discovery",
+        "actual_native_tool_items",
+        "explicitly_disabled_external_capability_status"
+      ],
+      "notApplicable": [
+        "effective_global_skills",
+        "remote_MCP_catalog_not_loaded",
+        "plugins_not_enabled",
+        "subagents_not_enabled"
+      ],
+      "evidence": [
+        "M2.8a-native-skills.json",
+        "M2.8a-desktop.json",
+        "M2.1b-worktree-native.json"
+      ]
+    },
+    {
+      "package": "RUNTIME-002",
+      "status": "passed",
+      "features": [
+        "single_Schema6_store",
+        "CAS_fence_intent",
+        "operation_DAG_partial_results",
+        "Outbox_lease_dedupe_dead_letter",
+        "conservative_unknown_budget_and_resource_occupancy"
+      ],
+      "evidence": [
+        "M2-gate-checks.txt",
+        "M2.2a-summary.json",
+        "M2.2d-summary.json",
+        "M2.2c-summary.json",
+        "M2.2e-summary.json"
+      ]
+    },
+    {
+      "package": "RUNTIME-003",
+      "status": "passed_local_Main_background_mode",
+      "features": [
+        "actual_windowless_scheduled_native_turn",
+        "renderer_SIGKILL_and_reattach_same_owner",
+        "OS_single_instance_rejection",
+        "explicit_exit_and_new_epoch",
+        "cold_generation_restore_and_same_Run_restart_read"
+      ],
+      "evidence": [
+        "M2.4a-native-background.json",
+        "M2-gate-owner-regression.json",
+        "M2.7c-preflight.json",
+        "M2.7c-desktop.json",
+        "M2.7c-native-verification.json"
+      ]
+    },
+    {
+      "package": "RUNTIME-004",
+      "status": "passed_enabled_scope",
+      "features": [
+        "pinned_Cron_timezone_DST",
+        "bounded_Misfire_overlap_version_and_dedupe",
+        "actual_wall_clock_scheduler_synthetic_transport",
+        "native_once_windowless_dispatch",
+        "actual_Host_SIGSTOP_SIGCONT_UTC_compensation",
+        "shared_token_and_single_active_Run_admission"
+      ],
+      "physicalDeviceSleep": "not_tested",
+      "evidence": [
+        "M2-gate-checks.txt",
+        "M2.3d-desktop.json",
+        "M2.4a-native-background.json",
+        "M2-gate-host-pause.json",
+        "M2-gate-pause-electron.txt"
+      ]
+    },
+    {
+      "package": "M2-data-recovery",
+      "status": "passed_idle_only_local_restore",
+      "features": [
+        "consistent_WAL_and_published_receipts",
+        "quarantine_rehearsal_never_auto_activated",
+        "physical_new_generation_and_safety_backup",
+        "latest_privacy_policy_budget_preserved",
+        "pending_work_not_replayed",
+        "source_owner_stopped_and_new_owner_started",
+        "committed_pointer_loss_fails_closed",
+        "actual_SIGKILL_at_three_activation_boundaries"
+      ],
+      "evidence": [
+        "M2.7c-summary.json",
+        "M2.7c-checks.txt",
+        "M2-gate-rehearsal-regression.json",
+        "M2.7c-preflight.json",
+        "M2.7c-native-verification.json"
+      ]
+    }
+  ],
+  "nativeSuccesses": {
+    "codeWorktree": {
+      "originalEvidence": "M2.1b-worktree-native.json",
+      "model": "gpt-6.1-sol",
+      "modelTurns": 1,
+      "reportedTokens": 74356,
+      "independentCases": 4,
+      "taskCompleted": true,
+      "rerunForFinalGate": false
+    },
+    "windowlessOnce": {
+      "originalEvidence": "M2.4a-native-background.json",
+      "modelTurns": 1,
+      "reportedTokens": 18082,
+      "rerunForFinalGate": false
+    },
+    "postRestore": {
+      "originalEvidence": "M2.7c-desktop.json",
+      "initialProbeStatus": "blocked_snapshotless_assertion",
+      "verificationEvidence": "M2.7c-native-verification.json",
+      "model": "gpt-6.1-sol",
+      "modelTurns": 1,
+      "reportedTokens": 18097,
+      "additionalModelTurnsForVerification": 0,
+      "businessCompletionClaimed": false
+    }
+  },
+  "faultLocations": {
+    "ledgerDispatchAndRecovery": 16,
+    "backupRehearsalAndRestoreFilesystem": 7,
+    "rendererSIGKILL": "separately_recorded_not_added_to_ledger_count"
+  },
+  "notClaimed": [
+    "independent_daemon_or_external_control_socket",
+    "execution_during_host_or_device_sleep",
+    "physical_device_sleep_test",
+    "other_OS_CPU_baseline",
+    "write_capable_IDE",
+    "effective_global_skill_or_remote_MCP_inventory",
+    "plugin_or_subagent_execution",
+    "browser_computer_DSH",
+    "active_unknown_or_unknown_cost_online_restore",
+    "source_auth_or_raw_Codex_history_backup",
+    "full_M3_memory_physical_erasure",
+    "formal_identity_permission_release_or_cloud"
+  ],
+  "permissionManagement": "deferred_to_M5_by_user",
+  "remainingMandatoryM2Items": [],
+  "nextStage": "M3_explicit_router_context_goal_memory_sources_via_existing_Gateway",
+  "evidenceHashes": {
+    "M2-gate-checks.txt": "965c59c7eeafa80effb7c67c11d40bb75bfdf2cd3f94b6cfd835ca6769ccbee0",
+    "M2-gate-host-pause.json": "c2e409f78fedfd7d0a4aeaa44a3da4c2e376423d7812b30beb5719b5a848e32a",
+    "M2-gate-native-window-regression.json": "b9376c75f86acd038d5fbff3c171825abcf53cd883917b04c156e48029913edb",
+    "M2-gate-owner-regression.json": "3bef91948ed51486f6ae6e330f87bfe83debba679d26612a4afdb0c011c96098",
+    "M2-gate-pause-electron.txt": "49e7e26b2d52a587d26b35090429b888d22eb30db352464bef678241c517fafb",
+    "M2-gate-rehearsal-regression.json": "edb860cd05f4b14359757174ea75e47bec31378c286b47081379f0cdbdb30192",
+    "M2.1a-native-workspace.json": "c253ba48a07350ba670a2ddbd7315a907201eeec64db9e31dad681c6d3e8310d",
+    "M2.1b-worktree-native.json": "53ac0d23851631d391046d88d85aab526e57420143d16d25334ddd89ac6888c8",
+    "M2.2a-summary.json": "a14fbc46f9e479b84a95d59c0a873250cac8f808f32b3fe29482644bbdd6a278",
+    "M2.2c-summary.json": "6d766440b2b39bc7271c322bea11e1f9842fe994e986f96731eff26a51706a56",
+    "M2.2d-summary.json": "6edaa8124477ea68655158ff99d8a35dcf2f3a43e55c199c194dcf138d66ee31",
+    "M2.2e-summary.json": "a66b928b5418381ffe51595b996f3ed564a819c3adbb6161ad878ae8f882f729",
+    "M2.3d-desktop.json": "e018c8a557b58437bbbbd9c628fd9841915eb0ce6de0a5483b271693cfb08c65",
+    "M2.4a-native-background.json": "c2e1aed00eb0024763229844775d3b83fda8b28f2775017a2977d64556ed40e8",
+    "M2.5a-desktop.json": "993ace83a13d8bdfaf650ecc753bf3a78ef9f05ae76af4b6ee2129ca9a9efa0a",
+    "M2.5b-desktop.json": "33827c863b859fd987014c2c73e43e85711c7c0cbcbd805b3abbc0403fe9f894",
+    "M2.6a-desktop.json": "6ca9904fd10c975dbb040908a92ea109052d6cd414f616fe74791b7587a2b679",
+    "M2.7c-checks.txt": "0432bfd567159a9ae0af9ff3ff1d1ff54a7546f57f2e18b7dba68914e371c6a3",
+    "M2.7c-desktop.json": "ec1612d47edd4225ee51580e078d56fee90b8e95b1c103f2f56cf525ab5bf870",
+    "M2.7c-electron-tests.txt": "6347316ac0fff0d314c943042d07b5c855c505fedbb986e074e1a03cab155727",
+    "M2.7c-native-verification.json": "267d835d53c6946dd97f4fdb973e935dae7662b8d36bab1fce319ae4fba278c6",
+    "M2.7c-preflight.json": "d9d4df833f7a02f309097994edf87e12b891d56b57aa9fc25a44c83f22f9ba51",
+    "M2.7c-summary.json": "010a984add5ec022e3878596ff251d60485fd9d8fdb6edc15ecd6f5b349f4502",
+    "M2.8a-desktop.json": "884beff722dde9abef6ce53cf522654a6bf4e75c37dcc2b217914b789e31360a",
+    "M2.8a-native-skills.json": "9a0bddaa743e20bbf7618699ad9e2196cd9ee21c41c64687bc89c99cfab3252a"
+  },
+  "sourceAndBuildHashes": {
+    "packages/store/src/ledger.ts": "037d8d11f582318fda8a88aa0587a0aee5dac94f4caf6d7ab3c62bf0680a0156",
+    "packages/backup/src/restore.ts": "98a6b7e88d644c4386923afde9aeaf5d625283d2828631458a2939af2bb14e09",
+    "packages/backup/src/restore-database.ts": "ab670f443f46561e0568aae6ec2d24594113d9e2ecb701dbbfddd89f943df3c5",
+    "packages/workspace/src/service.ts": "2345c45573da8819ac6ae06d988d34a87c3cc32ad8fa6602604f40d4561561dd",
+    "packages/workspace/src/terminal.ts": "5b331cff3b7cd60c5d05629c4fc9250fb4297506b100f0df82936067cbeae630",
+    "packages/runtime/src/schedules.ts": "6bef3f8cd372b9ee6ca1efc64867f52eb161c69a438ac6fca8794a5dd1c13999",
+    "apps/desktop/src/main.ts": "bb9bbc1abd52dfb09951eecc885059f5c289ca05626e3fcd4e3914c4469795cd",
+    "tests/scheduler-pause.test.ts": "ff273cd370d1a924abff4e9a4fc95f3557aaa25c34830af5606bc9f869d670d3",
+    "tests/fixtures/scheduler-pause-worker.ts": "91c25393f711f41bc457dc17c55e3a9c256da30d6cf1df625af7a7a58540c6fb",
+    "build/desktop/main.js": "24b3923f8faa3fee1649a18c05f59cdc0d7dcf20766ee8c278521cf7c0bd4f8d"
+  }
+}

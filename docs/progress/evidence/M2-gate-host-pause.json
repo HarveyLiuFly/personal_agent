@@ -1,0 +1,28 @@
+{
+  "scope": "actual_Node_Host_pause_resume_not_physical_device_sleep",
+  "clock": "real_Date.now_UTC_no_injection",
+  "dueAtMs": 1793705345217,
+  "stoppedAtMs": 1793705343753,
+  "resumedAtMs": 1793705345474,
+  "queuedAtMs": 1793705345478,
+  "observedPsState": "T",
+  "queueCount": 1,
+  "identity": {
+    "occurrence_id": "occurrence:abfb4be75070d698368067fd5a28296f28e6858a77b892944dec98c2f83c6899",
+    "trigger_id": "schedule-trigger:fb1a759db18dd3fd490e12f7176fc8e01c5677db651613e71bdc9c58e614764a",
+    "delivery_id": "ccfeab0e-e792-41c3-a24b-98cfe15ea23d",
+    "delivery_state": "acknowledged"
+  },
+  "occurrences": 1,
+  "triggers": 1,
+  "deliveries": 1,
+  "pumpSteps": 10,
+  "modelRuns": 0,
+  "executionIntents": 0,
+  "budgetReservations": 0,
+  "modelInferenceRequested": false,
+  "physicalDeviceSleepTested": false,
+  "exitCode": 0,
+  "status": "passed",
+  "initialFailure": "default tool sandbox denied /bin/ps with EPERM; identical test passed under authorized process-status inspection, assertion retained"
+}
