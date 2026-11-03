@@ -1,4 +1,8 @@
 import type {MainChatInput,MainChatView} from '../../../packages/contracts/src/chat.ts';
+import type {ChatRouteView,ProposeMainChat,CommitChatRoute} from '../../../packages/contracts/src/routing.ts';
+import type {GoalCommand,GoalCommandResult,GoalView,GoalNotificationView,GoalSourceEventView} from '../../../packages/contracts/src/goals.ts';
+import type {MemoryClaimView,MemorySensitivity,MemoryTrust} from '../../../packages/store/src/memory.ts';
+import type {MemoryForgetReceipt} from '../../../packages/runtime/src/memory-service.ts';
 import type {OpenTerminal,TerminalView,TerminalInputReceipt,WriteTerminal} from '../../../packages/contracts/src/terminal.ts';
 import type {WorktreeCommand,WorktreePage,WorktreeInspection} from '../../../packages/contracts/src/worktrees.ts';
 import type { HostResult, ProjectView, ThreadSummary, TurnView, ItemView, Page, ProjectQuery, ThreadQuery, ItemQuery } from '../../../packages/contracts/src/views.ts';
@@ -17,6 +21,22 @@ export interface ConnectionInfo {
 }
 export interface SmokeInfo { status: 'passed' | 'error'; finalText?: string; threadId?: string; turnId?: string; errorCode?: string }
 export interface DesktopApi {
+  getRunCheckpoint(input:RunQuery):Promise<HostResult<{checkpointId:string|null;taskVersion?:number}>>;
+  rolloverRun(input:{projectId:string;runId:string;checkpointId:string;submissionKey:string}):Promise<HostResult<RunSummary>>;
+  proposeMainChat(input:ProposeMainChat):Promise<HostResult<ChatRouteView>>;
+  listChatRoutes(input:{projectId:string}):Promise<HostResult<ChatRouteView[]>>;
+  commitChatRoute(input:CommitChatRoute):Promise<HostResult<ChatRouteView>>;
+  correctChatRoute(input:{projectId:string;planId:string;taskId:string;messageId:string;focusRevision:number}):Promise<HostResult<ChatRouteView>>;
+  listGoals(input:{projectId:string}):Promise<HostResult<GoalView[]>>;
+  applyGoalCommand(input:GoalCommand):Promise<HostResult<GoalCommandResult>>;
+  listGoalNotifications(input:{goalId:string}):Promise<HostResult<GoalNotificationView[]>>;
+  listGoalSources():Promise<HostResult<Array<{sourceId:string;bindingRef:string;enabled:boolean;eventTypes:string[]}>>>;
+  listGoalSourceEvents(input:{sourceId:string}):Promise<HostResult<GoalSourceEventView[]>>;
+  memoryState():Promise<HostResult<{privacyEpoch:number;policyEpoch:number;pendingCleanupIds?:string[]}>>;
+  listMemory(input:{query:string;domain:'personal'|'task'|'coding';taskId?:string}):Promise<HostResult<MemoryClaimView[]>>;
+  rememberMessage(input:{messageId:string;sensitivity?:MemorySensitivity;factKey:string;factText:string;quote:string;trust:MemoryTrust;supersedesClaimId?:string;expectedVersion?:number}):Promise<HostResult<MemoryClaimView>>;
+  forgetMemory(input:{sourceRefs:string[];expectedPrivacyEpoch:number}):Promise<HostResult<MemoryForgetReceipt>>;
+  retryMemoryCleanup(input:{cleanupId:string}):Promise<HostResult<MemoryForgetReceipt>>;
   readMainChat(input:{projectId:string}):Promise<HostResult<MainChatView>>;
   submitMainChat(input:MainChatInput):Promise<HostResult<MainChatView>>;
   listProjectSkills(query:{projectId:string}):Promise<HostResult<ProjectSkillsView>>;

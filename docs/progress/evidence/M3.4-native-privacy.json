@@ -1,0 +1,52 @@
+{
+  "status": "passed",
+  "kind": "native_privacy_revoke_then_fresh_ephemeral_role",
+  "syntheticData": "public_generated_canary_and_seeded_artifact",
+  "provider": "original_supported_codex_login",
+  "firstRequestMayHaveBeenSent": true,
+  "secondRequestMayHaveBeenSent": true,
+  "providerRetention": "not_controlled",
+  "automaticResends": 0,
+  "firstModel": "gpt-6.1-sol",
+  "firstTurnAccepted": true,
+  "firstNativePolicyVerified": true,
+  "forgottenWhileRunStatus": "running",
+  "firstRoleContextContainedClaim": true,
+  "oldRunStatus": "outcome_unknown",
+  "oldRunExecutorClosed": true,
+  "oldUnknownHeldTokens": 32000,
+  "privacyEpochAdvanced": true,
+  "cleanup": {
+    "code": "COMPLETE",
+    "executionStopped": true,
+    "artifactsPurged": true,
+    "sourcePayloadsPurged": true,
+    "databaseCompacted": true,
+    "sqliteWalTruncated": true,
+    "localPhysicalCleanupComplete": true,
+    "externalCopies": "not_controlled"
+  },
+  "firstByteScan": {
+    "files": 3,
+    "canaryMatches": 0
+  },
+  "phase": "complete",
+  "model": "gpt-6.1-sol",
+  "freshRunStatus": "completed",
+  "freshRoleContextExcludedClaims": true,
+  "freshThreadDifferent": true,
+  "freshReply": "CLEAN",
+  "freshNativePolicyVerified": true,
+  "actualModelRequests": 2,
+  "oldRunTurnStarts": 1,
+  "finalByteScan": {
+    "files": 3,
+    "canaryMatches": 0
+  },
+  "reportedTokens": 14702,
+  "unknownHeldTokens": 32000,
+  "tools": "none",
+  "ephemeral": true,
+  "observedAt": "2026-11-03T13:10:25.786Z",
+  "ownedNativeStatePurged": true
+}

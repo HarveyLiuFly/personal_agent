@@ -10,6 +10,8 @@ export function ExecutionPanel({ project, disabled = false, mode = 'readOnly', c
   const [codeEnabled,setCodeEnabled] = useState(false), [target,setTarget] = useState(''), [paths,setPaths] = useState('');
   const [review,setReview] = useState<VerificationView>(), [verifying,setVerifying] = useState(false);
   const [checking,setChecking] = useState(false);
+  const [checkpoint,setCheckpoint]=useState<string>(),[rolling,setRolling]=useState(false);
+  const rolloverKey=useRef<string|undefined>(undefined);
   const [continuation,setContinuation]=useState<string>();
   const [requests,setRequests] = useState<InteractionView[]>([]), [stopping,setStopping] = useState(false);
   const [draft,setDraft] = useState(''), [sending,setSending] = useState(false), [error,setError] = useState<string>();
@@ -25,10 +27,11 @@ export function ExecutionPanel({ project, disabled = false, mode = 'readOnly', c
         if (runId) {
           const next = await value(window.personalAgent.getRun({ projectId: project.id, runId })); if (stopped || (selectedRef.current && selectedRef.current !== runId)) return;
           setSelected(runId); selectedRef.current = runId; setView(next);
+          if(['completed','failed'].includes(next.status)){try{const cp=await value(window.personalAgent.getRunCheckpoint({projectId:project.id,runId}));if(!stopped&&selectedRef.current===runId)setCheckpoint(cp.checkpointId??undefined);}catch{if(!stopped)setCheckpoint(undefined);}}else setCheckpoint(undefined);
           const pending = await value(window.personalAgent.listInteractions({ projectId: project.id, runId })); if (stopped || selectedRef.current !== runId) return; setRequests(pending.filter(request => request.state === 'pending'));
           if (next.turnId && pendingDraft.current === runId) { setDraft(''); key.current = undefined; pendingDraft.current = undefined; }
         }
-      } catch { if (!stopped) setError('无法更新执行状态。草稿已保留，请检查连接；不要重复提交结果未知的请求。'); }
+      } catch (failure) { if (!stopped){if(failure instanceof Error&&/RUN_NOT_IN_PROJECT|PRIVACY|THREAD_NOT_BOUND/.test(failure.message)){setView(undefined);setReview(undefined);setRequests([]);setCheckpoint(undefined);setSelected(undefined);selectedRef.current=undefined;}setError('无法更新执行状态。草稿已保留，请检查连接；不要重复提交结果未知的请求。');} }
       finally { if (!stopped) timer = setTimeout(() => void poll(), 300); }
     };
     void poll(); return () => { stopped = true; clearTimeout(timer); };
@@ -63,6 +66,7 @@ export function ExecutionPanel({ project, disabled = false, mode = 'readOnly', c
       {view ? <>
         {['preparing','submitting','running','waiting_input','waiting_approval'].includes(view.status) && <button className="secondary" data-action="interrupt-run" disabled={stopping} onClick={() => { setStopping(true); void value(window.personalAgent.interruptRun({projectId:project.id,runId:view.runId})).catch(()=>setError('停止尚未确认，请查看待核对状态。')); }}>停止</button>}
         <p className="history-note" role="status" data-run-status={view.status} data-task-status={view.taskStatus}>{view.taskStatus === 'completed' ? '已验证完成' : labels[view.status] ?? '状态未知'}</p>
+        {checkpoint&&<button className="secondary" data-action="rollover-run" disabled={blocked||rolling||sending||verifying||disabled} onClick={()=>{rolloverKey.current??=crypto.randomUUID();setRolling(true);void value(window.personalAgent.rolloverRun({projectId:project.id,runId:view.runId,checkpointId:checkpoint,submissionKey:rolloverKey.current})).then(run=>{setSelected(run.runId);selectedRef.current=run.runId;setView({...run,snapshot:null});setCheckpoint(undefined);rolloverKey.current=undefined;}).catch(()=>setError('新上下文续接尚未确认，保留原标识；请先核对执行记录。')).finally(()=>setRolling(false));}}>{rolling?'正在核对新线程…':'用可信检查点在新线程继续'}</button>}
         {view.errorCode && ['failed','outcome_unknown'].includes(view.status) && <div className="notice error">执行未完成：{view.errorCode}。请保留记录，结果未知时不要重复提交。</div>}
         {!view.blocked&&view.threadId&&runs.find(r=>r.taskId===view.taskId)?.runId===view.runId&&['completed','failed'].includes(view.status)&&['needs_review','failed'].includes(view.taskStatus)&&<button className="secondary" data-action="continue-run" disabled={blocked||sending||checking||verifying} onClick={()=>{setContinuation(view.runId);key.current=undefined;}}>继续此任务</button>}
         {view.mode === 'workspaceWrite' && canCode && ['completed','failed','cancelled','outcome_unknown'].includes(view.status) && <div className="approval-actions">

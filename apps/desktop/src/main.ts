@@ -1,9 +1,21 @@
+import {seedM3AutonomyProbe,runM3AutonomyProbe} from './m3-autonomy-probe.ts';
 import {seedMainChatProbe,runMainChatProbe} from './main-chat-probe.ts';
 import {seedRestoreProbe,runRestoreProbe} from './restore-probe.ts';
 import {RestoreService,activeRuntimePaths} from '../../../packages/backup/src/restore.ts';
 import {runWorktreeRecoveryProbe} from './worktree-recovery-probe.ts';
 import {runToolProbe} from './tool-probe.ts';
-import {BackupService} from '../../../packages/backup/src/service.ts';
+import {BackupService,backupFile} from '../../../packages/backup/src/service.ts';
+import {ChatRouteService} from '../../../packages/runtime/src/chat-routes.ts';
+import {routeRoleProfile} from '../../../packages/runtime/src/route-profile.ts';
+import {GoalService} from '../../../packages/runtime/src/goal-service.ts';
+import {MemoryService} from '../../../packages/runtime/src/memory-service.ts';
+import {LocalPrivacyCleanup} from '../../../packages/runtime/src/local-cleanup.ts';
+import {AuthenticatedSourcePoller} from '../../../packages/runtime/src/source-poller.ts';
+import {loadSourceConfiguration} from '../../../packages/runtime/src/source-config.ts';
+import {rememberUserMessage,listUserMemory} from '../../../packages/runtime/src/memory-commands.ts';
+import {showGoalNotification} from './goal-notifications.ts';
+import type {GoalCommand} from '../../../packages/contracts/src/goals.ts';
+import type {ProposeMainChat,CommitChatRoute} from '../../../packages/contracts/src/routing.ts';
 import {runBackupProbe} from './backup-probe.ts';
 import {MainResourceSampler} from '../../../packages/runtime/src/resources.ts';
 import {runResourceProbe} from './resource-probe.ts';
@@ -22,7 +34,7 @@ import { readFileSync, mkdirSync, writeFileSync, mkdtempSync, realpathSync } fro
 import { mkdtemp, mkdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { createCodeFixture } from '../../../tests/fixtures/code-project.ts';
-import { randomUUID } from 'node:crypto';
+import { randomUUID,createHash } from 'node:crypto';
 import { ExecutionLedger, LedgerError } from '../../../packages/store/src/ledger.ts';
 import { NodeVerification } from '../../../packages/verification/src/verification.ts';
 import { ForegroundExecution } from '../../../packages/runtime/src/execution.ts';
@@ -64,6 +76,8 @@ let ledger: ExecutionLedger | undefined;
 let backupService:BackupService|undefined;
 const resourceSampler=new MainResourceSampler();
 let execution: ForegroundExecution | undefined;
+let chatRoutes:ChatRouteService|undefined,goalService:GoalService|undefined,memoryService:MemoryService|undefined,goalTimer:ReturnType<typeof setInterval>|undefined;
+let sourcePoller:AuthenticatedSourcePoller|undefined,privacyCleanup:LocalPrivacyCleanup|undefined;
 let verifier: NodeVerification | undefined;
 let terminalService:TerminalService|undefined;
 let terminalStopping=false;
@@ -77,7 +91,8 @@ const toolsSmoke=process.argv.includes('--m2-tools-smoke');
 const restoreSmoke=process.argv.includes('--m2-restore-smoke'),restorePhase=process.argv.find(v=>v.startsWith('--restore-phase='))?.slice(16);
 let restoreProbeState:string|undefined;
 if(restoreSmoke){const raw=process.argv.find(v=>v.startsWith('--restore-state='))?.slice(16);if(!raw||!['prepare','reopen','verify'].includes(restorePhase??''))throw Error('RESTORE_PROBE_ARGUMENTS');const value=realpathSync(raw),local=realpathSync(resolve(root,'.local'));if(!value.startsWith(local+'/desktop-restore-smoke-')||value.slice(local.length+1).includes('/'))throw Error('RESTORE_PROBE_SCOPE');restoreProbeState=value;app.setPath('userData',value);}
-const chatSmoke=process.argv.includes('--m3-main-chat-smoke');
+const autonomySmoke=process.argv.includes('--m3-autonomy-smoke');
+const chatSmoke=autonomySmoke||process.argv.includes('--m3-main-chat-smoke');
 const skillsSmoke=process.argv.includes('--m2-skills-smoke'),skillsMethods:string[]=[];
 const resourcesSmoke=process.argv.includes('--m2-resources-smoke');
 const rehearsalSmoke=process.argv.includes('--m2-rehearsal-smoke');
@@ -120,7 +135,7 @@ else void boot().catch(async error => {
   console.error('DESKTOP_BOOT_FAILED', code);
   if (chatSmoke || skillsSmoke || resourcesSmoke || backupSmoke || worktreeCodeSmoke || recoverySmoke || terminalSmoke || worktreeSmoke || backgroundProbe || acceptanceProbe || nativeCodeSmoke || executionSmoke || historySmoke || process.argv.includes('--m0-window-smoke')) {
     if (window) { try { writeFileSync(resolve(root, '.local/desktop-failure.png'), (await window.webContents.capturePage()).toPNG()); } catch {} }
-    const file = chatSmoke?'M3.1a-desktop':skillsSmoke?'M2.8a-desktop':resourcesSmoke?'M2.2e-desktop':rehearsalSmoke?'M2.7b-desktop':backupSmoke?'M2.7a-desktop':worktreeCodeSmoke?(worktreeCodePreflight?'M2.1b-worktree-preflight':'M2.1b-worktree-native'):toolsSmoke?'M2.1b-tools-desktop':recoverySmoke?'M2.5b-desktop':terminalSmoke?'M2.6a-desktop':worktreeSmoke?'M2.5a-desktop':backgroundProbe?(backgroundNativeSmoke?'M2.4a-native-background':'M2.4a-desktop'):scheduleAutoSmoke?'M2.3d-desktop':scheduleSmoke?'M2.3c-desktop':planSmoke?'M2.2d-desktop':budgetSmoke?'M2.2c-desktop':taskSmoke?'M2.2b-desktop':acceptanceProbe?acceptanceProbe.kind==='workspace'?'M2.1a-desktop':`M1.4b-${acceptanceProbe.kind==='folder'?'native-folder':acceptanceProbe.kind==='restart'?'native-restart':'owner'}`:nativeCodeSmoke ? 'M1-native-code-desktop' : continuationSmoke?'M1.3c-desktop':interactionSmoke ? 'M1.2-desktop' : executionSmoke ? 'M1.1c-desktop' : historySmoke ? 'M1.1b-desktop' : 'M0-desktop-smoke';
+    const file = autonomySmoke?'M3.4-autonomy-desktop':chatSmoke?'M3.1b-main-chat-regression':skillsSmoke?'M2.8a-desktop':resourcesSmoke?'M2.2e-desktop':rehearsalSmoke?'M2.7b-desktop':backupSmoke?'M2.7a-desktop':worktreeCodeSmoke?(worktreeCodePreflight?'M2.1b-worktree-preflight':'M2.1b-worktree-native'):toolsSmoke?'M2.1b-tools-desktop':recoverySmoke?'M2.5b-desktop':terminalSmoke?'M2.6a-desktop':worktreeSmoke?'M2.5a-desktop':backgroundProbe?(backgroundNativeSmoke?'M2.4a-native-background':'M2.4a-desktop'):scheduleAutoSmoke?'M2.3d-desktop':scheduleSmoke?'M2.3c-desktop':planSmoke?'M2.2d-desktop':budgetSmoke?'M2.2c-desktop':taskSmoke?'M2.2b-desktop':acceptanceProbe?acceptanceProbe.kind==='workspace'?'M2.1a-desktop':`M1.4b-${acceptanceProbe.kind==='folder'?'native-folder':acceptanceProbe.kind==='restart'?'native-restart':'owner'}`:nativeCodeSmoke ? 'M1-native-code-desktop' : continuationSmoke?'M1.3c-desktop':interactionSmoke ? 'M1.2-desktop' : executionSmoke ? 'M1.1c-desktop' : historySmoke ? 'M1.1b-desktop' : 'M0-desktop-smoke';
     writeFileSync(resolve(root, `docs/progress/evidence/${file}.json`), JSON.stringify({ status: 'blocked', code, observedAt: new Date().toISOString() }) + '\n');
   }
   try {await terminalService?.stop();await worktreeService?.stop();await execution?.close(); ledger?.close();}catch{}
@@ -159,12 +174,16 @@ async function boot(): Promise<void> {
     if(worktreeCodeSmoke){createCodeFixture(fixtureWorkspace);writeFileSync(resolve(fixtureWorkspace,'src/math.mjs'),'export const sum = (a, b) => a - b;\n// SOURCE_DIRTY_KEPT\n');}
   }
   if (!historySmoke) {
-    const storageRoot=fixtureDirectory??app.getPath('userData'),runtimePaths=activeRuntimePaths(storageRoot,resolve(app.getPath('userData'),'verification'));
-    ledger = new ExecutionLedger(runtimePaths.database, readFileSync(resolve(directory, 'schema.sql'), 'utf8'),budgetSmoke?{budgetPolicy:{dailyTokens:150,reservationTokens:60}}:{});
+    const storageRoot=fixtureDirectory??app.getPath('userData'),runtimePaths=activeRuntimePaths(storageRoot,resolve(storageRoot,'verification'));
+    const sources=loadSourceConfiguration(resolve(app.getPath('userData'),'source-connections.json'));
+    sourcePoller=new AuthenticatedSourcePoller({connections:sources.connections,directory:resolve(storageRoot,'source-payloads')});
+    privacyCleanup=new LocalPrivacyCleanup({storageRoot,database:runtimePaths.database,verification:runtimePaths.verification});
+    ledger = new ExecutionLedger(runtimePaths.database, readFileSync(resolve(directory, 'schema.sql'), 'utf8'),{...(budgetSmoke?{budgetPolicy:{dailyTokens:150,reservationTokens:60}}:{}),verifySource:(id,envelope)=>sourcePoller!.verified(id,envelope),sourcePayload:(ref,sha)=>{try{const text=sourcePoller!.getPayload(ref);return createHash('sha256').update(text).digest('hex')===sha?text:null;}catch{return null;}},artifactText:(key,sha)=>{try{const data=backupFile(resolve(runtimePaths.verification,'artifacts',key),1024*1024,true);return data.sha256===sha?data.content.toString('utf8'):null;}catch{return null;}}});
     ownerEpoch=ledger.startOwner(randomUUID(), true); // OS single-instance lock was acquired before boot().
+    for(const binding of sources.bindings)ledger.bindGoalSource(binding);
     backupService=new BackupService(ledger,{directory:resolve(fixtureDirectory??app.getPath('userData'),'backups'),verificationDirectory:resolve(runtimePaths.verification,'artifacts'),...(backupSmoke?{afterStage:(stage:'snapshot'|'published')=>{if(stage==='snapshot'&&backupSmokeFirstCopy){backupSmokeFirstCopy=false;throw new LedgerError('CONTROLLED_BACKUP_COPY_FAILURE');}}}:{})});
     restoreService=new RestoreService(ledger,backupService,storageRoot);
-    if(chatSmoke)seedMainChatProbe(ledger,fixtureWorkspace!);
+    if(autonomySmoke)seedM3AutonomyProbe(ledger,fixtureWorkspace!);else if(chatSmoke)seedMainChatProbe(ledger,fixtureWorkspace!);
     if(restoreSmoke&&restorePhase==='prepare')seedRestoreProbe(restoreProbeState!,ledger,backupService);
     if (!executionSmoke && process.platform === 'darwin' && process.arch === 'arm64') {
       try { verifier = new NodeVerification(ledger,{node:resolveVerifierNode(root),cli:executable(),reporter:resolve(directory,'verification-reporter.mjs'),stateDirectory:runtimePaths.verification}); } catch {}
@@ -211,12 +230,36 @@ async function boot(): Promise<void> {
     try { return { ok: true, value: operation() }; }
     catch (error) { return { ok: false, errorCode: error instanceof LedgerError || error instanceof RpcFailure ? error.code : 'HOST_ERROR' }; }
   }
-  if(ledger&&execution){taskService=new TaskService(ledger,execution);outboxPump=new OutboxPump(ledger);outboxTimer=setInterval(()=>{try{outboxPump?.step();}catch{/* Owner/DB failures never trigger model dispatch. */}void taskService?.stepPlans().catch(()=>{});},250);outboxTimer.unref();}
-  if(ledger){scheduleService=new ScheduleService(ledger,execution);scheduleTimer=setInterval(()=>{try{scheduleService?.step();}catch{/* Failed admission transactions preserve their cursor; sent runs are never retried here. */}},1000);scheduleTimer.unref();}
+  if(ledger&&execution){
+    taskService=new TaskService(ledger,execution);chatRoutes=new ChatRouteService(ledger,execution,taskService,{profile:input=>routeRoleProfile(ledger!,input)});
+    goalService=new GoalService(ledger,execution,{sourcePoller,sources:ledger.goalSourceCatalog().map(s=>({sourceId:s.sourceId,cursor:()=>ledger!.goalSourceCursor(s.sourceId)})),send:showGoalNotification});
+    memoryService=new MemoryService({cleanupId:logical=>'privacy:'+logical.privacyEpoch,forget:input=>ledger!.forgetMemory(input),revokeRuns:async ids=>{const result=await execution!.revokeForPrivacy(ids);return{stoppedRunIds:result.closedRunIds,unknownRunIds:result.unresolvedRunIds};},purgeArtifacts:async keys=>{const result=privacyCleanup!.purgeArtifacts(keys);ledger!.confirmArtifactPurge(result.purgedKeys);return result;},purgeSourcePayloads:async refs=>{sourcePoller!.purgeAllPayloads();privacyCleanup!.purgeSnapshots();return{purgedRefs:refs};},compact:()=>ledger!.compactMemory()});
+    for(const pending of ledger.pendingMemoryCleanup())memoryService.restoreCleanup(pending.cleanupId,pending.logical);
+    goalTimer=setInterval(()=>{if(!runtimeTransition)void goalService?.tick().catch(()=>{});},15000);goalTimer.unref();
+    outboxPump=new OutboxPump(ledger);outboxTimer=setInterval(()=>{if(runtimeTransition)return;try{outboxPump?.step();}catch{/* Owner/DB failures never trigger model dispatch. */}void taskService?.stepPlans().catch(()=>{});void chatRoutes?.tick().catch(()=>{});},250);outboxTimer.unref();
+  }
+  if(ledger){scheduleService=new ScheduleService(ledger,execution);scheduleTimer=setInterval(()=>{if(runtimeTransition)return;try{scheduleService?.step();}catch{/* Failed admission transactions preserve their cursor; sent runs are never retried here. */}},1000);scheduleTimer.unref();}
   for(const [channel,method]of [['schedules:command','apply'],['schedules:list','list'],['schedules:occurrences','occurrences']] as const)ipcMain.handle(channel,(event,...args:unknown[])=>executionCommand(event,args,1,()=>{if(!scheduleService)throw new LedgerError('SCHEDULES_UNAVAILABLE');return scheduleService[method](args[0]);}));
   ipcMain.handle('execution:workspaceState', (event, ...args: unknown[]) => executionCommand(event, args, 0, () => ({ projects: ledger?.projects() ?? [], canSubmit: Boolean(execution), canCode: Boolean(verifier), canBrowseWorkspace:Boolean(workspaceReader),canBrowseSkills:Boolean(projectSkills),canManageTasks:Boolean(taskService),backgroundEnabled:keepRunningWithoutWindow,canUseTerminal:Boolean(terminalService),mode: interactionSmoke ? 'workspaceWrite' as const : 'readOnly' as const })));
   ipcMain.handle('chat:read',(event,...args:unknown[])=>executionCommand(event,args,1,()=>{if(!ledger)throw new LedgerError('MAIN_CHAT_UNAVAILABLE');return ledger.mainChat(args[0]);}));
   ipcMain.handle('chat:submit',(event,...args:unknown[])=>executionCommand(event,args,1,()=>{if(!ledger)throw new LedgerError('MAIN_CHAT_UNAVAILABLE');return ledger.submitMainChat(args[0]);}));
+  const oneId=(input:unknown,key:string):string=>{if(!input||typeof input!=='object'||Array.isArray(input)||Object.keys(input).length!==1||typeof (input as Record<string,unknown>)[key]!=='string'||!String((input as Record<string,unknown>)[key]).length||String((input as Record<string,unknown>)[key]).length>200||/[\x00-\x1f]/.test(String((input as Record<string,unknown>)[key])))throw new LedgerError('INVALID_DOMAIN_QUERY');return String((input as Record<string,unknown>)[key]);};
+  async function domainAsync<T>(event:Electron.IpcMainInvokeEvent,args:unknown[],operation:()=>Promise<T>):Promise<HostResult<T>>{authorized(event);if(runtimeTransition)return{ok:false,errorCode:'RUNTIME_RESTARTING'};if(args.length!==1)return{ok:false,errorCode:'UNEXPECTED_ARGUMENTS'};try{return{ok:true,value:await operation()};}catch(error){return{ok:false,errorCode:error instanceof LedgerError||error instanceof RpcFailure?error.code:'HOST_ERROR'};}}
+  ipcMain.handle('chat:propose',(event,...args:unknown[])=>executionCommand(event,args,1,()=>{if(!chatRoutes)throw new LedgerError('MAIN_CHAT_UNAVAILABLE');return chatRoutes.propose(args[0] as ProposeMainChat);}));
+  ipcMain.handle('chat:routes',(event,...args:unknown[])=>executionCommand(event,args,1,()=>ledger!.mainRoutes(oneId(args[0],'projectId'))));
+  ipcMain.handle('chat:commit',(event,...args:unknown[])=>domainAsync(event,args,()=>chatRoutes!.commit(args[0] as CommitChatRoute)));
+  ipcMain.handle('chat:correct',(event,...args:unknown[])=>executionCommand(event,args,1,()=>chatRoutes!.correct(args[0] as Parameters<ChatRouteService['correct']>[0])));
+  ipcMain.handle('goals:list',(event,...args:unknown[])=>executionCommand(event,args,1,()=>ledger!.listGoals(oneId(args[0],'projectId'))));
+  ipcMain.handle('goals:command',(event,...args:unknown[])=>domainAsync(event,args,()=>goalService!.apply(args[0] as GoalCommand)));
+  ipcMain.handle('goals:notifications',(event,...args:unknown[])=>executionCommand(event,args,1,()=>ledger!.goalNotifications(oneId(args[0],'goalId'))));
+  ipcMain.handle('goals:sources',(event,...args:unknown[])=>executionCommand(event,args,0,()=>ledger!.goalSourceCatalog()));
+  ipcMain.handle('goals:sourceEvents',(event,...args:unknown[])=>executionCommand(event,args,1,()=>ledger!.goalSourceEvents(oneId(args[0],'sourceId'))));
+  ipcMain.handle('memory:state',(event,...args:unknown[])=>executionCommand(event,args,0,()=>ledger!.memoryState()));
+  ipcMain.handle('memory:list',(event,...args:unknown[])=>executionCommand(event,args,1,()=>listUserMemory(ledger!,args[0])));
+  ipcMain.handle('memory:remember',(event,...args:unknown[])=>executionCommand(event,args,1,()=>rememberUserMessage(ledger!,args[0])));
+  ipcMain.handle('context:checkpoint',(event,...args:unknown[])=>executionCommand(event,args,1,()=>{const input=args[0] as {projectId:string;runId:string};if(!input||Object.keys(input).sort().join(',')!=='projectId,runId'||typeof input.projectId!=='string'||typeof input.runId!=='string')throw new LedgerError('INVALID_EXECUTION_QUERY');return ledger!.currentRunCheckpoint(input.projectId,input.runId);}));
+  ipcMain.handle('context:rollover',(event,...args:unknown[])=>executionCommand(event,args,1,()=>{if(!execution)throw new LedgerError('EXECUTION_UNAVAILABLE');return execution.rolloverRun(args[0]);}));
+  for(const channel of ['memory:forget','memory:retry'])ipcMain.handle(channel,(event,...args:unknown[])=>domainAsync(event,args,async()=>{if(!memoryService)throw new LedgerError('MEMORY_UNAVAILABLE');if(active)throw new LedgerError('RUNTIME_BUSY');runtimeTransition=true;try{await goalService?.wait();const receipt=channel==='memory:forget'?await memoryService.forget(args[0] as Parameters<MemoryService['forget']>[0]):await memoryService.retryCleanup(oneId(args[0],'cleanupId'));if(receipt.cleanup.localPhysicalCleanupComplete)ledger!.completeMemoryCleanup(receipt.logical.privacyEpoch);return receipt;}finally{runtimeTransition=false;}}));
   ipcMain.handle('tasks:list',(event,...args:unknown[])=>executionCommand(event,args,1,()=>{if(!taskService)throw new LedgerError('TASKS_UNAVAILABLE');return taskService.list(args[0]);}));
   ipcMain.handle('tasks:activity',(event,...args:unknown[])=>executionCommand(event,args,1,()=>{if(!taskService)throw new LedgerError('TASKS_UNAVAILABLE');return taskService.activity(args[0]);}));
   ipcMain.handle('runtime:resourceBudget',(event,...args:unknown[])=>executionCommand(event,args,0,()=>{if(!ledger)throw new LedgerError('TASKS_UNAVAILABLE');let mainProcess;try{mainProcess=resourceSampler.sample();}catch{}return{...ledger.resourceBudget(),occupancy:ledger.resourceOccupancy(),...(mainProcess?{mainProcess}:{})};}));
@@ -233,7 +276,7 @@ async function boot(): Promise<void> {
       if(input?.kind==='activateRestore'){
         if(active||execution?.busy)throw new LedgerError('RUNTIME_BUSY');
         const checked=restoreService.checkActivation(input),result={...backupService.command({kind:'verify',backupId:checked.view.backupId!}),restore:checked.view};
-        runtimeTransition=true;clearInterval(scheduleTimer);clearInterval(outboxTimer);
+        runtimeTransition=true;clearInterval(goalTimer);clearInterval(scheduleTimer);clearInterval(outboxTimer);
         await terminalService?.stop();await worktreeService?.stop();await execution?.close();restoreService.checkActivation(input);ledger?.close();ledger=undefined;
         restoreService.activateAfterOwnerStopped(checked.id);
         if(!process.argv.includes('--m2-restore-smoke'))app.relaunch();setTimeout(()=>app.quit(),150);
@@ -337,6 +380,7 @@ async function boot(): Promise<void> {
   windowsReady=true;
   Menu.setApplicationMenu(Menu.buildFromTemplate([{label:'Personal Agent',submenu:[{label:'显示主窗口',click:()=>{void showMainWindow().catch(()=>{});}},{type:'separator'},{label:'退出并停止运行',accelerator:'CmdOrCtrl+Q',click:()=>app.quit()}]},{role:'editMenu'},{role:'windowMenu'}]));
   window=await showMainWindow();
+  if(autonomySmoke){const storageRoot=fixtureDirectory!,paths=activeRuntimePaths(storageRoot,resolve(storageRoot,'verification'));await runM3AutonomyProbe(root,app,window,ledger!,fixtureWorkspace!,paths.database,storageRoot,paths.verification);return;}
   if(chatSmoke){await runMainChatProbe(root,app,window,ledger!,fixtureWorkspace!,resolve(fixtureDirectory!,'execution/ledger.db'));return;}
   if(restoreSmoke){await runRestoreProbe(root,restoreProbeState!,restorePhase!,app,window,ledger!,execution!);return;}
   if(skillsSmoke){await runSkillsProbe(root,app,window,resolve(fixtureDirectory!,'execution/ledger.db'),fixtureWorkspace!,skillsMethods);return;}
@@ -375,7 +419,7 @@ async function boot(): Promise<void> {
     const passed = r.rendered === true && r.hasRequire === false && r.sandboxed === true && r.isolated === true
       && r.uiConnected === true && !app.commandLine.hasSwitch('no-sandbox')
       && (r.connection as ConnectionInfo)?.status === 'connected'
-      && JSON.stringify(r.bridgeKeys) === JSON.stringify(['applyBackupCommand', 'applyScheduleCommand', 'applyTaskCommand', 'applyTaskPlan', 'applyWorktreeCommand', 'cancelTaskPlan', 'chooseProject', 'closeTerminal', 'continueRun', 'getRun', 'getVerification', 'getWorkspace', 'getWorkspaceDiff', 'inspect', 'inspectWorktree', 'interruptRun', 'listBackups', 'listInteractions', 'listItems', 'listProjectSkills', 'listRuns', 'listScheduleOccurrences', 'listSchedules', 'listTaskActivity', 'listTaskPlans', 'listTasks', 'listThreads', 'listTurns', 'listWorkspaceDirectory', 'listWorktrees', 'openTerminal', 'readMainChat', 'readTerminal', 'readWorkspaceFile', 'reconcileRun', 'reconcileTerminal', 'replyInteraction', 'resizeTerminal', 'resourceBudget', 'security', 'startTask', 'submitMainChat', 'submitMessage', 'useWorktree', 'verifyRun', 'workspaceState', 'writeTerminal']);
+      && JSON.stringify(r.bridgeKeys) === JSON.stringify(["applyBackupCommand", "applyGoalCommand", "applyScheduleCommand", "applyTaskCommand", "applyTaskPlan", "applyWorktreeCommand", "cancelTaskPlan", "chooseProject", "closeTerminal", "commitChatRoute", "continueRun", "correctChatRoute", "forgetMemory", "getRun", "getRunCheckpoint", "getVerification", "getWorkspace", "getWorkspaceDiff", "inspect", "inspectWorktree", "interruptRun", "listBackups", "listChatRoutes", "listGoalNotifications", "listGoalSourceEvents", "listGoalSources", "listGoals", "listInteractions", "listItems", "listMemory", "listProjectSkills", "listRuns", "listScheduleOccurrences", "listSchedules", "listTaskActivity", "listTaskPlans", "listTasks", "listThreads", "listTurns", "listWorkspaceDirectory", "listWorktrees", "memoryState", "openTerminal", "proposeMainChat", "readMainChat", "readTerminal", "readWorkspaceFile", "reconcileRun", "reconcileTerminal", "rememberMessage", "replyInteraction", "resizeTerminal", "resourceBudget", "retryMemoryCleanup", "rolloverRun", "security", "startTask", "submitMainChat", "submitMessage", "useWorktree", "verifyRun", "workspaceState", "writeTerminal"]);
     const evidence = { observedAt: new Date().toISOString(), kind: 'real_electron_window_smoke',
       status: passed ? 'passed' : 'blocked',
       browserSandbox: app.commandLine.hasSwitch('no-sandbox') ? 'disabled' : 'enabled', result };
@@ -574,7 +618,7 @@ app.on('second-instance',()=>{if(windowsReady&&!quitting)void showMainWindow().c
 app.on('window-all-closed',()=>{if(!keepRunningWithoutWindow&&!active)app.quit();});
 app.on('before-quit', event => {
   quitting=true;
-  clearInterval(outboxTimer);outboxTimer=undefined;clearInterval(scheduleTimer);scheduleTimer=undefined;
+  clearInterval(goalTimer);goalTimer=undefined;clearInterval(outboxTimer);outboxTimer=undefined;clearInterval(scheduleTimer);scheduleTimer=undefined;
   if(terminalService&&!terminalStopping){event.preventDefault();terminalStopping=true;void terminalService.stop().finally(()=>{terminalService=undefined;app.quit();});return;}
   if(worktreeService&&!worktreeStopping){event.preventDefault();worktreeStopping=true;void worktreeService.stop().finally(()=>{worktreeService=undefined;app.quit();});return;}
   if (active) { event.preventDefault(); quitting = true; controller?.abort(); }

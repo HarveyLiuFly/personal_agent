@@ -1,0 +1,11 @@
+{
+  "status": "blocked",
+  "kind": "same_native_goal_cold_process_source_and_stop",
+  "sourceProvider": "authenticated_self_owned_loopback_http",
+  "syntheticData": "public_code_fixture_and_signed_source_events",
+  "notificationProvider": "actual_self_owned_http_receipt",
+  "automaticResends": 0,
+  "phase": "third-readonly-process",
+  "code": "LIFECYCLE_CHILD_FAILED",
+  "observedAt": "2026-11-03T13:22:49.718Z"
+}

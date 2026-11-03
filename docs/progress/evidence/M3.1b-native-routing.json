@@ -1,0 +1,26 @@
+{
+  "status": "passed",
+  "kind": "real_locked_cli_structured_router",
+  "inferenceRequested": true,
+  "provider": "original_supported_codex_login",
+  "model": "gpt-6.1-sol",
+  "threadAccepted": true,
+  "turnAccepted": true,
+  "runStatus": "completed",
+  "routeStatus": "completed",
+  "stepKinds": [
+    "QUERY_TASK"
+  ],
+  "stepStates": [
+    "completed"
+  ],
+  "clientThreadStarts": 1,
+  "clientTurnStarts": 1,
+  "nativePolicyVerified": true,
+  "serverRequestsDenied": 0,
+  "reportedTokens": 15583,
+  "proposalTaskMutation": false,
+  "tools": "none",
+  "ephemeral": true,
+  "observedAt": "2026-11-03T12:42:42.943Z"
+}

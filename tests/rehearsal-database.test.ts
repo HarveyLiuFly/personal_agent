@@ -73,11 +73,11 @@ test('rehearsal merges latest and absent-source tombstones, advances barriers an
   const f=fixture(t);f.db.exec("INSERT INTO privacy_tombstones VALUES ('local-dot','shared-source',14,100);");
   f.current.tombstones=[{sourceRef:'shared-source',privacyEpoch:12,deletedAtMs:200},{sourceRef:'task:task',privacyEpoch:10,deletedAtMs:300},{sourceRef:'source-not-in-backup',privacyEpoch:11,deletedAtMs:400}];
   const before=structuredClone(f.current),result=prepareRehearsalDatabase(f.file,f.current,'public-rehearsal');
-  assert.deepEqual(f.current,before);assert.deepEqual(result,{runtimeEpoch:9,policyEpoch:10,privacyEpoch:15,tombstones:3,unknownRuns:1,pausedSchedules:2,revokedApprovals:2,retainedLeases:3,quarantinedArtifacts:1});
+  assert.deepEqual(f.current,before);assert.deepEqual(result,{runtimeEpoch:9,policyEpoch:10,privacyEpoch:15,tombstones:12,unknownRuns:1,pausedSchedules:2,revokedApprovals:2,retainedLeases:3,quarantinedArtifacts:1});
   assert.equal(f.one('SELECT state FROM runtime_owners').state,'stopped');assert.equal(f.one('SELECT runtime_epoch FROM runtime_owners').runtime_epoch,9);
   assert.deepEqual(f.one("SELECT privacy_epoch,deleted_at_ms FROM privacy_tombstones WHERE source_ref='shared-source'"),{privacy_epoch:14,deleted_at_ms:200});
-  assert.equal(f.one("SELECT state FROM artifacts WHERE artifact_id='private-artifact'").state,'deleted');assert.equal(f.one("SELECT state FROM artifacts WHERE artifact_id='visible-artifact'").state,'published');
-  assert.equal(f.one('SELECT count(*) AS n FROM recovery_quarantine').n,1);assert.equal(f.one('SELECT rehearsal_id FROM recovery_quarantine').rehearsal_id,'public-rehearsal');assert.equal(f.db.prepare('PRAGMA foreign_key_check').all().length,0);
+  assert.equal(f.one("SELECT state FROM artifacts WHERE artifact_id='private-artifact'").state,'deleted');assert.equal(f.one("SELECT state FROM artifacts WHERE artifact_id='visible-artifact'").state,'deleting');
+  assert.equal(f.one("SELECT title FROM tasks WHERE task_id='task'").title,'已遗忘任务');assert.equal(f.one("SELECT count(*) AS n FROM privacy_tombstones WHERE source_ref IN ('artifact:private-artifact','thread:binding')").n,2);assert.equal(f.one('SELECT count(*) AS n FROM recovery_quarantine').n,1);assert.equal(f.one('SELECT rehearsal_id FROM recovery_quarantine').rehearsal_id,'public-rehearsal');assert.equal(f.db.prepare('PRAGMA foreign_key_check').all().length,0);
 });
 test('uncertain operations and all original leases/PIDs remain evidence, with increased Task and Workspace fences',t=>{
   const f=fixture(t),leases=['workspace_write_leases','project_operation_leases','workspace_terminal_leases'].map(name=>f.db.prepare('SELECT * FROM '+name).all());

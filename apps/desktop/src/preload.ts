@@ -2,6 +2,22 @@ import { contextBridge, ipcRenderer } from 'electron';
 import type { DesktopApi } from './bridge.ts';
 
 const api: DesktopApi = Object.freeze<DesktopApi>({
+  getRunCheckpoint:input=>ipcRenderer.invoke('context:checkpoint',input),
+  rolloverRun:input=>ipcRenderer.invoke('context:rollover',input),
+  proposeMainChat:input=>ipcRenderer.invoke('chat:propose',input),
+  listChatRoutes:input=>ipcRenderer.invoke('chat:routes',input),
+  commitChatRoute:input=>ipcRenderer.invoke('chat:commit',input),
+  correctChatRoute:input=>ipcRenderer.invoke('chat:correct',input),
+  listGoals:input=>ipcRenderer.invoke('goals:list',input),
+  applyGoalCommand:input=>ipcRenderer.invoke('goals:command',input),
+  listGoalNotifications:input=>ipcRenderer.invoke('goals:notifications',input),
+  listGoalSources:()=>ipcRenderer.invoke('goals:sources'),
+  listGoalSourceEvents:input=>ipcRenderer.invoke('goals:sourceEvents',input),
+  memoryState:()=>ipcRenderer.invoke('memory:state'),
+  listMemory:input=>ipcRenderer.invoke('memory:list',input),
+  rememberMessage:input=>ipcRenderer.invoke('memory:remember',input),
+  forgetMemory:input=>ipcRenderer.invoke('memory:forget',input),
+  retryMemoryCleanup:input=>ipcRenderer.invoke('memory:retry',input),
   readMainChat:query=>ipcRenderer.invoke('chat:read',query),
   submitMainChat:input=>ipcRenderer.invoke('chat:submit',input),
   listProjectSkills:query=>ipcRenderer.invoke('skills:list',query),

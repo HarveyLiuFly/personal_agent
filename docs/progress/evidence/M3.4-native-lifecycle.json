@@ -1,0 +1,67 @@
+{
+  "status": "passed",
+  "kind": "same_native_goal_cold_process_source_and_stop",
+  "phase": "readonly_finalized",
+  "sourceProvider": "authenticated_self_owned_loopback_http",
+  "syntheticData": "public_code_fixture_and_signed_source_events",
+  "notificationProvider": "actual_self_owned_http_receipt",
+  "notificationHttpRequestsBeforeColdClose": 1,
+  "providerCountBasis": "asserted_by_original_parent_before_cold_close",
+  "automaticResends": 0,
+  "firstModel": "gpt-6.1-sol",
+  "firstModelHashVerified": true,
+  "firstNativePolicyVerified": true,
+  "goalStayedActiveAfterVerification": true,
+  "goalIdPreservedAcrossColdProcess": true,
+  "planRevisedBeforeColdClose": true,
+  "waitingBeforeColdClose": true,
+  "actualNewProcess": true,
+  "newOwnerEpoch": 2,
+  "thirdReadonlyProcess": true,
+  "oldEventQueued": 0,
+  "secondModel": "gpt-6.1-sol",
+  "secondNativePolicyVerified": true,
+  "pausedWhileRunStatus": "running",
+  "postStopRunCount": 2,
+  "postStopNewRuns": 0,
+  "secondRunBusinessSuccess": false,
+  "goalStatus": "paused",
+  "runs": 2,
+  "runStatuses": [
+    "completed",
+    "outcome_unknown"
+  ],
+  "threadStarts": 2,
+  "turnStarts": 2,
+  "interruptAttempted": true,
+  "interruptIntentState": "outcome_unknown",
+  "SDKStopAcknowledged": false,
+  "ActualProcessClosed": true,
+  "secondRunOutcome": "unknown",
+  "activeSubscriptions": 0,
+  "activeMandates": 0,
+  "notificationOperations": 1,
+  "verification": {
+    "status": "passed",
+    "code": "VERIFIED",
+    "executed": 4,
+    "skipped": 0,
+    "artifactHashMatched": true
+  },
+  "usage": [
+    {
+      "reportedTokens": 57593,
+      "unknownHeldTokens": 0
+    },
+    {
+      "reportedTokens": null,
+      "unknownHeldTokens": 32000
+    }
+  ],
+  "actualModelRequests": 2,
+  "inspectionCorrections": [
+    "Unknown interrupt is accepted only with actual executor closure, Goal/Mandate revocation and preserved held budgets.",
+    "Reservation reads use units; per-Run maximum avoids counting the global and Goal quota twice."
+  ],
+  "observedAt": "2026-11-03T13:28:58.343Z"
+}

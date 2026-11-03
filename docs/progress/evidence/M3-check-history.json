@@ -1,0 +1,102 @@
+{
+  "kind": "public_fixture_component_check_history",
+  "runs": [
+    {
+      "run": "initial-components",
+      "counts": {
+        "tests": 453,
+        "pass": 450,
+        "fail": 3,
+        "skipped": 0
+      },
+      "failedCaseNames": [
+        "rehearsal merges latest and absent-source tombstones, advances barriers and does not mutate input",
+        "rehearsal restores physical SQLite and receipts, merges current deletion barriers and preserves source and backup",
+        "restorable copy preserves current consumption, latest policy and tombstones without changing either source"
+      ],
+      "inferenceRequested": false
+    },
+    {
+      "run": "second-components",
+      "counts": {
+        "tests": 495,
+        "pass": 492,
+        "fail": 3,
+        "skipped": 0
+      },
+      "failedCaseNames": [
+        "stale signed Source batch rolls back cursor; disabled Mandate and paused Task cannot regain wake authority",
+        "rehearsal merges latest and absent-source tombstones, advances barriers and does not mutate input",
+        "rehearsal restores physical SQLite and receipts, merges current deletion barriers and preserves source and backup"
+      ],
+      "inferenceRequested": false
+    },
+    {
+      "run": "third-components",
+      "counts": {
+        "tests": 532,
+        "pass": 527,
+        "fail": 5,
+        "skipped": 0
+      },
+      "failedCaseNames": [
+        "an active runtime generation remains usable while current export and old legacy/runtime copies are purged",
+        "rehearsal merges latest and absent-source tombstones, advances barriers and does not mutate input",
+        "rehearsal restores physical SQLite and receipts, merges current deletion barriers and preserves source and backup",
+        "restorable copy preserves current consumption, latest policy and tombstones without changing either source",
+        "actual terminal Host SIGKILL at running never restarts a Shell or input"
+      ],
+      "inferenceRequested": false
+    },
+    {
+      "run": "first-check",
+      "counts": {
+        "tests": 552,
+        "pass": 547,
+        "fail": 5,
+        "skipped": 0
+      },
+      "failedCaseNames": [
+        "default queue-only schedules never dispatch; explicit readonly once uses one Run, source receipt and Intent pipeline",
+        "budget waits create no Run or RPC and resume only after the blocking real period expires",
+        "automatic work waits for the existing foreground execution without taking its session",
+        "unknown scheduled execution is never repeated by a new pump, key, or direct Host call",
+        "real user PTY makes automatic scheduling wait without a Run, then one synthetic dispatch follows close"
+      ],
+      "inferenceRequested": false
+    },
+    {
+      "run": "second-check",
+      "counts": {
+        "tests": 557,
+        "pass": 557,
+        "fail": 0,
+        "skipped": 0
+      },
+      "failedCaseNames": [],
+      "inferenceRequested": false
+    },
+    {
+      "run": "third-check",
+      "counts": {
+        "tests": 560,
+        "pass": 560,
+        "fail": 0,
+        "skipped": 0
+      },
+      "failedCaseNames": [],
+      "inferenceRequested": false
+    },
+    {
+      "run": "pre-domain-check",
+      "counts": {
+        "tests": 574,
+        "pass": 574,
+        "fail": 0,
+        "skipped": 0
+      },
+      "failedCaseNames": [],
+      "inferenceRequested": false
+    }
+  ]
+}

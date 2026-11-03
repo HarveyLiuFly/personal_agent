@@ -1,10 +1,10 @@
 # 本地 Codex 开发交接
 
-交接日期：2026-11-02（Asia/Shanghai）。用户决定停止在当前云环境中推进，改用本地电脑的 Codex 继续开发。本文件是接手入口，详细执行历史保留在阶段记录中。
+交接日期：2026-11-02（Asia/Shanghai），当前本机状态更新于2026-11-03。用户决定停止在当前云环境中推进，改用本地电脑的 Codex 继续开发。本文件是接手入口，详细执行历史保留在阶段记录中。
 
 本机当前：**M0/M1/M2 Gate 已在记录的 macOS arm64 / 锁版 CLI 0.163.0 范围通过**。M2 定位 `checkpoint/M2`，详见[阶段总览](README.md)、[M2执行历史](M2.md)和[逐工作包 Gate 收据](evidence/M2-gate.json)。最终342/342、17合同/747协议类型/TS/构建通过；Electron恢复/策略/项目隔离35项与实际Host暂停1项通过。Schema6/45 IPC，16账本和7备份/恢复文件系统故障位置分开计数。已有真实工作树代码四项独立测试与真实窗口外计划执行；本轮实际空闲运行代切换后，1次gpt-6.1-sol请求完成并结算18,097报告Token，第三新进程核实同Run，0重发。初次快照断言误判记录保留。
 
-**当前已启动 M3，最新 `checkpoint/M3.1a`**：同库持久主聊天/规则只读查询/Focus/Pending，0推理，Schema6/47 IPC。365/365、Electron专项23/23及真实桌面通过；详见[M3记录](M3.md)。当前按已选项目过滤单一Conversation，模型路由/任务控制、Context/Memory/Goal/Source仍待后续切片，M3 Gate开放。
+**当前M3 Gate已在本机范围闭合，定位 `checkpoint/M3`**：唯一Store/Gateway的结构化Router/独立Chat、逐Operation/纠错、来源化Context/CP换代、Memory修订/分域/实际遗忘、Goal/Source/预算/通知完成。586/586、Electron核心199/199、17合同/747类型/TS/构建、真实63 API桌面通过，Schema6不变。[M3记录](M3.md)、[Gate](evidence/M3-gate.json)。真实模型共8次请求，已报告175,520 Token；两笔中断保留Unknown和各32k预留，没有重发或伪称业务完成。同Goal真实代码4项验证后修订/等待、新PID Owner唤醒/停止、第三进程核对，以及运行中遗忘/新Thread/字节清理均有证据。自有鉴权HTTP Provider不等于第三方账号；OS推送/独立Daemon/休眠/正式权限和发行仍不在本点范围。M4待启动，权限管理仍M5。
 
 M2本机模式以Electron Main为唯一后台Owner；关闭窗口/Renderer崩溃继续，显式退出停止。恢复保留旧目录/安全备份及源码，合并最新删除/策略/预算，停旧计划/批准，已提交指针缺失拒绝回退；含未决占用/未知用量先在原环境核对。备份仅账本与已发布收据，认证/源码/原始Codex历史/终端输出不包含。项目Skill是隔离发现预览，MCP/插件/子Agent未启用、远端目录未加载；独立Daemon/外部Socket、休眠中执行、可写IDE及其他平台需独立开放验收。正式身份/权限管理继续M5，M3接入现有Store/Gateway，不新建第二套执行循环。开发仓库只有main；模型Unknown不自动重发，旧验证Hash不可绕过。下文原云交接内容仅保留历史事实，不覆盖本段当前状态。
 

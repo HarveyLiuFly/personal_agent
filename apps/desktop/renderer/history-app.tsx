@@ -1,4 +1,5 @@
 import {MainChatDialog} from './main-chat.tsx';
+import {AutonomyDialog} from './autonomy-manager.tsx';
 import React, { useEffect, useRef, useState } from 'react';
 import type { HostResult, ItemView, Page, ProjectView, ThreadSummary, TurnView } from '../../../packages/contracts/src/views.ts';
 
@@ -27,6 +28,7 @@ export function HistoryApp({ children }: { children: React.ReactNode }) {
   const [canCode, setCanCode] = useState(false);
   const [canBrowseWorkspace,setCanBrowseWorkspace]=useState(false),[workspaceMode,setWorkspaceMode]=useState(false);
   const [chatOpen,setChatOpen]=useState(false);
+  const [autonomyOpen,setAutonomyOpen]=useState(false);
   const [skillsMode,setSkillsMode]=useState(false),[canBrowseSkills,setCanBrowseSkills]=useState(false);
   const [canUseTerminal,setCanUseTerminal]=useState(false);
   const [canSubmit, setCanSubmit] = useState(false);
@@ -94,6 +96,7 @@ export function HistoryApp({ children }: { children: React.ReactNode }) {
       <button data-action="choose-project" className="choose-project" disabled={busy} onClick={() => void choose()}>＋ 选择项目</button>
       {projects.length > 0 && <select className="project-select" aria-label="已保存项目" disabled={busy} value={project?.id ?? ''} onChange={e => { const p = projects.find(p => p.id === e.target.value); if (p) { setProject(p); setExecutionMode(true);setWorkspaceMode(false);setSkillsMode(false); resetThread(); setThreads(undefined); } }}>{projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select>}
       {project&&canManageTasks&&<button className="text-button" data-action="open-main-chat" disabled={busy} onClick={()=>setChatOpen(true)}>主聊天</button>}
+      {project&&canManageTasks&&<button className="text-button" data-action="open-autonomy" disabled={busy} onClick={()=>setAutonomyOpen(true)}>目标与记忆</button>}
       {project && canSubmit && <button className="text-button" data-action="project-tasks" disabled={busy} onClick={() => {setExecutionMode(true);setWorkspaceMode(false);setSkillsMode(false);}}>项目任务</button>}
       {project&&canBrowseWorkspace&&<button className="text-button" data-action="open-workspace" disabled={busy} onClick={()=>{setSkillsMode(false);setWorkspaceMode(true);}}>工作区 · 文件与 Git</button>}
       {project&&canBrowseSkills&&<button className="text-button" data-action="open-project-skills" disabled={busy} onClick={()=>{setSkillsMode(true);}}>项目技能与能力</button>}
@@ -113,6 +116,7 @@ export function HistoryApp({ children }: { children: React.ReactNode }) {
       <BackupManager/>
       {error && <div role="alert" className="notice error">{errorText(error)}</div>}
       {chatOpen&&project&&<MainChatDialog key={project.id} project={project} onClose={()=>setChatOpen(false)}/>}
+      {autonomyOpen&&project&&<AutonomyDialog key={project.id} project={project} onClose={()=>setAutonomyOpen(false)}/>}
       {skillsMode&&project&&<ProjectSkillsDialog key={project.id} project={project} onBusyChange={setBusy} onClose={()=>setSkillsMode(false)}/>}
       {workspaceMode&&project?<WorkspacePanel key={project.id} project={project} canUseTerminal={canUseTerminal} onBusyChange={setBusy} onProjectsChanged={setProjects} onSelected={p=>{setProject(p);setThreads(undefined);resetThread();setExecutionMode(true);setWorkspaceMode(true);}}/>:executionMode && project && canSubmit ? <>{canManageTasks&&<TaskManager key={'tasks:'+project.id} project={project} canCode={canCode} onBusyChange={setBusy} onStarted={runId=>setRequestedRun({projectId:project.id,runId})}/>}<ExecutionPanel key={project.id} project={project} disabled={busy} mode={mode} canCode={canCode} requestedRunId={requestedRun?.projectId===project.id?requestedRun.runId:undefined}/></> : !thread ? <section className="welcome"><span className="welcome-mark">⌘</span><h2>{project ? '继续查看你的工作' : '从一个项目开始'}</h2>
         <p>{project ? '从左侧选择一个会话，查看消息、命令和文件变更记录。' : '选择本机的项目目录，打开属于这个项目的会话历史。'}</p>

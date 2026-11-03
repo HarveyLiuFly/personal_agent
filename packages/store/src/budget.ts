@@ -21,9 +21,27 @@ export class BudgetLedger {
   this.exec("INSERT OR IGNORE INTO budget_buckets VALUES (?,?,NULL,'tokens',?,?,?,0,0)",key,this.dot,start,start+86400000,policy.daily_token_limit!);
   return this.one('SELECT * FROM budget_buckets WHERE bucket_id=? AND dot_id=?',key,this.dot)??this.fail('BUDGET_SCOPE_MISMATCH');
  }
+ /** Allocate the current-day Goal constraint inside the same claim transaction as its Run. */
+ private goalBucket(goalId:string,now:number):void {
+  const goal=this.one('SELECT status,constraints_json,deadline_at_ms FROM goals WHERE goal_id=? AND dot_id=?',goalId,this.dot)??this.fail('GOAL_NOT_ACTIVE');
+  if(goal.status!=='active'||goal.deadline_at_ms!==null&&Number(goal.deadline_at_ms)<=now)this.fail('GOAL_NOT_ACTIVE');
+  const constraints:unknown=JSON.parse(String(goal.constraints_json));
+  // Legacy M2 Goals have no declared daily quota: their explicit buckets keep their original semantics.
+  if(!constraints||typeof constraints!=='object'||Array.isArray(constraints)||!Object.hasOwn(constraints,'budgetTokens'))return;
+  const units=(constraints as {budgetTokens:unknown}).budgetTokens;if(!Number.isSafeInteger(units)||Number(units)<1||Number(units)>1000000000)this.fail('INVALID_GOAL_BUDGET');
+  const start=Math.floor(now/86400000)*86400000,key='goal-tokens:'+hash([this.dot,goalId,start]);
+  this.exec("INSERT OR IGNORE INTO budget_buckets VALUES (?,?,?,'tokens',?,?,?,0,0)",key,this.dot,goalId,start,start+86400000,Number(units));
+  const updated=this.exec("UPDATE budget_buckets SET limit_units=min(limit_units,?) WHERE bucket_id=? AND dot_id=? AND goal_id=? AND unit='tokens' AND period_start_ms=? AND period_end_ms=?",Number(units),key,this.dot,goalId,start,start+86400000);
+  if(Number(updated.changes)!==1)this.fail('BUDGET_SCOPE_MISMATCH');
+ }
  reserve(runId:string,goalId:string|null):void {
   const policy=this.one('SELECT * FROM budget_policies WHERE dot_id=?',this.dot)??this.fail('BUDGET_POLICY_UNAVAILABLE'),units=Number(policy.reservation_tokens),now=Date.now(),primary=this.bucket(now);
-  if(Number(this.one(`SELECT COUNT(*) AS n FROM task_runs WHERE dot_id=? AND status IN ${active}`,this.dot)!.n)>Number(policy.max_active_runs))this.fail('RUNTIME_BUSY');
+  if(goalId!==null)this.goalBucket(goalId,now);
+  const readOnly=this.one("SELECT json_extract(t.constraints_json,'$.mode') AS mode FROM task_runs r JOIN tasks t USING(task_id) WHERE r.run_id=? AND r.dot_id=?",runId,this.dot)?.mode==='readOnly';
+  // Privacy revocation plus a real Host closure can release execution capacity
+  // for a fresh read-only Run. Its unknown Token reservation remains held.
+  const executing=this.one(`SELECT COUNT(*) AS n FROM task_runs r JOIN tasks t USING(task_id) WHERE r.dot_id=? AND r.status IN ${active} AND NOT (?=1 AND r.status='outcome_unknown' AND coalesce(json_extract(t.constraints_json,'$.mode'),'')='readOnly' AND coalesce(json_extract(t.constraints_json,'$.privacyRevoked'),0)=1 AND NOT EXISTS(SELECT 1 FROM workspace_write_leases l WHERE l.run_id=r.run_id) AND EXISTS(SELECT 1 FROM task_events e WHERE e.run_id=r.run_id AND e.event_type='executor_closed'))`,this.dot,readOnly?1:0)!;
+  if(Number(executing.n)>Number(policy.max_active_runs))this.fail('RUNTIME_BUSY');
   const extra=this.all('SELECT * FROM budget_buckets WHERE dot_id=? AND bucket_id<>? AND (goal_id IS NULL OR goal_id=?) AND period_start_ms<=? AND period_end_ms>?',this.dot,primary.bucket_id!,goalId,now,now);
   if(extra.length>16)this.fail('BUDGET_BUCKET_LIMIT');if(extra.some(b=>b.unit!=='tokens'))this.fail('COST_ESTIMATE_UNAVAILABLE');
   for(const bucket of [primary,...extra]){

@@ -1,0 +1,127 @@
+{
+  "scope": "Design SQL constraints, DTO consistency and documented conditional statements only.",
+  "sqlite_version": "3.53.0",
+  "checks": [
+    {
+      "check": "single_schema_initialization_and_foreign_keys",
+      "status": "passed"
+    },
+    {
+      "check": "sql_typescript_status_consistency",
+      "status": "passed"
+    },
+    {
+      "check": "task_transition_guards_shape",
+      "status": "passed"
+    },
+    {
+      "check": "single_active_run_and_nonreused_fence",
+      "status": "passed"
+    },
+    {
+      "check": "orphan_and_cross_dot_references_rejected",
+      "status": "passed"
+    },
+    {
+      "check": "stale_fence_cas_rejected",
+      "status": "passed"
+    },
+    {
+      "check": "stop_requested_task_blocks_new_claims",
+      "status": "passed"
+    },
+    {
+      "check": "task_event_sequence_and_run_scope",
+      "status": "passed"
+    },
+    {
+      "check": "active_thread_and_workspace_writer_uniqueness",
+      "status": "passed"
+    },
+    {
+      "check": "intent_ordering_and_idempotency",
+      "status": "passed"
+    },
+    {
+      "check": "per_operation_identity_and_dependency",
+      "status": "passed"
+    },
+    {
+      "check": "immutable_source_and_per_task_delivery",
+      "status": "passed"
+    },
+    {
+      "check": "occurrence_dedup_and_schedule_version_guard",
+      "status": "passed"
+    },
+    {
+      "check": "single_use_hash_bound_action_receipt",
+      "status": "passed"
+    },
+    {
+      "check": "budget_admission_and_actual_overrun_accounting",
+      "status": "passed"
+    },
+    {
+      "check": "privacy_tombstone_dependency_lookup",
+      "status": "passed"
+    },
+    {
+      "check": "stage_document_navigation_requirements_and_protocol_evidence",
+      "status": "passed"
+    }
+  ],
+  "passed": 17,
+  "application_e2e_executed": false,
+  "runtime_security_verified": false,
+  "files": [
+    {
+      "path": "docs/design/00_总体架构与开发规划.md",
+      "sha256": "90beeaca5df8560fb7bf813b608426aae02e7cd88bd3005cb6b2a3ee18ac6370"
+    },
+    {
+      "path": "docs/design/01_M0_M1_Codex接入与桌面交互.md",
+      "sha256": "6d91a0db069d09de466b100eccf4e16a0ec355bf56b89bd3532c822435cc6a67"
+    },
+    {
+      "path": "docs/design/02_M2_工作台与持久执行.md",
+      "sha256": "5f3d824399701dbe85dcab139eb08b56dd805515dbef5352332b4b45ea5f0ec9"
+    },
+    {
+      "path": "docs/design/03_M3_单主聊天_上下文与个人记忆.md",
+      "sha256": "ff283ea5adddb9845899803ecca6834196e73e1f19d9e5f8442da812a632d804"
+    },
+    {
+      "path": "docs/design/04_M2_M3_事件调度与长期自治.md",
+      "sha256": "c42c2690a009a5de250a421dc1ba0fe4b87281def268eebaa698ec46eac2b791"
+    },
+    {
+      "path": "docs/design/05_M2_M3_可信执行与ComputerUse.md",
+      "sha256": "68876b22aa433cea62c9a35e094a32b65c3d69dddeb8e2341c56d4138a021959"
+    },
+    {
+      "path": "docs/design/06_M4_M5_多设备与产品化.md",
+      "sha256": "ce4f955279111f553b26cfe2b10dceed31b8a10c0c4bf95c3dd5d8e60b00b690"
+    },
+    {
+      "path": "docs/design/07_可选_DeepSeek执行器适配.md",
+      "sha256": "ce715ab6acf0b930710f2469cb32d8eb24e0b14fedb7a870c208e91e9d599048"
+    },
+    {
+      "path": "docs/design/contracts/schema.sql",
+      "sha256": "6e3b73a15e2631598fb76f071eed0ddd03493585abeef22c303f9a179729ff6b"
+    },
+    {
+      "path": "docs/design/contracts/domain.ts",
+      "sha256": "6989cd25bae9a1af3de08c75605c20d9e1f7b83d8bf9bc22a67df839653513e0"
+    },
+    {
+      "path": "docs/design/contracts/protocol-capabilities.json",
+      "sha256": "3702998c684f5a79f60ab1348ecab5038a5b7ce1d2bcafe29bf86bf270f450c3"
+    },
+    {
+      "path": "docs/design/contracts/validate_contracts.py",
+      "sha256": "2b620144a19d0a7e3732a2e583df8c91bd2d2b495e47fd6c09acc45ae65eb6d2"
+    }
+  ]
+}

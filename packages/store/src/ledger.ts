@@ -1,3 +1,15 @@
+import {GoalLedger} from './goals.ts';
+import type {GoalCommand,TrustedSourceConfig,TrustedSourceEnvelope} from '../../contracts/src/goals.ts';
+import {MemoryLedger} from './memory.ts';
+import type {MemoryClaimInput,MemorySensitivity} from './memory.ts';
+import {ContextLedger} from './context.ts';
+import {DomainContextSources} from './context-sources.ts';
+import {verifiedO200kTokenizer,O200K_COUNTER_FINGERPRINT} from '../../runtime/src/tokenizer.ts';
+import type {ContextCounter,ContextSource} from '../../runtime/src/context.ts';
+let contextCounter:ContextCounter|undefined;
+const lazyContextCounter:ContextCounter={basis:'tokens',fingerprint:O200K_COUNTER_FINGERPRINT,count:text=>(contextCounter??=verifiedO200kTokenizer().counter).count(text)};
+import type {ChatRouteView,ProposeMainChat,RouteStep} from '../../contracts/src/routing.ts';
+import {validateRoutePlan} from '../../runtime/src/routing.ts';
 import {routeMainChat} from '../../runtime/src/chat-router.ts';
 import type {MainChatInput,MainChatView,MainChatEntry} from '../../contracts/src/chat.ts';
 import { createHash, randomUUID } from 'node:crypto';
@@ -42,7 +54,7 @@ export interface ReconciliationClaim {
 }
 export interface OutboxClaim {outboxId:string;claimEpoch:number;runtimeEpoch:number;eventId:string;taskId:string;expiresAt:number}
 export interface QueuedRun {token:RunToken;created:boolean;text:string;code?:CodeTaskSpec;threadId?:string;sourceRunId?:string}
-export interface LedgerOptions {/** Trusted fault injection only; never accepted over IPC. */afterOutboxProjectionForTests?:()=>void;afterPlanEffectForTests?:(index:number)=>void;afterScheduleTickForTests?:()=>void;afterScheduledClaimForTests?:()=>void;/** Trusted clock injection; never accepted over IPC. */schedulerClock?:()=>number;/** Seeds a new local policy only. Never accepted over execution IPC. */budgetPolicy?:BudgetPolicy}
+export interface LedgerOptions {artifactText?:(storageKey:string,sha256:string)=>string|null;verifySource?:(sourceId:string,envelope:TrustedSourceEnvelope)=>boolean;sourcePayload?:(ref:string,sha256:string)=>string|null;/** Trusted fault injection only; never accepted over IPC. */afterOutboxProjectionForTests?:()=>void;afterPlanEffectForTests?:(index:number)=>void;afterScheduleTickForTests?:()=>void;afterScheduledClaimForTests?:()=>void;/** Trusted clock injection; never accepted over IPC. */schedulerClock?:()=>number;/** Seeds a new local policy only. Never accepted over execution IPC. */budgetPolicy?:BudgetPolicy}
 
 /** Host-only local store. startOwner requires the caller to hold the OS single-instance lock. */
 export class ExecutionLedger {
@@ -53,6 +65,7 @@ export class ExecutionLedger {
   private budget:BudgetLedger;
   private scheduler:SchedulerLedger;
   private terminals:TerminalLedger;
+  private goals!:GoalLedger;private memory!:MemoryLedger;private contexts!:ContextLedger;private contextSources!:DomainContextSources;
   readonly profileId = 'local-profile';
   readonly dotId = 'local-dot';
   constructor(path: string, schemaSql: string, options:LedgerOptions={}) {
@@ -95,6 +108,12 @@ export class ExecutionLedger {
         if(typeof constraints.inputHash!=='string'||typeof constraints.text!=='string')return fail('TASK_INPUT_UNAVAILABLE');
         return{taskId,projectId,version:Number(task.version),status:String(task.status),blocked:task.dispatch_blocked===1,active:Boolean(this.one(`SELECT run_id FROM task_runs WHERE task_id=? AND status IN ${active}`,taskId)),authority,inputHash:constraints.inputHash,mode:String(constraints.mode)};
       },event:(taskId,type,payload)=>{this.event(taskId,null,type,payload);},transition:(taskId,status)=>{this.transition(taskId,status);}});
+      this.memory=new MemoryLedger(this.#db,this.dotId,fail,{owner:()=>this.owner(),transaction:body=>this.#db.isTransaction?body():this.tx(body)});
+      this.contextSources=new DomainContextSources(this.#db,this.dotId,fail,{workspace:id=>this.contextWorkspaceRevision(id),messageVisible:mid=>this.chatVisible(mid),sourcePayload:(ref,sha)=>this.options.sourcePayload?.(ref,sha)??null,artifactText:(key,sha)=>this.options.artifactText?.(key,sha)??null,memoryClaim:(claimId,taskId)=>this.memory.readContextClaim(claimId,taskId)});
+      this.contexts=new ContextLedger(this.#db,this.dotId,fail,{owner:()=>this.owner(),tx:body=>this.#db.isTransaction?body():this.tx(body),counter:lazyContextCounter,workspaceRevision:workspaceId=>this.contextWorkspaceRevision(workspaceId),source:(ref,taskId)=>this.contextSources.resolve(ref,taskId)});
+      this.goals=new GoalLedger(this.#db,this.dotId,fail,{owner:()=>this.owner(),tx:body=>this.#db.isTransaction?body():this.tx(body),createTaskInTransaction:(projectId,text,key,goalId,code)=>{
+        this.workspace(projectId);const input:TaskCommand={kind:'create',projectId,commandKey:key,text,...(code?{code}:{})},normalized=this.validateTaskCommand(input),opened=this.openOperation(key,'CREATE_TASK',normalized,null,null),receipt=opened.created?this.applyTaskOperation(input,opened.operationId,normalized):this.operationReceipt(opened.operationId);this.exec('UPDATE tasks SET goal_id=? WHERE task_id=?',goalId,receipt.taskId);return{taskId:receipt.taskId,version:receipt.taskVersion};
+      },scheduleInTransaction:(projectId,taskId,version,key,config)=>{this.scheduler.create(projectId,taskId,version,'goal-schedule:'+hashInput(key),this.scheduler.config(config),this.schedulerNow());},verifySource:(sourceId,envelope)=>this.options.verifySource?.(sourceId,envelope)??false,verifyGoalEvidence:(goalId,taskIds,verificationIds)=>this.verifyGoalReceipts(goalId,taskIds,verificationIds),event:(taskId,type,payload)=>{this.event(taskId,null,type,payload);}});
       if (path !== ':memory:') chmodSync(path, 0o600);
     } catch (error) { this.#db.close(); throw error; }
   }
@@ -105,6 +124,10 @@ export class ExecutionLedger {
     this.#db.exec('BEGIN IMMEDIATE');
     try { const result = operation(); this.#db.exec('COMMIT'); return result; }
     catch (error) { this.#db.exec('ROLLBACK'); throw error; }
+  }
+  private hasBlockingExecution(mode:'readOnly'|'workspaceWrite'):boolean {
+    const rows=this.all(`SELECT r.run_id,r.status,t.constraints_json FROM task_runs r JOIN tasks t USING(task_id) WHERE r.dot_id=? AND r.status IN ${active}`,this.dotId);
+    return rows.some(r=>{const c=JSON.parse(String(r.constraints_json));return !(mode==='readOnly'&&r.status==='outcome_unknown'&&c.mode==='readOnly'&&c.privacyRevoked===true&&!this.one('SELECT run_id FROM workspace_write_leases WHERE run_id=?',r.run_id!)&&this.one("SELECT event_id FROM task_events WHERE run_id=? AND event_type='executor_closed'",r.run_id!));});
   }
   private owner(): void {
     const current = this.one('SELECT * FROM runtime_owners WHERE profile_id=?', this.profileId);
@@ -122,7 +145,7 @@ export class ExecutionLedger {
     const task = this.one('SELECT status FROM tasks WHERE task_id=?', taskId);
     if (!task || !taskTransitions[task.status as TaskStatus].includes(target)) fail('INVALID_TASK_TRANSITION');
     this.exec('UPDATE tasks SET status=?,version=version+1,updated_at_ms=? WHERE task_id=?', target, Date.now(), taskId);
-    if(target==='paused'||target==='cancelled'||target==='completed')this.scheduler.stopTask(taskId,target==='paused'?'paused':'cancelled');
+    if(target==='paused'||target==='cancelled'||target==='completed'){this.scheduler.stopTask(taskId,target==='paused'?'paused':'cancelled');this.goals?.stopTask(taskId,target==='paused'?'paused':'cancelled');}
   }
   private projectOperationAvailable(workspaceId:string):void {
     if(this.one('SELECT l.session_id FROM workspace_terminal_leases l JOIN workspaces w ON w.workspace_id=l.workspace_id JOIN workspaces scope ON scope.project_id=w.project_id WHERE scope.workspace_id=? AND scope.dot_id=?',workspaceId,this.dotId))return fail('WORKSPACE_TERMINAL_ACTIVE');
@@ -156,7 +179,7 @@ export class ExecutionLedger {
       }
       return next;
     });
-    this.#epoch = epoch; this.#instance = instanceId; return epoch;
+    this.#epoch = epoch; this.#instance = instanceId; this.goals.recoverNotifications(); return epoch;
   }
   registerWorkspace(directory: string, gitRoot?: string): ProjectView {
     this.owner();
@@ -337,7 +360,7 @@ export class ExecutionLedger {
     this.workspace(projectId);return this.registeredTasks(projectId);
   }
   private registeredTasks(projectId:string):TaskSummary[]{
-    return this.all("SELECT * FROM tasks WHERE workspace_id=? AND dot_id=? AND NOT EXISTS(SELECT 1 FROM privacy_tombstones p WHERE p.dot_id=tasks.dot_id AND p.source_ref IN (tasks.task_id,'task:'||tasks.task_id)) ORDER BY updated_at_ms DESC,rowid DESC LIMIT 100",projectId,this.dotId).map(t=>({
+    return this.all("SELECT * FROM tasks WHERE workspace_id=? AND dot_id=? AND json_extract(constraints_json,'$.internalRole') IS NULL AND NOT EXISTS(SELECT 1 FROM privacy_tombstones p WHERE p.dot_id=tasks.dot_id AND p.source_ref IN (tasks.task_id,'task:'||tasks.task_id)) ORDER BY updated_at_ms DESC,rowid DESC LIMIT 100",projectId,this.dotId).map(t=>({
       projectId,taskId:String(t.task_id),title:String(t.title),status:t.status as TaskStatus,version:Number(t.version),blocked:t.dispatch_blocked===1,
       activeRunId:this.one(`SELECT run_id FROM task_runs WHERE task_id=? AND status IN ${active}`,t.task_id!)?.run_id as string??null,
       mode:JSON.parse(String(t.constraints_json)).mode==='workspaceWrite'?'workspaceWrite':'readOnly',updatedAt:Number(t.updated_at_ms),
@@ -352,7 +375,7 @@ export class ExecutionLedger {
   mainChat(input:unknown):MainChatView {
     if(!input||typeof input!=='object'||Array.isArray(input)||Object.keys(input).length!==1||!Object.hasOwn(input,'projectId')||!id((input as {projectId?:unknown}).projectId))return fail('INVALID_CHAT_QUERY');
     const projectId=(input as {projectId:string}).projectId;this.chatProject(projectId);this.exec("UPDATE pending_interactions SET state='expired' WHERE dot_id=? AND kind='clarification' AND state='pending' AND expires_at_ms<=? AND json_extract(options_json,'$.source')='main-chat-rules-v1'",this.dotId,Date.now());const tasks=this.registeredTasks(projectId),conversation=this.one('SELECT conversation_id FROM conversations WHERE dot_id=?',this.dotId),focus=conversation?this.one('SELECT * FROM focus_states WHERE conversation_id=? AND dot_id=?',conversation.conversation_id!,this.dotId):undefined,focused=tasks.find(t=>t.taskId===focus?.focused_task_id);
-    const rows=this.all("SELECT m.*,d.decision_json FROM messages m JOIN router_decisions d USING(message_id) WHERE m.dot_id=? AND d.router_revision='main-chat-rules-v1' AND json_extract(d.decision_json,'$.projectId')=? ORDER BY m.created_at_ms DESC,m.rowid DESC LIMIT 201",this.dotId,projectId);
+    const rows=this.all("SELECT m.*,d.decision_json FROM messages m JOIN router_decisions d USING(message_id) WHERE m.dot_id=? AND d.router_revision IN ('main-chat-rules-v1','main-chat-proposal-v2') AND json_extract(d.decision_json,'$.projectId')=? ORDER BY m.created_at_ms DESC,m.rowid DESC LIMIT 201",this.dotId,projectId);
     const messages:MainChatEntry[]=[];let remaining=65536,truncated=rows.length>50;
     for(const row of rows){if(!this.chatVisible(String(row.message_id)))continue;if(messages.length>=50){truncated=true;break;}const data=JSON.parse(String(row.decision_json)),original=String(row.content),max=Math.min(2000,remaining);let text=original.slice(0,max);if(/[\uD800-\uDBFF]$/.test(text))text=text.slice(0,-1);remaining-=text.length;if(!text){truncated=true;break;}messages.push({messageId:String(row.message_id),text,createdAt:Number(row.created_at_ms),kind:data.kind,reason:data.reason,task:data.task??null,pendingInteractionId:data.pendingInteractionId??null,truncated:text!==original});truncated||=text!==original;}
     const pending=conversation?this.all("SELECT * FROM pending_interactions WHERE dot_id=? AND kind='clarification' AND state='pending' AND expires_at_ms>? AND json_extract(options_json,'$.source')='main-chat-rules-v1' AND json_extract(options_json,'$.projectId')=? ORDER BY rowid DESC LIMIT 11",this.dotId,Date.now(),projectId).filter(p=>this.chatVisible(String(p.origin_message_id))).slice(0,10).map(p=>{const options=JSON.parse(String(p.options_json));return{id:String(p.interaction_id),messageId:String(p.origin_message_id),expiresAt:Number(p.expires_at_ms),choices:(options.choices as Array<{taskId:string;title:string;version:number}>).filter(c=>tasks.some(t=>t.taskId===c.taskId&&t.version===c.version))};}):[];
@@ -385,6 +408,55 @@ export class ExecutionLedger {
       if(pendingId){const choices=route.candidates.map(id=>tasks.find(t=>t.taskId===id)).filter(Boolean).map(t=>({taskId:t!.taskId,title:t!.title,version:t!.version}));this.exec("INSERT INTO pending_interactions VALUES (?,?,?,NULL,'clarification','pending',NULL,?,?)",pendingId,this.dotId,q.messageId,JSON.stringify({source:'main-chat-rules-v1',projectId:q.projectId,choices}),createdAt+15*60000);}
     });return this.mainChat({projectId:q.projectId});
   }
+  private routeCandidates(projectId:string,text:string,explicit?:string):TaskSummary[]{
+    const focus=this.one('SELECT focused_task_id FROM focus_states WHERE dot_id=?',this.dotId)?.focused_task_id??null;
+    return this.all("SELECT * FROM tasks WHERE workspace_id=? AND dot_id=? AND json_extract(constraints_json,'$.internalRole') IS NULL AND NOT EXISTS(SELECT 1 FROM privacy_tombstones p WHERE p.dot_id=tasks.dot_id AND p.source_ref IN (tasks.task_id,'task:'||tasks.task_id)) ORDER BY CASE WHEN task_id=? THEN 0 WHEN instr(?,task_id)>0 THEN 1 WHEN task_id=? THEN 2 WHEN length(trim(title))>0 AND instr(?,title)>0 THEN 3 ELSE 4 END,updated_at_ms DESC,rowid DESC LIMIT 20",projectId,this.dotId,explicit??null,text,focus,text).map(t=>({projectId,taskId:String(t.task_id),title:String(t.title),status:t.status as TaskStatus,version:Number(t.version),blocked:t.dispatch_blocked===1,activeRunId:this.one(`SELECT run_id FROM task_runs WHERE task_id=? AND status IN ${active}`,t.task_id!)?.run_id as string??null,mode:JSON.parse(String(t.constraints_json)).mode==='workspaceWrite'?'workspaceWrite':'readOnly',updatedAt:Number(t.updated_at_ms)}));
+  }
+  private routeData(projectId:string,planId:string):{row:Row;data:any}{
+    this.chatProject(projectId);const row=this.one("SELECT d.*,m.dot_id FROM router_decisions d JOIN messages m USING(message_id) WHERE d.decision_id=? AND d.router_revision='main-chat-proposal-v2' AND m.dot_id=?",planId,this.dotId);if(!row||!this.chatVisible(String(row.message_id)))return fail('ROUTE_PLAN_UNAVAILABLE');const data=JSON.parse(String(row.decision_json));if(data.projectId!==projectId)return fail('ROUTE_PROJECT_MISMATCH');return{row,data};
+  }
+  mainRoutes(projectId:string):ChatRouteView[]{this.chatProject(projectId);return this.all("SELECT d.decision_id,d.message_id FROM router_decisions d JOIN messages m USING(message_id) WHERE m.dot_id=? AND router_revision='main-chat-proposal-v2' AND json_extract(decision_json,'$.projectId')=? ORDER BY d.created_at_ms DESC,d.rowid DESC LIMIT 20",this.dotId,projectId).filter(r=>this.chatVisible(String(r.message_id))).map(r=>this.routeData(projectId,String(r.decision_id)).data.route);}
+  prepareMainRoute(input:ProposeMainChat):{route:ChatRouteView;candidates:TaskSummary[];sourceRefs:Array<{ref:string;revision:string}>;focusTaskId:string|null}{
+    if(!input||typeof input!=='object'||Object.keys(input).some(k=>!['projectId','messageId','text','focusRevision','taskId'].includes(k))||!id(input.projectId)||!id(input.messageId)||typeof input.text!=='string'||!input.text.trim()||input.text.length>8192||input.text.includes('\0')||!Number.isSafeInteger(input.focusRevision)||input.focusRevision<0||(input.taskId!==undefined&&!id(input.taskId)))return fail('INVALID_ROUTE_INPUT');this.chatProject(input.projectId);
+    return this.tx(()=>{this.owner();const planId='route:'+input.messageId,inputHash=hashInput(input),previous=this.one('SELECT content_hash FROM messages WHERE message_id=?',input.messageId);
+      if(previous){if(previous.content_hash!==inputHash)return fail('IDEMPOTENCY_CONFLICT');const {data}=this.routeData(input.projectId,planId);return{route:data.route,candidates:data.candidates,sourceRefs:data.sourceRefs,focusTaskId:data.focusTaskId};}
+      const conversationId=this.conversation(),focus=this.one('SELECT * FROM focus_states WHERE conversation_id=?',conversationId);if(Number(focus?.revision??0)!==input.focusRevision)return fail('CHAT_FOCUS_CHANGED');const candidates=this.routeCandidates(input.projectId,input.text,input.taskId);if(input.taskId&&!candidates.some(t=>t.taskId===input.taskId))return fail('ROUTE_TASK_NOT_CANDIDATE');
+      const epochs=this.one('SELECT policy_epoch,privacy_epoch FROM dots WHERE dot_id=?',this.dotId)!,createdAt=Date.now(),route:ChatRouteView={id:planId,messageId:input.messageId,projectId:input.projectId,state:'prepared',routingRunId:null,version:1,steps:[],plan:null,createdAt},sourceRefs=[{ref:'message:'+input.messageId,revision:inputHash},...candidates.map(t=>({ref:'task:'+t.taskId,revision:String(t.version)}))],data={projectId:input.projectId,kind:'note',reason:'structured_route',task:null,pendingInteractionId:null,route,candidates,sourceRefs,focusTaskId:input.taskId??(candidates.some(t=>t.taskId===focus?.focused_task_id)?String(focus!.focused_task_id):null),input,policyEpoch:epochs.policy_epoch,privacyEpoch:epochs.privacy_epoch};
+      this.exec("INSERT INTO messages(message_id,conversation_id,dot_id,role,content,content_hash,route_state,created_at_ms) VALUES (?,?,?,'user',?,?,'pending',?)",input.messageId,conversationId,this.dotId,input.text,inputHash,createdAt);this.exec('INSERT INTO router_decisions VALUES (?,?,?,?,?,?)',planId,input.messageId,'main-chat-proposal-v2',JSON.stringify(candidates.map(t=>({taskId:t.taskId,version:t.version}))),JSON.stringify(data),createdAt);
+      for(const t of candidates)this.exec('INSERT OR IGNORE INTO derivation_edges VALUES (?,?,?,?,?)',this.dotId,'task:'+t.taskId,'message:'+input.messageId,String(t.version),epochs.privacy_epoch!);return{route,candidates,sourceRefs,focusTaskId:data.focusTaskId};});
+  }
+  routeModelBound(projectId:string,planId:string,runId:string):ChatRouteView{return this.tx(()=>{this.owner();const {data}=this.routeData(projectId,planId),run=this.runForHost(runId);if(run.workspaceId!==projectId||(data.route.routingRunId&&data.route.routingRunId!==runId))return fail('ROUTE_RUN_MISMATCH');data.route.routingRunId=runId;data.route.state='proposing';data.route.version++;this.exec('UPDATE router_decisions SET decision_json=? WHERE decision_id=?',JSON.stringify(data),planId);return data.route;});}
+  saveRouteModel(projectId:string,planId:string,raw:unknown,errorCode?:string):ChatRouteView{return this.tx(()=>{this.owner();const {data}=this.routeData(projectId,planId);if(data.route.state!=='proposing')return fail('ROUTE_NOT_PROPOSING');
+    if(errorCode){data.route.state='outcome_unknown';data.route.errorCode=errorCode;}else{const run=this.runForHost(data.route.routingRunId);if(run.status!=='completed')return fail('ROUTE_RUN_NOT_COMPLETED');data.route.plan=validateRoutePlan(raw,data.candidates);data.route.steps=data.route.plan.operations.map((operation:any,index:number)=>({index,state:'pending',operation}));data.route.state='proposed';}
+    data.route.version++;this.exec('UPDATE router_decisions SET decision_json=? WHERE decision_id=?',JSON.stringify(data),planId);return data.route;});}
+  beginRouteCommit(projectId:string,planId:string,expectedVersion:number):ChatRouteView{return this.tx(()=>{this.owner();const {data,row}=this.routeData(projectId,planId);if(['completed','committing','outcome_unknown','corrected'].includes(data.route.state))return data.route;if(data.route.state!=='proposed'||data.route.version!==expectedVersion)return fail('ROUTE_VERSION_CHANGED');
+    const epochs=this.one('SELECT policy_epoch,privacy_epoch FROM dots WHERE dot_id=?',this.dotId)!,focus=this.one('SELECT revision FROM focus_states WHERE dot_id=?',this.dotId);if(epochs.policy_epoch!==data.policyEpoch||epochs.privacy_epoch!==data.privacyEpoch||Number(focus?.revision??0)!==data.input.focusRevision)return fail('ROUTE_CONTEXT_CHANGED');
+    for(const op of data.route.plan.operations){if(op.taskId){const captured=data.candidates.find((t:TaskSummary)=>t.taskId===op.taskId),current=this.taskRow(projectId,op.taskId);if(!captured||current.version!==captured.version||this.one('SELECT source_ref FROM privacy_tombstones WHERE dot_id=? AND source_ref IN (?,?)',this.dotId,op.taskId,'task:'+op.taskId))return fail('ROUTE_CANDIDATE_CHANGED');}}
+    data.route.state='committing';data.route.version++;this.exec("UPDATE messages SET route_state='decided' WHERE message_id=?",row.message_id!);this.exec('UPDATE router_decisions SET decision_json=? WHERE decision_id=?',JSON.stringify(data),planId);return data.route;});}
+  routeStepContext(projectId:string,planId:string,index:number){
+    this.owner();const {data}=this.routeData(projectId,planId),route=data.route as ChatRouteView,step=route.steps[index];if(!step&&['committing','completed','failed','outcome_unknown'].includes(route.state))return fail('ROUTE_STEP_UNAVAILABLE');
+    if(step?.state==='pending'){
+      const epochs=this.one('SELECT policy_epoch,privacy_epoch FROM dots WHERE dot_id=?',this.dotId)!;if(epochs.policy_epoch!==data.policyEpoch||epochs.privacy_epoch!==data.privacyEpoch)return fail('ROUTE_CONTEXT_CHANGED');
+      if(route.state!=='committing')return fail('ROUTE_NOT_COMMITTING');
+      if(step.operation.taskId){const captured=(data.candidates as TaskSummary[]).find(t=>t.taskId===step.operation.taskId),current=this.routeQuery(projectId,step.operation.taskId);let expected=captured?.version;for(const previous of route.steps.slice(0,index))if(previous.state==='completed'&&previous.receipt?.taskId===current.taskId)expected=previous.receipt.taskVersion;if(current.version!==expected)return fail('ROUTE_CANDIDATE_CHANGED');}
+    }
+    return{route,step:step as RouteStep,candidates:data.candidates as TaskSummary[],input:data.input as ProposeMainChat};
+  }
+  routeChildResult(projectId:string,key:string):{receipt:OperationReceipt|null;run:RunRecord|null;domain?:{operationId:string;result:string}}{
+    this.owner();this.chatProject(projectId);if(!id(key))return fail('INVALID_ROUTE_CHILD_KEY');
+    const op=this.one('SELECT o.operation_id,o.task_id FROM operations o JOIN router_decisions d USING(decision_id) JOIN messages m USING(message_id) WHERE d.decision_id IN (?,?) AND m.dot_id=?','command:'+hashInput([this.dotId,key]),'command:'+hashInput([this.dotId,'continue:'+key]),this.dotId);
+    let receipt:OperationReceipt|null=null;if(op){const task=this.taskRow(projectId,String(op.task_id));void task;receipt=this.operationReceipt(String(op.operation_id));}
+    const row=this.one('SELECT r.run_id FROM task_runs r JOIN tasks t USING(task_id) WHERE r.idempotency_key=? AND t.workspace_id=? AND r.dot_id=?',key,projectId,this.dotId);const run=row?this.runs(projectId,{runId:String(row.run_id),includeHiddenForHost:true})[0]??null:null;const goalOp=this.one("SELECT o.* FROM operations o JOIN router_decisions d USING(decision_id) JOIN messages m USING(message_id) WHERE d.decision_id=? AND m.dot_id=? AND o.kind='GOAL_CREATE' AND o.state='completed'",'goal-command:'+hashInput([this.dotId,key]),this.dotId);if(goalOp){const saved=JSON.parse(String(goalOp.result_ref));if(saved.goal?.projectId!==projectId||!this.listGoals(projectId).some(g=>g.goalId===saved.goal.goalId))return fail('ROUTE_GOAL_UNAVAILABLE');return{receipt,run,domain:{operationId:String(goalOp.operation_id),result:JSON.stringify(saved.goal)}};}return{receipt,run};
+  }
+  saveRouteStep(projectId:string,planId:string,step:RouteStep):ChatRouteView{return this.tx(()=>{this.owner();const {data}=this.routeData(projectId,planId),prior=data.route.steps[step.index] as RouteStep|undefined;if(!['committing','outcome_unknown'].includes(data.route.state)||!prior||data.route.state==='outcome_unknown'&&prior.state!=='executing')return fail('ROUTE_NOT_COMMITTING');if(step.state==='completed'){
+      const messageId=String(this.routeData(projectId,planId).row.message_id),privacy=this.memoryState().privacyEpoch;
+      if(step.operation.kind==='CREATE_TASK'&&step.receipt){this.taskRow(projectId,step.receipt.taskId);this.exec("INSERT OR IGNORE INTO message_task_links VALUES (?,?,?,'reference')",messageId,step.receipt.taskId,this.dotId);for(const [from,to]of [['message:'+messageId,'task:'+step.receipt.taskId],['task:'+step.receipt.taskId,'message:'+messageId]])this.exec('INSERT OR IGNORE INTO derivation_edges VALUES (?,?,?,?,?)',this.dotId,from!,to!,String(step.receipt.taskVersion),privacy);}
+      if(step.operation.kind==='CREATE_GOAL'&&step.result){const goal=JSON.parse(step.result);if(!id(goal.goalId)||!this.listGoals(projectId).some(g=>g.goalId===goal.goalId))return fail('ROUTE_GOAL_UNAVAILABLE');for(const [from,to]of [['message:'+messageId,'goal:'+goal.goalId],['goal:'+goal.goalId,'message:'+messageId]])this.exec('INSERT OR IGNORE INTO derivation_edges VALUES (?,?,?,?,?)',this.dotId,from!,to!,String(goal.version),privacy);}
+    }
+    data.route.steps[step.index]=step;data.route.version++;if(data.route.steps.some((s:RouteStep)=>s.state==='outcome_unknown'))data.route.state='outcome_unknown';else if(data.route.steps.every((s:RouteStep)=>['completed','failed','cancelled'].includes(s.state)))data.route.state=data.route.steps.some((s:RouteStep)=>s.state==='failed')?'failed':'completed';this.exec('UPDATE router_decisions SET decision_json=? WHERE decision_id=?',JSON.stringify(data),planId);return data.route;});}
+  routeQuery(projectId:string,taskId:string):TaskSummary {this.chatProject(projectId);return this.routeCandidates(projectId,taskId,taskId).find(t=>t.taskId===taskId)??fail('TASK_NOT_IN_PROJECT');}
+  correctMainRoute(projectId:string,planId:string,targetTaskId:string,messageId:string,focusRevision:number):ChatRouteView{return this.tx(()=>{this.owner();const {data}=this.routeData(projectId,planId),prior=this.one('SELECT content_hash FROM messages WHERE message_id=? AND dot_id=?',messageId,this.dotId);if(prior){const decision=this.one('SELECT decision_json FROM router_decisions WHERE decision_id=?','correction:'+messageId),saved=decision?JSON.parse(String(decision.decision_json)):null;if(prior.content_hash!==hashInput([planId,targetTaskId])||saved?.projectId!==projectId||saved?.correctedPlan!==planId||saved?.task?.taskId!==targetTaskId)return fail('IDEMPOTENCY_CONFLICT');if(!this.chatVisible(messageId))return fail('CHAT_MESSAGE_UNAVAILABLE');return data.route;}const target=this.taskRow(projectId,targetTaskId),conversationId=this.conversation(),focus=this.one('SELECT * FROM focus_states WHERE conversation_id=?',conversationId);if(Number(focus?.revision??0)!==focusRevision)return fail('CHAT_FOCUS_CHANGED');if(data.route.steps.some((s:RouteStep)=>['executing','outcome_unknown'].includes(s.state)))return fail('CORRECTION_REQUIRES_RECONCILIATION');if(!id(messageId)||this.one('SELECT message_id FROM messages WHERE message_id=?',messageId))return fail('IDEMPOTENCY_CONFLICT');this.taskAuthority(target);
+    data.route.steps=data.route.steps.map((s:RouteStep)=>s.state==='pending'?{...s,state:'cancelled',errorCode:'USER_CORRECTION'}:s);data.route.state='corrected';data.route.version++;this.exec('UPDATE router_decisions SET decision_json=? WHERE decision_id=?',JSON.stringify(data),planId);const text='Correct discussion target; prior effects preserved.';this.exec("INSERT INTO messages(message_id,conversation_id,dot_id,role,content,content_hash,route_state,created_at_ms) VALUES (?,?,?,'user',?,?,'decided',?)",messageId,conversationId,this.dotId,text,hashInput([planId,targetTaskId]),Date.now());this.exec('INSERT INTO router_decisions VALUES (?,?,?,?,?,?)','correction:'+messageId,messageId,'main-chat-rules-v1','[]',JSON.stringify({projectId,kind:'query',reason:'user_correction',task:this.routeQuery(projectId,targetTaskId),pendingInteractionId:null,correctedPlan:planId}),Date.now());this.exec("INSERT INTO message_task_links VALUES (?,?,?,'reference')",messageId,targetTaskId,this.dotId);this.exec('INSERT INTO focus_states VALUES (?,?,?,?,?) ON CONFLICT(conversation_id) DO UPDATE SET focused_task_id=excluded.focused_task_id,established_by_message_id=excluded.established_by_message_id,revision=excluded.revision',conversationId,this.dotId,targetTaskId,messageId,focusRevision+1);return data.route;});}
   taskForHost(projectId:string,taskId:string):{mode:'readOnly'|'workspaceWrite'} {
     this.workspace(projectId);const task=this.taskRow(projectId,taskId);return{mode:JSON.parse(String(task.constraints_json)).mode==='workspaceWrite'?'workspaceWrite':'readOnly'};
   }
@@ -440,8 +512,19 @@ export class ExecutionLedger {
     return this.tx(()=>{
       this.owner();const opened=this.openOperation(input.commandKey,taskCommandKinds[input.kind],normalized,input.kind==='create'?null:input.taskId,input.kind==='create'?null:input.expectedVersion);
       if(!opened.created)return this.operationReceipt(opened.operationId);
-      return this.applyTaskOperation(input,opened.operationId,normalized);
+      const receipt=this.applyTaskOperation(input,opened.operationId,normalized);if(input.kind==='create')this.linkRouteCreation(input.commandKey,input.projectId,'task:'+receipt.taskId,receipt.taskVersion);return receipt;
     });
+  }
+  /** The new object and its originating user source become related before either creation commits. */
+  private linkRouteCreation(commandKey:string,projectId:string,targetRef:string,version:number):void{
+    if(!commandKey.startsWith('chat-route-child:'))return;
+    for(const row of this.all("SELECT d.*,m.dot_id FROM router_decisions d JOIN messages m USING(message_id) WHERE m.dot_id=? AND d.router_revision='main-chat-proposal-v2' AND json_extract(d.decision_json,'$.projectId')=? AND json_extract(d.decision_json,'$.route.state')='committing' ORDER BY d.rowid DESC LIMIT 20",this.dotId,projectId)){
+      const data=JSON.parse(String(row.decision_json)),step=(data.route.steps as RouteStep[]).find(s=>'chat-route-child:'+hashInput([data.route.id,s.index])===commandKey);if(!step)continue;
+      if(step.state!=='executing'||targetRef.startsWith('task:')&&step.operation.kind!=='CREATE_TASK'||targetRef.startsWith('goal:')&&step.operation.kind!=='CREATE_GOAL')return fail('ROUTE_CREATION_MISMATCH');
+      if(targetRef.startsWith('task:')){const task=this.taskRow(projectId,targetRef.slice(5)),input=JSON.parse(String(task.constraints_json));if(input.text!==step.operation.text||input.mode!=='readOnly')return fail('ROUTE_CREATION_MISMATCH');this.exec("INSERT OR IGNORE INTO message_task_links VALUES (?,?,?,'reference')",row.message_id!,task.task_id!,this.dotId);}
+      else{const goal=this.listGoals(projectId).find(g=>'goal:'+g.goalId===targetRef);if(!goal||goal.objective!==step.operation.text)return fail('ROUTE_CREATION_MISMATCH');}
+      const privacy=Number(this.one('SELECT privacy_epoch FROM dots WHERE dot_id=?',this.dotId)!.privacy_epoch),source='message:'+row.message_id;for(const [from,to]of [[source,targetRef],[targetRef,source]])this.exec('INSERT OR IGNORE INTO derivation_edges VALUES (?,?,?,?,?)',this.dotId,from!,to!,String(version),privacy);return;
+    }
   }
   private applyTaskOperation(input:TaskCommand,operationId:string,normalized:unknown):OperationReceipt {
     if(input.kind==='create'){
@@ -604,8 +687,9 @@ export class ExecutionLedger {
       const prior=this.one('SELECT * FROM task_runs WHERE idempotency_key=?',key);
       if(prior){if(prior.task_id!==taskId||Number(prior.task_snapshot_version)!==expectedVersion+1)return fail('IDEMPOTENCY_CONFLICT');return{token:{runId:String(prior.run_id),epoch:Number(prior.runtime_epoch),taskFence:Number(prior.task_fence)},created:false,text:data.text,...(data.code?{code:data.code}:{})};}
       if(task.version!==expectedVersion)return fail('TASK_VERSION_CONFLICT');if(task.status!=='queued'||task.dispatch_blocked!==0)return fail('TASK_NOT_DISPATCHABLE');
+      if(key===JSON.parse(String(task.constraints_json)).goalDispatchKey)this.goals.assertDispatchCandidate(projectId,taskId,expectedVersion,key);
       const epochs=this.taskAuthority(task);
-      if(this.one(`SELECT run_id FROM task_runs WHERE dot_id=? AND status IN ${active}`,this.dotId))return fail('RUNTIME_BUSY');
+      if(this.hasBlockingExecution(data.mode))return fail('RUNTIME_BUSY');
       const binding=this.one("SELECT execution_thread_id FROM thread_bindings WHERE task_id=? AND state='active'",taskId),source=this.one('SELECT * FROM task_runs WHERE task_id=? ORDER BY started_at_ms DESC,rowid DESC LIMIT 1',taskId);
       const plan=source?this.verificationPlan(String(source.run_id)):null,code=data.code??(plan?{profile:'node-test' as const,target:plan.target,allowedPaths:plan.allowedPaths}:undefined);
       if(data.mode==='workspaceWrite'&&(!code||binding&&!plan))return fail('VERIFICATION_NOT_CONFIGURED');
@@ -701,7 +785,7 @@ export class ExecutionLedger {
         if (savedHash !== inputHash) return fail('IDEMPOTENCY_CONFLICT');
         return { token: { runId: String(previous.run_id), epoch: Number(previous.runtime_epoch), taskFence: Number(previous.task_fence) }, created: false };
       }
-      if (this.one(`SELECT run_id FROM task_runs WHERE dot_id=? AND status IN ${active}`, this.dotId)) return fail('RUNTIME_BUSY');
+      if(this.hasBlockingExecution(mode))return fail('RUNTIME_BUSY');
       this.projectOperationAvailable(workspaceId);
       const taskId = randomUUID(), runId = randomUUID(),epochs=this.one('SELECT policy_epoch,privacy_epoch FROM dots WHERE dot_id=?',this.dotId)!;
       this.exec("INSERT INTO tasks(task_id,dot_id,workspace_id,title,constraints_json,status,created_at_ms,updated_at_ms) VALUES (?,?,?,?,?,'created',?,?)", taskId, this.dotId, workspaceId, text.slice(0, 120), JSON.stringify({ inputHash, mode, text }), Date.now(), Date.now());
@@ -728,14 +812,14 @@ export class ExecutionLedger {
     this.workspace(workspaceId);
     return this.tx(()=>{
       this.owner();const source=this.runForHost(sourceRunId);
-      if(source.workspaceId!==workspaceId||!source.threadId)return fail('RUN_NOT_CONTINUABLE');
+      if(source.workspaceId!==workspaceId||!source.threadId)return fail('RUN_NOT_CONTINUABLE');if(this.one('SELECT role FROM prompt_manifests WHERE run_id=?',sourceRunId)?.role!=='coding')return fail('ROLE_THREAD_NOT_RESUMABLE');
       const inputHash=hashInput([workspaceId,text,source.mode,'continuation',sourceRunId]);
       const previous=this.one('SELECT * FROM task_runs WHERE idempotency_key=? AND dot_id=?',key,this.dotId);
       if(previous){const manifest=JSON.parse(String(this.one('SELECT module_hashes_json FROM prompt_manifests WHERE run_id=?',previous.run_id!)!.module_hashes_json));if(manifest.submission!==inputHash)return fail('IDEMPOTENCY_CONFLICT');return{token:{runId:String(previous.run_id),epoch:Number(previous.runtime_epoch),taskFence:Number(previous.task_fence)},created:false,threadId:source.threadId,mode:source.mode};}
       this.projectOperationAvailable(workspaceId);
       const task=this.one('SELECT * FROM tasks WHERE task_id=?',source.taskId)!;
       if(!['completed','failed'].includes(source.status)||!['needs_review','failed'].includes(String(task.status))||source.blocked||task.write_fence!==source.taskFence)return fail('RUN_NOT_CONTINUABLE');
-      if(this.one(`SELECT run_id FROM task_runs WHERE dot_id=? AND status IN ${active}`,this.dotId))return fail('RUNTIME_BUSY');
+      if(this.hasBlockingExecution(source.mode))return fail('RUNTIME_BUSY');
       const epochs=this.taskAuthority(task);const sourceEpochs=this.one('SELECT policy_epoch,privacy_epoch FROM task_runs WHERE run_id=?',sourceRunId)!;if(sourceEpochs.policy_epoch!==epochs.policy_epoch||sourceEpochs.privacy_epoch!==epochs.privacy_epoch)return fail('RUN_GRANT_EXPIRED');
       if(source.mode==='workspaceWrite'&&!this.verificationPlan(sourceRunId))return fail('VERIFICATION_NOT_CONFIGURED');
       this.transition(source.taskId,'queued');this.transition(source.taskId,'running');this.exec('UPDATE tasks SET write_fence=write_fence+1 WHERE task_id=?',source.taskId);
@@ -757,21 +841,31 @@ export class ExecutionLedger {
       return{token:{runId,epoch:this.#epoch,taskFence:fence},created:true,threadId:source.threadId,mode:source.mode};
     });
   }
-  private guard(token: RunToken, allowBlocked = false, allowUnknown = false): Row {
+  private guard(token: RunToken, allowBlocked = false, allowUnknown = false, forStop = false): Row {
     this.owner();
     const row = this.one('SELECT r.*,t.workspace_id,t.goal_id,t.write_fence,t.dispatch_blocked,t.constraints_json,t.status AS task_status,d.policy_epoch AS current_policy,d.privacy_epoch AS current_privacy FROM task_runs r JOIN tasks t USING(task_id) JOIN dots d ON d.dot_id=r.dot_id WHERE r.run_id=? AND r.dot_id=?', token.runId, this.dotId);
     if (!row || token.epoch !== this.#epoch || row.runtime_epoch !== this.#epoch || row.task_fence !== token.taskFence || row.write_fence !== token.taskFence) return fail('STALE_RUN');
     if ((!allowUnknown && row.status === 'outcome_unknown') || (!allowBlocked && row.dispatch_blocked === 1) || ['completed','failed','cancelled'].includes(String(row.status))) return fail('RUN_DISPATCH_BLOCKED');
-    if (row.policy_epoch !== row.current_policy || row.privacy_epoch !== row.current_privacy || Number(row.lease_until_ms) <= Date.now()) return fail('RUN_GRANT_EXPIRED');
-    if(row.goal_id&&!this.one("SELECT goal_id FROM goals WHERE goal_id=? AND dot_id=? AND status='active' AND plan_version=?",row.goal_id,this.dotId,row.goal_plan_version??null))return fail('RUN_GRANT_EXPIRED');
-    if (JSON.parse(String(row.constraints_json)).mode === 'workspaceWrite') {
+    if (!forStop && (row.policy_epoch !== row.current_policy || row.privacy_epoch !== row.current_privacy || Number(row.lease_until_ms) <= Date.now())) return fail('RUN_GRANT_EXPIRED');
+    if(!forStop&&row.goal_id&&!this.one("SELECT goal_id FROM goals WHERE goal_id=? AND dot_id=? AND status='active' AND plan_version=?",row.goal_id,this.dotId,row.goal_plan_version??null))return fail('RUN_GRANT_EXPIRED');
+    if (!forStop && JSON.parse(String(row.constraints_json)).mode === 'workspaceWrite') {
       const lease = this.one('SELECT l.*,w.write_fence FROM workspace_write_leases l JOIN workspaces w USING(workspace_id) WHERE l.workspace_id=?', row.workspace_id!);
       if (!lease || lease.run_id !== token.runId || lease.workspace_fence !== lease.write_fence || Number(lease.lease_until_ms) <= Date.now()) return fail('WORKSPACE_GRANT_EXPIRED');
     }
-    this.workspace(String(row.workspace_id)); return row;
+    if(!forStop)this.workspace(String(row.workspace_id)); return row;
   }
   heartbeat(token: RunToken): void {
     this.tx(() => { const run = this.guard(token, true); this.exec('UPDATE task_runs SET lease_until_ms=? WHERE run_id=?', Date.now() + 60_000, token.runId); this.exec('UPDATE workspace_write_leases SET lease_until_ms=? WHERE run_id=?', Date.now() + 60_000, token.runId); this.exec('UPDATE runtime_owners SET updated_at_ms=? WHERE profile_id=?', Date.now(), this.profileId); void run; });
+  }
+  bindRoleInput(token:RunToken,text:string):void{this.tx(()=>{this.guard(token);if(typeof text!=='string'||!text||text.length>65536||this.one('SELECT intent_id FROM execution_intents WHERE run_id=?',token.runId))return fail('ROLE_INPUT_ALREADY_BOUND');const manifest=this.one('SELECT module_hashes_json FROM prompt_manifests WHERE run_id=?',token.runId)!,hashes=JSON.parse(String(manifest.module_hashes_json));hashes.user=hashInput(text);this.exec('UPDATE prompt_manifests SET module_hashes_json=? WHERE run_id=?',JSON.stringify(hashes),token.runId);});}
+  prepareRoleTask(token:RunToken,role:string):void{this.tx(()=>{this.guard(token);if(!['dot-router','dot-chat','research','goal-reviewer','memory-extractor','checkpoint-resume'].includes(role)||this.one('SELECT intent_id FROM execution_intents WHERE run_id=?',token.runId))return fail('INVALID_ROLE_PROFILE');this.exec("UPDATE tasks SET title=?,constraints_json=json_set(constraints_json,'$.internalRole',?) WHERE task_id=(SELECT task_id FROM task_runs WHERE run_id=?)",role==='dot-router'?'主聊天规划':'主聊天回答',role,token.runId);});}
+  configureRoleManifest(token:RunToken,role:string,refs:Array<{ref:string;revision:string}>,contextHash:string):void {
+    this.tx(()=>{this.guard(token);if(!['dot-router','dot-chat','research','goal-reviewer','memory-extractor','checkpoint-resume'].includes(role)||!refs.length||refs.length>100||!/^[a-f0-9]{64}$/.test(contextHash))return fail('INVALID_ROLE_MANIFEST');
+      const seen=new Set<string>();for(const ref of refs){if(!id(ref.ref)||typeof ref.revision!=='string'||ref.revision.length>200||seen.has(ref.ref)||this.one('SELECT source_ref FROM privacy_tombstones WHERE dot_id=? AND source_ref IN (?,?)',this.dotId,ref.ref,ref.ref.replace(/^[^:]+:/,'')))return fail('CONTEXT_SOURCE_UNAVAILABLE');seen.add(ref.ref);}
+      const priorRefs=JSON.parse(String(this.one('SELECT context_refs_json FROM prompt_manifests WHERE run_id=?',token.runId)!.context_refs_json));this.exec('UPDATE prompt_manifests SET role=?,context_refs_json=? WHERE run_id=?',role,JSON.stringify(priorRefs.length?priorRefs:refs),token.runId);this.exec("UPDATE tasks SET title=?,constraints_json=json_set(constraints_json,'$.internalRole',?) WHERE task_id=(SELECT task_id FROM task_runs WHERE run_id=?)",role==='dot-router'?'主聊天规划':'主聊天回答',role,token.runId);
+      for(const ref of refs)this.exec('INSERT OR IGNORE INTO derivation_edges VALUES (?,?,?,?,?)',this.dotId,ref.ref,'manifest:'+token.runId,ref.revision,this.one('SELECT privacy_epoch FROM dots WHERE dot_id=?',this.dotId)!.privacy_epoch!);
+      this.event(this.runForHost(token.runId).taskId,token.runId,'role_context_bound',{role,contextHash,sourceCount:refs.length});
+    });
   }
   configureManifest(token: RunToken, moduleHashes: Record<string, string>, toolProfileHash: string): void {
     if (Object.keys(moduleHashes).length > 16 || [...Object.values(moduleHashes),toolProfileHash].some(value => !/^[0-9a-f]{64}$/.test(value))) return fail('INVALID_MANIFEST');
@@ -791,7 +885,8 @@ export class ExecutionLedger {
   prepare(token: RunToken, key: string, kind: 'thread_start' | 'thread_resume' | 'turn_start' | 'turn_interrupt', params: unknown, threadId: string | null = null, turnId: string | null = null): Intent {
     if (!id(key) || !['thread_start','thread_resume','turn_start','turn_interrupt'].includes(kind) || (kind !== 'thread_start' && !id(threadId))) return fail('INVALID_INTENT');
     return this.tx(() => {
-      const run = this.guard(token, kind === 'turn_interrupt');
+      const run = this.guard(token, kind === 'turn_interrupt',false,kind === 'turn_interrupt');
+      if(kind!=='turn_interrupt'&&JSON.parse(String(this.one('SELECT module_hashes_json FROM prompt_manifests WHERE run_id=?',token.runId)!.module_hashes_json)).contextManifest)this.contexts.assertRunFresh(token.runId);
       const inputHash = hashInput(params);
       const previous = this.one('SELECT * FROM execution_intents WHERE intent_key=?', key);
       if (previous) {
@@ -816,7 +911,8 @@ export class ExecutionLedger {
   sending(token: RunToken, intentId: string, connectionEpoch: number): string {
     if (!Number.isSafeInteger(connectionEpoch) || connectionEpoch < 1) return fail('INVALID_CONNECTION_EPOCH');
     return this.tx(() => {
-      const intent = this.intent(intentId), run = this.guard(token, intent.kind === 'turn_interrupt');
+      const intent = this.intent(intentId), run = this.guard(token, intent.kind === 'turn_interrupt',false,intent.kind === 'turn_interrupt');
+      if(intent.kind!=='turn_interrupt'&&JSON.parse(String(this.one('SELECT module_hashes_json FROM prompt_manifests WHERE run_id=?',token.runId)!.module_hashes_json)).contextManifest)this.contexts.assertRunFresh(token.runId);
       const own = this.one('SELECT run_id FROM execution_intents WHERE intent_id=?', intentId)!;
       if (own.run_id !== token.runId || intent.state !== 'prepared') return fail('INTENT_NOT_PREPARED');
       const rpcId = `intent-${intentId}`;
@@ -828,11 +924,11 @@ export class ExecutionLedger {
   }
   accepted(token: RunToken, intentId: string, result: { threadId?: string; turnId?: string }): void {
     this.tx(() => {
-      const intent = this.intent(intentId), run = this.guard(token, intent.kind === 'turn_interrupt');
+      const intent = this.intent(intentId), run = this.guard(token, intent.kind === 'turn_interrupt',false,intent.kind === 'turn_interrupt');
       if (this.one('SELECT run_id FROM execution_intents WHERE intent_id=?', intentId)?.run_id !== token.runId || intent.state !== 'sending') return fail('INTENT_NOT_SENDING');
       if (intent.kind === 'thread_start') {
         if (!id(result.threadId)) return fail('INVALID_THREAD_RESPONSE');
-        this.exec("INSERT INTO thread_bindings VALUES (?,?,'codex',?,1,1,'active',NULL)", randomUUID(), run.task_id!, result.threadId);
+        const generation=Number(this.one('SELECT coalesce(max(generation),0)+1 AS n FROM thread_bindings WHERE task_id=?',run.task_id!)!.n);this.exec("INSERT INTO thread_bindings VALUES (?,?,'codex',?, ?,?,'active',NULL)",randomUUID(),run.task_id!,result.threadId,generation,this.one('SELECT privacy_epoch FROM dots WHERE dot_id=?',this.dotId)!.privacy_epoch!);for(const ref of JSON.parse(String(this.one('SELECT context_refs_json FROM prompt_manifests WHERE run_id=?',token.runId)?.context_refs_json??'[]')))this.exec('INSERT OR IGNORE INTO derivation_edges VALUES (?,?,?,?,?)',this.dotId,ref.ref,'thread:'+result.threadId,ref.revision,this.one('SELECT privacy_epoch FROM dots WHERE dot_id=?',this.dotId)!.privacy_epoch!);
       } else if (intent.kind === 'turn_start' && !id(result.turnId)) return fail('INVALID_TURN_RESPONSE');
       if (intent.threadId && result.threadId && intent.threadId !== result.threadId) return fail('THREAD_NOT_BOUND');
       this.exec("UPDATE execution_intents SET state='accepted',execution_thread_id=COALESCE(execution_thread_id,?),execution_turn_id=COALESCE(execution_turn_id,?),response_ref=? WHERE intent_id=?", result.threadId ?? null, result.turnId ?? null, `rpc:${intent.rpcId}`, intentId);
@@ -864,14 +960,15 @@ export class ExecutionLedger {
     });
   }
   block(token: RunToken): void {
-    this.tx(()=>{const run=this.guard(token,true);if(run.dispatch_blocked===1)return;
+    this.tx(()=>{const run=this.guard(token,true,false,true);if(run.dispatch_blocked===1&&this.stopTarget(String(run.task_id)))return;
       const task=this.one('SELECT version FROM tasks WHERE task_id=?',run.task_id!)!,operation=this.openOperation('stop:'+token.runId,'CANCEL_TASK',{runId:token.runId},String(run.task_id),Number(task.version));
       this.exec('UPDATE tasks SET dispatch_blocked=1,version=version+1 WHERE task_id=?',run.task_id!);this.event(String(run.task_id),token.runId,'stop_requested');this.sealOperation(operation.operationId,String(run.task_id),'executing',token.runId);
     });
   }
   finish(token: RunToken, outcome: 'completed' | 'failed' | 'cancelled'): void {
     this.tx(() => {
-      const run = this.guard(token, true);
+      const stopped=outcome!=='completed'&&Boolean(this.stopTarget(this.runForHost(token.runId).taskId));
+      const run = this.guard(token, true,false,stopped);
       if (this.one("SELECT intent_id FROM execution_intents WHERE run_id=? AND state IN ('sending','outcome_unknown')", token.runId)) return fail('UNRESOLVED_INTENT');
       if (this.one("SELECT request_id FROM runtime_requests WHERE run_id=? AND state IN ('responding','outcome_unknown')", token.runId)) return fail('UNRESOLVED_SERVER_REQUEST');
       if (outcome === 'completed' && !this.one("SELECT intent_id FROM execution_intents WHERE run_id=? AND kind='turn_start' AND state='accepted'", token.runId)) return fail('TURN_NOT_ACCEPTED');
@@ -892,7 +989,8 @@ export class ExecutionLedger {
     if (json.length > 300_000 || view.items.length > 512 || view.turns.length > 64) return fail('SNAPSHOT_TOO_LARGE');
     this.tx(() => {
       this.owner(); const run = this.one('SELECT * FROM task_runs WHERE run_id=? AND runtime_epoch=?', token.runId, token.epoch);
-      if (!run || token.epoch !== this.#epoch || run.task_fence !== token.taskFence || !this.one('SELECT binding_id FROM thread_bindings WHERE task_id=? AND execution_thread_id=?', run.task_id!, view.threadId)) return fail('THREAD_NOT_BOUND');
+      if (!run || token.epoch !== this.#epoch || run.task_fence !== token.taskFence || !this.one("SELECT binding_id FROM thread_bindings WHERE task_id=? AND execution_thread_id=? AND state='active'", run.task_id!, view.threadId)) return fail('THREAD_NOT_BOUND');
+      if(run.privacy_epoch!==this.one('SELECT privacy_epoch FROM dots WHERE dot_id=?',this.dotId)!.privacy_epoch||this.one('SELECT source_ref FROM privacy_tombstones WHERE dot_id=? AND source_ref IN (?,?)',this.dotId,String(run.task_id),'task:'+run.task_id))return fail('SNAPSHOT_PRIVACY_REVOKED');
       this.persistSnapshot(token.runId,String(run.task_id),view);
     });
   }
@@ -965,6 +1063,7 @@ export class ExecutionLedger {
   executorClosed(token: RunToken, connectionEpoch: number): void {
     this.tx(()=>{this.owner();const run=this.runForHost(token.runId);if(run.epoch!==token.epoch||token.epoch!==this.#epoch)return fail('STALE_RUN');this.event(run.taskId,run.runId,'executor_closed',{connectionEpoch,runtimeEpoch:token.epoch});if(run.status==='outcome_unknown')this.budget.unknown(run.runId,true);});
   }
+  executorClosureRecorded(runId:string):boolean{this.owner();const run=this.runForHost(runId);return Boolean(this.one("SELECT event_id FROM task_events WHERE run_id=? AND task_id=? AND event_type='executor_closed'",runId,run.taskId));}
   resourceBudget(){return this.tx(()=>{this.owner();return this.budget.snapshot();});}
   /** Read-only scoped ledger counts. These are not live process probes or a promise of task admission. */
   resourceOccupancy():ResourceOccupancy {return this.tx(()=>{
@@ -994,6 +1093,69 @@ export class ExecutionLedger {
     return{profileId:this.profileId,dotId:this.dotId,runtimeEpoch:this.#epoch,policyEpoch:Number(dot.policy_epoch),privacyEpoch:Number(dot.privacy_epoch),tombstones:rows.map(row=>({sourceRef:String(row.source_ref),privacyEpoch:Number(row.privacy_epoch),deletedAtMs:Number(row.deleted_at_ms)}))};
   });}
   /** Main-local preparation stamp. Any local or external DB write invalidates a prepared restore. */
+  private contextWorkspaceRevision(workspaceId:string):string{const ws=this.workspace(workspaceId);return hashInput([ws.directory,this.one('SELECT * FROM workspace_identities WHERE workspace_id=?',workspaceId)]);}
+  goalSourceCursor(sourceId:string):unknown{this.owner();const row=this.one("SELECT cursor_json FROM sources WHERE source_id=? AND dot_id=? AND kind='connector' AND enabled=1 AND NOT EXISTS(SELECT 1 FROM privacy_tombstones p WHERE p.dot_id=sources.dot_id AND p.source_ref IN (sources.source_id,'source:'||sources.source_id))",sourceId,this.dotId);if(!row)return fail('GOAL_SOURCE_UNAVAILABLE');const config=JSON.parse(String(row.cursor_json));if(config.format!==1)return fail('GOAL_SOURCE_CONTRACT');return config.cursor;}
+  applyGoal(input:GoalCommand){return this.tx(()=>{this.owner();const result=this.goals.apply(input);if(input.kind==='create')this.linkRouteCreation(input.commandKey,input.projectId,'goal:'+result.goal.goalId,result.goal.version);return result;});}
+  listGoals(projectId?:string){return this.goals.list(projectId);}
+  bindGoalSource(config:TrustedSourceConfig){this.owner();if(this.one('SELECT source_ref FROM privacy_tombstones WHERE dot_id=? AND source_ref IN (?,?)',this.dotId,config.sourceId,'source:'+config.sourceId))return;return this.goals.bindSourceTrusted(config);}
+  ingestGoalSource(sourceId:string,envelope:TrustedSourceEnvelope){return this.tx(()=>{this.owner();const result=this.goals.ingestTrusted(sourceId,envelope),source=this.one('SELECT cursor_json FROM sources WHERE source_id=? AND dot_id=?',sourceId,this.dotId)!,revision=createHash('sha256').update(JSON.stringify(JSON.parse(String(source.cursor_json)).binding)).digest('hex'),privacy=this.memoryState().privacyEpoch;for(const event of envelope.events){const trigger=this.one('SELECT trigger_id FROM incoming_triggers WHERE source_id=? AND source_event_id=? AND dot_id=?',sourceId,event.id,this.dotId);if(trigger)this.exec('INSERT OR IGNORE INTO derivation_edges VALUES (?,?,?,?,?)',this.dotId,'source:'+sourceId,'trigger:'+trigger.trigger_id,revision,privacy);}return result;});}
+  goalSourceEvents(sourceId:string){return this.goals.sourceEvents(sourceId);}
+  goalSourceCatalog(){this.owner();return this.all("SELECT source_id,identity_binding_ref,enabled,cursor_json FROM sources WHERE dot_id=? AND kind='connector' AND NOT EXISTS(SELECT 1 FROM privacy_tombstones p WHERE p.dot_id=sources.dot_id AND p.source_ref IN (sources.source_id,'source:'||sources.source_id)) LIMIT 100",this.dotId).map(r=>{const c=JSON.parse(String(r.cursor_json));return{sourceId:String(r.source_id),bindingRef:String(r.identity_binding_ref),enabled:r.enabled===1,eventTypes:Array.isArray(c.binding?.eventTypes)?c.binding.eventTypes as string[]:[]};});}
+  memoryState(){this.owner();const row=this.one('SELECT privacy_epoch,policy_epoch FROM dots WHERE dot_id=?',this.dotId)!;return{privacyEpoch:Number(row.privacy_epoch),policyEpoch:Number(row.policy_epoch),pendingCleanupIds:this.pendingMemoryCleanup().map(p=>p.cleanupId)};}
+  ownedSourcePayloadRefs():string[]{this.owner();const rows=this.all("SELECT DISTINCT json_extract(payload_ref,'$.ref') AS ref FROM incoming_triggers WHERE dot_id=? AND json_valid(payload_ref) AND json_extract(payload_ref,'$.format')='goal-source-payload-v1' LIMIT 10001",this.dotId);if(rows.length>10000)return fail('SOURCE_PAYLOAD_LIMIT');return rows.map(r=>String(r.ref));}
+  confirmArtifactPurge(keys:string[]):void{this.tx(()=>{this.owner();for(const key of keys){if(!/^[a-f0-9-]{36}\.json$/.test(key))return fail('INVALID_ARTIFACT_KEY');this.exec("UPDATE artifacts SET state='deleted' WHERE dot_id=? AND relative_storage_key=? AND state='deleting'",this.dotId,key);}});}
+  stepGoals(){this.owner();return{delivered:this.goals.deliver(),advanced:this.goals.advance()};}
+  goalDispatchCandidates(){return this.goals.dispatchCandidates();}
+  goalNotifications(goalId:string){return this.goals.notifications(goalId);}
+  queueGoalNotification(goalId:string,key:string,kind:string,summary:string,refs?:Array<{ref:string;revision:string}>){return this.goals.queueNotification(goalId,key,kind,summary,refs);}
+  claimGoalNotification(){return this.goals.claimNotification();}
+  finishGoalNotification(claim:Parameters<GoalLedger['finishNotification']>[0],receipt:Parameters<GoalLedger['finishNotification']>[1]){return this.goals.finishNotification(claim,receipt);}
+  captureMemoryMessage(messageId:string,sensitivity:MemorySensitivity='private'){return this.memory.captureUser(messageId,sensitivity);}
+  captureExternalMemory(input:Parameters<MemoryLedger['captureExternal']>[0]){return this.memory.captureExternal(input);}
+  commitMemory(input:MemoryClaimInput){return this.memory.commitClaim(input);}
+  searchMemory(input:Parameters<MemoryLedger['search']>[0]){return this.memory.search(input);}
+  forgetMemory(input:Parameters<MemoryLedger['forget']>[0]){return this.tx(()=>{this.owner();const result=this.memory.forget(input);this.goals.purgeStaleNotifications();result.blockedRunIds=[...new Set([...result.blockedRunIds,...this.all(`SELECT run_id FROM task_runs WHERE dot_id=? AND status IN ${active} AND privacy_epoch<?`,this.dotId,result.privacyEpoch).map(r=>String(r.run_id))])];this.exec('UPDATE outbox_events SET payload_json=? WHERE dedupe_key=?',JSON.stringify({format:'memory-cleanup-v1',logical:result,complete:false}),'privacy-forgotten:'+this.dotId+':'+result.privacyEpoch);return result;});}
+  pendingMemoryCleanup(){this.owner();return this.all("SELECT payload_json FROM outbox_events WHERE event_type='privacy_forgotten' AND aggregate_ref=? AND json_extract(payload_json,'$.format')='memory-cleanup-v1' AND json_extract(payload_json,'$.complete')=0 ORDER BY rowid",this.dotId).map(r=>{const logical=JSON.parse(String(r.payload_json)).logical as import('./memory.ts').MemoryForgetResult;return{cleanupId:'privacy:'+logical.privacyEpoch,logical};});}
+  completeMemoryCleanup(privacyEpoch:number){this.tx(()=>{this.owner();this.exec("UPDATE outbox_events SET payload_json=json_set(payload_json,'$.complete',json('true')),state='delivered' WHERE dedupe_key=?",'privacy-forgotten:'+this.dotId+':'+privacyEpoch);});}
+  compactMemory(){return this.memory.compact();}
+  contextForRun(runId:string,options:Parameters<ContextLedger['buildBundle']>[1]){const run=this.runForHost(runId);const bundle=this.contexts.buildBundle(run.taskId,options);this.contexts.bindManifest(runId,bundle);return bundle;}
+  automaticMemoryRefs(taskId:string,domain:'personal'|'task'|'coding'):string[]{
+    this.owner();const task=this.one('SELECT task_id FROM tasks WHERE task_id=? AND dot_id=?',taskId,this.dotId);if(!task)return fail('UNKNOWN_TASK');
+    return this.memory.search({query:domain==='task'?'task:'+taskId+':':'',domain,limit:20}).filter(claim=>{const current=this.memory.readContextClaim(claim.claimId,taskId);return current&&'sensitivity'in current&&current.sensitivity!=='sensitive'&&'domain'in current&&current.domain===domain&&(domain!=='coding'||current.sensitivity==='public');}).slice(0,8).map(claim=>'claim:'+claim.claimId);
+  }
+  taskContextRefs(runId:string):string[]{this.owner();const run=this.runForHost(runId),task=this.one('SELECT goal_id FROM tasks WHERE task_id=? AND dot_id=?',run.taskId,this.dotId)!,coding=this.one('SELECT role FROM prompt_manifests WHERE run_id=?',runId)?.role==='coding';return['task:'+run.taskId,...(task.goal_id?['goal:'+task.goal_id]:[]),...this.all("SELECT DISTINCT d.trigger_id FROM trigger_deliveries d JOIN incoming_triggers i USING(trigger_id) JOIN sources src ON src.source_id=i.source_id WHERE src.kind='connector' AND d.task_id=? AND d.dot_id=? AND d.state='acknowledged' AND d.delivery_kind IN ('context','wake') ORDER BY i.received_at_ms DESC LIMIT 10",run.taskId,this.dotId).map(r=>'trigger:'+r.trigger_id),...(coding?[...this.automaticMemoryRefs(run.taskId,'task'),...this.automaticMemoryRefs(run.taskId,'coding')]:[])];}
+  contextManifestReceipt(runId:string){this.owner();this.runForHost(runId);return JSON.parse(String(this.one('SELECT module_hashes_json FROM prompt_manifests WHERE run_id=?',runId)?.module_hashes_json??'{}')).contextManifest as import('../../runtime/src/context.ts').TaskContextBundle['manifest']|undefined;}
+  linkContextMessage(runId:string,messageId:string){this.tx(()=>{this.owner();const run=this.runForHost(runId);if(!this.chatVisible(messageId))return fail('CONTEXT_MESSAGE_UNAVAILABLE');this.exec("INSERT OR IGNORE INTO message_task_links VALUES (?,?,?,'reference')",messageId,run.taskId,this.dotId);});}
+  saveEpisode(taskId:string,input:Parameters<ContextLedger['saveEpisode']>[1]){return this.contexts.saveEpisode(taskId,input);}
+  loadEpisode(taskId:string,id:string){return this.contexts.loadEpisode(taskId,id);}
+  saveCheckpoint(runId:string,input:Parameters<ContextLedger['saveCheckpoint']>[1]){return this.contexts.saveCheckpoint(runId,input);}
+  loadCheckpoint(taskId:string,id:string){return this.contexts.loadCheckpoint(taskId,id);}
+  rolloverContext(taskId:string,input:Parameters<ContextLedger['rollover']>[1]){return this.contexts.rollover(taskId,input);}
+  beginRollover(input:{projectId:string;runId:string;checkpointId:string;submissionKey:string}){
+    if(!input||Object.keys(input).length!==4||!['projectId','runId','checkpointId','submissionKey'].every(k=>id(input[k as keyof typeof input])))return fail('INVALID_ROLLOVER_COMMAND');
+    this.workspace(input.projectId);return this.tx(()=>{this.owner();const source=this.runForHost(input.runId);if(source.workspaceId!==input.projectId)return fail('RUN_NOT_IN_PROJECT');
+      const previous=this.one('SELECT run_id FROM task_runs WHERE dot_id=? AND idempotency_key=?',this.dotId,input.submissionKey);
+      if(previous){const event=this.one("SELECT payload_json FROM task_events WHERE run_id=? AND event_type='checkpoint_rollover_admitted'",previous.run_id!),saved=event?JSON.parse(String(event.payload_json)):null;if(!saved||saved.sourceRunId!==input.runId||saved.parentCheckpointId!==input.checkpointId)return fail('IDEMPOTENCY_CONFLICT');return{...saved,runId:String(previous.run_id),created:false,sourceRunId:input.runId,mode:source.mode,token:{runId:String(previous.run_id),epoch:this.#epoch,taskFence:this.runForHost(String(previous.run_id)).taskFence}};}
+      const task=this.taskRow(input.projectId,source.taskId);if(!['completed','failed'].includes(source.status)||!['needs_review','failed','completed'].includes(String(task.status))||task.dispatch_blocked===1||source.taskFence!==task.write_fence)return fail('ROLLOVER_TASK_NOT_IDLE');
+      const parent=this.contexts.loadCheckpoint(source.taskId,input.checkpointId),refs=[...new Set(['task:'+source.taskId,...parent.sourceRefs.map(s=>s.ref)])],role=String(this.one('SELECT role FROM prompt_manifests WHERE run_id=?',input.runId)?.role??'coding'),mode=source.mode;
+      const admitted=this.contexts.admitRollover(source.taskId,{checkpointId:input.checkpointId,role:role==='coding'?'coding':role==='dot-chat'?'dot-chat':'dot-orchestrator',mode:mode==='workspaceWrite'?'execution':'checkpoint-resume',sourceRefs:refs},()=>{
+        this.exec("UPDATE tasks SET status='queued' WHERE task_id=?",source.taskId);const queued=this.claimTaskInTransaction(input.projectId,source.taskId,Number(task.version),input.submissionKey);return{runId:queued.token.runId};
+      });
+      const saved={sourceRunId:input.runId,parentCheckpointId:input.checkpointId,checkpointId:admitted.checkpointId,sourceRefs:admitted.sourceRefs,generation:admitted.generation,role};this.event(source.taskId,admitted.runId,'checkpoint_rollover_admitted',saved);
+      const run=this.runForHost(admitted.runId),plan=this.verificationPlan(input.runId);return{...saved,runId:admitted.runId,created:true,mode,token:{runId:admitted.runId,epoch:run.epoch,taskFence:run.taskFence},...(plan?{code:{profile:'node-test' as const,target:plan.target,allowedPaths:plan.allowedPaths}}:{})};
+    });
+  }
+  currentRunCheckpoint(projectId:string,runId:string):{checkpointId:string|null;taskVersion?:number}{
+    this.owner();const run=this.runs(projectId,{runId})[0];if(!run)return fail('RUN_NOT_IN_PROJECT');if(!['completed','failed'].includes(run.status)||run.blocked)return{checkpointId:null};
+    const task=this.taskRow(projectId,run.taskId);if(task.write_fence!==run.taskFence||task.dispatch_blocked===1)return{checkpointId:null};
+    for(const row of this.all("SELECT checkpoint_id FROM task_checkpoints WHERE task_id=? AND checkpoint_id LIKE 'context:%' ORDER BY rowid DESC LIMIT 10",run.taskId)){try{this.contexts.loadCheckpoint(run.taskId,String(row.checkpoint_id));return{checkpointId:String(row.checkpoint_id),taskVersion:Number(task.version)};}catch{/* A previous Task version cannot be reused. */}}
+    const receipt=this.latestVerification(runId),verification=receipt?this.one('SELECT verification_id FROM verification_results WHERE evidence_ref=? AND run_id=?',receipt.artifactId,runId):undefined,plan=this.verificationPlan(runId);
+    const saved=this.contexts.saveCheckpoint(runId,{goal:String(task.title),constraints:[JSON.stringify({mode:run.mode,...(plan?{target:plan.target,allowedPaths:plan.allowedPaths}:{})})],completionCriteria:plan?.requiredCases.length?plan.requiredCases:['等待用户审查原始请求的结果。'],pendingSteps:verification?[]:['结果仍需用户审查；没有业务完成声明。'],sourceRefs:[...new Set([...this.taskContextRefs(runId),...(this.contextManifestReceipt(runId)?.contextRefs??[]).filter(ref=>ref.ref!=='task:'+run.taskId).map(ref=>ref.ref),...(receipt?['artifact:'+receipt.artifactId]:[])])],verificationIds:verification?[String(verification.verification_id)]:[]});return{checkpointId:saved.checkpointId,taskVersion:Number(task.version)};
+  }
+  private verifyGoalReceipts(goalId:string,taskIds:string[],verificationIds:string[]):boolean {
+    if(!verificationIds.length||!this.options.artifactText)return false;const verified=new Set<string>();
+    for(const id of verificationIds){const row=this.one("SELECT v.*,r.task_id,a.relative_storage_key,a.content_sha256,a.state AS artifact_state,a.dot_id FROM verification_results v JOIN task_runs r USING(run_id) JOIN tasks t USING(task_id) JOIN artifacts a ON a.artifact_id=v.evidence_ref WHERE v.verification_id=? AND t.goal_id=? AND t.dot_id=?",id,goalId,this.dotId);if(!row||row.status!=='passed'||row.artifact_state!=='published'||row.dot_id!==this.dotId)return false;let receipt;try{receipt=JSON.parse(this.options.artifactText(String(row.relative_storage_key),String(row.content_sha256))??'null');}catch{return false;}if(!receipt||receipt.status!=='passed'||receipt.code!=='VERIFIED'||receipt.runId!==row.run_id||receipt.executed<1||receipt.skipped!==0||receipt.exitCode!==0)return false;verified.add(String(row.task_id));}return taskIds.every(id=>verified.has(id));
+  }
   recoveryStateStamp():string {
     this.owner();return hashInput([this.#instance,this.#epoch,this.one('PRAGMA data_version')?.data_version,this.one('SELECT total_changes() AS n')?.n]);
   }

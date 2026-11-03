@@ -2,7 +2,7 @@
   "observed_at": "2026-11-03",
   "cli_version": "codex-cli 0.163.0",
   "binary_source_commit": null,
-  "evidence_scope": "M1 Gate passed in the macOS arm64 controlled local foreground workflow with pinned CLI 0.163.0: real desktop code fix and same-task/thread continuation, frozen independent Node verification, native command approval accept/decline and interrupted process exit, explicit lost-receipt read-only reconciliation, actual native directory selection, OS singleton/owner restart and new-Electron receipt/native-history recovery. Other platforms/profiles, native user-input elicitation, file-change grants, Steer, Legacy reconciliation and future background features are not accepted by this gate.",
+  "evidence_scope": "M0–M3 Gate accepted only in the pinned macOS arm64 CLI 0.163.0 local Electron Main-owner workflow. M3 adds candidate-bound native Router, separate ephemeral no-tools Chat, source/version-bound Context and readonly checkpoint rollover, authenticated self-owned HTTP Source/notification transport, real Goal code verification, cold-process revision/wake/stop, and actual local privacy revocation. Interrupted model outcomes and usage remain Unknown where no authoritative receipt exists; process closure is not a business-success claim. Third-party accounts/OS push delivery, independent daemon, sleeping execution, Browser/Computer, writable IDE, formal identity and signed distribution are outside this M3 acceptance.",
   "methods": [
     {
       "method": "initialize",
@@ -276,5 +276,10 @@
       "docs/progress/evidence/M1-native-code-desktop-2026-11-02T23-26-23-107Z.json",
       "docs/progress/evidence/M1.4b-native-restart-2026-11-02T23-29-00-409Z.json"
     ]
+  },
+  "milestone_gate_evidence": {
+    "M1": "docs/progress/evidence/M1-gate.json",
+    "M2": "docs/progress/evidence/M2-gate.json",
+    "M3": "docs/progress/evidence/M3-gate.json"
   }
 }

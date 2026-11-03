@@ -2,6 +2,7 @@ import {constants,openSync,closeSync,fstatSync,lstatSync,realpathSync} from 'nod
 import {isAbsolute} from 'node:path';
 import {DatabaseSync} from 'node:sqlite';
 import {LedgerError} from '../../store/src/ledger.ts';
+import {applyMemoryTombstones} from '../../store/src/memory.ts';
 
 export interface RehearsalWatermarks {
   profileId:string;dotId:string;runtimeEpoch:number;policyEpoch:number;privacyEpoch:number;
@@ -18,7 +19,7 @@ const reference=(v:unknown):v is string=>typeof v==='string'&&v.length>0&&v.leng
 /**
  * Destructive preparation of a caller-owned NEW candidate copy only; never pass the live ledger.
  * No Owner or executor is constructed. The quarantine table is a permanent execution-open barrier.
- * This merges deletion watermarks and hides linked published receipts; it does not physically erase history.
+ * This reapplies the current deletion closure before the copy can become readable or executable.
  */
 export function prepareRehearsalDatabase(file:string,current:RehearsalWatermarks,rehearsalId:string):RehearsalDatabaseSummary {
   if(!current||current.profileId!=='local-profile'||current.dotId!=='local-dot'||!positive(current.runtimeEpoch)||!positive(current.policyEpoch)||!positive(current.privacyEpoch)||!Array.isArray(current.tombstones)||current.tombstones.length>10000||!reference(rehearsalId)||rehearsalId.length>200)fail('INVALID_REHEARSAL_WATERMARKS');
@@ -30,7 +31,7 @@ export function prepareRehearsalDatabase(file:string,current:RehearsalWatermarks
     const identity=fstatSync(fd);
     if(!identity.isFile()||identity.size<100||identity.size>128*1024*1024||realpathSync(file)!==file)fail('INVALID_REHEARSAL_DATABASE');
     const sameFile=()=>{const info=lstatSync(file);if(info.isSymbolicLink()||info.dev!==identity.dev||info.ino!==identity.ino)fail('REHEARSAL_DATABASE_CHANGED');};
-    sameFile();db=new DatabaseSync(file);db.exec('PRAGMA trusted_schema=OFF; PRAGMA foreign_keys=ON; PRAGMA busy_timeout=1000; PRAGMA synchronous=FULL; BEGIN IMMEDIATE;');inTransaction=true;
+    sameFile();db=new DatabaseSync(file);db.exec('PRAGMA secure_delete=ON; PRAGMA trusted_schema=OFF; PRAGMA foreign_keys=ON; PRAGMA busy_timeout=1000; PRAGMA synchronous=FULL; BEGIN IMMEDIATE;');inTransaction=true;
     const connection=db;
     if(connection.prepare('PRAGMA quick_check').get()?.quick_check!=='ok'||connection.prepare('PRAGMA foreign_key_check').all().length)fail('INVALID_REHEARSAL_DATABASE');
     if(connection.prepare("SELECT name FROM sqlite_master WHERE name='recovery_quarantine'").get())fail('REHEARSAL_ALREADY_QUARANTINED');
@@ -67,10 +68,11 @@ export function prepareRehearsalDatabase(file:string,current:RehearsalWatermarks
     connection.exec("UPDATE thread_bindings SET state='invalidated',rollover_reason='recovery_rehearsal_quarantine' WHERE state='active'; UPDATE goals SET status='paused',version=version+1,plan_version=plan_version+1 WHERE status='active'; UPDATE computer_sessions SET state='revoking',control_owner='none',control_epoch=control_epoch+1 WHERE state NOT IN ('closed','failed');");
     connection.exec("UPDATE budget_reservations SET state='held_unknown' WHERE state='active'; UPDATE run_usage SET finalized=1 WHERE run_id IN (SELECT run_id FROM task_runs WHERE status='outcome_unknown'); UPDATE thread_usage SET baseline_known=0;");
     const quarantinedArtifacts=Number(connection.prepare("UPDATE artifacts SET state='deleted' WHERE state='published' AND task_id IS NOT NULL AND EXISTS(SELECT 1 FROM privacy_tombstones p WHERE p.dot_id=artifacts.dot_id AND p.source_ref IN (artifacts.task_id,'task:'||artifacts.task_id))").run().changes);
+    applyMemoryTombstones(connection,current.dotId,fail);
     const summary:RehearsalDatabaseSummary={runtimeEpoch,policyEpoch,privacyEpoch,tombstones:count('SELECT count(*) AS n FROM privacy_tombstones'),unknownRuns:count("SELECT count(*) AS n FROM task_runs WHERE status='outcome_unknown'"),pausedSchedules:count("SELECT count(*) AS n FROM schedules WHERE state='paused'"),revokedApprovals,retainedLeases:count('SELECT count(*) AS n FROM workspace_write_leases')+count('SELECT count(*) AS n FROM project_operation_leases')+count('SELECT count(*) AS n FROM workspace_terminal_leases'),quarantinedArtifacts};
     const preparedBytes=Number(connection.prepare('PRAGMA page_count').get()!.page_count)*Number(connection.prepare('PRAGMA page_size').get()!.page_size);
     if(!Number.isSafeInteger(preparedBytes)||preparedBytes>128*1024*1024)fail('REHEARSAL_DATABASE_TOO_LARGE');
-    sameFile();if(connection.prepare('PRAGMA foreign_key_check').all().length||connection.prepare('PRAGMA quick_check').get()?.quick_check!=='ok')fail('INVALID_REHEARSAL_DATABASE');connection.exec('COMMIT');inTransaction=false;return summary;
+    sameFile();if(connection.prepare('PRAGMA foreign_key_check').all().length||connection.prepare('PRAGMA quick_check').get()?.quick_check!=='ok')fail('INVALID_REHEARSAL_DATABASE');connection.exec('COMMIT');inTransaction=false;connection.exec('PRAGMA wal_checkpoint(TRUNCATE);VACUUM;');return summary;
   }catch(error){if(inTransaction)try{db?.exec('ROLLBACK');}catch{}throw error instanceof LedgerError?error:new LedgerError('REHEARSAL_DATABASE_PREPARATION_FAILED');}
   finally{try{db?.close();}finally{if(fd!==undefined)closeSync(fd);}}
 }

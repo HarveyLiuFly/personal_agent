@@ -1,0 +1,489 @@
+{
+  "status": "passed",
+  "milestone": "M3",
+  "checkpoint": "checkpoint/M3",
+  "observedAt": "2026-11-03T14:35:00.688772+00:00",
+  "baseCommit": "6fa2fe79851dd3fc3da870d171cdb6856efb7030",
+  "platform": "darwin-arm64",
+  "cliVersion": "codex-cli 0.163.0",
+  "schemaRevision": 6,
+  "desktopApiCount": 63,
+  "toolchain": {
+    "node": "24.19.0",
+    "pnpm": "11.25.0",
+    "electron": "45.2.1",
+    "electronNode": "24.22.1"
+  },
+  "regularChecks": {
+    "command": "pnpm check",
+    "tests": 586,
+    "passed": 586,
+    "failed": 0,
+    "skipped": 0,
+    "designContracts": 17,
+    "generatedProtocolTypes": 747,
+    "typecheck": "passed",
+    "productionBuild": "passed"
+  },
+  "electronComponents": {
+    "tests": 199,
+    "passed": 199,
+    "failed": 0,
+    "skipped": 0,
+    "scope": "Real Electron embedded Node/SQLite, public Fixture/metadata execution and actual local HTTP; no model requests"
+  },
+  "requirements": {
+    "DOT-001": {
+      "status": "passed",
+      "evidence": [
+        "M3.1b-native-routing.json",
+        "M3.1b-native-chat.json",
+        "M3.1b-main-chat-regression.json",
+        "M3-checks.txt"
+      ],
+      "scope": "Candidate-bound native proposal and natural Chat; real SQLite per-operation DAG, receipt recovery/correction and creation/forget crash windows. Metadata execution adapters in component tests are not native model success."
+    },
+    "DOT-002": {
+      "status": "passed",
+      "evidence": [
+        "M3.4-native-rollover.json",
+        "M3-checks.txt",
+        "M3-electron-tests.tap"
+      ],
+      "scope": "Sourced bounded Context and exact-span Episodes; Host checkpoint hashes and actual readonly new Thread generation. Code-contract rollover uses actual Node verification with a stdio Fixture, distinct from native readonly rollover."
+    },
+    "PROMPT-001": {
+      "status": "passed",
+      "evidence": [
+        "M3.1b-native-role-config.json",
+        "M3.1b-native-chat.json",
+        "M3.3a-native-goal.json"
+      ],
+      "scope": "Git modules, role/capability conflicts, source data outside developer instructions, actual locked CLI tools/memory flags and native sandbox verification. o200k is a text estimator, not a verified provider tokenizer or full hidden-window accounting."
+    },
+    "DOT-003": {
+      "status": "passed",
+      "evidence": [
+        "M3.4-native-lifecycle.json",
+        "M3.4-autonomy-desktop.json",
+        "M3-checks.txt"
+      ],
+      "scope": "Goal/Plan CAS/diff, real HMAC/Bearer/nonce HTTP Source, Source version/hash-bound context, Subscription/Mandate and atomic revocation. Provider is self-owned controlled HTTP, not a third-party account."
+    },
+    "DOT-004": {
+      "status": "passed",
+      "evidence": [
+        "M3.4-native-privacy.json",
+        "M3.4-autonomy-desktop.json",
+        "M3-checks.txt",
+        "M3-electron-tests.tap"
+      ],
+      "scope": "Real private sourced role interrupted, actual local cleanup and fresh native CLEAN; domain/sensitivity filters, user revision CAS, audit/route closure, concurrent failure rollback and actual backup/rehearsal/restore protected tombstones. External provider, external backups and OS snapshots are not controlled."
+    },
+    "DOT-005": {
+      "status": "passed",
+      "evidence": [
+        "M3.3a-native-goal.json",
+        "M3.4-native-lifecycle.json",
+        "M3-checks.txt"
+      ],
+      "scope": "Real native Goal business verification plus same-Goal revision/wait/new Node Owner/source wake/stop and third-process inspection; independent actual HTTP notification/dedupe. SDK stop acknowledgement is unknown; actual local executor closure and no redispatch are verified. Unknown second Run is not business success."
+    }
+  },
+  "nativeModels": {
+    "actualRequests": 8,
+    "knownReportedTokens": 175520,
+    "unknownRuns": 2,
+    "unknownHeldTokens": 64000,
+    "reservationBasis": "Distinct Runs across isolated acceptance ledgers; never sum global and Goal buckets twice. Reported tokens are not an account bill.",
+    "automaticResends": 0,
+    "businessVerifications": [
+      {
+        "evidence": "M3.3a-native-goal.json",
+        "executed": 4,
+        "skipped": 0,
+        "status": "VERIFIED"
+      },
+      {
+        "evidence": "M3.4-native-lifecycle.json",
+        "executed": 4,
+        "skipped": 0,
+        "status": "VERIFIED"
+      }
+    ]
+  },
+  "scopeExclusions": [
+    "Other platforms",
+    "Independent daemon and sleeping execution",
+    "Formal identity/permissions in M5",
+    "OS notification delivery and signed distribution acceptance",
+    "Third-party Source accounts and public webhooks",
+    "Browser/Computer, external MCP/plugins/subagent tools and writable IDE",
+    "Provider retention, external backups and OS snapshots"
+  ],
+  "knownLimitations": [
+    "Two acceptance Runs remain outcome_unknown with conservative token holds; no fabricated model completion or SDK cancellation acknowledgement.",
+    "Readonly post-forget admission requires a distinct new Run and confirmed local closure; ordinary Unknown and workspace-write admission remain blocked.",
+    "App-owned local backup/rehearsal/old-runtime copies are conservatively discarded during explicit forget; source code and credentials are preserved.",
+    "o200k input text budgeting does not measure the provider model tokenizer, hidden framing, full resumed history or actual bill."
+  ],
+  "failedAttemptsRetained": [
+    "M3.4-native-privacy-attempt1.json",
+    "M3.4-native-lifecycle-first-inspection.json",
+    "M3-check-history.json"
+  ],
+  "evidence": [
+    {
+      "file": "M3.1b-native-role-config.json",
+      "sha256": "786bb83519018feb805b607c69364fe03e47d11744b26727a5fa9d12444e0cf0"
+    },
+    {
+      "file": "M3.1b-native-routing.json",
+      "sha256": "44f070ad99411f8b8016450c4341c6563afc4802bdf4a7077a0c3940e3c56c09"
+    },
+    {
+      "file": "M3.1b-native-chat.json",
+      "sha256": "40972d5e2722aa8a0de4f2d57477a2fb7e6f288456f160f269d8ad0a40a1fa0e"
+    },
+    {
+      "file": "M3.3a-native-goal.json",
+      "sha256": "aa2b585a24d84b2aa600030ec7d716373c2dc72ede69171e17ac52c0708650bd"
+    },
+    {
+      "file": "M3.4-native-privacy.json",
+      "sha256": "33ea3cc05b1812578e5e2e5954957a5d389bddd93430091281a1361a33784ca2"
+    },
+    {
+      "file": "M3.4-native-rollover.json",
+      "sha256": "2f459cb836330aa5a1751b1e3fea724787e670f84d6456182dc50ecf8d0e7d1a"
+    },
+    {
+      "file": "M3.4-native-lifecycle.json",
+      "sha256": "91176c5941b8b3fe5ead4f68696e20ef759fc2c31762b8f69f78548a112171b8"
+    },
+    {
+      "file": "M3.4-autonomy-desktop.json",
+      "sha256": "100d16a610fb9a9d80864bf3eb1f0aaf485be54ff5bafdc4fe278b90c60b769c"
+    },
+    {
+      "file": "M3.1b-main-chat-regression.json",
+      "sha256": "fc868629ac62ca07a289ca3e42a89b688c485bf83d1dd37241c2c394c3ad505e"
+    },
+    {
+      "file": "M3.4-native-window.json",
+      "sha256": "48b57d42a06af7b218d2312de3e952de25fd75d02fcbb9e2ccc772f5431f43ab"
+    },
+    {
+      "file": "M3-checks.txt",
+      "sha256": "1eafe09d4f5d6b14daf622a3c934c30a3f6f028114a9e75e63d61542e733cd1f"
+    },
+    {
+      "file": "M3-electron-tests.tap",
+      "sha256": "eb933a88d22a6a4cccfda47694a137bc857d80f1e843046fdc5b8a6488e1a75d"
+    },
+    {
+      "file": "M3-check-history.json",
+      "sha256": "e2fc16cd14a50b3de51fb454426e03f5e06e49f9744021a56cc3b728d046cd94"
+    },
+    {
+      "file": "M3-contracts.json",
+      "sha256": "5c5dbd7b69a55295a30c92e03ceef6e9cdf534c2e092a4358a62608f8b750194"
+    },
+    {
+      "file": "M3-final-visual-build.txt",
+      "sha256": "58406cdd121306d97e891f61384cb854eeda33743d5dd7ef9861efce08936a52"
+    }
+  ],
+  "postCheckValidation": {
+    "finalDesignContracts": "M3-contracts.json",
+    "cssBuild": "M3-final-visual-build.txt",
+    "realDesktopMemoryRevisionAndForget": "M3.4-autonomy-desktop.json",
+    "inferenceRequested": false
+  },
+  "implementationHashes": [
+    {
+      "file": "packages/runtime/src/calendar.ts",
+      "sha256": "ea009bc3c04078b4dd2f678d3163c7df63d88186ce0e462d0bfa2f192eaf332e"
+    },
+    {
+      "file": "packages/runtime/src/chat-router.ts",
+      "sha256": "46745d3448f9d1dbb1ec14a288c809dea1504b31b2c17a8fad3f86a5496f9495"
+    },
+    {
+      "file": "packages/runtime/src/chat-routes.ts",
+      "sha256": "b29ac0927de42d0ec283fa7b9d25e59349ae229a544f9dbe19f317bb62d3951b"
+    },
+    {
+      "file": "packages/runtime/src/context.ts",
+      "sha256": "ffd784285ead83d06e58b641af60e3a7fb7e502f41107ad9aca1a36c9b386ffa"
+    },
+    {
+      "file": "packages/runtime/src/execution.ts",
+      "sha256": "edf9ef85d86338310bb29e2fd2e7b2f4f9d491ac247b0abe972979dc8147fa3c"
+    },
+    {
+      "file": "packages/runtime/src/goal-service.ts",
+      "sha256": "cd30a8c8c23f9fd87ebc1d4aa65596b14adfa8006e903876e2f45f968699efcf"
+    },
+    {
+      "file": "packages/runtime/src/interactions.ts",
+      "sha256": "c7ff7cd1397e62dc9dc0035da90d365d6ec2d0bad20ae641a7d1a5e9e25212d2"
+    },
+    {
+      "file": "packages/runtime/src/local-cleanup.ts",
+      "sha256": "a70d01b1b6a9d2d4a5bc9c18e3bdd1db3153685073459f9144062f62fcdf67a2"
+    },
+    {
+      "file": "packages/runtime/src/memory-commands.ts",
+      "sha256": "a97fe80f473a37b88c13448076c1a704c0d5e3f35e03eb65c9ec1f1d44afe9da"
+    },
+    {
+      "file": "packages/runtime/src/memory-service.ts",
+      "sha256": "1fa202d0a3a06ee446dd30640c61012e57f327f530d620711b04c35f73d58825"
+    },
+    {
+      "file": "packages/runtime/src/outbox.ts",
+      "sha256": "25aa4d76e44c050b502e2f2f5e4b3f9853bc9838ce1f8548f5b11342f49fae76"
+    },
+    {
+      "file": "packages/runtime/src/reconciliation.ts",
+      "sha256": "913b30778c03a7fdb5ab1ef3aa914a8eab37cf733dbfc6f988fd7b81c0542854"
+    },
+    {
+      "file": "packages/runtime/src/resources.ts",
+      "sha256": "1bae5322c7dc686fb91e56616829e0258490dbe6f0271f84c51bba12546a058d"
+    },
+    {
+      "file": "packages/runtime/src/route-profile.ts",
+      "sha256": "d89fddc3497f49168600e1287e4b03728fec855c5099cf5ad54b2a9c9adfa620"
+    },
+    {
+      "file": "packages/runtime/src/routing.ts",
+      "sha256": "45c13c3c59ff84bb5b32956c251c0a66b8c0c9797498259e6b7aa08beb6c6ab2"
+    },
+    {
+      "file": "packages/runtime/src/schedules.ts",
+      "sha256": "caa2169821513c464acb74cbf05f71217bff25ceb052ac1ccdd743414da1fad3"
+    },
+    {
+      "file": "packages/runtime/src/skills-connection.ts",
+      "sha256": "b605247930201b2bfbe4f31d9ba7ceb8b99ec679e3faeee4d82f53cc9f1cbca4"
+    },
+    {
+      "file": "packages/runtime/src/skills.ts",
+      "sha256": "0a158a311fb383b8a44c56c9ddfa41cd7f83f502cfdc1a6c1d6f6221f89e3502"
+    },
+    {
+      "file": "packages/runtime/src/source-config.ts",
+      "sha256": "c1733dbe902a75b10e8ac7021d3ca6262efc10bd052cc57a0ae88d65f64d5d7c"
+    },
+    {
+      "file": "packages/runtime/src/source-poller.ts",
+      "sha256": "a6a3a0a291a475b603f5510913424ebac045dfd5415ed6e5ff5a3297532d9970"
+    },
+    {
+      "file": "packages/runtime/src/tasks.ts",
+      "sha256": "964a09700a120df85abfc5dd1f71ff5c9ae8e67a80bd8b3f340888e023a54eb1"
+    },
+    {
+      "file": "packages/runtime/src/tokenizer.ts",
+      "sha256": "951fee09ac919c7463d10b58c3258ae52c8c495d92c6f45fb5e2583a7dc5c3bb"
+    },
+    {
+      "file": "packages/store/src/budget.ts",
+      "sha256": "df66c2daddaba8c118d105951d0b9b2abc4c8c465e23d796a624fd3bdf75e41e"
+    },
+    {
+      "file": "packages/store/src/context-sources.ts",
+      "sha256": "fdfd984cdf08bf6f8ca03819f5670ef482512811e918b9b41f8f0b845b441abe"
+    },
+    {
+      "file": "packages/store/src/context.ts",
+      "sha256": "4a162772901d4e7b6a8f0679d17473118aa0f1b195530470d2d01c78efcf3163"
+    },
+    {
+      "file": "packages/store/src/goals.ts",
+      "sha256": "c16d61e17523578604fd2a27cba69dac2331ead8dfa1d54f9ee4402de9f4a6c2"
+    },
+    {
+      "file": "packages/store/src/ledger.ts",
+      "sha256": "1d135b4835f055de90ebddb192ce578947996c4254abb291f41f10644902edbd"
+    },
+    {
+      "file": "packages/store/src/memory.ts",
+      "sha256": "055261ab66bac10938c877db92fae936d9364714cd06acd02addaf2a5316f2a6"
+    },
+    {
+      "file": "packages/store/src/scheduler.ts",
+      "sha256": "bb6d1f08c5932feab9628ea4c5049f1f944375f1f83b617b683a05e695f1284c"
+    },
+    {
+      "file": "packages/store/src/terminal.ts",
+      "sha256": "89e0d1664b365fcf1766c48b3710a89bccb8fe6cbe69efa4f01aff4a65682d0c"
+    },
+    {
+      "file": "apps/desktop/src/background-probe.ts",
+      "sha256": "1ece4b741171067b6ae28952ce262a15d1916a8cc66bca8908f35016d1af8f69"
+    },
+    {
+      "file": "apps/desktop/src/backup-probe.ts",
+      "sha256": "3d17a354da5e28c4304d50376b3af1856be6146b72aec77cb9fa85e9cb272bc3"
+    },
+    {
+      "file": "apps/desktop/src/bridge.ts",
+      "sha256": "7df3d2faea8640216ac2413f0b35f91c485fdf3e63cb2df769d4c5c6f5574cb3"
+    },
+    {
+      "file": "apps/desktop/src/desktop-window.ts",
+      "sha256": "cae848950a18a887e04dd4ab7800b9320cb4ce3485e38b016ed86af21b4e9818"
+    },
+    {
+      "file": "apps/desktop/src/goal-notifications.ts",
+      "sha256": "c29812057b5388f16f211f2f527e6fbfff1becd38d94cd4c1adcb0d808a2c09e"
+    },
+    {
+      "file": "apps/desktop/src/m3-autonomy-probe.ts",
+      "sha256": "18c9cc5aaa1f9a65a7df5dbe196e0c680dc4db492b6b95403cb77118420c3298"
+    },
+    {
+      "file": "apps/desktop/src/main-chat-probe.ts",
+      "sha256": "b817e59c82e1ab0c1ae059bfec91edc42c5374fba9fcf8dc4aeb42dee96a85db"
+    },
+    {
+      "file": "apps/desktop/src/main.ts",
+      "sha256": "95de5b2e541187779916b954271ae5a103fc86d0e3d3de6207878018d2218a39"
+    },
+    {
+      "file": "apps/desktop/src/native-probes.ts",
+      "sha256": "eaaf2df66ebffe1b09c0ef709c119240bdd90aaf9c97a2b9e3c55dec84b859a9"
+    },
+    {
+      "file": "apps/desktop/src/plan-probe.ts",
+      "sha256": "a8aaa6b236985f70c90f591edef4efb899a4965d8c7f33bc11588c33f80d3d40"
+    },
+    {
+      "file": "apps/desktop/src/preload.ts",
+      "sha256": "497d43fc433d337f7087e9c42d356d4b768e7e654a00d8f68a42e2f5f55dc33a"
+    },
+    {
+      "file": "apps/desktop/src/resource-probe.ts",
+      "sha256": "836d9827a252b44a6468af173d1f15687555cb8a25899755a897a270dbb63dbc"
+    },
+    {
+      "file": "apps/desktop/src/restore-probe.ts",
+      "sha256": "c9afccde884ff7504f109f3c540f25cbe7df070d0b2dc761057cc680a1d6900f"
+    },
+    {
+      "file": "apps/desktop/src/schedule-probe.ts",
+      "sha256": "361f24cb4e0bcdcfc4a72a3530f03ba04faa266f010658dc2d61bdba0c66a648"
+    },
+    {
+      "file": "apps/desktop/src/skills-probe.ts",
+      "sha256": "f167b064ff62ce2737a7778e281938dcbb1a02b8eacaa688f41302a7ef562dc9"
+    },
+    {
+      "file": "apps/desktop/src/task-probe.ts",
+      "sha256": "d70fa0b21359912758c44c0c475e9b7cd894be69828b3b6db1b88793abc2d087"
+    },
+    {
+      "file": "apps/desktop/src/terminal-probe.ts",
+      "sha256": "a6edb84129715fbfb38a293df1cc076bf78633dc36201f8eec53cb263692c109"
+    },
+    {
+      "file": "apps/desktop/src/tool-probe.ts",
+      "sha256": "f22c9fe72e9861737a86da5376ce8beed0119f725cb0658324240764cf1385b9"
+    },
+    {
+      "file": "apps/desktop/src/worktree-code-probe.ts",
+      "sha256": "61b0b4f7e55c8d71c1536a460b2c530f9d0a3d8abf919c0cd81b5e4e725c320c"
+    },
+    {
+      "file": "apps/desktop/src/worktree-probe.ts",
+      "sha256": "e94d941ed842ca9d25ab40e7decc82b48c83701d214ac029048d480ff5f27456"
+    },
+    {
+      "file": "apps/desktop/src/worktree-recovery-probe.ts",
+      "sha256": "199d8249353b687a321c3442873111d3a138ae4bc75c586b48f60727715de5a5"
+    },
+    {
+      "file": "apps/desktop/renderer/autonomy-manager.tsx",
+      "sha256": "a9e382cbb6c14f84b359580f933562d4b4519f32c1f1b4b1d72f97b2f55d0d5f"
+    },
+    {
+      "file": "apps/desktop/renderer/backup-manager.tsx",
+      "sha256": "4287d05b4c067ac15f28af3c6c63a2bceff882a5ae9eca4f52d58bb34dbf092f"
+    },
+    {
+      "file": "apps/desktop/renderer/chat-route-panel.tsx",
+      "sha256": "956bddb6fc691bb881acf6eb59dff5d07efe3bcc54c3c01cd41c026c5fcf7d51"
+    },
+    {
+      "file": "apps/desktop/renderer/execution-panel.tsx",
+      "sha256": "fcfb7af09ab20c7682ad4e4e6e8f1683ecda71403958e939300cc2128783929b"
+    },
+    {
+      "file": "apps/desktop/renderer/history-app.tsx",
+      "sha256": "6b97fffac16452a06f70da5dc78183554dd6200563eea01a51ba8fec6e90dc10"
+    },
+    {
+      "file": "apps/desktop/renderer/interactions.tsx",
+      "sha256": "636b3b3f4ccea04a454a854c354e7e5225e3cb09a5ac60c7d08e33452cca2255"
+    },
+    {
+      "file": "apps/desktop/renderer/main-chat.tsx",
+      "sha256": "68945ba28281a01b643416783b7f4b1af30283a356e38503a591bb9cee73d5a5"
+    },
+    {
+      "file": "apps/desktop/renderer/resource-view.tsx",
+      "sha256": "4032120baec6ed84365b7f53b07664e44f0dbd053db7fce337fcbf5cc61c622a"
+    },
+    {
+      "file": "apps/desktop/renderer/schedule-manager.tsx",
+      "sha256": "544c317895711ad5c024f0b7dbe56aa335b8e07b2f75f82aba7e5d6dd2f22be5"
+    },
+    {
+      "file": "apps/desktop/renderer/skills-panel.tsx",
+      "sha256": "de5a70366ff382b1f2d99ffb2d72b9874bd55bc80df1bfc0e1dfc50aa3085a64"
+    },
+    {
+      "file": "apps/desktop/renderer/src.tsx",
+      "sha256": "dc209d36bfed15b6fddd7b5adbfa0bf07a19548d32a562b13352be08447fbd60"
+    },
+    {
+      "file": "apps/desktop/renderer/style.css",
+      "sha256": "70491f7b90a8a221b38aca91a92cb6febbacba77e2137c040ff5e91d67ca833d"
+    },
+    {
+      "file": "apps/desktop/renderer/task-manager.tsx",
+      "sha256": "6b38202b0312a496d65e7bc0ae2d90f5b6bd63658bd8efacb37880a8396f4f9c"
+    },
+    {
+      "file": "apps/desktop/renderer/task-plans.tsx",
+      "sha256": "bcff8aeca84853610d50cd23c3fa3d2e683a3d71988eef6b7177e2f1edb0e73c"
+    },
+    {
+      "file": "apps/desktop/renderer/terminal-input.ts",
+      "sha256": "46ffce40d27f3c0f8dc4c87c4557100502d4ba3c4356edeef25073497eaa26cf"
+    },
+    {
+      "file": "apps/desktop/renderer/terminal-panel.tsx",
+      "sha256": "13a5ec2a9a5e07c286ea5fecb257e4fd374765b6f6ab8b220c12024312bb08ff"
+    },
+    {
+      "file": "apps/desktop/renderer/tool-activity.ts",
+      "sha256": "1619c0932582e12ebfe693a24da0a879bd3679ce96e5172cd6e7995684511e9d"
+    },
+    {
+      "file": "apps/desktop/renderer/tool-panel.tsx",
+      "sha256": "df7cbe6fd6514b29e917540a7c3415890e817ea35f062bec9ec3e93864c9dec3"
+    },
+    {
+      "file": "apps/desktop/renderer/workspace-panel.tsx",
+      "sha256": "e19205225e5fb389214d1f7b05855420d6b6b9c27efbe13294e325045ae7bb88"
+    },
+    {
+      "file": "apps/desktop/renderer/worktree-manager.tsx",
+      "sha256": "95affb080f3912c2760e638b88125162b1ff8fd67244fd89018a67c874ebfb04"
+    }
+  ]
+}

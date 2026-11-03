@@ -1,0 +1,10 @@
+{
+  "status": "blocked",
+  "code": "BACKUP_ARTIFACT_UNSUPPORTED",
+  "observedAt": "2026-11-03T13:07:20.279Z",
+  "display": "native_desktop",
+  "exitCode": 1,
+  "signal": null,
+  "timedOut": false,
+  "platform": "darwin-arm64"
+}

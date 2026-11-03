@@ -1,0 +1,22 @@
+{
+  "status": "blocked",
+  "kind": "native_privacy_revoke_then_fresh_ephemeral_role",
+  "syntheticData": "public_generated_canary_and_seeded_artifact",
+  "provider": "original_supported_codex_login",
+  "firstRequestMayHaveBeenSent": true,
+  "secondRequestMayHaveBeenSent": false,
+  "providerRetention": "not_controlled",
+  "automaticResends": 0,
+  "phase": "first-native-submit",
+  "code": "BACKUP_ARTIFACT_UNSUPPORTED",
+  "observedAt": "2026-11-03T13:06:29.858Z",
+  "readOnlyFailureAudit": {
+    "runStatus": "failed",
+    "executionIntents": 0,
+    "threadStarts": 0,
+    "turnStarts": 0,
+    "modelRequests": 0,
+    "executorClosureRecorded": true,
+    "originalRunUnchanged": true
+  }
+}

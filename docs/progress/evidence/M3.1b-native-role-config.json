@@ -1,0 +1,18 @@
+{
+  "status": "passed",
+  "phase": "config/read",
+  "kind": "locked_cli_effective_disabled_dot_role_configuration",
+  "result": {
+    "shell_tool": true,
+    "unified_exec": true,
+    "view_image": true,
+    "image_generation": true,
+    "sleep_tool": true,
+    "skill_search": true,
+    "tool_suggest": true,
+    "memories": true,
+    "webDisabled": true
+  },
+  "inferenceRequested": false,
+  "observedAt": "2026-11-03T12:16:29.941Z"
+}

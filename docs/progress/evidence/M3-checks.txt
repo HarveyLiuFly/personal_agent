@@ -1,0 +1,3572 @@
+$ node scripts/check.mjs
+$ node scripts/generate-protocol.mjs --verify
+Verified 747 generated types from codex-cli 0.163.0 (darwin-arm64) against pinned schema and repository.
+$ tsc --noEmit
+$ node --disable-warning=ExperimentalWarning --test --test-reporter=tap tests/*.test.ts
+TAP version 13
+# Subtest: actual rememberUserMessage→routeRoleProfile automatically includes personal private memory only for Chat and excludes it after source forget
+ok 1 - actual rememberUserMessage→routeRoleProfile automatically includes personal private memory only for Chat and excludes it after source forget
+  ---
+  duration_ms: 860.761459
+  type: 'test'
+  ...
+# Subtest: actual taskContextRefs→coding Context selects public Coding and same-Task private memory, excluding personal, sensitive and other Tasks
+ok 2 - actual taskContextRefs→coding Context selects public Coding and same-Task private memory, excluding personal, sensitive and other Tasks
+  ---
+  duration_ms: 158.558042
+  type: 'test'
+  ...
+# Subtest: consistent backup includes real committed WAL and dedupes without replaying or changing live tasks
+ok 3 - consistent backup includes real committed WAL and dedupes without replaying or changing live tasks
+  ---
+  duration_ms: 131.514084
+  type: 'test'
+  ...
+# Subtest: real receipt files and snapshot watermarks are verified; validation never starts an old Owner
+ok 4 - real receipt files and snapshot watermarks are verified; validation never starts an old Owner
+  ---
+  duration_ms: 108.39175
+  type: 'test'
+  ...
+# Subtest: missing or changed receipt refuses publication, preserves incomplete state and refuses same-key retry
+ok 5 - missing or changed receipt refuses publication, preserves incomplete state and refuses same-key retry
+  ---
+  duration_ms: 165.271042
+  type: 'test'
+  ...
+# Subtest: copied file corruption, receipt symlink and reference mismatch fail explicit verification
+ok 6 - copied file corruption, receipt symlink and reference mismatch fail explicit verification
+  ---
+  duration_ms: 474.858667
+  type: 'test'
+  ...
+# Subtest: arbitrary fields, paths and unknown published artifact kinds are refused before any external file read
+ok 7 - arbitrary fields, paths and unknown published artifact kinds are refused before any external file read
+  ---
+  duration_ms: 53.22125
+  type: 'test'
+  ...
+# Subtest: private root identity, source receipt symlink, stale Owner and bounded inventory are enforced
+ok 8 - private root identity, source receipt symlink, stale Owner and bounded inventory are enforced
+  ---
+  duration_ms: 100.6595
+  type: 'test'
+  ...
+# Subtest: publication refuses a newly occupied target and filesystem write failure keeps only an incomplete copy
+ok 9 - publication refuses a newly occupied target and filesystem write failure keeps only an incomplete copy
+  ---
+  duration_ms: 167.842375
+  type: 'test'
+  ...
+# Subtest: unsupported receipt sizes and extra copied files cannot pass integrity checks
+ok 10 - unsupported receipt sizes and extra copied files cannot pass integrity checks
+  ---
+  duration_ms: 117.205667
+  type: 'test'
+  ...
+# Subtest: real FIFO manifest, copied receipt and source receipt are refused without blocking the Host
+ok 11 - real FIFO manifest, copied receipt and source receipt are refused without blocking the Host
+  ---
+  duration_ms: 1086.091583
+  type: 'test'
+  ...
+# Subtest: real Host SIGKILL at backup snapshot never publishes partial state or retries the old copy
+ok 12 - real Host SIGKILL at backup snapshot never publishes partial state or retries the old copy
+  ---
+  duration_ms: 397.245292
+  type: 'test'
+  ...
+# Subtest: real Host SIGKILL at backup published never publishes partial state or retries the old copy
+ok 13 - real Host SIGKILL at backup published never publishes partial state or retries the old copy
+  ---
+  duration_ms: 312.5585
+  type: 'test'
+  ...
+# Subtest: official npm optional package resolves native file without running wrapper
+ok 14 - official npm optional package resolves native file without running wrapper
+  ---
+  duration_ms: 16.913417
+  type: 'test'
+  ...
+# Subtest: legacy official npm vendor layout resolves the same target
+ok 15 - legacy official npm vendor layout resolves the same target
+  ---
+  duration_ms: 16.170416
+  type: 'test'
+  ...
+# Subtest: unrecognized wrappers and platform targets fail closed
+ok 16 - unrecognized wrappers and platform targets fail closed
+  ---
+  duration_ms: 2.739917
+  type: 'test'
+  ...
+# Subtest: native PATH entries retain their real executable identity
+ok 17 - native PATH entries retain their real executable identity
+  ---
+  duration_ms: 0.157584
+  type: 'test'
+  ...
+# Subtest: reviewed hash and version must both match before a binary is usable
+ok 18 - reviewed hash and version must both match before a binary is usable
+  ---
+  duration_ms: 366.118542
+  type: 'test'
+  ...
+# Subtest: a mismatched hash rejects an unexecutable fixture before launch
+ok 19 - a mismatched hash rejects an unexecutable fixture before launch
+  ---
+  duration_ms: 112.007083
+  type: 'test'
+  ...
+# Subtest: configured old/mismatched binaries cannot fall through to a different candidate
+ok 20 - configured old/mismatched binaries cannot fall through to a different candidate
+  ---
+  duration_ms: 420.430333
+  type: 'test'
+  ...
+# Subtest: admission reserves in the Run transaction and confirmed pre-send failure releases zero-token work
+ok 21 - admission reserves in the Run transaction and confirmed pre-send failure releases zero-token work
+  ---
+  duration_ms: 18.381666
+  type: 'test'
+  ...
+# Subtest: cumulative usage and duplicate notifications settle once rather than adding repeated totals
+ok 22 - cumulative usage and duplicate notifications settle once rather than adding repeated totals
+  ---
+  duration_ms: 25.794167
+  type: 'test'
+  ...
+# Subtest: same Thread continuation charges only the newly reported cumulative increment
+ok 23 - same Thread continuation charges only the newly reported cumulative increment
+  ---
+  duration_ms: 38.69775
+  type: 'test'
+  ...
+# Subtest: missing usage retains an unknown hold and budget failure rolls back a fresh Task/Run/Operation
+ok 24 - missing usage retains an unknown hold and budget failure rolls back a fresh Task/Run/Operation
+  ---
+  duration_ms: 17.828417
+  type: 'test'
+  ...
+# Subtest: zero, regressed or malformed counters cannot be treated as known zero cost
+ok 25 - zero, regressed or malformed counters cannot be treated as known zero cost
+  ---
+  duration_ms: 163.986333
+  type: 'test'
+  ...
+# Subtest: wrong Thread/Turn observations are rejected without altering the real reservation
+ok 26 - wrong Thread/Turn observations are rejected without altering the real reservation
+  ---
+  duration_ms: 25.616959
+  type: 'test'
+  ...
+# Subtest: observed overruns increase held units and actual settlement is recorded even above the limit
+ok 27 - observed overruns increase held units and actual settlement is recorded even above the limit
+  ---
+  duration_ms: 37.142625
+  type: 'test'
+  ...
+# Subtest: a Goal bucket shortage rolls back the whole reservation group, fence and run
+ok 28 - a Goal bucket shortage rolls back the whole reservation group, fence and run
+  ---
+  duration_ms: 17.62475
+  type: 'test'
+  ...
+# Subtest: an unpriced currency budget is not bypassed or filled with invented dollar costs
+ok 29 - an unpriced currency budget is not bypassed or filled with invented dollar costs
+  ---
+  duration_ms: 18.311541
+  type: 'test'
+  ...
+# Subtest: unknown holds persist across Owner restart and an old token cannot update accounting
+ok 30 - unknown holds persist across Owner restart and an old token cannot update accounting
+  ---
+  duration_ms: 20.05375
+  type: 'test'
+  ...
+# Subtest: an old untracked Thread keeps an unknown reservation rather than charging its historical total
+ok 31 - an old untracked Thread keeps an unknown reservation rather than charging its historical total
+  ---
+  duration_ms: 52.533291
+  type: 'test'
+  ...
+# Subtest: multiple budget constraints do not double-count the same unknown Run in the display
+ok 32 - multiple budget constraints do not double-count the same unknown Run in the display
+  ---
+  duration_ms: 16.891667
+  type: 'test'
+  ...
+# Subtest: revision 2 migrates to 5 with a private verified WAL snapshot and no lost budget facts
+ok 33 - revision 2 migrates to 5 with a private verified WAL snapshot and no lost budget facts
+  ---
+  duration_ms: 24.629833
+  type: 'test'
+  ...
+# Subtest: revision 3 migrates to 5 with a private verified WAL snapshot and no lost budget facts
+ok 34 - revision 3 migrates to 5 with a private verified WAL snapshot and no lost budget facts
+  ---
+  duration_ms: 51.100375
+  type: 'test'
+  ...
+# Subtest: a failed migration rolls back new columns and preserves the source database and backup
+ok 35 - a failed migration rolls back new columns and preserves the source database and backup
+  ---
+  duration_ms: 17.669166
+  type: 'test'
+  ...
+# Subtest: real child SIGKILL retains unknown budget reservations and blocks a replacement model dispatch
+ok 36 - real child SIGKILL retains unknown budget reservations and blocks a replacement model dispatch
+  ---
+  duration_ms: 238.115083
+  type: 'test'
+  ...
+# Subtest: numeric five-field Cron is normalized and validates a named timezone without using the host default
+ok 37 - numeric five-field Cron is normalized and validates a named timezone without using the host default
+  ---
+  duration_ms: 72.557625
+  type: 'test'
+  ...
+# Subtest: next is exclusive and previous inclusive at the exact minute, with seconds never inherited
+ok 38 - next is exclusive and previous inclusive at the exact minute, with seconds never inherited
+  ---
+  duration_ms: 1.969958
+  type: 'test'
+  ...
+# Subtest: New York nonexistent spring time is skipped rather than silently shifted to another hour
+ok 39 - New York nonexistent spring time is skipped rather than silently shifted to another hour
+  ---
+  duration_ms: 1.43925
+  type: 'test'
+  ...
+# Subtest: New York repeated fall time selects only its earlier UTC occurrence in either direction
+ok 40 - New York repeated fall time selects only its earlier UTC occurrence in either direction
+  ---
+  duration_ms: 1.320083
+  type: 'test'
+  ...
+# Subtest: every-minute expressions suppress all repeated fall minutes, not just daily Cron
+ok 41 - every-minute expressions suppress all repeated fall minutes, not just daily Cron
+  ---
+  duration_ms: 3.564916
+  type: 'test'
+  ...
+# Subtest: Lord Howe half-hour repeated time also selects the earlier occurrence
+ok 42 - Lord Howe half-hour repeated time also selects the earlier occurrence
+  ---
+  duration_ms: 3.898458
+  type: 'test'
+  ...
+# Subtest: Lord Howe half-hour gap is skipped while the next ordinary day remains valid
+ok 43 - Lord Howe half-hour gap is skipped while the next ordinary day remains valid
+  ---
+  duration_ms: 2.949958
+  type: 'test'
+  ...
+# Subtest: leap dates and month boundaries retain calendar semantics
+ok 44 - leap dates and month boundaries retain calendar semantics
+  ---
+  duration_ms: 16.377334
+  type: 'test'
+  ...
+# Subtest: latest missed occurrence is computed directly over years instead of replaying every minute
+ok 45 - latest missed occurrence is computed directly over years instead of replaying every minute
+  ---
+  duration_ms: 3.38075
+  type: 'test'
+  ...
+# Subtest: malformed, nondeterministic, ambiguous day fields and extra fields are rejected
+ok 46 - malformed, nondeterministic, ambiguous day fields and extra fields are rejected
+  ---
+  duration_ms: 2.209792
+  type: 'test'
+  ...
+# Subtest: unsupported dates and impossible future occurrences fail closed without silently changing the expression
+ok 47 - unsupported dates and impossible future occurrences fail closed without silently changing the expression
+  ---
+  duration_ms: 3.502667
+  type: 'test'
+  ...
+# Subtest: independent UTC-minute enumeration agrees across four DST boundaries without duplicate local slots
+ok 48 - independent UTC-minute enumeration agrees across four DST boundaries without duplicate local slots
+  ---
+  duration_ms: 1454.933667
+  type: 'test'
+  ...
+# Subtest: explicit query command requires a single known object, without a global-query fallback
+ok 49 - explicit query command requires a single known object, without a global-query fallback
+  ---
+  duration_ms: 1.300459
+  type: 'test'
+  ...
+# Subtest: UI object, explicit text ID, valid Focus and unique title have deterministic priority
+ok 50 - UI object, explicit text ID, valid Focus and unique title have deterministic priority
+  ---
+  duration_ms: 9.640291
+  type: 'test'
+  ...
+# Subtest: Chinese and English state questions remain read-only and require an object
+ok 51 - Chinese and English state questions remain read-only and require an object
+  ---
+  duration_ms: 7.977167
+  type: 'test'
+  ...
+# Subtest: duplicate titles and multiple IDs clarify rather than silently choosing a task
+ok 52 - duplicate titles and multiple IDs clarify rather than silently choosing a task
+  ---
+  duration_ms: 0.3175
+  type: 'test'
+  ...
+# Subtest: unknown explicit IDs never fall back to UI selection, Focus or a matching title
+ok 53 - unknown explicit IDs never fall back to UI selection, Focus or a matching title
+  ---
+  duration_ms: 1.803416
+  type: 'test'
+  ...
+# Subtest: selected objects do not turn actions or mixed query/action language into queries
+ok 54 - selected objects do not turn actions or mixed query/action language into queries
+  ---
+  duration_ms: 0.327334
+  type: 'test'
+  ...
+# Subtest: explicit note body stays inert and unknown text never invokes a model or changes Focus
+ok 55 - explicit note body stays inert and unknown text never invokes a model or changes Focus
+  ---
+  duration_ms: 0.436625
+  type: 'test'
+  ...
+# Subtest: exact IDs do not match prefixes, case aliases or normalized paths
+ok 56 - exact IDs do not match prefixes, case aliases or normalized paths
+  ---
+  duration_ms: 0.304125
+  type: 'test'
+  ...
+# Subtest: candidate output is bounded and contains only supplied identifiers
+ok 57 - candidate output is bounded and contains only supplied identifiers
+  ---
+  duration_ms: 0.452875
+  type: 'test'
+  ...
+# Subtest: malformed and oversized inputs return fixed errors without private diagnostic content
+ok 58 - malformed and oversized inputs return fixed errors without private diagnostic content
+  ---
+  duration_ms: 0.530792
+  type: 'test'
+  ...
+# Subtest: legal multiline and tabbed Task titles do not poison another explicit Task query
+ok 59 - legal multiline and tabbed Task titles do not poison another explicit Task query
+  ---
+  duration_ms: 0.381375
+  type: 'test'
+  ...
+# Subtest: routing does not mutate or read extra candidate data, and emits no title/body/path
+ok 60 - routing does not mutate or read extra candidate data, and emits no title/body/path
+  ---
+  duration_ms: 0.4585
+  type: 'test'
+  ...
+# Subtest: a candidate-bound proposal persists one routing Run and never commits task changes without explicit approval
+ok 61 - a candidate-bound proposal persists one routing Run and never commits task changes without explicit approval
+  ---
+  duration_ms: 74.514209
+  type: 'test'
+  ...
+# Subtest: explicit commit executes a DAG with persisted receipt versions, one query snapshot and a queued new Task
+ok 62 - explicit commit executes a DAG with persisted receipt versions, one query snapshot and a queued new Task
+  ---
+  duration_ms: 102.263958
+  type: 'test'
+  ...
+# Subtest: partial domain failure cancels its dependents while independent operations complete
+ok 63 - partial domain failure cancels its dependents while independent operations complete
+  ---
+  duration_ms: 86.722625
+  type: 'test'
+  ...
+# Subtest: a lost domain receipt is recovered by fixed child key, without invoking a second Task mutation
+ok 64 - a lost domain receipt is recovered by fixed child key, without invoking a second Task mutation
+  ---
+  duration_ms: 91.4735
+  type: 'test'
+  ...
+# Subtest: reopened Owner reads an executing child receipt without replaying TaskService or creating another Task
+ok 65 - reopened Owner reads an executing child receipt without replaying TaskService or creating another Task
+  ---
+  duration_ms: 95.063666
+  type: 'test'
+  ...
+# Subtest: an executing child with no durable receipt becomes Unknown and is never resent across ticks or explicit commits
+ok 66 - an executing child with no durable receipt becomes Unknown and is never resent across ticks or explicit commits
+  ---
+  duration_ms: 65.51775
+  type: 'test'
+  ...
+# Subtest: continuation admission on explicit commit persists one Run which is checked without replay
+ok 67 - continuation admission on explicit commit persists one Run which is checked without replay
+  ---
+  duration_ms: 118.060667
+  type: 'test'
+  ...
+# Subtest: CHAT uses a separate no-tools role and stores its current-turn snapshot answer after completion
+ok 68 - CHAT uses a separate no-tools role and stores its current-turn snapshot answer after completion
+  ---
+  duration_ms: 80.496375
+  type: 'test'
+  ...
+# Subtest: unknown model outcome never generates another proposal or child and malformed/foreign candidate output is rejected
+ok 69 - unknown model outcome never generates another proposal or child and malformed/foreign candidate output is rejected
+  ---
+  duration_ms: 81.032541
+  type: 'test'
+  ...
+# Subtest: strict structured output rejects foreign IDs and cyclic dependencies without any Task effect
+ok 70 - strict structured output rejects foreign IDs and cyclic dependencies without any Task effect
+  ---
+  duration_ms: 112.458041
+  type: 'test'
+  ...
+# Subtest: correction cancels uncommitted steps and records a new Focus
+ok 71 - correction cancels uncommitted steps and records a new Focus
+  ---
+  duration_ms: 50.998542
+  type: 'test'
+  ...
+# Subtest: a completed routing Run in the pre-bind crash window is recovered under the same model key
+ok 72 - a completed routing Run in the pre-bind crash window is recovered under the same model key
+  ---
+  duration_ms: 66.53025
+  type: 'test'
+  ...
+# Subtest: a result persistence failure leaves the real child committed and later recovers without replay
+ok 73 - a result persistence failure leaves the real child committed and later recovers without replay
+  ---
+  duration_ms: 69.424834
+  type: 'test'
+  ...
+# Subtest: an Unknown continuation is never resubmitted and correction refuses unreconciled side effects
+ok 74 - an Unknown continuation is never resubmitted and correction refuses unreconciled side effects
+  ---
+  duration_ms: 88.468125
+  type: 'test'
+  ...
+# Subtest: explicit CREATE_GOAL persists a waiting-plan Goal and correction preserves earlier completed mutations
+ok 75 - explicit CREATE_GOAL persists a waiting-plan Goal and correction preserves earlier completed mutations
+  ---
+  duration_ms: 82.079167
+  type: 'test'
+  ...
+# Subtest: version changes, additional command fields and unsafe Host role profiles fail closed
+ok 76 - version changes, additional command fields and unsafe Host role profiles fail closed
+  ---
+  duration_ms: 84.939292
+  type: 'test'
+  ...
+# Subtest: domain resolver reads real Task/message/Goal provenance without writes and requires Task links
+ok 77 - domain resolver reads real Task/message/Goal provenance without writes and requires Task links
+  ---
+  duration_ms: 11.934125
+  type: 'test'
+  ...
+# Subtest: source visibility, canonical/bare tombstones, missing Tasks and revisions are checked
+ok 78 - source visibility, canonical/bare tombstones, missing Tasks and revisions are checked
+  ---
+  duration_ms: 6.30575
+  type: 'test'
+  ...
+# Subtest: Artifact receipt requires published same-Task verification and trusted hash-checked bytes
+ok 79 - Artifact receipt requires published same-Task verification and trusted hash-checked bytes
+  ---
+  duration_ms: 9.321333
+  type: 'test'
+  ...
+# Subtest: Memory callbacks retain trust and JSON source revision while absence or promoted trust refuses retrieval
+ok 80 - Memory callbacks retain trust and JSON source revision while absence or promoted trust refuses retrieval
+  ---
+  duration_ms: 5.370041
+  type: 'test'
+  ...
+# Subtest: extractive Episode requires current linked source hashes and actual quoted bytes
+ok 81 - extractive Episode requires current linked source hashes and actual quoted bytes
+  ---
+  duration_ms: 5.386292
+  type: 'test'
+  ...
+# Subtest: Checkpoint requires current Task/Goal/Policy/Privacy/workspace and hash-linked sources
+ok 82 - Checkpoint requires current Task/Goal/Policy/Privacy/workspace and hash-linked sources
+  ---
+  duration_ms: 8.619041
+  type: 'test'
+  ...
+# Subtest: acknowledged same-Task Source payload is hash-verified data with external trust and provenance tied to its original Source binding
+ok 83 - acknowledged same-Task Source payload is hash-verified data with external trust and provenance tied to its original Source binding
+  ---
+  duration_ms: 5.755709
+  type: 'test'
+  ...
+# Subtest: pending, actionable or disabled Source deliveries never grant context access; Source binding changes invalidate old Event provenance
+ok 84 - pending, actionable or disabled Source deliveries never grant context access; Source binding changes invalidate old Event provenance
+  ---
+  duration_ms: 6.0515
+  type: 'test'
+  ...
+# Subtest: missing Host payload, mismatched actual bytes, opaque ref/hash mismatch and raw payload paths are refused
+ok 85 - missing Host payload, mismatched actual bytes, opaque ref/hash mismatch and raw payload paths are refused
+  ---
+  duration_ms: 24.763375
+  type: 'test'
+  ...
+# Subtest: trigger, Source and opaque-payload tombstones and missing original binding revision all reject Source context
+ok 86 - trigger, Source and opaque-payload tombstones and missing original binding revision all reject Source context
+  ---
+  duration_ms: 37.97675
+  type: 'test'
+  ...
+# Subtest: Claim sources preserve the real fact domain, strict Task scope, evidence sensitivity and original trust
+ok 87 - Claim sources preserve the real fact domain, strict Task scope, evidence sensitivity and original trust
+  ---
+  duration_ms: 3.60975
+  type: 'test'
+  ...
+# Subtest: real SQLite bundle build rechecks source revisions and actual BPE without creating another Task/Run/Intent
+ok 88 - real SQLite bundle build rechecks source revisions and actual BPE without creating another Task/Run/Intent
+  ---
+  duration_ms: 69.876542
+  type: 'test'
+  ...
+# Subtest: source or Task version changed during assembly rolls back and cannot bind a stale manifest
+ok 89 - source or Task version changed during assembly rolls back and cannot bind a stale manifest
+  ---
+  duration_ms: 13.676042
+  type: 'test'
+  ...
+# Subtest: manifest binding preserves source attribution and existing input hashes, requires current Run, and freezes before RPC
+ok 90 - manifest binding preserves source attribution and existing input hashes, requires current Run, and freezes before RPC
+  ---
+  duration_ms: 14.42625
+  type: 'test'
+  ...
+# Subtest: manifest revalidation rejects deleted sources, changed current versions and stale owners
+ok 91 - manifest revalidation rejects deleted sources, changed current versions and stale owners
+  ---
+  duration_ms: 17.578625
+  type: 'test'
+  ...
+# Subtest: extractive Episode persists original source links/derivation and survives a real DB reopen
+ok 92 - extractive Episode persists original source links/derivation and survives a real DB reopen
+  ---
+  duration_ms: 18.160292
+  type: 'test'
+  ...
+# Subtest: Episode edits require CAS and loads reject stale or forgotten sources
+ok 93 - Episode edits require CAS and loads reject stale or forgotten sources
+  ---
+  duration_ms: 24.541959
+  type: 'test'
+  ...
+# Subtest: Checkpoint derives evidence from published Host verification rows and verified source bytes, never caller status
+ok 94 - Checkpoint derives evidence from published Host verification rows and verified source bytes, never caller status
+  ---
+  duration_ms: 50.650375
+  type: 'test'
+  ...
+# Subtest: missing/unpublished/zero-test receipt and changed checkpoint/source metadata are refused without partial saves
+ok 95 - missing/unpublished/zero-test receipt and changed checkpoint/source metadata are refused without partial saves
+  ---
+  duration_ms: 19.483541
+  type: 'test'
+  ...
+# Subtest: Rollover invalidates only an idle actual binding and leaves next provider thread creation to the Gateway
+ok 96 - Rollover invalidates only an idle actual binding and leaves next provider thread creation to the Gateway
+  ---
+  duration_ms: 17.835833
+  type: 'test'
+  ...
+# Subtest: Rollover keeps unknown Run and Intent evidence blocked and never retires the old binding
+ok 97 - Rollover keeps unknown Run and Intent evidence blocked and never retires the old binding
+  ---
+  duration_ms: 20.636125
+  type: 'test'
+  ...
+# Subtest: a published receipt row with unknown skip count or a self-asserted JSON result is not trusted proof
+ok 98 - a published receipt row with unknown skip count or a self-asserted JSON result is not trusted proof
+  ---
+  duration_ms: 43.336584
+  type: 'test'
+  ...
+# Subtest: Host RPC freshness guard rechecks current manifest refs, Task/workspace and Run fence
+ok 99 - Host RPC freshness guard rechecks current manifest refs, Task/workspace and Run fence
+  ---
+  duration_ms: 16.484417
+  type: 'test'
+  ...
+# Subtest: Host rollover admission rebases the exact checkpoint across its own Task claim and builds fresh Context with old hash provenance
+ok 100 - Host rollover admission rebases the exact checkpoint across its own Task claim and builds fresh Context with old hash provenance
+  ---
+  duration_ms: 78.749792
+  type: 'test'
+  ...
+# Subtest: ordinary stale or externally changed checkpoint cannot authorize admission or invoke the Host claim
+ok 101 - ordinary stale or externally changed checkpoint cannot authorize admission or invoke the Host claim
+  ---
+  duration_ms: 12.037667
+  type: 'test'
+  ...
+# Subtest: unresolved Intent/Action refuses admission without retiring the old binding or deleting evidence
+ok 102 - unresolved Intent/Action refuses admission without retiring the old binding or deleting evidence
+  ---
+  duration_ms: 17.618459
+  type: 'test'
+  ...
+# Subtest: Task constraints/criteria/title and unexpected version changes during Host admission roll back Run and binding retirement
+ok 103 - Task constraints/criteria/title and unexpected version changes during Host admission roll back Run and binding retirement
+  ---
+  duration_ms: 101.015584
+  type: 'test'
+  ...
+# Subtest: non-Task source mutation, old checkpoint mutation, workspace change or premature Thread publication cannot be rebased
+ok 104 - non-Task source mutation, old checkpoint mutation, workspace change or premature Thread publication cannot be rebased
+  ---
+  duration_ms: 84.678042
+  type: 'test'
+  ...
+# Subtest: admission rejects an old Run, wrong fence, stale owner and any Intent before fresh Context binding
+ok 105 - admission rejects an old Run, wrong fence, stale owner and any Intent before fresh Context binding
+  ---
+  duration_ms: 115.215375
+  type: 'test'
+  ...
+# Subtest: only a synchronous Host callback can admit rollover, and thrown claims roll back before a checkpoint is saved
+ok 106 - only a synchronous Host callback can admit rollover, and thrown claims roll back before a checkpoint is saved
+  ---
+  duration_ms: 16.407542
+  type: 'test'
+  ...
+# Subtest: writable admission retains frozen code constraints and permits only its newly fenced workspace lease
+ok 107 - writable admission retains frozen code constraints and permits only its newly fenced workspace lease
+  ---
+  duration_ms: 39.348166
+  type: 'test'
+  ...
+# Subtest: Goal objective or Plan changes during admission cannot be hidden by keeping Task constraints unchanged
+ok 108 - Goal objective or Plan changes during admission cannot be hidden by keeping Task constraints unchanged
+  ---
+  duration_ms: 37.379
+  type: 'test'
+  ...
+# Subtest: deterministic source context keeps every source instruction in user data and records exact module/source hashes
+ok 109 - deterministic source context keeps every source instruction in user data and records exact module/source hashes
+  ---
+  duration_ms: 19.717584
+  type: 'test'
+  ...
+# Subtest: required request and constraints never truncate; over-budget admission is rejected
+ok 110 - required request and constraints never truncate; over-budget admission is rejected
+  ---
+  duration_ms: 1.262583
+  type: 'test'
+  ...
+# Subtest: optional context is omitted by budget without partial text, while later smaller evidence may fit
+ok 111 - optional context is omitted by budget without partial text, while later smaller evidence may fit
+  ---
+  duration_ms: 0.7035
+  type: 'test'
+  ...
+# Subtest: task/dot scope, source revision, deletion, visibility and validity are rechecked before context use
+ok 112 - task/dot scope, source revision, deletion, visibility and validity are rechecked before context use
+  ---
+  duration_ms: 1.830667
+  type: 'test'
+  ...
+# Subtest: all task/goal/policy/privacy/workspace versions are frozen, and changed content hashes are invalid
+ok 113 - all task/goal/policy/privacy/workspace versions are frozen, and changed content hashes are invalid
+  ---
+  duration_ms: 0.275833
+  type: 'test'
+  ...
+# Subtest: Prompt registry verifies bytes and dependencies, fails closed on missing/conflicting modules and unsafe role/tool modes
+ok 114 - Prompt registry verifies bytes and dependencies, fails closed on missing/conflicting modules and unsafe role/tool modes
+  ---
+  duration_ms: 1.140958
+  type: 'test'
+  ...
+# Subtest: personal context never automatically enters coding memory or coding-role prompts
+ok 115 - personal context never automatically enters coding memory or coding-role prompts
+  ---
+  duration_ms: 0.676667
+  type: 'test'
+  ...
+# Subtest: a supplied counter is fingerprinted and exact to its returned count; failures never become zero usage
+ok 116 - a supplied counter is fingerprinted and exact to its returned count; failures never become zero usage
+  ---
+  duration_ms: 0.54375
+  type: 'test'
+  ...
+# Subtest: duplicate sources and unsafe or unbounded source/registry metadata are rejected
+ok 117 - duplicate sources and unsafe or unbounded source/registry metadata are rejected
+  ---
+  duration_ms: 1.7215
+  type: 'test'
+  ...
+# Subtest: Episode summaries contain only exact authorized source spans with revision/hash provenance
+ok 118 - Episode summaries contain only exact authorized source spans with revision/hash provenance
+  ---
+  duration_ms: 0.88275
+  type: 'test'
+  ...
+# Subtest: Checkpoint confirms only trusted published Host receipt DTOs and keeps business completion independent
+ok 119 - Checkpoint confirms only trusted published Host receipt DTOs and keeps business completion independent
+  ---
+  duration_ms: 0.640125
+  type: 'test'
+  ...
+# Subtest: Rollover refuses unresolved effects and forces a new generation for sensitive changes only from a current checkpoint
+ok 120 - Rollover refuses unresolved effects and forces a new generation for sensitive changes only from a current checkpoint
+  ---
+  duration_ms: 0.505167
+  type: 'test'
+  ...
+# Subtest: assembly refuses a source or version changed during counting rather than emitting stale provenance
+ok 121 - assembly refuses a source or version changed during counting rather than emitting stale provenance
+  ---
+  duration_ms: 0.231375
+  type: 'test'
+  ...
+# Subtest: malformed evidence and a checkpoint with unavailable rollover sources fail with fixed codes
+ok 122 - malformed evidence and a checkpoint with unavailable rollover sources fail with fixed codes
+  ---
+  duration_ms: 0.610375
+  type: 'test'
+  ...
+# Subtest: cross-task private coding material stays isolated while explicitly public coding experience may be shared
+ok 123 - cross-task private coding material stays isolated while explicitly public coding experience may be shared
+  ---
+  duration_ms: 0.480916
+  type: 'test'
+  ...
+# Subtest: real stdio accept/decline controls one synthetic side effect and replies cannot be replayed
+ok 124 - real stdio accept/decline controls one synthetic side effect and replies cannot be replayed
+  ---
+  duration_ms: 1395.0865
+  type: 'test'
+  ...
+# Subtest: real stdio question receives only supplied question-ID answers and resumes the same run
+ok 125 - real stdio question receives only supplied question-ID answers and resumes the same run
+  ---
+  duration_ms: 210.623958
+  type: 'test'
+  ...
+# Subtest: interrupt acknowledgment plus authoritative interrupted turn cancels the run exactly once
+ok 126 - interrupt acknowledgment plus authoritative interrupted turn cancels the run exactly once
+  ---
+  duration_ms: 227.204667
+  type: 'test'
+  ...
+# Subtest: interrupt acceptance without final confirmation and lost acceptance both remain Unknown
+ok 127 - interrupt acceptance without final confirmation and lost acceptance both remain Unknown
+  ---
+  duration_ms: 563.63
+  type: 'test'
+  ...
+# Subtest: real stdio fixture sees committed intents before both requests and final projection preserves repeated deltas
+ok 128 - real stdio fixture sees committed intents before both requests and final projection preserves repeated deltas
+  ---
+  duration_ms: 1287.172292
+  type: 'test'
+  ...
+# Subtest: duplicate keys after completion return the stored result without another transport
+ok 129 - duplicate keys after completion return the stored result without another transport
+  ---
+  duration_ms: 250.816834
+  type: 'test'
+  ...
+# Subtest: lost acceptance remains unknown even when a completed event was observed; no automatic resend
+ok 130 - lost acceptance remains unknown even when a completed event was observed; no automatic resend
+  ---
+  duration_ms: 1703.432959
+  type: 'test'
+  ...
+# Subtest: a disconnected server and a silent turn preserve Unknown and mark the snapshot stale
+ok 131 - a disconnected server and a silent turn preserve Unknown and mark the snapshot stale
+  ---
+  duration_ms: 2340.588167
+  type: 'test'
+  ...
+# Subtest: confirmed invalid protocol parameters reject once and do not leave a sending intent
+ok 132 - confirmed invalid protocol parameters reject once and do not leave a sending intent
+  ---
+  duration_ms: 167.375
+  type: 'test'
+  ...
+# Subtest: queries reject arbitrary keys, raw paths and foreign run IDs before exporting content
+ok 133 - queries reject arbitrary keys, raw paths and foreign run IDs before exporting content
+  ---
+  duration_ms: 206.913958
+  type: 'test'
+  ...
+# Subtest: concurrent different submission cannot create an orphan ledger run
+ok 134 - concurrent different submission cannot create an orphan ledger run
+  ---
+  duration_ms: 970.720459
+  type: 'test'
+  ...
+# Subtest: closing owner while running records Unknown and waits for the child process shutdown
+ok 135 - closing owner while running records Unknown and waits for the child process shutdown
+  ---
+  duration_ms: 239.253333
+  type: 'test'
+  ...
+# Subtest: nonempty thread MCP inventory blocks a model turn even if disable overrides were supplied
+ok 136 - nonempty thread MCP inventory blocks a model turn even if disable overrides were supplied
+  ---
+  duration_ms: 135.713709
+  type: 'test'
+  ...
+# Subtest: configured servers explicitly disabled with zero tools are accepted as a closed inventory
+ok 137 - configured servers explicitly disabled with zero tools are accepted as a closed inventory
+  ---
+  duration_ms: 167.424958
+  type: 'test'
+  ...
+# Subtest: an inherited automatic approval reviewer cannot bypass the Host broker before a model turn
+ok 138 - an inherited automatic approval reviewer cannot bypass the Host broker before a model turn
+  ---
+  duration_ms: 137.041875
+  type: 'test'
+  ...
+# Subtest: native network, write-root and temporary-directory expansion fail before any model turn
+ok 139 - native network, write-root and temporary-directory expansion fail before any model turn
+  ---
+  duration_ms: 422.41475
+  type: 'test'
+  ...
+# Subtest: code execution requires a successful frozen contract before any RPC connection or model request
+ok 140 - code execution requires a successful frozen contract before any RPC connection or model request
+  ---
+  duration_ms: 28.247333
+  type: 'test'
+  ...
+# Subtest: stopping during contract preparation aborts without starting the native executor
+ok 141 - stopping during contract preparation aborts without starting the native executor
+  ---
+  duration_ms: 38.697709
+  type: 'test'
+  ...
+# Subtest: a changed code contract cannot reuse a submission key while preparation is in progress
+ok 142 - a changed code contract cannot reuse a submission key while preparation is in progress
+  ---
+  duration_ms: 30.010375
+  type: 'test'
+  ...
+# Subtest: known ended tasks continue with a fenced new Run and durable resume before sending, retaining the original binding
+ok 143 - known ended tasks continue with a fenced new Run and durable resume before sending, retaining the original binding
+  ---
+  duration_ms: 288.096417
+  type: 'test'
+  ...
+# Subtest: Unknown tasks never become a new continuation
+ok 144 - Unknown tasks never become a new continuation
+  ---
+  duration_ms: 1669.200958
+  type: 'test'
+  ...
+# Subtest: a direct first Goal Run claim creates its own current UTC-day bucket without waiting for a pump
+ok 145 - a direct first Goal Run claim creates its own current UTC-day bucket without waiting for a pump
+  ---
+  duration_ms: 45.833541
+  type: 'test'
+  ...
+# Subtest: crossing UTC midnight allocates the new Goal day on the very first direct claim and preserves the old day
+ok 146 - crossing UTC midnight allocates the new Goal day on the very first direct claim and preserves the old day
+  ---
+  duration_ms: 37.802167
+  type: 'test'
+  ...
+# Subtest: insufficient Goal capacity rolls back global and Goal reservations, Run, operation and fencing as one group
+ok 147 - insufficient Goal capacity rolls back global and Goal reservations, Run, operation and fencing as one group
+  ---
+  duration_ms: 25.950542
+  type: 'test'
+  ...
+# Subtest: a lower configured quota is enforced before admission and never removes known spend or Unknown holds
+ok 148 - a lower configured quota is enforced before admission and never removes known spend or Unknown holds
+  ---
+  duration_ms: 85.184208
+  type: 'test'
+  ...
+# Subtest: raising configuration cannot relax an already lower current-day Goal bucket or reset its consumption
+ok 149 - raising configuration cannot relax an already lower current-day Goal bucket or reset its consumption
+  ---
+  duration_ms: 35.568667
+  type: 'test'
+  ...
+# Subtest: legacy M2 Goals without budgetTokens retain manual-bucket accounting without a fabricated daily Goal quota
+ok 150 - legacy M2 Goals without budgetTokens retain manual-bucket accounting without a fabricated daily Goal quota
+  ---
+  duration_ms: 19.041167
+  type: 'test'
+  ...
+# Subtest: invalid declared quotas or a stopped Source Goal cannot create any Run or reservation
+ok 151 - invalid declared quotas or a stopped Source Goal cannot create any Run or reservation
+  ---
+  duration_ms: 171.159875
+  type: 'test'
+  ...
+# Subtest: Goal pause commits revocation before a real stdio Fixture interrupt; only acknowledged interrupted closes the Run
+ok 152 - Goal pause commits revocation before a real stdio Fixture interrupt; only acknowledged interrupted closes the Run
+  ---
+  duration_ms: 1382.438209
+  type: 'test'
+  ...
+# Subtest: lost interrupt acknowledgement remains Unknown with held reservations and never manufactures process cancellation
+ok 153 - lost interrupt acknowledgement remains Unknown with held reservations and never manufactures process cancellation
+  ---
+  duration_ms: 283.698584
+  type: 'test'
+  ...
+# Subtest: an unavailable executor after Goal revise seals its admitted Run Unknown; duplicate command does not interrupt again
+ok 154 - an unavailable executor after Goal revise seals its admitted Run Unknown; duplicate command does not interrupt again
+  ---
+  duration_ms: 76.738875
+  type: 'test'
+  ...
+# Subtest: Source Fixture poll consumes persisted cursor, ingests through SQLite and queues wakes without a second execution loop
+ok 155 - Source Fixture poll consumes persisted cursor, ingests through SQLite and queues wakes without a second execution loop
+  ---
+  duration_ms: 55.487167
+  type: 'test'
+  ...
+# Subtest: a failing Source poll leaves its cursor unchanged and does not prevent other local Goal work
+ok 156 - a failing Source poll leaves its cursor unchanged and does not prevent other local Goal work
+  ---
+  duration_ms: 51.456875
+  type: 'test'
+  ...
+# Subtest: overlapping ticks share a claim and persist each explicit Provider receipt exactly once
+ok 157 - overlapping ticks share a claim and persist each explicit Provider receipt exactly once
+  ---
+  duration_ms: 48.237917
+  type: 'test'
+  ...
+# Subtest: a thrown notification send is Unknown and stable notification key never replays it
+ok 158 - a thrown notification send is Unknown and stable notification key never replays it
+  ---
+  duration_ms: 63.952042
+  type: 'test'
+  ...
+# Subtest: notification timeout aborts the adapter and a late delivered receipt cannot replace Unknown or cause resend
+ok 159 - notification timeout aborts the adapter and a late delivered receipt cannot replace Unknown or cause resend
+  ---
+  duration_ms: 88.479375
+  type: 'test'
+  ...
+# Subtest: malformed Provider receipt is conservatively sealed Unknown rather than stranded or retried
+ok 160 - malformed Provider receipt is conservatively sealed Unknown rather than stranded or retried
+  ---
+  duration_ms: 46.043541
+  type: 'test'
+  ...
+# Subtest: actual SQLite close and new Owner seal an already claimed notification Unknown without any Provider send
+ok 161 - actual SQLite close and new Owner seal an already claimed notification Unknown without any Provider send
+  ---
+  duration_ms: 46.803667
+  type: 'test'
+  ...
+# Subtest: no configured notification adapter leaves pending rows unclaimed; cancelled Goal prevents a later send
+ok 162 - no configured notification adapter leaves pending rows unclaimed; cancelled Goal prevents a later send
+  ---
+  duration_ms: 88.398792
+  type: 'test'
+  ...
+# Subtest: a new Owner during Provider send rejects the late old claim and subsequent ticks never replay it
+ok 163 - a new Owner during Provider send rejects the late old claim and subsequent ticks never replay it
+  ---
+  duration_ms: 65.758
+  type: 'test'
+  ...
+# Subtest: Goal create and versioned commands are durable and idempotent without starting any model task
+ok 164 - Goal create and versioned commands are durable and idempotent without starting any model task
+  ---
+  duration_ms: 41.919541
+  type: 'test'
+  ...
+# Subtest: plan commits dependency DAG, code contract passthrough and fresh tasks atomically
+ok 165 - plan commits dependency DAG, code contract passthrough and fresh tasks atomically
+  ---
+  duration_ms: 17.070375
+  type: 'test'
+  ...
+# Subtest: cyclic or failed Plan Diff has no partial Task, Goal version or operation effect
+ok 166 - cyclic or failed Plan Diff has no partial Task, Goal version or operation effect
+  ---
+  duration_ms: 12.321334
+  type: 'test'
+  ...
+# Subtest: trusted Source authenticates the verified envelope, not payload actor labels; cursor and immutable events dedupe
+ok 167 - trusted Source authenticates the verified envelope, not payload actor labels; cursor and immutable events dedupe
+  ---
+  duration_ms: 25.046791
+  type: 'test'
+  ...
+# Subtest: one incoming event receives separate Task deliveries and each wake is acknowledged only once
+ok 168 - one incoming event receives separate Task deliveries and each wake is acknowledged only once
+  ---
+  duration_ms: 16.982167
+  type: 'test'
+  ...
+# Subtest: self echoes, wrong threads and untrusted event types never wake a task
+ok 169 - self echoes, wrong threads and untrusted event types never wake a task
+  ---
+  duration_ms: 13.187833
+  type: 'test'
+  ...
+# Subtest: Goal revise stops subscriptions, schedules, old grants and pending wake in the same transaction
+ok 170 - Goal revise stops subscriptions, schedules, old grants and pending wake in the same transaction
+  ---
+  duration_ms: 13.330375
+  type: 'test'
+  ...
+# Subtest: pausing an active Goal only blocks its Run and returns its identity; it never invents a stopped process
+ok 171 - pausing an active Goal only blocks its Run and returns its identity; it never invents a stopped process
+  ---
+  duration_ms: 20.007375
+  type: 'test'
+  ...
+# Subtest: changed policy or privacy prevents an old Mandate from queuing work
+ok 172 - changed policy or privacy prevents an old Mandate from queuing work
+  ---
+  duration_ms: 11.17825
+  type: 'test'
+  ...
+# Subtest: Goal completion requires all planned Tasks and trusted published receipt hash checks, not Run status or a passed word
+ok 173 - Goal completion requires all planned Tasks and trusted published receipt hash checks, not Run status or a passed word
+  ---
+  duration_ms: 19.874333
+  type: 'test'
+  ...
+# Subtest: notifications are explicit opt-in, deduplicated, quiet and budgeted independently from Task execution
+ok 174 - notifications are explicit opt-in, deduplicated, quiet and budgeted independently from Task execution
+  ---
+  duration_ms: 13.036
+  type: 'test'
+  ...
+# Subtest: an old sending notification becomes Unknown after Owner restart and is never automatically resent
+ok 175 - an old sending notification becomes Unknown after Owner restart and is never automatically resent
+  ---
+  duration_ms: 10.828917
+  type: 'test'
+  ...
+# Subtest: Goal cancellation cancels unsent notifications and child subscriptions without claiming delivery
+ok 176 - Goal cancellation cancels unsent notifications and child subscriptions without claiming delivery
+  ---
+  duration_ms: 13.111666
+  type: 'test'
+  ...
+# Subtest: raw paths, unknown fields and foreign project commands are rejected before any Goal is created
+ok 177 - raw paths, unknown fields and foreign project commands are rejected before any Goal is created
+  ---
+  duration_ms: 9.575625
+  type: 'test'
+  ...
+# Subtest: a partially invalid verified batch rolls back all events and cursor advancement
+ok 178 - a partially invalid verified batch rolls back all events and cursor advancement
+  ---
+  duration_ms: 22.991
+  type: 'test'
+  ...
+# Subtest: notification failures trip the independent daily circuit after three actual claims
+ok 179 - notification failures trip the independent daily circuit after three actual claims
+  ---
+  duration_ms: 17.2995
+  type: 'test'
+  ...
+# Subtest: notification derivation and audit preserve trust, and a privacy advance clears stored private summaries without inventing delivery
+ok 180 - notification derivation and audit preserve trust, and a privacy advance clears stored private summaries without inventing delivery
+  ---
+  duration_ms: 12.180875
+  type: 'test'
+  ...
+# Subtest: standalone Task stop atomically cancels its pending wake and revokes only its subscription scope
+ok 181 - standalone Task stop atomically cancels its pending wake and revokes only its subscription scope
+  ---
+  duration_ms: 18.619292
+  type: 'test'
+  ...
+# Subtest: Goal budget configuration is validated and a revision lowers current buckets without freeing Unknown occupancy
+ok 182 - Goal budget configuration is validated and a revision lowers current buckets without freeing Unknown occupancy
+  ---
+  duration_ms: 14.019792
+  type: 'test'
+  ...
+# Subtest: the default Goal quota is bounded by the current global policy and absent legacy declarations remain explicit unknown
+ok 183 - the default Goal quota is bounded by the current global policy and absent legacy declarations remain explicit unknown
+  ---
+  duration_ms: 14.300708
+  type: 'test'
+  ...
+# Subtest: Goal automatic execution is explicit per Plan Task; queue-only and malformed dispatch never acquire candidates
+ok 184 - Goal automatic execution is explicit per Plan Task; queue-only and malformed dispatch never acquire candidates
+  ---
+  duration_ms: 41.04625
+  type: 'test'
+  ...
+# Subtest: automatic candidates freeze Task version and current policy/privacy; only the existing transactional Run claim can consume one
+ok 185 - automatic candidates freeze Task version and current policy/privacy; only the existing transactional Run claim can consume one
+  ---
+  duration_ms: 13.144042
+  type: 'test'
+  ...
+# Subtest: Source execute_once waits for its own acknowledged wake and rechecks Mandate or disabled Source at admission
+ok 186 - Source execute_once waits for its own acknowledged wake and rechecks Mandate or disabled Source at admission
+  ---
+  duration_ms: 48.198625
+  type: 'test'
+  ...
+# Subtest: a claimed or Unknown automatic Task never becomes an automatic candidate again, even before a transport Intent
+ok 187 - a claimed or Unknown automatic Task never becomes an automatic candidate again, even before a transport Intent
+  ---
+  duration_ms: 18.938
+  type: 'test'
+  ...
+# Subtest: Goal pause/resume never restores automatic dispatch without a new explicit Plan
+ok 188 - Goal pause/resume never restores automatic dispatch without a new explicit Plan
+  ---
+  duration_ms: 11.590959
+  type: 'test'
+  ...
+# Subtest: automatic dependency work freezes the newly queued version and still respects the Goal deadline
+ok 189 - automatic dependency work freezes the newly queued version and still respects the Goal deadline
+  ---
+  duration_ms: 15.149833
+  type: 'test'
+  ...
+# Subtest: verified Goal completion and opted-in independent notification commit once in the same transaction
+ok 190 - verified Goal completion and opted-in independent notification commit once in the same transaction
+  ---
+  duration_ms: 14.828375
+  type: 'test'
+  ...
+# Subtest: notification preparation failure rolls back Goal completion and its command receipt
+ok 191 - notification preparation failure rolls back Goal completion and its command receipt
+  ---
+  duration_ms: 15.957875
+  type: 'test'
+  ...
+# Subtest: folder grants canonicalize symlinks, deduplicate roots and export detached view objects
+ok 192 - folder grants canonicalize symlinks, deduplicate roots and export detached view objects
+  ---
+  duration_ms: 9.35625
+  type: 'test'
+  ...
+# Subtest: unknown project IDs and arbitrary path or extra RPC parameters fail before accessing the backend
+ok 193 - unknown project IDs and arbitrary path or extra RPC parameters fail before accessing the backend
+  ---
+  duration_ms: 2.314333
+  type: 'test'
+  ...
+# Subtest: thread queries fix cwd and page size, and export bounded summaries without raw metadata
+ok 194 - thread queries fix cwd and page size, and export bounded summaries without raw metadata
+  ---
+  duration_ms: 1.669709
+  type: 'test'
+  ...
+# Subtest: a mixed-scope server page is rejected atomically and grants no thread navigation authority
+ok 195 - a mixed-scope server page is rejected atomically and grants no thread navigation authority
+  ---
+  duration_ms: 2.31375
+  type: 'test'
+  ...
+# Subtest: thread IDs seen under one folder cannot be read under another folder grant
+ok 196 - thread IDs seen under one folder cannot be read under another folder grant
+  ---
+  duration_ms: 2.004417
+  type: 'test'
+  ...
+# Subtest: fresh thread metadata is checked before reading message history
+ok 197 - fresh thread metadata is checked before reading message history
+  ---
+  duration_ms: 6.196125
+  type: 'test'
+  ...
+# Subtest: native pagination cursors are replaced with scoped handles and refresh invalidates old handles
+ok 198 - native pagination cursors are replaced with scoped handles and refresh invalidates old handles
+  ---
+  duration_ms: 4.717041
+  type: 'test'
+  ...
+# Subtest: turn authority and every returned item entry are checked before content export
+ok 199 - turn authority and every returned item entry are checked before content export
+  ---
+  duration_ms: 2.401625
+  type: 'test'
+  ...
+# Subtest: large tool/message output stays within per-item and aggregate budgets and excludes private tool fields
+ok 200 - large tool/message output stays within per-item and aggregate budgets and excludes private tool fields
+  ---
+  duration_ms: 3.958375
+  type: 'test'
+  ...
+# Subtest: oversized server pages fail closed rather than silently dropping unexpected rows
+ok 201 - oversized server pages fail closed rather than silently dropping unexpected rows
+  ---
+  duration_ms: 1.453625
+  type: 'test'
+  ...
+# Subtest: legacy history uses bounded read-only snapshots and local paging without Resume or paginated RPC calls
+ok 202 - legacy history uses bounded read-only snapshots and local paging without Resume or paginated RPC calls
+  ---
+  duration_ms: 2.3705
+  type: 'test'
+  ...
+# Subtest: replacing an authorized project directory invalidates its grant before any history read
+ok 203 - replacing an authorized project directory invalidates its grant before any history read
+  ---
+  duration_ms: 3.909667
+  type: 'test'
+  ...
+# Subtest: read errors propagate without automatic retries or fallback execution methods
+ok 204 - read errors propagate without automatic retries or fallback execution methods
+  ---
+  duration_ms: 2.45775
+  type: 'test'
+  ...
+# Subtest: single approval is persisted before reply and only its exact connection may respond
+ok 205 - single approval is persisted before reply and only its exact connection may respond
+  ---
+  duration_ms: 90.17925
+  type: 'test'
+  ...
+# Subtest: read-only grants and session/policy decisions cannot expand approval authority
+ok 206 - read-only grants and session/policy decisions cannot expand approval authority
+  ---
+  duration_ms: 50.717917
+  type: 'test'
+  ...
+# Subtest: foreign thread/turn, stale connection and unsupported requests do not enter pending state
+ok 207 - foreign thread/turn, stale connection and unsupported requests do not enter pending state
+  ---
+  duration_ms: 68.604166
+  type: 'test'
+  ...
+# Subtest: timeout returns a refusal, persists expiry and does not grant a late approval
+ok 208 - timeout returns a refusal, persists expiry and does not grant a late approval
+  ---
+  duration_ms: 75.793334
+  type: 'test'
+  ...
+# Subtest: input answers use question IDs, reject extras and persist only the response hash
+ok 209 - input answers use question IDs, reject extras and persist only the response hash
+  ---
+  duration_ms: 86.663084
+  type: 'test'
+  ...
+# Subtest: secret questions and files without a trusted diff cannot be silently authorized
+ok 210 - secret questions and files without a trusted diff cannot be silently authorized
+  ---
+  duration_ms: 62.469541
+  type: 'test'
+  ...
+# Subtest: stop blocks acceptance while pending; cancellation still sends a refusal
+ok 211 - stop blocks acceptance while pending; cancellation still sends a refusal
+  ---
+  duration_ms: 77.636708
+  type: 'test'
+  ...
+# Subtest: lost response write preserves Unknown and prevents another foreground run
+ok 212 - lost response write preserves Unknown and prevents another foreground run
+  ---
+  duration_ms: 73.767916
+  type: 'test'
+  ...
+# Subtest: new owner cancels pending requests and the old broker cannot grant them
+ok 213 - new owner cancels pending requests and the old broker cannot grant them
+  ---
+  duration_ms: 61.236791
+  type: 'test'
+  ...
+# Subtest: revision 2 migration creates a verified private snapshot including WAL data and preserves old records
+ok 214 - revision 2 migration creates a verified private snapshot including WAL data and preserves old records
+  ---
+  duration_ms: 19.956875
+  type: 'test'
+  ...
+# Subtest: initializes common schema, persists workspace identity and protects local database permissions
+ok 215 - initializes common schema, persists workspace identity and protects local database permissions
+  ---
+  duration_ms: 48.188167
+  type: 'test'
+  ...
+# Subtest: foreign or unsupported databases are rejected without wiping existing tables
+ok 216 - foreign or unsupported databases are rejected without wiping existing tables
+  ---
+  duration_ms: 43.1705
+  type: 'test'
+  ...
+# Subtest: importing a Git subdirectory keeps the canonical repository and actual workspace separate
+ok 217 - importing a Git subdirectory keeps the canonical repository and actual workspace separate
+  ---
+  duration_ms: 199.369666
+  type: 'test'
+  ...
+# Subtest: duplicate submission keys return the same run; changed inputs and concurrent tasks fail
+ok 218 - duplicate submission keys return the same run; changed inputs and concurrent tasks fail
+  ---
+  duration_ms: 81.916125
+  type: 'test'
+  ...
+# Subtest: workspace lease collision rolls back the entire task/run/event claim
+ok 219 - workspace lease collision rolls back the entire task/run/event claim
+  ---
+  duration_ms: 57.703125
+  type: 'test'
+  ...
+# Subtest: turn intents require the task binding and cannot borrow a different project thread
+ok 220 - turn intents require the task binding and cannot borrow a different project thread
+  ---
+  duration_ms: 43.237292
+  type: 'test'
+  ...
+# Subtest: sending is durable once only, input hashes are stable and RPC correlation is persisted
+ok 221 - sending is durable once only, input hashes are stable and RPC correlation is persisted
+  ---
+  duration_ms: 64.252917
+  type: 'test'
+  ...
+# Subtest: invalid acceptance cannot partially bind a thread or clear an uncertain intent
+ok 222 - invalid acceptance cannot partially bind a thread or clear an uncertain intent
+  ---
+  duration_ms: 64.238292
+  type: 'test'
+  ...
+# Subtest: restart retains unknown work, rejects stale grants and never creates a replacement run
+ok 223 - restart retains unknown work, rejects stale grants and never creates a replacement run
+  ---
+  duration_ms: 80.432625
+  type: 'test'
+  ...
+# Subtest: prepared but unsent intents are marked rejected on restart, with no dispatch authorization
+ok 224 - prepared but unsent intents are marked rejected on restart, with no dispatch authorization
+  ---
+  duration_ms: 54.21925
+  type: 'test'
+  ...
+# Subtest: completion ends the run but keeps the task awaiting verification
+ok 225 - completion ends the run but keeps the task awaiting verification
+  ---
+  duration_ms: 50.684291
+  type: 'test'
+  ...
+# Subtest: snapshot caches are scope checked and do not turn an unfinished run into success
+ok 226 - snapshot caches are scope checked and do not turn an unfinished run into success
+  ---
+  duration_ms: 49.289583
+  type: 'test'
+  ...
+# Subtest: directory replacement and expired leases prevent further dispatch
+ok 227 - directory replacement and expired leases prevent further dispatch
+  ---
+  duration_ms: 35.856166
+  type: 'test'
+  ...
+# Subtest: workspace fence or lease expiry blocks writes even while the run lease is valid
+ok 228 - workspace fence or lease expiry blocks writes even while the run lease is valid
+  ---
+  duration_ms: 56.362167
+  type: 'test'
+  ...
+# Subtest: task events and outbox entries share a committed sequence and omit raw task input
+ok 229 - task events and outbox entries share a committed sequence and omit raw task input
+  ---
+  duration_ms: 60.202375
+  type: 'test'
+  ...
+# Subtest: real worker SIGKILL after sending commit survives reopen without authorizing a resend
+ok 230 - real worker SIGKILL after sending commit survives reopen without authorizing a resend
+  ---
+  duration_ms: 313.775834
+  type: 'test'
+  ...
+# Subtest: fresh explicit run and manifest bind the current post-recovery policy and privacy watermarks
+ok 231 - fresh explicit run and manifest bind the current post-recovery policy and privacy watermarks
+  ---
+  duration_ms: 38.156875
+  type: 'test'
+  ...
+# Subtest: a prior completed execution cannot reuse its Thread after policy or privacy advances
+ok 232 - a prior completed execution cannot reuse its Thread after policy or privacy advances
+  ---
+  duration_ms: 91.582792
+  type: 'test'
+  ...
+# Subtest: task tombstones suppress direct Run snapshot queries while internal Host cleanup keeps its record
+ok 233 - task tombstones suppress direct Run snapshot queries while internal Host cleanup keeps its record
+  ---
+  duration_ms: 59.719333
+  type: 'test'
+  ...
+# Subtest: controlled artifacts are physically removed by exact key while other receipts, active SQLite, sources and credentials stay intact
+ok 234 - controlled artifacts are physically removed by exact key while other receipts, active SQLite, sources and credentials stay intact
+  ---
+  duration_ms: 11.725292
+  type: 'test'
+  ...
+# Subtest: app-owned backup/rehearsal/runtime and Codex-state copies are removed without deleting the active legacy ledger
+ok 235 - app-owned backup/rehearsal/runtime and Codex-state copies are removed without deleting the active legacy ledger
+  ---
+  duration_ms: 13.44875
+  type: 'test'
+  ...
+# Subtest: an active runtime generation remains usable while current export and old legacy/runtime copies are purged
+ok 236 - an active runtime generation remains usable while current export and old legacy/runtime copies are purged
+  ---
+  duration_ms: 5.735334
+  type: 'test'
+  ...
+# Subtest: invalid keys, unexpected snapshot names and symlinks are rejected without following user paths
+ok 237 - invalid keys, unexpected snapshot names and symlinks are rejected without following user paths
+  ---
+  duration_ms: 28.195708
+  type: 'test'
+  ...
+# Subtest: a replaced storage-root inode is rejected even if the canonical path string stays identical
+ok 238 - a replaced storage-root inode is rejected even if the canonical path string stays identical
+  ---
+  duration_ms: 27.653958
+  type: 'test'
+  ...
+# Subtest: an external verification root cannot authorize deleting an outside receipt
+ok 239 - an external verification root cannot authorize deleting an outside receipt
+  ---
+  duration_ms: 4.521166
+  type: 'test'
+  ...
+# Subtest: real Store forget traverses Claim, Episode, Checkpoint, manifest, Thread and Goal notification; transport facts survive
+ok 240 - real Store forget traverses Claim, Episode, Checkpoint, manifest, Thread and Goal notification; transport facts survive
+  ---
+  duration_ms: 897.673791
+  type: 'test'
+  ...
+# Subtest: real Backup rehearsal and Restore activation merge newer tombstones so old Memory, Thread and notifications cannot revive
+ok 241 - real Backup rehearsal and Restore activation merge newer tombstones so old Memory, Thread and notifications cannot revive
+  ---
+  duration_ms: 464.151167
+  type: 'test'
+  ...
+# Subtest: currentRunCheckpoint builds a non-completion readOnly checkpoint after real stdio execution and rejects foreign application references
+ok 242 - currentRunCheckpoint builds a non-completion readOnly checkpoint after real stdio execution and rejects foreign application references
+  ---
+  duration_ms: 1175.564291
+  type: 'test'
+  ...
+# Subtest: fault injected while persisting complete cleanup payload rolls back source, Claim, epochs and tombstones in the same real Store transaction
+ok 243 - fault injected while persisting complete cleanup payload rolls back source, Claim, epochs and tombstones in the same real Store transaction
+  ---
+  duration_ms: 66.013625
+  type: 'test'
+  ...
+# Subtest: committed pending cleanup survives real DB/Owner reopen with the same ID and restores only its persisted Host ticket
+ok 244 - committed pending cleanup survives real DB/Owner reopen with the same ID and restores only its persisted Host ticket
+  ---
+  duration_ms: 73.580709
+  type: 'test'
+  ...
+# Subtest: authenticated Source→wake→stdio Fixture→Plan revision→restart→pause/resume uses one Goal budget and requires independent completion evidence
+ok 245 - authenticated Source→wake→stdio Fixture→Plan revision→restart→pause/resume uses one Goal budget and requires independent completion evidence
+  ---
+  duration_ms: 1059.743625
+  type: 'test'
+  ...
+# Subtest: stale signed Source batch rolls back cursor; disabled Mandate and paused Task cannot regain wake authority
+ok 246 - stale signed Source batch rolls back cursor; disabled Mandate and paused Task cannot regain wake authority
+  ---
+  duration_ms: 115.307666
+  type: 'test'
+  ...
+# Subtest: actual Provider accepted a notification but lost acknowledgement: restart preserves Unknown and the Provider is contacted exactly once
+ok 247 - actual Provider accepted a notification but lost acknowledgement: restart preserves Unknown and the Provider is contacted exactly once
+  ---
+  duration_ms: 52.348041
+  type: 'test'
+  ...
+# Subtest: Owner restart after same-transaction Run reservation seals Unknown without first sending a stdio or notification effect
+ok 248 - Owner restart after same-transaction Run reservation seals Unknown without first sending a stdio or notification effect
+  ---
+  duration_ms: 75.410833
+  type: 'test'
+  ...
+# Subtest: an explicitly authorized Source wake automatically enters the existing ScheduleService Gateway once, with committed Intents before real stdio Fixture effects
+ok 249 - an explicitly authorized Source wake automatically enters the existing ScheduleService Gateway once, with committed Intents before real stdio Fixture effects
+  ---
+  duration_ms: 257.043041
+  type: 'test'
+  ...
+# Subtest: query persists one message/decision/operation/link/focus and no Task effect or inference
+ok 250 - query persists one message/decision/operation/link/focus and no Task effect or inference
+  ---
+  duration_ms: 25.056417
+  type: 'test'
+  ...
+# Subtest: same ID and payload is idempotent before Focus CAS, later Focus is not reset, and changed content conflicts
+ok 251 - same ID and payload is idempotent before Focus CAS, later Focus is not reset, and changed content conflicts
+  ---
+  duration_ms: 16.1425
+  type: 'test'
+  ...
+# Subtest: explicit object does not turn a cancel request into a query or task side effect; notes never change focus
+ok 252 - explicit object does not turn a cancel request into a query or task side effect; notes never change focus
+  ---
+  duration_ms: 20.30125
+  type: 'test'
+  ...
+# Subtest: multiple pending clarifications require the exact pending ID and resolve only the chosen question
+ok 253 - multiple pending clarifications require the exact pending ID and resolve only the chosen question
+  ---
+  duration_ms: 26.429917
+  type: 'test'
+  ...
+# Subtest: changed candidate versions and expired questions cannot apply a stale clarification
+ok 254 - changed candidate versions and expired questions cannot apply a stale clarification
+  ---
+  duration_ms: 49.99
+  type: 'test'
+  ...
+# Subtest: cross-project registry and clarification IDs never expose or select a foreign task
+ok 255 - cross-project registry and clarification IDs never expose or select a foreign task
+  ---
+  duration_ms: 46.082042
+  type: 'test'
+  ...
+# Subtest: Task and message tombstones hide prior query snapshots and Focus without destroying Host execution records
+ok 256 - Task and message tombstones hide prior query snapshots and Focus without destroying Host execution records
+  ---
+  duration_ms: 31.472708
+  type: 'test'
+  ...
+# Subtest: Registry-only queries remain available when the physical source directory is unavailable
+ok 257 - Registry-only queries remain available when the physical source directory is unavailable
+  ---
+  duration_ms: 23.353583
+  type: 'test'
+  ...
+# Subtest: invalid query, extra fields and invalid message inputs leave no partial decision
+ok 258 - invalid query, extra fields and invalid message inputs leave no partial decision
+  ---
+  duration_ms: 25.882167
+  type: 'test'
+  ...
+# Subtest: a fresh SQLite Owner reconstructs the same discussion and Focus without another operation
+ok 259 - a fresh SQLite Owner reconstructs the same discussion and Focus without another operation
+  ---
+  duration_ms: 42.473834
+  type: 'test'
+  ...
+# Subtest: message projection is bounded, keeps raw persisted text and does not split a surrogate pair
+ok 260 - message projection is bounded, keeps raw persisted text and does not split a surrogate pair
+  ---
+  duration_ms: 31.02975
+  type: 'test'
+  ...
+# Subtest: public memory commands persist actual main-chat source/evidence/Claim and idempotently retrieve the explicit user fact
+ok 261 - public memory commands persist actual main-chat source/evidence/Claim and idempotently retrieve the explicit user fact
+  ---
+  duration_ms: 83.029125
+  type: 'test'
+  ...
+# Subtest: ordinary discussion is only inference and exact quote/key/value checks reject manufactured explicit facts
+ok 262 - ordinary discussion is only inference and exact quote/key/value checks reject manufactured explicit facts
+  ---
+  duration_ms: 49.249375
+  type: 'test'
+  ...
+# Subtest: Task-domain filtering stays on the explicitly selected Task and private messages cannot enter Coding Memory
+ok 263 - Task-domain filtering stays on the explicitly selected Task and private messages cannot enter Coding Memory
+  ---
+  duration_ms: 89.671792
+  type: 'test'
+  ...
+# Subtest: unsupported fields, credential paths and external trust requests are rejected before capture
+ok 264 - unsupported fields, credential paths and external trust requests are rejected before capture
+  ---
+  duration_ms: 77.21175
+  type: 'test'
+  ...
+# Subtest: automatic M2 user-role operation JSON and foreign-Dot messages are never treated as an explicit user source
+ok 265 - automatic M2 user-role operation JSON and foreign-Dot messages are never treated as an explicit user source
+  ---
+  duration_ms: 51.639458
+  type: 'test'
+  ...
+# Subtest: authoritative forget removes command retrieval and prevents resubmission of the same source
+ok 266 - authoritative forget removes command retrieval and prevents resubmission of the same source
+  ---
+  duration_ms: 50.7825
+  type: 'test'
+  ...
+# Subtest: invalid Claim rejects its write while source-capture retention is reported explicitly
+ok 267 - invalid Claim rejects its write while source-capture retention is reported explicitly
+  ---
+  duration_ms: 50.442458
+  type: 'test'
+  ...
+# source_entries_after_rejected_claim=1; source capture and Claim write are separate Ledger transactions
+# Subtest: stopped Owner rejects memory commands and leaves source and Claims untouched
+ok 268 - stopped Owner rejects memory commands and leaves source and Claims untouched
+  ---
+  duration_ms: 57.458
+  type: 'test'
+  ...
+# Subtest: explicit correction through the public command preserves old source/evidence and commits one CAS-linked new version
+ok 269 - explicit correction through the public command preserves old source/evidence and commits one CAS-linked new version
+  ---
+  duration_ms: 55.212584
+  type: 'test'
+  ...
+# Subtest: competing explicit revisions of one captured Claim version have one winner and no extra Claim
+ok 270 - competing explicit revisions of one captured Claim version have one winner and no extra Claim
+  ---
+  duration_ms: 50.189917
+  type: 'test'
+  ...
+# Subtest: revision fields are a strict positive-version pair and do not enable inferred or connector corrections
+ok 271 - revision fields are a strict positive-version pair and do not enable inferred or connector corrections
+  ---
+  duration_ms: 35.22125
+  type: 'test'
+  ...
+# Subtest: stale versions, different fact keys, old messages and ordinary discussion cannot manufacture an explicit correction
+ok 272 - stale versions, different fact keys, old messages and ordinary discussion cannot manufacture an explicit correction
+  ---
+  duration_ms: 44.700333
+  type: 'test'
+  ...
+# Subtest: a forgotten original cannot be revised back into use by a fresh message
+ok 273 - a forgotten original cannot be revised back into use by a fresh message
+  ---
+  duration_ms: 37.151792
+  type: 'test'
+  ...
+# Subtest: MemoryService performs real logical SQLite revocation before Host stop/file purge and actual VACUUM/WAL truncation
+ok 274 - MemoryService performs real logical SQLite revocation before Host stop/file purge and actual VACUUM/WAL truncation
+  ---
+  duration_ms: 61.118333
+  type: 'test'
+  ...
+# Subtest: Unknown or failed execution shutdown preserves logical deletion and refuses physical completion until retry confirms actual stop
+ok 275 - Unknown or failed execution shutdown preserves logical deletion and refuses physical completion until retry confirms actual stop
+  ---
+  duration_ms: 50.429291
+  type: 'test'
+  ...
+# Subtest: Artifact and source purge failures are bounded, sanitized and resumable without compaction or repeated forget
+ok 276 - Artifact and source purge failures are bounded, sanitized and resumable without compaction or repeated forget
+  ---
+  duration_ms: 21.406
+  type: 'test'
+  ...
+# Subtest: Failed actual compaction cannot claim local physical erasure and can be retried after readers release
+ok 277 - Failed actual compaction cannot claim local physical erasure and can be retried after readers release
+  ---
+  duration_ms: 22.498458
+  type: 'test'
+  ...
+# Subtest: Malformed purge acknowledgements, fabricated cleanup tickets and failed Ledger validation cannot produce completion
+ok 278 - Malformed purge acknowledgements, fabricated cleanup tickets and failed Ledger validation cannot produce completion
+  ---
+  duration_ms: 9.824375
+  type: 'test'
+  ...
+# Subtest: Concurrent retries share one cleanup operation and returned receipt mutation cannot forge internal completion
+ok 279 - Concurrent retries share one cleanup operation and returned receipt mutation cannot forge internal completion
+  ---
+  duration_ms: 29.834875
+  type: 'test'
+  ...
+# Subtest: A real SQLite WAL reader keeps physical cleanup incomplete until its snapshot is closed
+ok 280 - A real SQLite WAL reader keeps physical cleanup incomplete until its snapshot is closed
+  ---
+  duration_ms: 5333.690875
+  type: 'test'
+  ...
+# Subtest: real same-database Entry, exact evidence, explicit Claim and derived graph commit idempotently
+ok 281 - real same-database Entry, exact evidence, explicit Claim and derived graph commit idempotently
+  ---
+  duration_ms: 20.315334
+  type: 'test'
+  ...
+# Subtest: forgetting notification derivations erases summaries while preserving stable hashes and delivered or Unknown transport facts
+ok 282 - forgetting notification derivations erases summaries while preserving stable hashes and delivered or Unknown transport facts
+  ---
+  duration_ms: 14.547542
+  type: 'test'
+  ...
+# Subtest: explicit-user trust requires real main-chat user provenance and an exact key/value memory command
+ok 283 - explicit-user trust requires real main-chat user provenance and an exact key/value memory command
+  ---
+  duration_ms: 35.278334
+  type: 'test'
+  ...
+# Subtest: external data never upgrades into user or verified trust and cannot grant tool authority
+ok 284 - external data never upgrades into user or verified trust and cannot grant tool authority
+  ---
+  duration_ms: 14.15775
+  type: 'test'
+  ...
+# Subtest: explicit correction uses Claim CAS/version/supersedes and wins over old inference
+ok 285 - explicit correction uses Claim CAS/version/supersedes and wins over old inference
+  ---
+  duration_ms: 12.720167
+  type: 'test'
+  ...
+# Subtest: conflicting external facts are disputed without overwriting explicit user preferences
+ok 286 - conflicting external facts are disputed without overwriting explicit user preferences
+  ---
+  duration_ms: 10.815458
+  type: 'test'
+  ...
+# Subtest: search applies validity, domain, literal keyword, dispute and private Coding Memory filters
+ok 287 - search applies validity, domain, literal keyword, dispute and private Coding Memory filters
+  ---
+  duration_ms: 14.77775
+  type: 'test'
+  ...
+# Subtest: Source cursor, identity, disabled/revoked state, message revision and Epoch changes reject stale commits
+ok 288 - Source cursor, identity, disabled/revoked state, message revision and Epoch changes reject stale commits
+  ---
+  duration_ms: 19.94775
+  type: 'test'
+  ...
+# Subtest: a second connection deleting after extraction cannot be undone by old or refreshed-epoch submissions
+ok 289 - a second connection deleting after extraction cannot be undone by old or refreshed-epoch submissions
+  ---
+  duration_ms: 31.094834
+  type: 'test'
+  ...
+# Subtest: failed Claim revision rolls back superseding, evidence, graph and change Outbox together
+ok 290 - failed Claim revision rolls back superseding, evidence, graph and change Outbox together
+  ---
+  duration_ms: 19.502583
+  type: 'test'
+  ...
+# Subtest: forget traverses injected manifests and all associated local text while revoking dispatch without inventing process exit
+ok 291 - forget traverses injected manifests and all associated local text while revoking dispatch without inventing process exit
+  ---
+  duration_ms: 29.77625
+  type: 'test'
+  ...
+# Subtest: restored old memory is scrubbed after current tombstones are merged, without starting any Owner
+ok 292 - restored old memory is scrubbed after current tombstones are merged, without starting any Owner
+  ---
+  duration_ms: 15.411542
+  type: 'test'
+  ...
+# Subtest: legacy raw Task tombstones reach the same deletion closure on old backup metadata
+ok 293 - legacy raw Task tombstones reach the same deletion closure on old backup metadata
+  ---
+  duration_ms: 17.500541
+  type: 'test'
+  ...
+# Subtest: Task-domain claims retain Task provenance and disappear when that Task is deleted
+ok 294 - Task-domain claims retain Task provenance and disappear when that Task is deleted
+  ---
+  duration_ms: 20.665625
+  type: 'test'
+  ...
+# Subtest: forget rollback is atomic and cross-Dot source/derivation access is rejected
+ok 295 - forget rollback is atomic and cross-Dot source/derivation access is rejected
+  ---
+  duration_ms: 24.826333
+  type: 'test'
+  ...
+# Subtest: Owner rejection and bounded invalid input leave memory unchanged
+ok 296 - Owner rejection and bounded invalid input leave memory unchanged
+  ---
+  duration_ms: 14.785417
+  type: 'test'
+  ...
+# Subtest: physical cleanup reports busy readers rather than claiming SQLite erasure completed
+ok 297 - physical cleanup reports busy readers rather than claiming SQLite erasure completed
+  ---
+  duration_ms: 59.878083
+  type: 'test'
+  ...
+# Subtest: notification and operation aliases erase local payload copies but preserve sent and unknown transport facts and hashes
+ok 298 - notification and operation aliases erase local payload copies but preserve sent and unknown transport facts and hashes
+  ---
+  duration_ms: 29.820667
+  type: 'test'
+  ...
+# Subtest: real ExecutionLedger Task forget erases CREATE_TASK/update/start audit copies and their Decisions while preserving unrelated Tasks and Unknown execution facts
+ok 299 - real ExecutionLedger Task forget erases CREATE_TASK/update/start audit copies and their Decisions while preserving unrelated Tasks and Unknown execution facts
+  ---
+  duration_ms: 61.727791
+  type: 'test'
+  ...
+# Subtest: Task-owned Goal forget traverses Goal command receipts and shared plan audits without reaching a separate Goal
+ok 300 - Task-owned Goal forget traverses Goal command receipts and shared plan audits without reaching a separate Goal
+  ---
+  duration_ms: 44.873625
+  type: 'test'
+  ...
+# Subtest: Task-associated notifications keep the same transport whitelist regardless of closure traversal order
+ok 301 - Task-associated notifications keep the same transport whitelist regardless of closure traversal order
+  ---
+  duration_ms: 11.37325
+  type: 'test'
+  ...
+# Subtest: Host Context claims derive their actual domain and strictest sensitivity from every live Evidence Entry
+ok 302 - Host Context claims derive their actual domain and strictest sensitivity from every live Evidence Entry
+  ---
+  duration_ms: 16.821958
+  type: 'test'
+  ...
+# Subtest: Host Context keeps Task claims in the original Task and allows only explicitly confirmed public user Coding memory
+ok 303 - Host Context keeps Task claims in the original Task and allows only explicitly confirmed public user Coding memory
+  ---
+  duration_ms: 38.995166
+  type: 'test'
+  ...
+# Subtest: Host Context never returns future, expired, empty or partially unsupported Evidence, or a Claim with a revoked ancestor
+ok 304 - Host Context never returns future, expired, empty or partially unsupported Evidence, or a Claim with a revoked ancestor
+  ---
+  duration_ms: 12.748042
+  type: 'test'
+  ...
+# Subtest: real Memory Evidence flows through DomainContextSources into Coding Context without personal or cross-Task promotion
+ok 305 - real Memory Evidence flows through DomainContextSources into Coding Context without personal or cross-Task promotion
+  ---
+  duration_ms: 25.50325
+  type: 'test'
+  ...
+# Subtest: outbox consumers get disjoint claims and project authoritative events once without raw input
+ok 306 - outbox consumers get disjoint claims and project authoritative events once without raw input
+  ---
+  duration_ms: 47.534625
+  type: 'test'
+  ...
+# Subtest: expired and superseded claims cannot ack or requeue another consumers delivery
+ok 307 - expired and superseded claims cannot ack or requeue another consumers delivery
+  ---
+  duration_ms: 18.113208
+  type: 'test'
+  ...
+# Subtest: projection failure rolls back both feed and ack, then the consumer applies bounded retry
+ok 308 - projection failure rolls back both feed and ack, then the consumer applies bounded retry
+  ---
+  duration_ms: 16.332084
+  type: 'test'
+  ...
+# Subtest: five failed deliveries reach Dead Letter and cannot silently restart
+ok 309 - five failed deliveries reach Dead Letter and cannot silently restart
+  ---
+  duration_ms: 16.574
+  type: 'test'
+  ...
+# Subtest: a fifth abandoned claim becomes Dead Letter rather than an unbounded lease retry
+ok 310 - a fifth abandoned claim becomes Dead Letter rather than an unbounded lease retry
+  ---
+  duration_ms: 22.204334
+  type: 'test'
+  ...
+# Subtest: activity is paginated, project-scoped and suppresses tombstoned tasks
+ok 311 - activity is paginated, project-scoped and suppresses tombstoned tasks
+  ---
+  duration_ms: 119.854458
+  type: 'test'
+  ...
+# Subtest: a tombstone before delivery prevents feed publication while completing local consumption
+ok 312 - a tombstone before delivery prevents feed publication while completing local consumption
+  ---
+  duration_ms: 17.416583
+  type: 'test'
+  ...
+# Subtest: Owner changes invalidate old claims; pending projections resume without duplicating delivered events
+ok 313 - Owner changes invalidate old claims; pending projections resume without duplicating delivered events
+  ---
+  duration_ms: 14.880542
+  type: 'test'
+  ...
+# Subtest: mismatched event payloads cannot be accepted as legitimate activity
+ok 314 - mismatched event payloads cannot be accepted as legitimate activity
+  ---
+  duration_ms: 13.143708
+  type: 'test'
+  ...
+# Subtest: real process SIGKILL at claimed recovers durable outbox with exactly one projection per event
+ok 315 - real process SIGKILL at claimed recovers durable outbox with exactly one projection per event
+  ---
+  duration_ms: 197.3415
+  type: 'test'
+  ...
+# Subtest: real process SIGKILL at projection_transaction recovers durable outbox with exactly one projection per event
+ok 316 - real process SIGKILL at projection_transaction recovers durable outbox with exactly one projection per event
+  ---
+  duration_ms: 224.969209
+  type: 'test'
+  ...
+# Subtest: ordinary Unknown still blocks a different read-only request even with a recorded executor closure
+ok 317 - ordinary Unknown still blocks a different read-only request even with a recorded executor closure
+  ---
+  duration_ms: 50.747333
+  type: 'test'
+  ...
+# Subtest: privacy revocation without executor closure cannot unblock a fresh request
+ok 318 - privacy revocation without executor closure cannot unblock a fresh request
+  ---
+  duration_ms: 43.7685
+  type: 'test'
+  ...
+# Subtest: closed privacy-revoked read-only Unknown permits a new key and Task without changing the old Run or releasing unknown Token cost
+ok 319 - closed privacy-revoked read-only Unknown permits a new key and Task without changing the old Run or releasing unknown Token cost
+  ---
+  duration_ms: 63.648667
+  type: 'test'
+  ...
+# Subtest: privacy-revoked read-only executor closure never admits a new workspace-write request
+ok 320 - privacy-revoked read-only executor closure never admits a new workspace-write request
+  ---
+  duration_ms: 46.764
+  type: 'test'
+  ...
+# Subtest: a privacy-revoked workspace-write Unknown retains its lease and blocks even read-only admission after closure
+ok 321 - a privacy-revoked workspace-write Unknown retains its lease and blocks even read-only admission after closure
+  ---
+  duration_ms: 44.296667
+  type: 'test'
+  ...
+# Subtest: an unexpected write lease or still-active state fails closed despite privacy and closure metadata
+ok 322 - an unexpected write lease or still-active state fails closed despite privacy and closure metadata
+  ---
+  duration_ms: 107.716708
+  type: 'test'
+  ...
+# Subtest: two real simultaneous project PTYs keep cwd, input/output and leases separate; closing one leaves the other live
+ok 323 - two real simultaneous project PTYs keep cwd, input/output and leases separate; closing one leaves the other live
+  ---
+  duration_ms: 291.83325
+  type: 'test'
+  ...
+# Subtest: project catalog issues only a scoped skills query and exposes advisory metadata without paths or activation
+ok 324 - project catalog issues only a scoped skills query and exposes advisory metadata without paths or activation
+  ---
+  duration_ms: 6.688667
+  type: 'test'
+  ...
+# Subtest: catalog rejects raw paths, extra keys and invalid project identity before opening a connection
+ok 325 - catalog rejects raw paths, extra keys and invalid project identity before opening a connection
+  ---
+  duration_ms: 1.306625
+  type: 'test'
+  ...
+# Subtest: workspace is revalidated after the metadata read, and opaque IDs are stable only within the same catalog owner
+ok 326 - workspace is revalidated after the metadata read, and opaque IDs are stable only within the same catalog owner
+  ---
+  duration_ms: 1.331666
+  type: 'test'
+  ...
+# Subtest: repeated deltas are appended and the authoritative final item calibrates them
+ok 327 - repeated deltas are appended and the authoritative final item calibrates them
+  ---
+  duration_ms: 1.105333
+  type: 'test'
+  ...
+# Subtest: a late item/started does not erase text or reopen a completed item
+ok 328 - a late item/started does not erase text or reopen a completed item
+  ---
+  duration_ms: 0.144584
+  type: 'test'
+  ...
+# Subtest: thread, turn and item identity remain separate even with equal IDs and delimiter-like strings
+ok 329 - thread, turn and item identity remain separate even with equal IDs and delimiter-like strings
+  ---
+  duration_ms: 0.533208
+  type: 'test'
+  ...
+# Subtest: duplicate receive identities do not duplicate text, while a gap requires reconciliation
+ok 330 - duplicate receive identities do not duplicate text, while a gap requires reconciliation
+  ---
+  duration_ms: 0.102584
+  type: 'test'
+  ...
+# Subtest: reconnection requires a fresh snapshot and replaces old partial text rather than concatenating it
+ok 331 - reconnection requires a fresh snapshot and replaces old partial text rather than concatenating it
+  ---
+  duration_ms: 0.316584
+  type: 'test'
+  ...
+# Subtest: disconnect leaves partial content explicitly stale and blocks additional updates
+ok 332 - disconnect leaves partial content explicitly stale and blocks additional updates
+  ---
+  duration_ms: 0.79375
+  type: 'test'
+  ...
+# Subtest: turn completion uses full items and a late start or delta cannot reopen it
+ok 333 - turn completion uses full items and a late start or delta cannot reopen it
+  ---
+  duration_ms: 0.104666
+  type: 'test'
+  ...
+# Subtest: failed turns retain failure and unknown item types remain explicit without exposing arguments
+ok 334 - failed turns retain failure and unknown item types remain explicit without exposing arguments
+  ---
+  duration_ms: 0.108708
+  type: 'test'
+  ...
+# Subtest: text limits are bounded, do not split emoji, and a final item can replace a clipped prefix
+ok 335 - text limits are bounded, do not split emoji, and a final item can replace a clipped prefix
+  ---
+  duration_ms: 0.092792
+  type: 'test'
+  ...
+# Subtest: aggregate text, item and turn budgets bound growth and visibly signal missing data
+ok 336 - aggregate text, item and turn budgets bound growth and visibly signal missing data
+  ---
+  duration_ms: 0.175292
+  type: 'test'
+  ...
+# Subtest: snapshot replacement drops orphaned old items and rejects a stale sequence
+ok 337 - snapshot replacement drops orphaned old items and rejects a stale sequence
+  ---
+  duration_ms: 0.095875
+  type: 'test'
+  ...
+# Subtest: plain-text views keep markup inert and hide reasoning, tool secrets and local image paths
+ok 338 - plain-text views keep markup inert and hide reasoning, tool secrets and local image paths
+  ---
+  duration_ms: 0.104959
+  type: 'test'
+  ...
+# Subtest: view consumers cannot mutate the next projection or advance an old epoch
+ok 339 - view consumers cannot mutate the next projection or advance an old epoch
+  ---
+  duration_ms: 0.08
+  type: 'test'
+  ...
+# Subtest: a lost acceptance reconciles only from unique matching native-shaped terminal history after executor closure
+ok 340 - a lost acceptance reconciles only from unique matching native-shaped terminal history after executor closure
+  ---
+  duration_ms: 53.485125
+  type: 'test'
+  ...
+# Subtest: reconciliation never dispatches, resumes or adds a replacement run and is not repeatable after resolution
+ok 341 - reconciliation never dispatches, resumes or adds a replacement run and is not repeatable after resolution
+  ---
+  duration_ms: 76.5795
+  type: 'test'
+  ...
+# Subtest: crash without executor closure and unconfirmed server responses remain blocked before any history connection
+ok 342 - crash without executor closure and unconfirmed server responses remain blocked before any history connection
+  ---
+  duration_ms: 87.380042
+  type: 'test'
+  ...
+# Subtest: wrong scope, ambiguous input, running history, changed snapshots and unsupported projections cannot unblock Unknown
+ok 343 - wrong scope, ambiguous input, running history, changed snapshots and unsupported projections cannot unblock Unknown
+  ---
+  duration_ms: 594.634208
+  type: 'test'
+  ...
+# Subtest: foreign project IDs, paths and extra raw RPC fields fail before history access
+ok 344 - foreign project IDs, paths and extra raw RPC fields fail before history access
+  ---
+  duration_ms: 58.547334
+  type: 'test'
+  ...
+# Subtest: rehearsal merges latest and absent-source tombstones, advances barriers and does not mutate input
+ok 345 - rehearsal merges latest and absent-source tombstones, advances barriers and does not mutate input
+  ---
+  duration_ms: 30.834459
+  type: 'test'
+  ...
+# Subtest: uncertain operations and all original leases/PIDs remain evidence, with increased Task and Workspace fences
+ok 346 - uncertain operations and all original leases/PIDs remain evidence, with increased Task and Workspace fences
+  ---
+  duration_ms: 33.143916
+  type: 'test'
+  ...
+# Subtest: old grants, schedules, deliveries and queued effects cannot become dispatchable
+ok 347 - old grants, schedules, deliveries and queued effects cannot become dispatchable
+  ---
+  duration_ms: 25.90175
+  type: 'test'
+  ...
+# Subtest: any transactional failure rolls back watermarks, merged tombstones, all state and quarantine marker
+ok 348 - any transactional failure rolls back watermarks, merged tombstones, all state and quarantine marker
+  ---
+  duration_ms: 25.452041
+  type: 'test'
+  ...
+# Subtest: unknown corrupt state is rejected conservatively without changing it or leaving a marker
+ok 349 - unknown corrupt state is rejected conservatively without changing it or leaving a marker
+  ---
+  duration_ms: 15.281417
+  type: 'test'
+  ...
+# Subtest: terminal historical Run results are retained and a quarantine cannot be prepared a second time
+ok 350 - terminal historical Run results are retained and a quarantine cannot be prepared a second time
+  ---
+  duration_ms: 71.142584
+  type: 'test'
+  ...
+# Subtest: wrong Profile/Dot, unsupported revision and nonfinite or exhausted watermarks are rejected
+ok 351 - wrong Profile/Dot, unsupported revision and nonfinite or exhausted watermarks are rejected
+  ---
+  duration_ms: 44.324334
+  type: 'test'
+  ...
+# Subtest: missing, linked and oversized candidate files are rejected before a new database can be created
+ok 352 - missing, linked and oversized candidate files are rejected before a new database can be created
+  ---
+  duration_ms: 21.218375
+  type: 'test'
+  ...
+# Subtest: rehearsal restores physical SQLite and receipts, merges current deletion barriers and preserves source and backup
+ok 353 - rehearsal restores physical SQLite and receipts, merges current deletion barriers and preserves source and backup
+  ---
+  duration_ms: 208.944
+  type: 'test'
+  ...
+# Subtest: ordinary Ledger refuses both pending-file and published-database quarantine guards
+ok 354 - ordinary Ledger refuses both pending-file and published-database quarantine guards
+  ---
+  duration_ms: 160.881708
+  type: 'test'
+  ...
+# Subtest: same rehearsal Key verifies the same candidate; conflicting source and corrupt copy are refused
+ok 355 - same rehearsal Key verifies the same candidate; conflicting source and corrupt copy are refused
+  ---
+  duration_ms: 256.581584
+  type: 'test'
+  ...
+# Subtest: raw destination, foreign backup and incomplete copy fail without starting an executor
+ok 356 - raw destination, foreign backup and incomplete copy fail without starting an executor
+  ---
+  duration_ms: 140.096708
+  type: 'test'
+  ...
+# Subtest: actual Host SIGKILL at rehearsal copied preserves quarantine and never repeats recovery
+ok 357 - actual Host SIGKILL at rehearsal copied preserves quarantine and never repeats recovery
+  ---
+  duration_ms: 305.608542
+  type: 'test'
+  ...
+# Subtest: actual Host SIGKILL at rehearsal published preserves quarantine and never repeats recovery
+ok 358 - actual Host SIGKILL at rehearsal published preserves quarantine and never repeats recovery
+  ---
+  duration_ms: 345.626875
+  type: 'test'
+  ...
+# Subtest: empty scoped occupancy is zero and repeated reads do not create budget buckets or execution data
+ok 359 - empty scoped occupancy is zero and repeated reads do not create budget buckets or execution data
+  ---
+  duration_ms: 54.803292
+  type: 'test'
+  ...
+# Subtest: every supported lifecycle is counted as active, unknown or terminal without inferring process liveness
+ok 360 - every supported lifecycle is counted as active, unknown or terminal without inferring process liveness
+  ---
+  duration_ms: 79.123542
+  type: 'test'
+  ...
+# Subtest: Unknown rows remain held separately and only model workspace-write lease rows contribute to writeLeases
+ok 361 - Unknown rows remain held separately and only model workspace-write lease rows contribute to writeLeases
+  ---
+  duration_ms: 49.939916
+  type: 'test'
+  ...
+# Subtest: queued count excludes dispatch-blocked and both Task tombstone spellings without claiming dispatchability
+ok 362 - queued count excludes dispatch-blocked and both Task tombstone spellings without claiming dispatchability
+  ---
+  duration_ms: 40.998125
+  type: 'test'
+  ...
+# Subtest: cross-Dot Run, PTY, Git operation, lease and queue metadata never leak into local counts
+ok 363 - cross-Dot Run, PTY, Git operation, lease and queue metadata never leak into local counts
+  ---
+  duration_ms: 71.661291
+  type: 'test'
+  ...
+# Subtest: occupancy survives missing workspace directories and does not change budget, schedule or source state
+ok 364 - occupancy survives missing workspace directories and does not change budget, schedule or source state
+  ---
+  duration_ms: 50.318917
+  type: 'test'
+  ...
+# Subtest: only the current Owner can read occupancy, and failed stale reads leave all metadata unchanged
+ok 365 - only the current Owner can read occupancy, and failed stale reads leave all metadata unchanged
+  ---
+  duration_ms: 49.465542
+  type: 'test'
+  ...
+# Subtest: first CPU sample is unknown, RSS is real input, and a monotonic interval yields one-core percentage
+ok 366 - first CPU sample is unknown, RSS is real input, and a monotonic interval yields one-core percentage
+  ---
+  duration_ms: 1.570834
+  type: 'test'
+  ...
+# Subtest: sampling cache avoids repeated reads, returned views cannot mutate it, and wall-clock jumps do not change CPU math
+ok 367 - sampling cache avoids repeated reads, returned views cannot mutate it, and wall-clock jumps do not change CPU math
+  ---
+  duration_ms: 0.186292
+  type: 'test'
+  ...
+# Subtest: backwards monotonic time, counter reset and invalid CPU input remain unknown rather than fabricate usage
+ok 368 - backwards monotonic time, counter reset and invalid CPU input remain unknown rather than fabricate usage
+  ---
+  duration_ms: 0.38975
+  type: 'test'
+  ...
+# Subtest: invalid RSS and timestamps reject instead of displaying zero, while native sampler returns bounded metadata only
+ok 369 - invalid RSS and timestamps reject instead of displaying zero, while native sampler returns bounded metadata only
+  ---
+  duration_ms: 2.791875
+  type: 'test'
+  ...
+# Subtest: restorable copy preserves current consumption, latest policy and tombstones without changing either source
+ok 370 - restorable copy preserves current consumption, latest policy and tombstones without changing either source
+  ---
+  duration_ms: 119.808333
+  type: 'test'
+  ...
+# Subtest: matching Run usage merges high water, and current-only usage stays in its source snapshot without forged Run/FK
+ok 371 - matching Run usage merges high water, and current-only usage stays in its source snapshot without forged Run/FK
+  ---
+  duration_ms: 96.134333
+  type: 'test'
+  ...
+# Subtest: same scope/period buckets use conservative maximum spend and minimum limit even with different IDs
+ok 372 - same scope/period buckets use conservative maximum spend and minimum limit even with different IDs
+  ---
+  duration_ms: 142.145917
+  type: 'test'
+  ...
+# Subtest: old mandates, schedules and bindings stay invalidated after a genuinely openable restore
+ok 373 - old mandates, schedules and bindings stay invalidated after a genuinely openable restore
+  ---
+  duration_ms: 131.178708
+  type: 'test'
+  ...
+# Subtest: both backup and current unsettled budgets refuse restoration without inventing released balances
+ok 374 - both backup and current unsettled budgets refuse restoration without inventing released balances
+  ---
+  duration_ms: 714.333625
+  type: 'test'
+  ...
+# Subtest: unresolved Runs, reserved Actions, grants, execution Operations and all three lease types are refused
+ok 375 - unresolved Runs, reserved Actions, grants, execution Operations and all three lease types are refused
+  ---
+  duration_ms: 746.09875
+  type: 'test'
+  ...
+# Subtest: numeric overflow, unknown goals, scope conflicts and corrupt inputs fail conservatively
+ok 376 - numeric overflow, unknown goals, scope conflicts and corrupt inputs fail conservatively
+  ---
+  duration_ms: 431.8875
+  type: 'test'
+  ...
+# Subtest: a failure in final accounting merge retains quarantine rather than exposing a half-prepared runnable database
+ok 377 - a failure in final accounting merge retains quarantine rather than exposing a half-prepared runnable database
+  ---
+  duration_ms: 105.904292
+  type: 'test'
+  ...
+# Subtest: idle restore physically activates a new generation, preserving newer source DB and source files
+ok 378 - idle restore physically activates a new generation, preserving newer source DB and source files
+  ---
+  duration_ms: 315.656042
+  type: 'test'
+  ...
+# Subtest: same preparation key returns original copy, and changes before activation require an explicit new preparation
+ok 379 - same preparation key returns original copy, and changes before activation require an explicit new preparation
+  ---
+  duration_ms: 362.261042
+  type: 'test'
+  ...
+# Subtest: extra fields, foreign IDs, malformed pointers and changed physical copies are rejected
+ok 380 - extra fields, foreign IDs, malformed pointers and changed physical copies are rejected
+  ---
+  duration_ms: 223.869042
+  type: 'test'
+  ...
+# Subtest: actual cold restore Host SIGKILL at before_pointer retains a complete old or new active generation
+ok 381 - actual cold restore Host SIGKILL at before_pointer retains a complete old or new active generation
+  ---
+  duration_ms: 394.360875
+  type: 'test'
+  ...
+# Subtest: actual cold restore Host SIGKILL at commit_intent retains a complete old or new active generation
+ok 382 - actual cold restore Host SIGKILL at commit_intent retains a complete old or new active generation
+  ---
+  duration_ms: 445.4445
+  type: 'test'
+  ...
+# Subtest: actual cold restore Host SIGKILL at activated retains a complete old or new active generation
+ok 383 - actual cold restore Host SIGKILL at activated retains a complete old or new active generation
+  ---
+  duration_ms: 461.154417
+  type: 'test'
+  ...
+# Subtest: a lost committed active pointer fails closed and never rolls back to the previous runtime
+ok 384 - a lost committed active pointer fails closed and never rolls back to the previous runtime
+  ---
+  duration_ms: 222.499583
+  type: 'test'
+  ...
+# Subtest: actual stdio Rollover admits current Task/Goal once and sends original User input plus provenance to a second Thread generation
+ok 385 - actual stdio Rollover admits current Task/Goal once and sends original User input plus provenance to a second Thread generation
+  ---
+  duration_ms: 895.905834
+  type: 'test'
+  ...
+# Subtest: workspace-write Rollover inherits the original frozen Git/test/case/tool contract and verifies accumulated authorized edits
+ok 386 - workspace-write Rollover inherits the original frozen Git/test/case/tool contract and verifies accumulated authorized edits
+  ---
+  duration_ms: 1679.596875
+  type: 'test'
+  ...
+# Subtest: changed frozen tests reject Rollover preparation before any second native Thread or weaker baseline is created
+ok 387 - changed frozen tests reject Rollover preparation before any second native Thread or weaker baseline is created
+  ---
+  duration_ms: 901.525291
+  type: 'test'
+  ...
+# Subtest: wrong Task checkpoint, wrong Project and extra fields cannot create an admitted Run or protocol effect
+ok 388 - wrong Task checkpoint, wrong Project and extra fields cannot create an admitted Run or protocol effect
+  ---
+  duration_ms: 301.442083
+  type: 'test'
+  ...
+# Subtest: Unknown results and revised or paused Goals refuse Rollover without retrying any model or reclaiming unknown budget
+ok 389 - Unknown results and revised or paused Goals refuse Rollover without retrying any model or reclaiming unknown budget
+  ---
+  duration_ms: 1911.065083
+  type: 'test'
+  ...
+# Subtest: CREATE_TASK: explicitly committed object and original structured-route private copies revoke in both directions (object) without touching another Project
+ok 390 - CREATE_TASK: explicitly committed object and original structured-route private copies revoke in both directions (object) without touching another Project
+  ---
+  duration_ms: 125.367625
+  type: 'test'
+  ...
+# Subtest: CREATE_TASK: explicitly committed object and original structured-route private copies revoke in both directions (origin) without touching another Project
+ok 391 - CREATE_TASK: explicitly committed object and original structured-route private copies revoke in both directions (origin) without touching another Project
+  ---
+  duration_ms: 87.340667
+  type: 'test'
+  ...
+# Subtest: CREATE_GOAL: explicitly committed object and original structured-route private copies revoke in both directions (object) without touching another Project
+ok 392 - CREATE_GOAL: explicitly committed object and original structured-route private copies revoke in both directions (object) without touching another Project
+  ---
+  duration_ms: 103.303625
+  type: 'test'
+  ...
+# Subtest: CREATE_GOAL: explicitly committed object and original structured-route private copies revoke in both directions (origin) without touching another Project
+ok 393 - CREATE_GOAL: explicitly committed object and original structured-route private copies revoke in both directions (origin) without touching another Project
+  ---
+  duration_ms: 106.423375
+  type: 'test'
+  ...
+# Subtest: Correction retries the same message before stale Focus CAS and never rewrites a later Focus or creates another audit
+ok 394 - Correction retries the same message before stale Focus CAS and never rewrites a later Focus or creates another audit
+  ---
+  duration_ms: 99.767916
+  type: 'test'
+  ...
+# Subtest: CREATE_TASK: committed creation retains origin privacy provenance when the parent Step receipt update fails
+ok 395 - CREATE_TASK: committed creation retains origin privacy provenance when the parent Step receipt update fails
+  ---
+  duration_ms: 80.2
+  type: 'test'
+  ...
+# Subtest: CREATE_GOAL: committed creation retains origin privacy provenance when the parent Step receipt update fails
+ok 396 - CREATE_GOAL: committed creation retains origin privacy provenance when the parent Step receipt update fails
+  ---
+  duration_ms: 158.36775
+  type: 'test'
+  ...
+# Subtest: Router and Chat use distinct actual Prompt Registry modules while both retain no-tools ephemeral profiles
+ok 397 - Router and Chat use distinct actual Prompt Registry modules while both retain no-tools ephemeral profiles
+  ---
+  duration_ms: 687.804041
+  type: 'test'
+  ...
+# Subtest: Chat accepts only the same approved Plan completed receipt version and renders current Host title/status
+ok 398 - Chat accepts only the same approved Plan completed receipt version and renders current Host title/status
+  ---
+  duration_ms: 162.327333
+  type: 'test'
+  ...
+# Subtest: an external rename without the Plan receipt cannot enter Chat context
+ok 399 - an external rename without the Plan receipt cannot enter Chat context
+  ---
+  duration_ms: 99.280542
+  type: 'test'
+  ...
+# Subtest: an external change after an own completed receipt is still rejected rather than authorizing arbitrary later versions
+ok 400 - an external change after an own completed receipt is still rejected rather than authorizing arbitrary later versions
+  ---
+  duration_ms: 119.002125
+  type: 'test'
+  ...
+# Subtest: wrong Project route and sibling/foreign Task sources are refused before any native request
+ok 401 - wrong Project route and sibling/foreign Task sources are refused before any native request
+  ---
+  duration_ms: 109.828125
+  type: 'test'
+  ...
+# Subtest: out-of-order responses retain the correct request identity
+ok 402 - out-of-order responses retain the correct request identity
+  ---
+  duration_ms: 101.715291
+  type: 'test'
+  ...
+# Subtest: server request with a colliding numeric ID is denied without resolving the client request
+ok 403 - server request with a colliding numeric ID is denied without resolving the client request
+  ---
+  duration_ms: 85.239833
+  type: 'test'
+  ...
+# Subtest: an unsupported server request fails closed
+ok 404 - an unsupported server request fails closed
+  ---
+  duration_ms: 124.54425
+  type: 'test'
+  ...
+# Subtest: UTF-8 frames split inside a code point preserve repeated text
+ok 405 - UTF-8 frames split inside a code point preserve repeated text
+  ---
+  duration_ms: 90.682458
+  type: 'test'
+  ...
+# Subtest: malformed input closes the connection and rejects pending execution as unknown
+ok 406 - malformed input closes the connection and rejects pending execution as unknown
+  ---
+  duration_ms: 87.407291
+  type: 'test'
+  ...
+# Subtest: oversize input closes the connection and rejects pending execution as unknown
+ok 407 - oversize input closes the connection and rejects pending execution as unknown
+  ---
+  duration_ms: 105.240916
+  type: 'test'
+  ...
+# Subtest: utf8 input closes the connection and rejects pending execution as unknown
+ok 408 - utf8 input closes the connection and rejects pending execution as unknown
+  ---
+  duration_ms: 83.481666
+  type: 'test'
+  ...
+# Subtest: a response deadline does not automatically resubmit an uncertain request
+ok 409 - a response deadline does not automatically resubmit an uncertain request
+  ---
+  duration_ms: 133.015708
+  type: 'test'
+  ...
+# Subtest: process exit rejects all outstanding requests and is not a successful empty result
+ok 410 - process exit rejects all outstanding requests and is not a successful empty result
+  ---
+  duration_ms: 74.729333
+  type: 'test'
+  ...
+# Subtest: closed clients reject new work and cleanup can be awaited more than once
+ok 411 - closed clients reject new work and cleanup can be awaited more than once
+  ---
+  duration_ms: 73.078125
+  type: 'test'
+  ...
+# Subtest: durable client request IDs cannot be reused after success or while pending
+ok 412 - durable client request IDs cannot be reused after success or while pending
+  ---
+  duration_ms: 95.719167
+  type: 'test'
+  ...
+# Subtest: owner cancellation rejects pending work and waits for its child process to stop
+ok 413 - owner cancellation rejects pending work and waits for its child process to stop
+  ---
+  duration_ms: 100.487583
+  type: 'test'
+  ...
+# Subtest: the native child preserves configured authentication/proxy bindings but cannot inherit the parent agent tool bridge or sandbox identity
+ok 414 - the native child preserves configured authentication/proxy bindings but cannot inherit the parent agent tool bridge or sandbox identity
+  ---
+  duration_ms: 0.732458
+  type: 'test'
+  ...
+# Subtest: a diagnostic consumer failure does not break RPC error correlation or expose private error text
+ok 415 - a diagnostic consumer failure does not break RPC error correlation or expose private error text
+  ---
+  duration_ms: 94.123834
+  type: 'test'
+  ...
+# Subtest: default queue-only schedules never dispatch; explicit readonly once uses one Run, source receipt and Intent pipeline
+ok 416 - default queue-only schedules never dispatch; explicit readonly once uses one Run, source receipt and Intent pipeline
+  ---
+  duration_ms: 836.931833
+  type: 'test'
+  ...
+# Subtest: automatic Cron and workspace-write profiles are rejected without granting execution
+ok 417 - automatic Cron and workspace-write profiles are rejected without granting execution
+  ---
+  duration_ms: 11.560833
+  type: 'test'
+  ...
+# Subtest: old contract v1 retains queue-only permission, and never acquires execute permission on upgrade
+ok 418 - old contract v1 retains queue-only permission, and never acquires execute permission on upgrade
+  ---
+  duration_ms: 23.691791
+  type: 'test'
+  ...
+# Subtest: saved wake version defeats a later Task edit instead of using the latest version
+ok 419 - saved wake version defeats a later Task edit instead of using the latest version
+  ---
+  duration_ms: 17.049833
+  type: 'test'
+  ...
+# Subtest: budget waits create no Run or RPC and resume only after the blocking real period expires
+ok 420 - budget waits create no Run or RPC and resume only after the blocking real period expires
+  ---
+  duration_ms: 783.46775
+  type: 'test'
+  ...
+# Subtest: revoking a queued automatic schedule stops dispatch while leaving its already applied wake factual
+ok 421 - revoking a queued automatic schedule stops dispatch while leaving its already applied wake factual
+  ---
+  duration_ms: 14.757208
+  type: 'test'
+  ...
+# Subtest: automatic work waits for the existing foreground execution without taking its session
+ok 422 - automatic work waits for the existing foreground execution without taking its session
+  ---
+  duration_ms: 1824.105166
+  type: 'test'
+  ...
+# Subtest: Source, policy, privacy and deadline are rechecked after queue delivery and before Run creation
+ok 423 - Source, policy, privacy and deadline are rechecked after queue delivery and before Run creation
+  ---
+  duration_ms: 66.977959
+  type: 'test'
+  ...
+# Subtest: unknown scheduled execution is never repeated by a new pump, key, or direct Host call
+ok 424 - unknown scheduled execution is never repeated by a new pump, key, or direct Host call
+  ---
+  duration_ms: 160.045166
+  type: 'test'
+  ...
+# Subtest: claim rollback leaves no Run, source event, manifest or reservation before a safe first claim
+ok 425 - claim rollback leaves no Run, source event, manifest or reservation before a safe first claim
+  ---
+  duration_ms: 20.71075
+  type: 'test'
+  ...
+# Subtest: real SIGKILL around scheduled Run commit never repeats a committed claim after restart
+ok 426 - real SIGKILL around scheduled Run commit never repeats a committed claim after restart
+  ---
+  duration_ms: 376.374667
+  type: 'test'
+  ...
+# SCHEDULED_CLAIM_CRASH_RECEIPT {"phase":"inside","signal":"SIGKILL","exitCode":null,"projectId":"6ea5b703-1a43-44d6-a6f8-93cc10613445","triggerId":"schedule-trigger:bd3ae153b68e91811f3b3fb4a05f78b569e8f455cac7670fcf666f18a75cc45e","runId":"617cf76d-6353-44bb-9fbf-0bacde3250c7","newClaimAfterRecovery":true,"runStatus":"preparing","totalRuns":1,"rpcOrModelStarted":false}
+# SCHEDULED_CLAIM_CRASH_RECEIPT {"phase":"committed","signal":"SIGKILL","exitCode":null,"projectId":"a08356fc-f80d-4885-a09a-702ddf7a069f","triggerId":"schedule-trigger:bd3ae153b68e91811f3b3fb4a05f78b569e8f455cac7670fcf666f18a75cc45e","runId":"30de47f7-2be6-4273-aa5b-56b4fa6b69aa","newClaimAfterRecovery":false,"runStatus":"outcome_unknown","totalRuns":1,"rpcOrModelStarted":false}
+# Subtest: real user PTY makes automatic scheduling wait without a Run, then one synthetic dispatch follows close
+ok 427 - real user PTY makes automatic scheduling wait without a Run, then one synthetic dispatch follows close
+  ---
+  duration_ms: 209.494208
+  type: 'test'
+  ...
+# Subtest: actual SIGSTOP/SIGCONT Host pause catches up one queue-only UTC occurrence with stable IDs and zero inference
+ok 428 - actual SIGSTOP/SIGCONT Host pause catches up one queue-only UTC occurrence with stable IDs and zero inference
+  ---
+  duration_ms: 2287.699666
+  type: 'test'
+  ...
+# SCHEDULER_PAUSE_RECEIPT {"scope":"actual_Node_Host_pause_resume_not_physical_device_sleep","clock":"real_Date.now_UTC_no_injection","dueAtMs":1793715610233,"stoppedAtMs":1793715608767,"resumedAtMs":1793715610494,"queuedAtMs":1793715610501,"observedPsState":"T","queueCount":1,"identity":{"occurrence_id":"occurrence:3185e7e433f16d39c940aae1602f3c26d4038fa030f2d564d5c4df1ed9999b79","trigger_id":"schedule-trigger:ae97f2f7873a3262ddb23c144383ecdde957294c74f62f724046f4314d6d5875","delivery_id":"5ee525ce-cfd9-4d8f-b593-50b26659f72f","delivery_state":"acknowledged"},"occurrences":1,"triggers":1,"deliveries":1,"pumpSteps":10,"modelRuns":0,"executionIntents":0,"budgetReservations":0,"modelInferenceRequested":false,"physicalDeviceSleepTested":false,"exitCode":0}
+# Subtest: once atomically enqueues one immutable input and Outbox; consumption queues exactly once without a Run
+ok 429 - once atomically enqueues one immutable input and Outbox; consumption queues exactly once without a Run
+  ---
+  duration_ms: 59.180625
+  type: 'test'
+  ...
+# Subtest: schedule commands deduplicate and reject stale, malformed or cross-project inputs before persistence
+ok 430 - schedule commands deduplicate and reject stale, malformed or cross-project inputs before persistence
+  ---
+  duration_ms: 18.653125
+  type: 'test'
+  ...
+# Subtest: Cron coalesces years of misfires into the latest due slot with a compact skipped-range event
+ok 431 - Cron coalesces years of misfires into the latest due slot with a compact skipped-range event
+  ---
+  duration_ms: 25.750625
+  type: 'test'
+  ...
+# Subtest: late once skips by policy and expires within its explicit bounded deadline
+ok 432 - late once skips by policy and expires within its explicit bounded deadline
+  ---
+  duration_ms: 15.7265
+  type: 'test'
+  ...
+# Subtest: bounded catch-up obeys 1–10 per schedule step and coalesces overlap to one waiting slot
+ok 433 - bounded catch-up obeys 1–10 per schedule step and coalesces overlap to one waiting slot
+  ---
+  duration_ms: 24.64125
+  type: 'test'
+  ...
+# Subtest: overlap skip/coalesce never queues another wake while the Task is already queued or unknown
+ok 434 - overlap skip/coalesce never queues another wake while the Task is already queued or unknown
+  ---
+  duration_ms: 28.177125
+  type: 'test'
+  ...
+# Subtest: pause/cancel revokes a committed but unconsumed wake and resume uses a new version
+ok 435 - pause/cancel revokes a committed but unconsumed wake and resume uses a new version
+  ---
+  duration_ms: 21.156625
+  type: 'test'
+  ...
+# Subtest: replacing a schedule cancels its old instances and a stale version cannot change the new plan
+ok 436 - replacing a schedule cancels its old instances and a stale version cannot change the new plan
+  ---
+  duration_ms: 19.5125
+  type: 'test'
+  ...
+# Subtest: Task pause/cancel atomically stops schedules and unconsumed deliveries, and manual resume never rearms them
+ok 437 - Task pause/cancel atomically stops schedules and unconsumed deliveries, and manual resume never rearms them
+  ---
+  duration_ms: 19.783083
+  type: 'test'
+  ...
+# Subtest: Policy, privacy, calendar and Source changes are rechecked before enqueue and before delivery
+ok 438 - Policy, privacy, calendar and Source changes are rechecked before enqueue and before delivery
+  ---
+  duration_ms: 20.146791
+  type: 'test'
+  ...
+# Subtest: a disabled internal Source cannot deliver its already enqueued wake
+ok 439 - a disabled internal Source cannot deliver its already enqueued wake
+  ---
+  duration_ms: 13.97825
+  type: 'test'
+  ...
+# Subtest: untrusted internal Source and changed Policy fail before any input or cursor is committed
+ok 440 - untrusted internal Source and changed Policy fail before any input or cursor is committed
+  ---
+  duration_ms: 14.086583
+  type: 'test'
+  ...
+# Subtest: a Task tombstone hides schedules/instances and prevents pending wake consumption
+ok 441 - a Task tombstone hides schedules/instances and prevents pending wake consumption
+  ---
+  duration_ms: 13.782416
+  type: 'test'
+  ...
+# Subtest: unsupported historical schedule contracts pause instead of inferring a new authorization
+ok 442 - unsupported historical schedule contracts pause instead of inferring a new authorization
+  ---
+  duration_ms: 18.612625
+  type: 'test'
+  ...
+# Subtest: storage faults roll back occurrence, immutable input, Outbox and next-fire together
+ok 443 - storage faults roll back occurrence, immutable input, Outbox and next-fire together
+  ---
+  duration_ms: 13.3745
+  type: 'test'
+  ...
+# Subtest: clock rollback does not rewind the durable cursor or reproduce an acknowledged occurrence
+ok 444 - clock rollback does not rewind the durable cursor or reproduce an acknowledged occurrence
+  ---
+  duration_ms: 16.352916
+  type: 'test'
+  ...
+# Subtest: fixed schedule service combines due input and queue delivery without model dispatch or injected controls
+ok 445 - fixed schedule service combines due input and queue delivery without model dispatch or injected controls
+  ---
+  duration_ms: 15.8685
+  type: 'test'
+  ...
+# Subtest: real SIGKILL before and after occurrence commit recovers without duplicate inputs or queue delivery
+ok 446 - real SIGKILL before and after occurrence commit recovers without duplicate inputs or queue delivery
+  ---
+  duration_ms: 417.369
+  type: 'test'
+  ...
+# SCHEDULER_CRASH_RECEIPT {"phase":"inside","signal":"SIGKILL","exitCode":null,"projectId":"ffee05ca-0dd3-4cdb-9be9-f9ed75e638e4","scheduleId":"schedule:8e4b9638c3b8653985ef464c858556c16a2c4484bbe3e73ea3cff7cdf34bccd0","occurrenceId":"occurrence:0517c21772820bd9e22c41f02d27a0784d5c3db45345a193ebc1f1d934819830","triggerId":"schedule-trigger:bd3ae153b68e91811f3b3fb4a05f78b569e8f455cac7670fcf666f18a75cc45e","inputsBeforeKill":0,"inputsAfterRecovery":1,"acknowledged":true,"taskQueued":true,"runs":0}
+# SCHEDULER_CRASH_RECEIPT {"phase":"committed","signal":"SIGKILL","exitCode":null,"projectId":"e9bd1899-2d26-4e69-86a4-aee57b1b123b","scheduleId":"schedule:8e4b9638c3b8653985ef464c858556c16a2c4484bbe3e73ea3cff7cdf34bccd0","occurrenceId":"occurrence:0517c21772820bd9e22c41f02d27a0784d5c3db45345a193ebc1f1d934819830","triggerId":"schedule-trigger:bd3ae153b68e91811f3b3fb4a05f78b569e8f455cac7670fcf666f18a75cc45e","inputsBeforeKill":1,"inputsAfterRecovery":1,"acknowledged":true,"taskQueued":true,"runs":0}
+# Subtest: controlled stable response projects only bounded public metadata with interface and legacy precedence
+ok 447 - controlled stable response projects only bounded public metadata with interface and legacy precedence
+  ---
+  duration_ms: 1.654625
+  type: 'test'
+  ...
+# Subtest: global scopes and unknown scope never read private metadata or allocate identifiers
+ok 448 - global scopes and unknown scope never read private metadata or allocate identifiers
+  ---
+  duration_ms: 0.293417
+  type: 'test'
+  ...
+# Subtest: CWD binding rejects foreign, normalized aliases, duplicate and mixed-project responses
+ok 449 - CWD binding rejects foreign, normalized aliases, duplicate and mixed-project responses
+  ---
+  duration_ms: 0.4205
+  type: 'test'
+  ...
+# Subtest: repo paths must be absolute and lexically contained; no ancestor or sibling metadata is exported
+ok 450 - repo paths must be absolute and lexically contained; no ancestor or sibling metadata is exported
+  ---
+  duration_ms: 0.45475
+  type: 'test'
+  ...
+# Subtest: same-name distinct paths and distinct projects retain separate opaque identities while exact duplicates dedupe
+ok 451 - same-name distinct paths and distinct projects retain separate opaque identities while exact duplicates dedupe
+  ---
+  duration_ms: 0.464459
+  type: 'test'
+  ...
+# Subtest: name/display/description clipping preserves Unicode pairs and marks each partial view
+ok 452 - name/display/description clipping preserves Unicode pairs and marks each partial view
+  ---
+  duration_ms: 0.420083
+  type: 'test'
+  ...
+# Subtest: 200 unique entries cap output without allocating IDs for omitted or duplicate records
+ok 453 - 200 unique entries cap output without allocating IDs for omitted or duplicate records
+  ---
+  duration_ms: 2.082958
+  type: 'test'
+  ...
+# Subtest: aggregate UTF16 text stays within 65536 and exhausted space never creates an unnamed record
+ok 454 - aggregate UTF16 text stays within 65536 and exhausted space never creates an unnamed record
+  ---
+  duration_ms: 1.7405
+  type: 'test'
+  ...
+# Subtest: missing and malformed repo metadata is counted once per entry without filling defaults
+ok 455 - missing and malformed repo metadata is counted once per entry without filling defaults
+  ---
+  duration_ms: 0.518667
+  type: 'test'
+  ...
+# Subtest: scan errors are counts only and secrets, paths, icons, dependencies and body never enter DTOs
+ok 456 - scan errors are counts only and secrets, paths, icons, dependencies and body never enter DTOs
+  ---
+  duration_ms: 0.525584
+  type: 'test'
+  ...
+# Subtest: HTML remains an inert text value and lexical validation performs no filesystem access
+ok 457 - HTML remains an inert text value and lexical validation performs no filesystem access
+  ---
+  duration_ms: 0.898625
+  type: 'test'
+  ...
+# Subtest: oversized transport collections and failed Host identity mapping yield fixed errors without private diagnostics
+ok 458 - oversized transport collections and failed Host identity mapping yield fixed errors without private diagnostics
+  ---
+  duration_ms: 0.587125
+  type: 'test'
+  ...
+# Subtest: missing Host fixed config returns an empty catalog without creating any file or discovering accounts
+ok 459 - missing Host fixed config returns an empty catalog without creating any file or discovering accounts
+  ---
+  duration_ms: 3.392541
+  type: 'test'
+  ...
+# Subtest: private regular 0600 Host config derives connection identity from the public binding without leaking credentials to its catalog
+ok 460 - private regular 0600 Host config derives connection identity from the public binding without leaking credentials to its catalog
+  ---
+  duration_ms: 1.633875
+  type: 'test'
+  ...
+# Subtest: world/group modes, special permission bits, symlinks, hardlinks, directories and noncanonical paths are refused
+ok 461 - world/group modes, special permission bits, symlinks, hardlinks, directories and noncanonical paths are refused
+  ---
+  duration_ms: 3.710417
+  type: 'test'
+  ...
+# Subtest: symlinked parent directories are refused even when the final regular file itself is private
+ok 462 - symlinked parent directories are refused even when the final regular file itself is private
+  ---
+  duration_ms: 1.23675
+  type: 'test'
+  ...
+# Subtest: bounded strict UTF8 JSON and complete exact schema are checked without echoing private values
+ok 463 - bounded strict UTF8 JSON and complete exact schema are checked without echoing private values
+  ---
+  duration_ms: 6.152458
+  type: 'test'
+  ...
+# Subtest: HTTPS, separate bounded bearer token and no userinfo/fragment or secret copied into public binding are required
+ok 464 - HTTPS, separate bounded bearer token and no userinfo/fragment or secret copied into public binding are required
+  ---
+  duration_ms: 4.295917
+  type: 'test'
+  ...
+# Subtest: Source IDs are unique, bindings have bounded validated scopes, and secrets cannot cross into another binding
+ok 465 - Source IDs are unique, bindings have bounded validated scopes, and secrets cannot cross into another binding
+  ---
+  duration_ms: 4.738959
+  type: 'test'
+  ...
+# Subtest: real authenticated HTTP polling signs each request nonce and returns frozen identity-certified metadata plus exact UTF8 payloads
+ok 466 - real authenticated HTTP polling signs each request nonce and returns frozen identity-certified metadata plus exact UTF8 payloads
+  ---
+  duration_ms: 38.882333
+  type: 'test'
+  ...
+# Subtest: wrong MAC and self-declared verification are rejected before any payload is saved
+ok 467 - wrong MAC and self-declared verification are rejected before any payload is saved
+  ---
+  duration_ms: 10.97825
+  type: 'test'
+  ...
+# Subtest: a captured valid response cannot be replayed for a new random nonce
+ok 468 - a captured valid response cannot be replayed for a new random nonce
+  ---
+  duration_ms: 23.908584
+  type: 'test'
+  ...
+# Subtest: signed source/binding mismatches, malformed actors and unknown response fields never receive identity certification
+ok 469 - signed source/binding mismatches, malformed actors and unknown response fields never receive identity certification
+  ---
+  duration_ms: 18.910667
+  type: 'test'
+  ...
+# Subtest: redirects are rejected without a second request or leaking authorization to a new target
+ok 470 - redirects are rejected without a second request or leaking authorization to a new target
+  ---
+  duration_ms: 4.372833
+  type: 'test'
+  ...
+# Subtest: advertised and chunked oversized responses are stopped with fixed errors and no partial payload files
+ok 471 - advertised and chunked oversized responses are stopped with fixed errors and no partial payload files
+  ---
+  duration_ms: 13.611833
+  type: 'test'
+  ...
+# Subtest: a stalled real Provider times out without retaining half files or returning private transport diagnostics
+ok 472 - a stalled real Provider times out without retaining half files or returning private transport diagnostics
+  ---
+  duration_ms: 53.08225
+  type: 'test'
+  ...
+# Subtest: duplicate IDs, event-count and per-payload limits reject the entire signed batch before filesystem writes
+ok 473 - duplicate IDs, event-count and per-payload limits reject the entire signed batch before filesystem writes
+  ---
+  duration_ms: 16.20025
+  type: 'test'
+  ...
+# Subtest: immutable payload files are reused by hash, revalidated, and never overwritten after tampering
+ok 474 - immutable payload files are reused by hash, revalidated, and never overwritten after tampering
+  ---
+  duration_ms: 24.173167
+  type: 'test'
+  ...
+# Subtest: payload reads and deletion are confined to regular controlled hash files
+ok 475 - payload reads and deletion are confined to regular controlled hash files
+  ---
+  duration_ms: 21.240375
+  type: 'test'
+  ...
+# Subtest: source registration, secure URL policy, test controls and cursor bounds are checked before network access
+ok 476 - source registration, secure URL policy, test controls and cursor bounds are checked before network access
+  ---
+  duration_ms: 2.138709
+  type: 'test'
+  ...
+# Subtest: a changed payload directory and token-bearing response cannot produce a trusted envelope
+ok 477 - a changed payload directory and token-bearing response cannot produce a trusted envelope
+  ---
+  duration_ms: 5.347625
+  type: 'test'
+  ...
+# Subtest: explicit task creation persists one command, task, event stream and outbox without dispatch
+ok 478 - explicit task creation persists one command, task, event stream and outbox without dispatch
+  ---
+  duration_ms: 13.817084
+  type: 'test'
+  ...
+# Subtest: version CAS rejects stale edits and invalid transitions without any partial operation or event
+ok 479 - version CAS rejects stale edits and invalid transitions without any partial operation or event
+  ---
+  duration_ms: 12.842166
+  type: 'test'
+  ...
+# Subtest: two competing commands with the same task version have one winner
+ok 480 - two competing commands with the same task version have one winner
+  ---
+  duration_ms: 13.49075
+  type: 'test'
+  ...
+# Subtest: extra fields, raw paths, cross-project tasks and malformed code profiles cannot create commands
+ok 481 - extra fields, raw paths, cross-project tasks and malformed code profiles cannot create commands
+  ---
+  duration_ms: 12.426209
+  type: 'test'
+  ...
+# Subtest: queued claim keeps one operation/run, checks versions and does not revive expired or unknown grants
+ok 482 - queued claim keeps one operation/run, checks versions and does not revive expired or unknown grants
+  ---
+  duration_ms: 17.994458
+  type: 'test'
+  ...
+# Subtest: a workspace write lease collision rolls back command, run, task version and fence together
+ok 483 - a workspace write lease collision rolls back command, run, task version and fence together
+  ---
+  duration_ms: 14.388708
+  type: 'test'
+  ...
+# Subtest: active pause first persists dispatch blocking; only a confirmed executor result completes it
+ok 484 - active pause first persists dispatch blocking; only a confirmed executor result completes it
+  ---
+  duration_ms: 16.28525
+  type: 'test'
+  ...
+# Subtest: uncertain stop stays unknown across Owner restart and never becomes a completed cancellation
+ok 485 - uncertain stop stays unknown across Owner restart and never becomes a completed cancellation
+  ---
+  duration_ms: 14.890292
+  type: 'test'
+  ...
+# Subtest: legacy foreground submission, continuation and stop also have durable Operation links
+ok 486 - legacy foreground submission, continuation and stop also have durable Operation links
+  ---
+  duration_ms: 15.356666
+  type: 'test'
+  ...
+# Subtest: policy, privacy and tombstone changes block queued dispatch while cancellation remains available
+ok 487 - policy, privacy and tombstone changes block queued dispatch while cancellation remains available
+  ---
+  duration_ms: 16.257084
+  type: 'test'
+  ...
+# Subtest: linked inactive goals block claims and a plan-version change revokes an existing grant
+ok 488 - linked inactive goals block claims and a plan-version change revokes an existing grant
+  ---
+  duration_ms: 12.439541
+  type: 'test'
+  ...
+# Subtest: old tasks without reusable source input cannot be moved to a misleading queued state
+ok 489 - old tasks without reusable source input cannot be moved to a misleading queued state
+  ---
+  duration_ms: 9.747583
+  type: 'test'
+  ...
+# Subtest: one immutable Message/Decision owns all Host-assigned plan nodes and repeated keys do not duplicate it
+ok 490 - one immutable Message/Decision owns all Host-assigned plan nodes and repeated keys do not duplicate it
+  ---
+  duration_ms: 21.817333
+  type: 'test'
+  ...
+# Subtest: version references use the prior same-Task receipt through a sequential DAG
+ok 491 - version references use the prior same-Task receipt through a sequential DAG
+  ---
+  duration_ms: 15.745458
+  type: 'test'
+  ...
+# Subtest: cycles, self/missing dependencies, sparse arrays and cross-Task version references never persist
+ok 492 - cycles, self/missing dependencies, sparse arrays and cross-Task version references never persist
+  ---
+  duration_ms: 10.408542
+  type: 'test'
+  ...
+# Subtest: foreign Task/Project and extra executor fields are rejected before the parent message
+ok 493 - foreign Task/Project and extra executor fields are rejected before the parent message
+  ---
+  duration_ms: 11.842083
+  type: 'test'
+  ...
+# Subtest: a stale node fails, its descendants are cancelled and independent nodes still complete
+ok 494 - a stale node fails, its descendants are cancelled and independent nodes still complete
+  ---
+  duration_ms: 15.338667
+  type: 'test'
+  ...
+# Subtest: an external change between nodes is not silently accepted as a new expected version
+ok 495 - an external change between nodes is not silently accepted as a new expected version
+  ---
+  duration_ms: 16.355667
+  type: 'test'
+  ...
+# Subtest: an unresolved active stop blocks dependent effects while independent work advances
+ok 496 - an unresolved active stop blocks dependent effects while independent work advances
+  ---
+  duration_ms: 15.808
+  type: 'test'
+  ...
+# Subtest: confirmed stop completion unblocks the same persisted dependent node
+ok 497 - confirmed stop completion unblocks the same persisted dependent node
+  ---
+  duration_ms: 14.408083
+  type: 'test'
+  ...
+# Subtest: withdrawal cancels only pending/blocked nodes and never rolls back completed or unknown effects
+ok 498 - withdrawal cancels only pending/blocked nodes and never rolls back completed or unknown effects
+  ---
+  duration_ms: 22.337709
+  type: 'test'
+  ...
+# Subtest: failed pure-node transactions remain retryable without erasing an earlier commit
+ok 499 - failed pure-node transactions remain retryable without erasing an earlier commit
+  ---
+  duration_ms: 13.800959
+  type: 'test'
+  ...
+# Subtest: Root pending-plan and step budgets bound work without accepting an empty plan as success
+ok 500 - Root pending-plan and step budgets bound work without accepting an empty plan as success
+  ---
+  duration_ms: 26.0395
+  type: 'test'
+  ...
+# Subtest: a Task tombstone hides the whole plan and stops its remaining effects
+ok 501 - a Task tombstone hides the whole plan and stops its remaining effects
+  ---
+  duration_ms: 11.154042
+  type: 'test'
+  ...
+# Subtest: real process SIGKILL preserves committed nodes and rolls back the in-progress node before resume
+ok 502 - real process SIGKILL preserves committed nodes and rolls back the in-progress node before resume
+  ---
+  duration_ms: 159.7395
+  type: 'test'
+  ...
+# Subtest: queue persistence performs no RPC; explicit start reuses the guarded Intent execution path exactly once
+ok 503 - queue persistence performs no RPC; explicit start reuses the guarded Intent execution path exactly once
+  ---
+  duration_ms: 668.372667
+  type: 'test'
+  ...
+# Subtest: active pause/resume/cancel uses the same Task and Thread but separate runs, with confirmed stop states
+ok 504 - active pause/resume/cancel uses the same Task and Thread but separate runs, with confirmed stop states
+  ---
+  duration_ms: 243.404459
+  type: 'test'
+  ...
+# Subtest: queue creation remains available during execution while another start is rejected without a second run
+ok 505 - queue creation remains available during execution while another start is rejected without a second run
+  ---
+  duration_ms: 129.571042
+  type: 'test'
+  ...
+# Subtest: an unacknowledged interrupt retains an unknown operation and blocks new starts instead of resending
+ok 506 - an unacknowledged interrupt retains an unknown operation and blocks new starts instead of resending
+  ---
+  duration_ms: 158.638833
+  type: 'test'
+  ...
+# Subtest: task entry points reject extra/prototype fields, cross-project targets and unavailable code execution
+ok 507 - task entry points reject extra/prototype fields, cross-project targets and unavailable code execution
+  ---
+  duration_ms: 10.130541
+  type: 'test'
+  ...
+# Subtest: upstream cumulative usage notifications settle new and resumed turns without counting last twice
+ok 508 - upstream cumulative usage notifications settle new and resumed turns without counting last twice
+  ---
+  duration_ms: 269.8605
+  type: 'test'
+  ...
+# Subtest: plan pump confirms an active stop before its dependent resume without starting a new Turn
+ok 509 - plan pump confirms an active stop before its dependent resume without starting a new Turn
+  ---
+  duration_ms: 131.353542
+  type: 'test'
+  ...
+# Subtest: plan pump leaves unknown dependencies blocked while processing another independent node
+ok 510 - plan pump leaves unknown dependencies blocked while processing another independent node
+  ---
+  duration_ms: 169.252417
+  type: 'test'
+  ...
+# Subtest: queued terminal paste never crosses a session change, including its unsent remaining chunks
+ok 511 - queued terminal paste never crosses a session change, including its unsent remaining chunks
+  ---
+  duration_ms: 5.635334
+  type: 'test'
+  ...
+# Subtest: a late failure from an old session does not block the new session; a current unknown never retries
+ok 512 - a late failure from an old session does not block the new session; a current unknown never retries
+  ---
+  duration_ms: 3.733208
+  type: 'test'
+  ...
+# Subtest: terminal queue rejects oversized paste, preserves Unicode chunks and saved sequence high water
+ok 513 - terminal queue rejects oversized paste, preserves Unicode chunks and saved sequence high water
+  ---
+  duration_ms: 0.778458
+  type: 'test'
+  ...
+# Subtest: disposing the view drops unsent keyboard events without forwarding them after recreation
+ok 514 - disposing the view drops unsent keyboard events without forwarding them after recreation
+  ---
+  duration_ms: 0.107834
+  type: 'test'
+  ...
+# Subtest: real user PTY has tty stdin/stdout, pinned cwd, resize, input dedupe and actual process shutdown
+ok 515 - real user PTY has tty stdin/stdout, pinned cwd, resize, input dedupe and actual process shutdown
+  ---
+  duration_ms: 140.061334
+  type: 'test'
+  ...
+# Subtest: terminal text stays out of SQLite, output is bounded and stale cursors reset
+ok 516 - terminal text stays out of SQLite, output is bounded and stale cursors reset
+  ---
+  duration_ms: 343.841416
+  type: 'test'
+  ...
+# Subtest: raw command, environment, foreign workspace and invalid dimensions are refused
+ok 517 - raw command, environment, foreign workspace and invalid dimensions are refused
+  ---
+  duration_ms: 70.727833
+  type: 'test'
+  ...
+# Subtest: lost input acknowledgement does not resend, and process termination preserves an unknown input receipt
+ok 518 - lost input acknowledgement does not resend, and process termination preserves an unknown input receipt
+  ---
+  duration_ms: 223.529625
+  type: 'test'
+  ...
+# Subtest: terminal admission is blocked by existing model execution; unsent recovery never spawns a shell
+ok 519 - terminal admission is blocked by existing model execution; unsent recovery never spawns a shell
+  ---
+  duration_ms: 14.684375
+  type: 'test'
+  ...
+# Subtest: revision 5 migration preserves actual WAL data and worktree tables, failed DDL rolls back terminal tables
+ok 520 - revision 5 migration preserves actual WAL data and worktree tables, failed DDL rolls back terminal tables
+  ---
+  duration_ms: 31.655125
+  type: 'test'
+  ...
+# Subtest: actual terminal Host SIGKILL at prepared never restarts a Shell or input
+ok 521 - actual terminal Host SIGKILL at prepared never restarts a Shell or input
+  ---
+  duration_ms: 189.484708
+  type: 'test'
+  ...
+# Subtest: actual terminal Host SIGKILL at running never restarts a Shell or input
+ok 522 - actual terminal Host SIGKILL at running never restarts a Shell or input
+  ---
+  duration_ms: 274.862666
+  type: 'test'
+  ...
+# Subtest: input fingerprints use an ephemeral key and sequence, and a new Owner cannot replay old terminal text
+ok 523 - input fingerprints use an ephemeral key and sequence, and a new Owner cannot replay old terminal text
+  ---
+  duration_ms: 77.625292
+  type: 'test'
+  ...
+# Subtest: Store input receipt window expires old sequences without resending; metadata fixture starts no processes
+ok 524 - Store input receipt window expires old sequences without resending; metadata fixture starts no processes
+  ---
+  duration_ms: 499.043958
+  type: 'test'
+  ...
+# Subtest: replaying an old open key returns its original session without replacing or starting the newer live Shell
+ok 525 - replaying an old open key returns its original session without replacing or starting the newer live Shell
+  ---
+  duration_ms: 348.493125
+  type: 'test'
+  ...
+# Subtest: pinned o200k_base BPE reproduces fixed public cookbook example token vectors
+ok 526 - pinned o200k_base BPE reproduces fixed public cookbook example token vectors
+  ---
+  duration_ms: 11.492958
+  type: 'test'
+  ...
+# Subtest: real BPE count is neither UTF8 bytes nor characters and identifies its exact local baseline
+ok 527 - real BPE count is neither UTF8 bytes nor characters and identifies its exact local baseline
+  ---
+  duration_ms: 0.192
+  type: 'test'
+  ...
+# Subtest: Chinese, emoji, combining marks, control characters and ordinary text round-trip offline
+ok 528 - Chinese, emoji, combining marks, control characters and ordinary text round-trip offline
+  ---
+  duration_ms: 3.954375
+  type: 'test'
+  ...
+# Subtest: special token spellings are always ordinary untrusted data and never activate reserved IDs
+ok 529 - special token spellings are always ordinary untrusted data and never activate reserved IDs
+  ---
+  duration_ms: 0.312042
+  type: 'test'
+  ...
+# Subtest: corrupt ranks, regex, special token maps or object layout refuse the declared fingerprint
+ok 530 - corrupt ranks, regex, special token maps or object layout refuse the declared fingerprint
+  ---
+  duration_ms: 7.63625
+  type: 'test'
+  ...
+# Subtest: invalid or oversized tokens and text fail with fixed local errors
+ok 531 - invalid or oversized tokens and text fail with fixed local errors
+  ---
+  duration_ms: 0.206833
+  type: 'test'
+  ...
+# Subtest: tool status is explicit and independent of final record receipt; invalid metadata is dropped
+ok 532 - tool status is explicit and independent of final record receipt; invalid metadata is dropped
+  ---
+  duration_ms: 0.750875
+  type: 'test'
+  ...
+# Subtest: completed Turn and snapshot do not fabricate success for failed, declined or unfinished tools
+ok 533 - completed Turn and snapshot do not fabricate success for failed, declined or unfinished tools
+  ---
+  duration_ms: 0.727083
+  type: 'test'
+  ...
+# Subtest: late tool starts and output cannot erase a failed final result; reconnect requires fresh snapshot
+ok 534 - late tool starts and output cannot erase a failed final result; reconnect requires fresh snapshot
+  ---
+  duration_ms: 0.245333
+  type: 'test'
+  ...
+# Subtest: nonzero exit, interrupted tool and old metadata cannot appear as successful executions
+ok 535 - nonzero exit, interrupted tool and old metadata cannot appear as successful executions
+  ---
+  duration_ms: 0.119125
+  type: 'test'
+  ...
+# Subtest: live tool requires fresh snapshot, active Run and matching active Turn; older snapshot is unknown
+ok 536 - live tool requires fresh snapshot, active Run and matching active Turn; older snapshot is unknown
+  ---
+  duration_ms: 0.137791
+  type: 'test'
+  ...
+# Subtest: tool projection obeys existing per-item and aggregate display budgets
+ok 537 - tool projection obeys existing per-item and aggregate display budgets
+  ---
+  duration_ms: 0.240333
+  type: 'test'
+  ...
+# Subtest: the real Node reporter distinguishes zero-test file wrappers from named cases, including line one
+ok 538 - the real Node reporter distinguishes zero-test file wrappers from named cases, including line one
+  ---
+  duration_ms: 569.50575
+  type: 'test'
+  ...
+# Subtest: trusted verification ends review only after required cases pass and publishes a hash-bound receipt
+ok 539 - trusted verification ends review only after required cases pass and publishes a hash-bound receipt
+  ---
+  duration_ms: 278.483625
+  type: 'test'
+  ...
+# Subtest: tests that fail keep the task awaiting review, with real attempt identity rather than cached success
+ok 540 - tests that fail keep the task awaiting review, with real attempt identity rather than cached success
+  ---
+  duration_ms: 220.881
+  type: 'test'
+  ...
+# Subtest: zero cases, all skipped cases, wrong targets and missing necessary cases cannot complete a task
+ok 541 - zero cases, all skipped cases, wrong targets and missing necessary cases cannot complete a task
+  ---
+  duration_ms: 921.104667
+  type: 'test'
+  ...
+# Subtest: modified tests, changed verifiers and edits outside scope fail before running the new tests
+ok 542 - modified tests, changed verifiers and edits outside scope fail before running the new tests
+  ---
+  duration_ms: 593.925458
+  type: 'test'
+  ...
+# Subtest: unknown model outcome and foreign runs cannot obtain a trusted completion claim
+ok 543 - unknown model outcome and foreign runs cannot obtain a trusted completion claim
+  ---
+  duration_ms: 142.406042
+  type: 'test'
+  ...
+# Subtest: a receipt file altered after publication is rejected by its stored hash
+ok 544 - a receipt file altered after publication is rejected by its stored hash
+  ---
+  duration_ms: 163.827542
+  type: 'test'
+  ...
+# Subtest: profile paths reject traversal, test editing and arbitrary command fields
+ok 545 - profile paths reject traversal, test editing and arbitrary command fields
+  ---
+  duration_ms: 0.200167
+  type: 'test'
+  ...
+# Subtest: verification Git rejects included clean filters before any helper can execute
+ok 546 - verification Git rejects included clean filters before any helper can execute
+  ---
+  duration_ms: 162.511542
+  type: 'test'
+  ...
+# Subtest: continuation inherits the original file/test/case contract and verifies accumulated allowed changes
+ok 547 - continuation inherits the original file/test/case contract and verifies accumulated allowed changes
+  ---
+  duration_ms: 176.715708
+  type: 'test'
+  ...
+# Subtest: continuation cannot silently accept changed tests or missing required cases as a weaker baseline
+ok 548 - continuation cannot silently accept changed tests or missing required cases as a weaker baseline
+  ---
+  duration_ms: 297.471417
+  type: 'test'
+  ...
+# Subtest: real filesystem and Git observations separate staged, unstaged and untracked content without writes
+ok 549 - real filesystem and Git observations separate staged, unstaged and untracked content without writes
+  ---
+  duration_ms: 579.673458
+  type: 'test'
+  ...
+# Subtest: directory IDs support nested plain-text previews while HTML is returned strictly as text
+ok 550 - directory IDs support nested plain-text previews while HTML is returned strictly as text
+  ---
+  duration_ms: 319.200209
+  type: 'test'
+  ...
+# Subtest: large Chinese and emoji previews preserve UTF-8 across process output chunks
+ok 551 - large Chinese and emoji previews preserve UTF-8 across process output chunks
+  ---
+  duration_ms: 250.777958
+  type: 'test'
+  ...
+# Subtest: filenames with spaces and leading pathspec/option characters stay literal, including staged renames
+ok 552 - filenames with spaces and leading pathspec/option characters stay literal, including staged renames
+  ---
+  duration_ms: 419.503875
+  type: 'test'
+  ...
+# Subtest: fake IDs, raw paths, extra argv and cross-project handles are refused
+ok 553 - fake IDs, raw paths, extra argv and cross-project handles are refused
+  ---
+  duration_ms: 173.016708
+  type: 'test'
+  ...
+# Subtest: refresh invalidates prior handles and an external edit cannot reuse an issued preview or Diff
+ok 554 - refresh invalidates prior handles and an external edit cannot reuse an issued preview or Diff
+  ---
+  duration_ms: 423.959708
+  type: 'test'
+  ...
+# Subtest: symlinks, private configuration and local runtime caches never receive readable handles
+ok 555 - symlinks, private configuration and local runtime caches never receive readable handles
+  ---
+  duration_ms: 161.441166
+  type: 'test'
+  ...
+# Subtest: a directory replaced after issuing a grant remains rejected
+ok 556 - a directory replaced after issuing a grant remains rejected
+  ---
+  duration_ms: 196.251833
+  type: 'test'
+  ...
+# Subtest: binary and oversized files return descriptions without their bytes
+ok 557 - binary and oversized files return descriptions without their bytes
+  ---
+  duration_ms: 229.790292
+  type: 'test'
+  ...
+# Subtest: directory and Diff output limits return partial entries or refuse excessive content
+ok 558 - directory and Diff output limits return partial entries or refuse excessive content
+  ---
+  duration_ms: 332.396666
+  type: 'test'
+  ...
+# Subtest: external Diff, textconv and fsmonitor programs cannot execute; configured clean filters are explicitly rejected
+ok 559 - external Diff, textconv and fsmonitor programs cannot execute; configured clean filters are explicitly rejected
+  ---
+  duration_ms: 426.237375
+  type: 'test'
+  ...
+# Subtest: linked Git metadata is not implicitly granted outside the workspace
+ok 560 - linked Git metadata is not implicitly granted outside the workspace
+  ---
+  duration_ms: 141.569791
+  type: 'test'
+  ...
+# Subtest: a symbolic or excessive Git index is refused before invoking Git
+ok 561 - a symbolic or excessive Git index is refused before invoking Git
+  ---
+  duration_ms: 183.046875
+  type: 'test'
+  ...
+# Subtest: the frozen private reader cannot be replaced
+ok 562 - the frozen private reader cannot be replaced
+  ---
+  duration_ms: 111.098209
+  type: 'test'
+  ...
+# Subtest: real Git creates an isolated managed branch from committed HEAD, dedupes, and removes without deleting branch
+ok 563 - real Git creates an isolated managed branch from committed HEAD, dedupes, and removes without deleting branch
+  ---
+  duration_ms: 980.968459
+  type: 'test'
+  ...
+# Subtest: tracked, untracked, ignored files and unmerged commits prevent removal and remain intact
+ok 564 - tracked, untracked, ignored files and unmerged commits prevent removal and remain intact
+  ---
+  duration_ms: 1042.92075
+  type: 'test'
+  ...
+# Subtest: fresh inspection, task state and project exclusion are enforced without creating model Runs
+ok 565 - fresh inspection, task state and project exclusion are enforced without creating model Runs
+  ---
+  duration_ms: 731.709583
+  type: 'test'
+  ...
+# Subtest: unsupported helpers and unmanaged linked roots fail before a Git write
+ok 566 - unsupported helpers and unmanaged linked roots fail before a Git write
+  ---
+  duration_ms: 125.112792
+  type: 'test'
+  ...
+# Subtest: lost Git result is Unknown, never resent, and explicit reconciliation adopts the one actual worktree
+ok 567 - lost Git result is Unknown, never resent, and explicit reconciliation adopts the one actual worktree
+  ---
+  duration_ms: 282.196417
+  type: 'test'
+  ...
+# Subtest: Owner recovery distinguishes unsent preparation from dispatch and retains Unknown project lease
+ok 568 - Owner recovery distinguishes unsent preparation from dispatch and retains Unknown project lease
+  ---
+  duration_ms: 96.864459
+  type: 'test'
+  ...
+# Subtest: revision 4 WAL migration backs up actual data and creates revision 6 atomically
+ok 569 - revision 4 WAL migration backs up actual data and creates revision 6 atomically
+  ---
+  duration_ms: 13.546083
+  type: 'test'
+  ...
+# Subtest: revision 4 failed migration rolls all new tables and metadata back
+ok 570 - revision 4 failed migration rolls all new tables and metadata back
+  ---
+  duration_ms: 12.529917
+  type: 'test'
+  ...
+# Subtest: real Host SIGKILL at prepared preserves committed Git intent and requires explicit recovery
+ok 571 - real Host SIGKILL at prepared preserves committed Git intent and requires explicit recovery
+  ---
+  duration_ms: 238.049167
+  type: 'test'
+  ...
+# Subtest: real Host SIGKILL at dispatch preserves committed Git intent and requires explicit recovery
+ok 572 - real Host SIGKILL at dispatch preserves committed Git intent and requires explicit recovery
+  ---
+  duration_ms: 403.238709
+  type: 'test'
+  ...
+# Subtest: real Host SIGKILL at result preserves committed Git intent and requires explicit recovery
+ok 573 - real Host SIGKILL at result preserves committed Git intent and requires explicit recovery
+  ---
+  duration_ms: 447.01825
+  type: 'test'
+  ...
+# Subtest: a last-moment ignored file survives removal in the private atomic recovery directory
+ok 574 - a last-moment ignored file survives removal in the private atomic recovery directory
+  ---
+  duration_ms: 685.271084
+  type: 'test'
+  ...
+# Subtest: managed linked Git previews use the recorded metadata identity, while retargeting is rejected
+ok 575 - managed linked Git previews use the recorded metadata identity, while retargeting is rejected
+  ---
+  duration_ms: 404.148708
+  type: 'test'
+  ...
+# Subtest: a foreign workspace, raw argv and a changed branch cannot authorize managed removal
+ok 576 - a foreign workspace, raw argv and a changed branch cannot authorize managed removal
+  ---
+  duration_ms: 317.387125
+  type: 'test'
+  ...
+# Subtest: explicit fresh repair removes only stale Git registration, resolves parent and preserves archive and branch
+ok 577 - explicit fresh repair removes only stale Git registration, resolves parent and preserves archive and branch
+  ---
+  duration_ms: 1029.520791
+  type: 'test'
+  ...
+# Subtest: recovery lookup can reveal owned data after the source repository disappears, without execution authority
+ok 578 - recovery lookup can reveal owned data after the source repository disappears, without execution authority
+  ---
+  duration_ms: 684.993667
+  type: 'test'
+  ...
+# Subtest: a reappearing broken symlink or replaced recovery directory blocks repair without touching either location
+ok 579 - a reappearing broken symlink or replaced recovery directory blocks repair without touching either location
+  ---
+  duration_ms: 768.359375
+  type: 'test'
+  ...
+# Subtest: Git locked metadata and foreign recovery IDs are refused before new repair intent
+ok 580 - Git locked metadata and foreign recovery IDs are refused before new repair intent
+  ---
+  duration_ms: 1001.032959
+  type: 'test'
+  ...
+# Subtest: failed repair before dispatch retains unresolved project lock and a later explicit child can converge the chain
+ok 581 - failed repair before dispatch retains unresolved project lock and a later explicit child can converge the chain
+  ---
+  duration_ms: 947.576167
+  type: 'test'
+  ...
+# Subtest: a path recreated after dispatch is preserved by the supervised final guard rather than removed
+ok 582 - a path recreated after dispatch is preserved by the supervised final guard rather than removed
+  ---
+  duration_ms: 850.45375
+  type: 'test'
+  ...
+# Subtest: actual SIGKILL at archived keeps the unresolved project lock until explicit metadata repair or reconciliation
+ok 583 - actual SIGKILL at archived keeps the unresolved project lock until explicit metadata repair or reconciliation
+  ---
+  duration_ms: 1021.933833
+  type: 'test'
+  ...
+# WORKTREE_RECOVERY_SIGKILL_RECEIPT {"stage":"archived","signal":"SIGKILL","operationId":"df7afcf6-cb9f-40b6-a747-69509b0d6d25","keptLockAfterRecovery":true,"automaticResends":0,"explicitNewMetadataIntent":true,"archivePreserved":true,"modelRuns":0}
+# Subtest: actual SIGKILL at repair-prepared keeps the unresolved project lock until explicit metadata repair or reconciliation
+ok 584 - actual SIGKILL at repair-prepared keeps the unresolved project lock until explicit metadata repair or reconciliation
+  ---
+  duration_ms: 1118.635916
+  type: 'test'
+  ...
+# WORKTREE_RECOVERY_SIGKILL_RECEIPT {"stage":"repair-prepared","signal":"SIGKILL","operationId":"fcc324c1-7ef1-483d-902b-e736a4df021f","keptLockAfterRecovery":true,"automaticResends":0,"explicitNewMetadataIntent":true,"archivePreserved":true,"modelRuns":0}
+# Subtest: actual SIGKILL at repair-result keeps the unresolved project lock until explicit metadata repair or reconciliation
+ok 585 - actual SIGKILL at repair-result keeps the unresolved project lock until explicit metadata repair or reconciliation
+  ---
+  duration_ms: 1042.88275
+  type: 'test'
+  ...
+# WORKTREE_RECOVERY_SIGKILL_RECEIPT {"stage":"repair-result","signal":"SIGKILL","operationId":"6e13b294-b58e-45e9-bbc3-38c0586c8ee1","keptLockAfterRecovery":true,"automaticResends":0,"explicitNewMetadataIntent":false,"archivePreserved":true,"modelRuns":0}
+# Subtest: a forced epoch change after archive fences the old continuation before Git metadata starts
+ok 586 - a forced epoch change after archive fences the old continuation before Git metadata starts
+  ---
+  duration_ms: 813.830167
+  type: 'test'
+  ...
+1..586
+# tests 586
+# suites 0
+# pass 586
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 26903.209
+$ python3 docs/design/contracts/validate_contracts.py
+PASS single_schema_initialization_and_foreign_keys
+PASS sql_typescript_status_consistency
+PASS task_transition_guards_shape
+PASS single_active_run_and_nonreused_fence
+PASS orphan_and_cross_dot_references_rejected
+PASS stale_fence_cas_rejected
+PASS stop_requested_task_blocks_new_claims
+PASS task_event_sequence_and_run_scope
+PASS active_thread_and_workspace_writer_uniqueness
+PASS intent_ordering_and_idempotency
+PASS per_operation_identity_and_dependency
+PASS immutable_source_and_per_task_delivery
+PASS occurrence_dedup_and_schedule_version_guard
+PASS single_use_hash_bound_action_receipt
+PASS budget_admission_and_actual_overrun_accounting
+PASS privacy_tombstone_dependency_lookup
+PASS stage_document_navigation_requirements_and_protocol_evidence
+17 design checks passed. Application E2E and runtime security are not verified.
+$ node scripts/build.mjs
+vite v8.3.5 building client environment for production...
+transforming...
+✓ 36 modules transformed.
+rendering chunks...
+computing gzip size...
+build/desktop/renderer/index.html                            0.62 kB │ gzip:   0.37 kB
+build/desktop/renderer/assets/terminal-panel-BrP-ENHg.css    3.93 kB │ gzip:   1.01 kB
+build/desktop/renderer/assets/index-C7bmEyfm.css            15.95 kB │ gzip:   3.82 kB
+build/desktop/renderer/assets/terminal-panel-CkjuqflF.js   337.35 kB │ gzip:  85.63 kB
+build/desktop/renderer/assets/index-DyL8Qb0V.js            340.10 kB │ gzip: 103.56 kB
+
+✓ built in 150ms

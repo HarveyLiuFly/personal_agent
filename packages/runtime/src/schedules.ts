@@ -17,5 +17,9 @@ export class ScheduleService {
     catch(error){if(!(error instanceof LedgerError))throw error;this.store.scheduleDispatchWait(candidate.projectId,candidate.triggerId,error.code);}
    }
    this.cursor=(this.cursor+20)%Math.max(1,candidates.length);
-  }return{...scheduled,...delivered};}
+  }
+  if(this.execution&&!this.execution.busy)for(const candidate of this.store.goalDispatchCandidates()){
+   try{this.execution.startTask(candidate);break;}catch(error){if(!(error instanceof LedgerError))throw error;/* No Run means no dispatch; sent/Unknown candidates disappear permanently. */}
+  }
+  return{...scheduled,...delivered};}
 }

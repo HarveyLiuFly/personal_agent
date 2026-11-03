@@ -1,0 +1,26 @@
+{
+  "status": "passed",
+  "kind": "native_goal_source_code_chain",
+  "inferenceRequested": true,
+  "model": "gpt-6.1-sol",
+  "sourceProvider": "authenticated_controlled_loopback_http_fixture",
+  "notificationProvider": "explicit_controlled_host_receipt_fixture",
+  "sourcePolls": 3,
+  "oldPlanBlocked": true,
+  "actualModelRuns": 1,
+  "clientTurnStarts": 1,
+  "goalStatus": "completed",
+  "verification": {
+    "status": "passed",
+    "code": "VERIFIED",
+    "discovered": 4,
+    "executed": 4,
+    "skipped": 0,
+    "exitCode": 0
+  },
+  "notificationSends": 1,
+  "reportedTokens": 57384,
+  "contextManifestBound": true,
+  "nativePolicyVerified": true,
+  "observedAt": "2026-11-03T12:55:38.287Z"
+}
