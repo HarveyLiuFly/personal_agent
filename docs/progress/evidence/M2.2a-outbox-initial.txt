@@ -1,0 +1,39 @@
+✔ outbox consumers get disjoint claims and project authoritative events once without raw input (16.285042ms)
+✔ expired and superseded claims cannot ack or requeue another consumers delivery (9.7335ms)
+✔ projection failure rolls back both feed and ack, then the consumer applies bounded retry (11.352334ms)
+✔ five failed deliveries reach Dead Letter and cannot silently restart (10.801792ms)
+✔ a fifth abandoned claim becomes Dead Letter rather than an unbounded lease retry (9.092083ms)
+✔ activity is paginated, project-scoped and suppresses tombstoned tasks (56.604792ms)
+✔ a tombstone before delivery prevents feed publication while completing local consumption (7.702709ms)
+✔ Owner changes invalidate old claims; pending projections resume without duplicating delivered events (9.954208ms)
+✖ mismatched event payloads cannot be accepted as legitimate activity (9.498167ms)
+✔ real process SIGKILL at claimed recovers durable outbox with exactly one projection per event (89.276084ms)
+✔ real process SIGKILL at projection_transaction recovers durable outbox with exactly one projection per event (84.941ms)
+ℹ tests 11
+ℹ suites 0
+ℹ pass 10
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 408.468
+
+✖ failing tests:
+
+test at tests/outbox.test.ts:59:1
+✖ mismatched event payloads cannot be accepted as legitimate activity (9.498167ms)
+  AssertionError [ERR_ASSERTION]: Missing expected exception.
+      at TestContext.<anonymous> (file://<REPO>/tests/outbox.test.ts:61:9)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /OUTBOX_EVENT_MISMATCH/,
+    operator: 'throws',
+    diff: 'simple'
+  }

@@ -1,0 +1,79 @@
+{
+  "checkpoint": "M2.2a",
+  "status": "passed_foundation_scope",
+  "stageGate": "open",
+  "baselineCommit": "a0cde97c05999cffbfdaa2dc40b6e5a18a497f75",
+  "observedAt": "2026-11-03T00:56:27.550050+00:00",
+  "platform": "darwin-arm64",
+  "inferenceRequested": false,
+  "schemaRevision": 3,
+  "schemaChanged": false,
+  "runtimeOwner": "electron_main_foreground",
+  "checks": {
+    "discovered": 145,
+    "executed": 145,
+    "passed": 145,
+    "failed": 0,
+    "skipped": 0,
+    "newTaskCommandTests": 11,
+    "newOutboxTests": 11,
+    "designContracts": 17,
+    "generatedTypes": 747,
+    "typecheck": "passed",
+    "build": "passed"
+  },
+  "realProcessCrashes": [
+    {
+      "phase": "after_outbox_claim_commit",
+      "process": "real_node_child",
+      "termination": "SIGKILL",
+      "waitedForExit": true,
+      "duplicateProjection": false,
+      "modelDispatches": 0
+    },
+    {
+      "phase": "inside_projection_and_ack_transaction",
+      "process": "real_node_child",
+      "termination": "SIGKILL",
+      "waitedForExit": true,
+      "uncommittedFeedRolledBack": true,
+      "duplicateProjection": false,
+      "modelDispatches": 0
+    }
+  ],
+  "otherConcurrencyEvidence": "same_owner_consumers_and_controlled_sql_fault_injection",
+  "regressions": {
+    "interactions": {
+      "status": "passed",
+      "observedAt": "2026-11-03T00:52:26.077Z",
+      "backend": "synthetic_stdio",
+      "realElectron": true,
+      "inferenceRequested": false
+    },
+    "continuation": {
+      "status": "passed",
+      "observedAt": "2026-11-03T00:52:29.663Z",
+      "backend": "synthetic_stdio",
+      "realElectron": true,
+      "inferenceRequested": false
+    }
+  },
+  "sourceAndBuildHashes": {
+    "packages/store/src/ledger.ts": "6c2b660c6008ca5423bab2e17b92588ec2098ff23313ca4849db585bc08ba474",
+    "packages/contracts/src/tasks.ts": "b01664db0fcf23e233cf933f1678810371d9ac0c49cfcb1b2be0b0b8ab8a6e7a",
+    "packages/runtime/src/outbox.ts": "25aa4d76e44c050b502e2f2f5e4b3f9853bc9838ce1f8548f5b11342f49fae76",
+    "tests/task-commands.test.ts": "6352957a9019dfd2adfab6e659a4172f07d364d0b65a571f82dd4913b9076651",
+    "tests/outbox.test.ts": "30942e5e054f7b54d070fdbb1848a162c89cc26fa8de6a6caaf7864fcf6bc6cf",
+    "tests/fixtures/outbox-worker.ts": "390e130b2f0e062777c295ae6f8f0c2ad6845c3309ed3bd16129c8b9fe60ed5a",
+    "build/desktop/main.js": "925449620d2b689ad4a74cd516b08d2a5d1ca4d10c5f269d7387ee6befa6722d"
+  },
+  "remaining": [
+    "task_queue_ui",
+    "multi_operation_dag",
+    "resource_budget_admission",
+    "daemon_and_protected_ipc",
+    "scheduling",
+    "pty_worktrees",
+    "backup_and_full_stage_gate"
+  ]
+}

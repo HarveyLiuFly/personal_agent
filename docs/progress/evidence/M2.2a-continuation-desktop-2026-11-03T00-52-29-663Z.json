@@ -1,0 +1,23 @@
+{
+  "status": "passed",
+  "observedAt": "2026-11-03T00:52:29.663Z",
+  "kind": "real_electron_explicit_continuation_with_synthetic_stdio",
+  "inferenceRequested": false,
+  "folderDialogSelection": "fixed_fixture_substitution",
+  "result": {
+    "sameTask": true,
+    "sameThread": true,
+    "newRun": true,
+    "status": "completed",
+    "taskStatus": "needs_review",
+    "finalText": "aab",
+    "sandboxed": true,
+    "isolated": true,
+    "hasRequire": false
+  },
+  "display": "native_desktop",
+  "exitCode": 0,
+  "signal": null,
+  "timedOut": false,
+  "platform": "darwin-arm64"
+}
