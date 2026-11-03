@@ -8,6 +8,7 @@ import {spawn} from 'node:child_process';
 import {once} from 'node:events';
 import {ExecutionLedger} from '../packages/store/src/ledger.ts';
 import type {ScheduleConfig,ScheduleCommand} from '../packages/contracts/src/schedules.ts';
+import {ScheduleService} from '../packages/runtime/src/schedules.ts';
 const schema=readFileSync('docs/design/contracts/schema.sql','utf8'),start=Date.parse('2026-11-03T03:00:00Z');
 function fixture(t:{after(fn:()=>void):void},fault?:()=>void){
  const root=realpathSync(mkdtempSync(join(tmpdir(),'personal-agent-scheduler-'))),cwd=join(root,'project'),file=join(root,'store.db');mkdirSync(cwd);let clock=start;const store=new ExecutionLedger(file,schema,{schedulerClock:()=>clock,afterScheduleTickForTests:fault});store.startOwner('scheduler-owner',true);const project=store.registerWorkspace(cwd,cwd),db=new DatabaseSync(file);db.exec('PRAGMA foreign_keys=ON');t.after(()=>{db.close();store.close();rmSync(root,{recursive:true,force:true});});
@@ -71,6 +72,10 @@ test('storage faults roll back occurrence, immutable input, Outbox and next-fire
 });
 test('clock rollback does not rewind the durable cursor or reproduce an acknowledged occurrence',t=>{
  const f=fixture(t),s=f.arm({},'cron');f.clock(start+60000);f.store.stepSchedules();f.store.deliverScheduleWakes();const before=f.counts();f.clock(start-3600000);assert.equal(f.store.stepSchedules().processed,0);assert.deepEqual(f.counts(),before);assert.equal(f.store.schedules(f.project.id)[0]!.nextFireAtMs,start+120000);
+});
+test('fixed schedule service combines due input and queue delivery without model dispatch or injected controls',t=>{
+ const f=fixture(t),service=new ScheduleService(f.store),task=f.create(),s=service.apply({kind:'create',projectId:f.project.id,taskId:task.taskId,expectedTaskVersion:2,commandKey:'service',config:f.config()});assert.equal(service.list({projectId:f.project.id}).length,1);assert.deepEqual(service.step(),{processed:0,queued:0});f.clock(start+60000);assert.deepEqual(service.step(),{processed:1,queued:1});assert.deepEqual(service.step(),{processed:0,queued:0});assert.equal(service.occurrences({projectId:f.project.id,scheduleId:s.scheduleId})[0]!.deliveryState,'acknowledged');assert.equal(f.counts().task_runs,0);
+ for(const query of [{projectId:f.project.id,now:start+60000},Object.create({projectId:f.project.id})])assert.throws(()=>service.list(query),/INVALID_SCHEDULE_QUERY/);assert.throws(()=>service.occurrences({projectId:f.project.id,scheduleId:s.scheduleId,sourceId:'trusted'}),/INVALID_SCHEDULE_QUERY/);assert.throws(()=>service.apply({kind:'cancel',projectId:f.project.id,scheduleId:s.scheduleId,expectedVersion:1,commandKey:'injected',schedulerClock:start}),/INVALID_SCHEDULE_COMMAND/);
 });
 test('real SIGKILL before and after occurrence commit recovers without duplicate inputs or queue delivery',async t=>{
  for(const phase of ['inside','committed']){

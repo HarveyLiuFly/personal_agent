@@ -1,0 +1,35 @@
+import type {App,BrowserWindow} from 'electron';
+import {writeFileSync} from 'node:fs';
+import {join} from 'node:path';
+import type {ForegroundExecution} from '../../../packages/runtime/src/execution.ts';
+/** Public owned fixture using actual wall-clock due time; no Renderer clock injection. */
+export async function runScheduleProbe(root:string,app:App,window:BrowserWindow,execution:ForegroundExecution){
+ const result=await window.webContents.executeJavaScript(`(async()=>{
+  const wait=async(check)=>{const deadline=Date.now()+20000;while(!await check()){if(Date.now()>deadline)throw new Error('SCHEDULE_UI_TIMEOUT');await new Promise(r=>setTimeout(r,40));}};
+  const call=async(p)=>{const r=await p;if(!r.ok)throw new Error(r.errorCode);return r.value;};
+  const set=async(selector,text)=>{const input=document.querySelector(selector),proto=input.tagName==='SELECT'?HTMLSelectElement.prototype:input.tagName==='TEXTAREA'?HTMLTextAreaElement.prototype:HTMLInputElement.prototype;Object.getOwnPropertyDescriptor(proto,'value').set.call(input,text);input.dispatchEvent(new Event(input.tagName==='SELECT'?'change':'input',{bubbles:true}));await new Promise(r=>setTimeout(r,50));};
+  const local=(at)=>{const d=new Date(at);return new Date(at-d.getTimezoneOffset()*60000).toISOString().slice(0,19);};
+  document.querySelector('[data-action="choose-project"]').click();await wait(()=>document.querySelector('[data-task-manager]'));document.querySelector('[data-task-manager]').open=true;document.querySelector('[data-schedule-manager]').open=true;
+  const projectId=(await call(window.personalAgent.workspaceState())).projects[0].id;
+  await set('[data-queue-draft]','Public scheduled queue fixture');document.querySelector('[data-action="queue-create"]').click();await wait(()=>document.querySelector('[data-queued-status="queued"]'));const task=(await call(window.personalAgent.listTasks({projectId})))[0];
+  await set('[data-schedule-task]',task.taskId);await set('[data-schedule-at]',local(Date.now()+15000));await set('[data-schedule-deadline]',local(Date.now()+90000));document.querySelector('[data-schedule-action="save"]').click();await wait(()=>document.querySelector('[data-schedule-state="active"]')&&document.querySelector('[data-queued-status="waiting_trigger"]'));
+  const initial=(await call(window.personalAgent.listSchedules({projectId})))[0],armedWithoutRun=(await call(window.personalAgent.listRuns({projectId}))).length===0;
+  document.querySelector('[data-schedule-action="pause"]').click();await wait(()=>document.querySelector('[data-schedule-state="paused"]'));const paused=(await call(window.personalAgent.listSchedules({projectId})))[0];
+  document.querySelector('[data-schedule-action="resume"]').click();await wait(()=>document.querySelector('[data-schedule-state="active"]'));
+  document.querySelector('[data-schedule-action="edit"]').click();await wait(()=>document.querySelector('[data-schedule-task]').disabled);const editedAt=Date.now()+3500;await set('[data-schedule-at]',local(editedAt));document.querySelector('[data-schedule-action="save"]').click();await wait(()=>document.querySelector('[data-schedule-state="active"] .badge').textContent.includes('v4'));
+  const stale=await window.personalAgent.applyScheduleCommand({kind:'cancel',projectId,scheduleId:initial.scheduleId,expectedVersion:initial.version,commandKey:'stale-schedule-fixture'}),extra=await window.personalAgent.listSchedules({projectId,now:Date.now()+86400000});
+  await wait(()=>document.querySelector('[data-queued-status="queued"]')&&document.querySelector('[data-schedule-state="fulfilled"]'));await wait(()=>document.querySelector('[data-occurrence-state="enqueued"]')?.textContent.includes('已恢复任务排队'));
+  const final=(await call(window.personalAgent.listSchedules({projectId})))[0],occurrences=await call(window.personalAgent.listScheduleOccurrences({projectId,scheduleId:initial.scheduleId}));
+  const second=await call(window.personalAgent.applyTaskCommand({kind:'create',projectId,commandKey:'cron-public-task',text:'Public cancelled Cron fixture'}));await wait(()=>document.querySelector('[data-schedule-task] option[value="'+second.taskId+'"]'));
+  await set('[data-schedule-task]',second.taskId);await set('[data-schedule-kind]','cron');await set('[data-schedule-expression]','* * * * *');await set('[data-schedule-timezone]','UTC');await set('[data-schedule-deadline]','');document.querySelector('[data-schedule-action="save"]').click();await wait(()=>(document.querySelectorAll('[data-schedule-id]').length===2));
+  const cron=(await call(window.personalAgent.listSchedules({projectId}))).find(s=>s.taskId===second.taskId);document.querySelector('[data-schedule-id="'+cron.scheduleId+'"] [data-schedule-action="cancel"]').click();await wait(()=>document.querySelector('[data-schedule-id="'+cron.scheduleId+'"][data-schedule-state="cancelled"]'));
+  document.querySelector('[data-schedule-id="'+initial.scheduleId+'"] [data-schedule-action="instances"]').click();await wait(()=>document.querySelector('[data-occurrence-state="enqueued"]'));document.querySelector('[data-schedule-id="'+initial.scheduleId+'"]').scrollIntoView({block:'start'});
+  return{armedWithoutRun,pausedConfirmed:paused.state==='paused'&&paused.version===2,replacedVersion:final.version===4,realDueQueued:occurrences.length===1&&occurrences[0].version===4&&occurrences[0].deliveryState==='acknowledged',notEarly:occurrences[0].scheduledAtMs<=Date.now(),staleRejected:!stale.ok&&stale.errorCode==='SCHEDULE_VERSION_CONFLICT',clockInjectionRejected:!extra.ok,cronCreated:cron.config.expression==='* * * * *'&&cron.config.timezone==='UTC',cronCancelled:document.querySelector('[data-schedule-id="'+cron.scheduleId+'"] [data-schedule-action="resume"]')===null,noModelRuns:(await call(window.personalAgent.listRuns({projectId}))).length===0,sandboxed:window.personalAgent.security.sandboxed,isolated:window.personalAgent.security.isolated,hasRequire:typeof require!=='undefined'};
+ })()`);
+ const passed=Object.entries(result).every(([k,v])=>k==='hasRequire'?v===false:v===true)&&execution.diagnostics.clientTurnStarts===0;
+ writeFileSync(join(root,'docs/progress/evidence/M2.3c-desktop.json'),JSON.stringify({status:passed?'passed':'blocked',observedAt:new Date().toISOString(),kind:'real_electron_sqlite_and_wall_clock_scheduler',backend:'synthetic_stdio_not_called',folderDialogSelection:'fixed_fixture_substitution',clockInjection:false,automaticModelDispatch:false,inferenceRequested:false,modelTurns:0,result},null,2)+'\n');
+ await window.webContents.executeJavaScript(`(async()=>{document.querySelector('[data-schedule-manager] form').scrollIntoView({block:'start'});await new Promise(r=>setTimeout(r,100));})()`);
+ writeFileSync(join(root,'.local/M2-scheduler-form-desktop.png'),(await window.webContents.capturePage()).toPNG());
+ await window.webContents.executeJavaScript(`(async()=>{document.querySelector('[data-schedule-occurrences]').scrollIntoView({block:'end'});await new Promise(r=>setTimeout(r,100));})()`);
+ writeFileSync(join(root,'.local/M2-scheduler-desktop.png'),(await window.webContents.capturePage()).toPNG());app.quit();
+}

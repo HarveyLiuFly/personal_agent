@@ -9,13 +9,14 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const codeContinuation=process.argv.includes('--native-code-continue');
 const nativeCode=process.argv.includes('--native-code')||codeContinuation;
 const continuation=process.argv.includes('--continuation');
+const scheduler=process.argv.includes('--scheduler');
 const plans=process.argv.includes('--plans');
 const budget=process.argv.includes('--budget');
-const tasks=process.argv.includes('--tasks')||budget||plans;
+const tasks=process.argv.includes('--tasks')||budget||plans||scheduler;
 const interactions = process.argv.includes('--interactions');
 const execution = process.argv.includes('--execution') || interactions;
 const history = process.argv.includes('--history');
-const file = resolve(root, `docs/progress/evidence/${plans?'M2.2d-desktop':budget?'M2.2c-desktop':tasks?'M2.2b-desktop':nativeCode ? 'M1-native-code-desktop' : continuation?'M1.3c-desktop': interactions ? 'M1.2-desktop' : execution ? 'M1.1c-desktop' : history ? 'M1.1b-desktop' : 'M0-desktop-smoke'}.json`);
+const file = resolve(root, `docs/progress/evidence/${scheduler?'M2.3c-desktop':plans?'M2.2d-desktop':budget?'M2.2c-desktop':tasks?'M2.2b-desktop':nativeCode ? 'M1-native-code-desktop' : continuation?'M1.3c-desktop': interactions ? 'M1.2-desktop' : execution ? 'M1.1c-desktop' : history ? 'M1.1b-desktop' : 'M0-desktop-smoke'}.json`);
 await mkdir(dirname(file), { recursive: true });
 // Replace old evidence before starting so an unsuccessful new run cannot reuse a past success.
 await writeFile(file, JSON.stringify({ status: 'running', observedAt: new Date().toISOString(), kind: history ? 'real_electron_with_local_rpc_fixture' : 'real_electron_window_smoke' }, null, 2) + '\n');
@@ -23,7 +24,7 @@ let display;
 let evidence;
 try {
   display = await openDisplay(root);
-  const child = spawn(electron, ['.', plans?'--m2-plans-smoke':budget?'--m2-budget-ui-smoke':tasks?'--m2-tasks-smoke':codeContinuation?'--m1-native-code-continuation-smoke':nativeCode ? '--m1-native-code-smoke' : continuation?'--m1-continuation-smoke':interactions ? '--m1-interaction-smoke' : execution ? '--m1-execution-smoke' : history ? '--m1-history-smoke' : '--m0-window-smoke'], { cwd: root, stdio: 'inherit', env: display.env });
+  const child = spawn(electron, ['.', scheduler?'--m2-scheduler-smoke':plans?'--m2-plans-smoke':budget?'--m2-budget-ui-smoke':tasks?'--m2-tasks-smoke':codeContinuation?'--m1-native-code-continuation-smoke':nativeCode ? '--m1-native-code-smoke' : continuation?'--m1-continuation-smoke':interactions ? '--m1-interaction-smoke' : execution ? '--m1-execution-smoke' : history ? '--m1-history-smoke' : '--m0-window-smoke'], { cwd: root, stdio: 'inherit', env: display.env });
   let timedOut = false;
   let killTimer;
   const timer = setTimeout(() => {

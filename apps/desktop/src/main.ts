@@ -26,6 +26,8 @@ import {TaskService} from '../../../packages/runtime/src/tasks.ts';
 import {OutboxPump} from '../../../packages/runtime/src/outbox.ts';
 import {runTaskProbe} from './task-probe.ts';
 import {runPlanProbe} from './plan-probe.ts';
+import {runScheduleProbe} from './schedule-probe.ts';
+import {ScheduleService} from '../../../packages/runtime/src/schedules.ts';
 
 const directory = dirname(fileURLToPath(import.meta.url));
 const root = resolve(directory, '../..');
@@ -41,6 +43,7 @@ let ledger: ExecutionLedger | undefined;
 let execution: ForegroundExecution | undefined;
 let verifier: NodeVerification | undefined;
 let workspaceReader:WorkspaceService|undefined;
+let scheduleService:ScheduleService|undefined,scheduleTimer:ReturnType<typeof setInterval>|undefined;
 let taskService:TaskService|undefined,outboxPump:OutboxPump|undefined,outboxTimer:ReturnType<typeof setInterval>|undefined;
 const nativeCodeContinuationSmoke=process.argv.includes('--m1-native-code-continuation-smoke');
 const nativeCodeSmoke=process.argv.includes('--m1-native-code-smoke')||nativeCodeContinuationSmoke;
@@ -49,8 +52,9 @@ if(nativeCodeSmoke){mkdirSync(resolve(root,'.local'),{recursive:true});app.setPa
 const interactionSmoke = process.argv.includes('--m1-interaction-smoke');
 const continuationSmoke=process.argv.includes('--m1-continuation-smoke');
 const budgetSmoke=process.argv.includes('--m2-budget-ui-smoke');
+const scheduleSmoke=process.argv.includes('--m2-scheduler-smoke');
 const planSmoke=process.argv.includes('--m2-plans-smoke');
-const taskSmoke=process.argv.includes('--m2-tasks-smoke')||budgetSmoke||planSmoke;
+const taskSmoke=process.argv.includes('--m2-tasks-smoke')||budgetSmoke||planSmoke||scheduleSmoke;
 const executionSmoke = process.argv.includes('--m1-execution-smoke') || interactionSmoke || continuationSmoke || taskSmoke;
 const historySmoke = process.argv.includes('--m1-history-smoke');
 let fixtureDirectory: string | undefined;
@@ -66,7 +70,7 @@ else void boot().catch(async error => {
   console.error('DESKTOP_BOOT_FAILED', code);
   if (acceptanceProbe || nativeCodeSmoke || executionSmoke || historySmoke || process.argv.includes('--m0-window-smoke')) {
     if (window) { try { writeFileSync(resolve(root, '.local/desktop-failure.png'), (await window.webContents.capturePage()).toPNG()); } catch {} }
-    const file = planSmoke?'M2.2d-desktop':budgetSmoke?'M2.2c-desktop':taskSmoke?'M2.2b-desktop':acceptanceProbe?acceptanceProbe.kind==='workspace'?'M2.1a-desktop':`M1.4b-${acceptanceProbe.kind==='folder'?'native-folder':acceptanceProbe.kind==='restart'?'native-restart':'owner'}`:nativeCodeSmoke ? 'M1-native-code-desktop' : continuationSmoke?'M1.3c-desktop':interactionSmoke ? 'M1.2-desktop' : executionSmoke ? 'M1.1c-desktop' : historySmoke ? 'M1.1b-desktop' : 'M0-desktop-smoke';
+    const file = scheduleSmoke?'M2.3c-desktop':planSmoke?'M2.2d-desktop':budgetSmoke?'M2.2c-desktop':taskSmoke?'M2.2b-desktop':acceptanceProbe?acceptanceProbe.kind==='workspace'?'M2.1a-desktop':`M1.4b-${acceptanceProbe.kind==='folder'?'native-folder':acceptanceProbe.kind==='restart'?'native-restart':'owner'}`:nativeCodeSmoke ? 'M1-native-code-desktop' : continuationSmoke?'M1.3c-desktop':interactionSmoke ? 'M1.2-desktop' : executionSmoke ? 'M1.1c-desktop' : historySmoke ? 'M1.1b-desktop' : 'M0-desktop-smoke';
     writeFileSync(resolve(root, `docs/progress/evidence/${file}.json`), JSON.stringify({ status: 'blocked', code, observedAt: new Date().toISOString() }) + '\n');
   }
   try { await execution?.close(); ledger?.close(); } catch {}
@@ -145,6 +149,8 @@ async function boot(): Promise<void> {
     catch (error) { return { ok: false, errorCode: error instanceof LedgerError || error instanceof RpcFailure ? error.code : 'HOST_ERROR' }; }
   }
   if(ledger&&execution){taskService=new TaskService(ledger,execution);outboxPump=new OutboxPump(ledger);outboxTimer=setInterval(()=>{try{outboxPump?.step();}catch{/* Owner/DB failures never trigger model dispatch. */}void taskService?.stepPlans().catch(()=>{});},250);outboxTimer.unref();}
+  if(ledger){scheduleService=new ScheduleService(ledger);scheduleTimer=setInterval(()=>{try{scheduleService?.step();}catch{/* Failed transactions preserve their cursor; no model request is made here. */}},1000);scheduleTimer.unref();}
+  for(const [channel,method]of [['schedules:command','apply'],['schedules:list','list'],['schedules:occurrences','occurrences']] as const)ipcMain.handle(channel,(event,...args:unknown[])=>executionCommand(event,args,1,()=>{if(!scheduleService)throw new LedgerError('SCHEDULES_UNAVAILABLE');return scheduleService[method](args[0]);}));
   ipcMain.handle('execution:workspaceState', (event, ...args: unknown[]) => executionCommand(event, args, 0, () => ({ projects: ledger?.projects() ?? [], canSubmit: Boolean(execution), canCode: Boolean(verifier), canBrowseWorkspace:Boolean(workspaceReader),canManageTasks:Boolean(taskService),mode: interactionSmoke ? 'workspaceWrite' as const : 'readOnly' as const })));
   ipcMain.handle('tasks:list',(event,...args:unknown[])=>executionCommand(event,args,1,()=>{if(!taskService)throw new LedgerError('TASKS_UNAVAILABLE');return taskService.list(args[0]);}));
   ipcMain.handle('tasks:activity',(event,...args:unknown[])=>executionCommand(event,args,1,()=>{if(!taskService)throw new LedgerError('TASKS_UNAVAILABLE');return taskService.activity(args[0]);}));
@@ -234,6 +240,7 @@ async function boot(): Promise<void> {
   window.webContents.session.setPermissionCheckHandler(() => false);
   window.webContents.on('will-attach-webview', event => event.preventDefault());
   await window.loadFile(documentPath);
+  if(scheduleSmoke){await runScheduleProbe(root,app,window,execution!);return;}
   if(planSmoke){await runPlanProbe(root,app,window,execution!);return;}
   if(taskSmoke){await runTaskProbe(root,app,window,ledger!,execution!,budgetSmoke);return;}
   if(acceptanceProbe){await runNativeProbe(root,acceptanceProbe,app,window,{ledger:ledger!,execution:execution!,...(verifier?{verifier}:{}),ownerEpoch});return;}
@@ -260,7 +267,7 @@ async function boot(): Promise<void> {
     const passed = r.rendered === true && r.hasRequire === false && r.sandboxed === true && r.isolated === true
       && r.uiConnected === true && !app.commandLine.hasSwitch('no-sandbox')
       && (r.connection as ConnectionInfo)?.status === 'connected'
-      && JSON.stringify(r.bridgeKeys) === JSON.stringify(['applyTaskCommand','applyTaskPlan','cancelTaskPlan','chooseProject', 'continueRun', 'getRun', 'getVerification','getWorkspace','getWorkspaceDiff', 'inspect', 'interruptRun', 'listInteractions', 'listItems', 'listRuns','listTaskActivity','listTaskPlans','listTasks', 'listThreads', 'listTurns','listWorkspaceDirectory','readWorkspaceFile', 'reconcileRun', 'replyInteraction','resourceBudget', 'security','startTask', 'submitMessage', 'verifyRun', 'workspaceState']);
+      && JSON.stringify(r.bridgeKeys) === JSON.stringify(['applyScheduleCommand','applyTaskCommand','applyTaskPlan','cancelTaskPlan','chooseProject', 'continueRun', 'getRun', 'getVerification','getWorkspace','getWorkspaceDiff', 'inspect', 'interruptRun', 'listInteractions', 'listItems', 'listRuns','listScheduleOccurrences','listSchedules','listTaskActivity','listTaskPlans','listTasks', 'listThreads', 'listTurns','listWorkspaceDirectory','readWorkspaceFile', 'reconcileRun', 'replyInteraction','resourceBudget', 'security','startTask', 'submitMessage', 'verifyRun', 'workspaceState']);
     const evidence = { observedAt: new Date().toISOString(), kind: 'real_electron_window_smoke',
       status: passed ? 'passed' : 'blocked',
       browserSandbox: app.commandLine.hasSwitch('no-sandbox') ? 'disabled' : 'enabled', result };
@@ -450,7 +457,7 @@ async function boot(): Promise<void> {
 }
 app.on('window-all-closed', () => { if (!active) app.quit(); });
 app.on('before-quit', event => {
-  clearInterval(outboxTimer);outboxTimer=undefined;
+  clearInterval(outboxTimer);outboxTimer=undefined;clearInterval(scheduleTimer);scheduleTimer=undefined;
   if (active) { event.preventDefault(); quitting = true; controller?.abort(); }
   else if (execution?.busy) {
     event.preventDefault(); void execution.close().finally(() => app.quit());

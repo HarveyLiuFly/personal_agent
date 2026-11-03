@@ -1,0 +1,63 @@
+{
+  "checkpoint": "M2.3c",
+  "status": "passed_scheduler_desktop_and_queue_pump_scope",
+  "baselineCommit": "ecf28f7eb5d50d47f235cfb3731b29632f000523",
+  "schemaRevision": 4,
+  "stageGate": "open",
+  "mode": "queue_only",
+  "checks": {
+    "discovered": 214,
+    "executed": 214,
+    "passed": 214,
+    "failed": 0,
+    "skipped": 0,
+    "newFixedServiceTests": 1,
+    "designContracts": 17,
+    "generatedTypes": 747,
+    "typecheck": "passed",
+    "build": "passed"
+  },
+  "desktop": {
+    "status": "passed",
+    "realElectronAndSqlite": true,
+    "actualWallClock": true,
+    "clockInjection": false,
+    "modelTurns": 0,
+    "folderDialogSelection": "fixed_fixture_substitution",
+    "evidence": "M2.3c-desktop.json"
+  },
+  "m0Regression": {
+    "status": "passed",
+    "apiWhitelistCount": 32,
+    "inferenceRequested": false
+  },
+  "regressions": {
+    "budget": "passed_synthetic_stdio",
+    "plans": "passed_no_rpc"
+  },
+  "lifecycle": {
+    "owner": "electron_main",
+    "pumpPeriodMs": 1000,
+    "continuesAfterMainExit": false,
+    "automaticModelDispatch": false
+  },
+  "sourceAndBuildHashes": {
+    "apps/desktop/src/main.ts": "750b8855ec0627830d59fd53c05719f610e4c80849c1309374432005932d2191",
+    "apps/desktop/src/preload.ts": "868a936ce20a9532062a05544431253fb29f3a35d7b256e63c0f04db90bb9335",
+    "apps/desktop/src/bridge.ts": "17f2d1722da4484aeecc99f67a58c6cfebf09a51fb607b5b2756ea618ebd0b26",
+    "apps/desktop/src/schedule-probe.ts": "f9d7a3ac02d2ad05eaad1aa6ffd55321042ba260135682be8916ca9457dbf965",
+    "apps/desktop/renderer/task-manager.tsx": "8f7837a2e51e6c4c5242ba017478340fc3e465b766c97514731528a7ebd3846d",
+    "apps/desktop/renderer/schedule-manager.tsx": "d1185c2d5f5d14e287417744f57f6fc77b067bc216012409d265f24ce0ee4a81",
+    "apps/desktop/renderer/style.css": "49d5dc2173ac51a0f98e30c9b060bfebb5f7939a116f3fd1aef10392caf7d9f8",
+    "packages/runtime/src/schedules.ts": "c9eaa432fc28b1814a98d3c9c53e283df554fdca1815c40772cf28c7038d1dd5",
+    "tests/scheduler.test.ts": "8f7de4d3fab09cf5bac2e6807325457449eaf1f77c8ccbe706721ab10e290029",
+    "build/desktop/main.js": "4d86f9cec6d0d221289145e829cd7f730e0884929000012a42be4c7fd7aac1c1",
+    "build/desktop/preload.cjs": "e50158bbf2d97bf56802f1199276ad6cd67eb687471b5bb90e637a893d7272b4"
+  },
+  "remaining": [
+    "automatic_dispatch_authorization",
+    "daemon_protected_ipc",
+    "pty_worktree_lifecycle",
+    "full_resource_limits_and_backup_gate"
+  ]
+}

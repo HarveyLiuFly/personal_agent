@@ -3,6 +3,7 @@ import type { ContinueMessage, InteractionView, ReplyInteraction, VerificationVi
 import type {WorkspaceQuery,WorkspaceEntryQuery,WorkspaceDiffQuery,WorkspaceOverview,WorkspaceDirectory,WorkspacePreview,WorkspaceDiff} from '../../../packages/contracts/src/workspace.ts';
 import type {TaskSummary,TaskCommand,OperationReceipt,StartTask,ActivityPage,TaskPlanCommand,TaskPlanView} from '../../../packages/contracts/src/tasks.ts';
 import type {ResourceBudget} from '../../../packages/contracts/src/budget.ts';
+import type {ScheduleCommand,ScheduleView,OccurrenceView} from '../../../packages/contracts/src/schedules.ts';
 export interface ConnectionInfo {
   status: 'connected' | 'error';
   models?: number;
@@ -23,6 +24,9 @@ export interface DesktopApi {
   startTask(input:StartTask):Promise<HostResult<RunSummary>>;
   listTaskActivity(query:{projectId:string;cursor?:number}):Promise<HostResult<ActivityPage>>;
   resourceBudget():Promise<HostResult<ResourceBudget>>;
+  applyScheduleCommand(input:ScheduleCommand):Promise<HostResult<ScheduleView>>;
+  listSchedules(query:{projectId:string}):Promise<HostResult<ScheduleView[]>>;
+  listScheduleOccurrences(query:{projectId:string;scheduleId:string}):Promise<HostResult<OccurrenceView[]>>;
   applyTaskPlan(input:TaskPlanCommand):Promise<HostResult<TaskPlanView>>;
   listTaskPlans(query:{projectId:string}):Promise<HostResult<TaskPlanView[]>>;
   cancelTaskPlan(query:{projectId:string;planId:string;commandKey:string}):Promise<HostResult<TaskPlanView>>;

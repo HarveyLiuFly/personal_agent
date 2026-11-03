@@ -100,6 +100,12 @@ pre { white-space: pre-wrap; overflow-wrap: anywhere; font-family: ui-monospace,
 .task-manager-content{padding:0 18px 18px;max-height:45vh;overflow:auto}
 .queue-create{display:grid;gap:10px;margin-bottom:20px}.queue-create>label{display:grid;gap:7px}
 .queue-create textarea{width:100%;min-height:65px;resize:vertical;background:#0c1726;color:#e6edf7;border:1px solid #35485f;border-radius:8px;padding:10px}
+.queue-create input:not([type=checkbox]),.queue-create select{width:100%;min-width:0;background:#0c1726;color:#e6edf7;border:1px solid #35485f;border-radius:8px;padding:8px;color-scheme:dark}
+[data-schedule-manager]{border-top:1px solid #2c4057;border-bottom:1px solid #2c4057;margin:16px 0;padding:12px 0}
+[data-schedule-manager]>summary{cursor:pointer;color:#a5ece0;font-weight:600}
+[data-schedule-manager] .queue-create{grid-template-columns:repeat(2,minmax(0,1fr))}
+[data-schedule-manager] .queue-create>.queue-actions{grid-column:1/-1}
+@media(max-width:850px){[data-schedule-manager] .queue-create{grid-template-columns:1fr}}
 .queue-create>label.queue-code{display:flex;align-items:center}.queue-create>button{justify-self:start}
 .task-manager-grid{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:22px}
 .queue-task{padding:14px 0;border-top:1px solid #2c4057}.queue-task>strong{display:block;overflow-wrap:anywhere;margin-bottom:8px}
