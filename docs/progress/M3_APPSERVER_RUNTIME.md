@@ -27,3 +27,5 @@ Main拥有唯一App Server管理器。目录检查、历史分页、只读核对
 原生锁版CLI验证通过：[脱敏原生证据](evidence/M3-runtime-native.json)。连续目录/空公开项目历史：同PID、一次initialize；环境身份变化关闭旧PID；独立原生进程实际关闭，元数据进程仍可用；reset、重建、最终退出均核对原PID不存在。0 Thread/Turn/模型任务；空历史不代表真实有内容模型历史的新验收。
 
 真实桌面专用档案：连续两次检查连接显示8模型，同Main/AppServer PID；关闭并重新激活窗口仍复用原PID；显式退出后原Main和AppServer均不存在。Agent操作单独列证据，人工A01仍待用户复走。最终身份竞争用例13/13、类型检查和构建通过；无外部阻塞，无全量回归。[汇总与文件指纹](evidence/M3-runtime-summary.json)。下一步提交/推送/核对本点后，已重开的专用窗口交回用户继续A01。
+
+已提交并推送`6c45b7133433ef748dca5786324af5328919cb85`；实际`git ls-remote`核对远程main与`checkpoint/M3.runtime`在本次核对时均为该SHA。随后只补本回执。最终构建的专用窗口已重开，Agent只读观察“尚未检查连接”，留给用户执行A01；不代填人工通过。
