@@ -1,0 +1,8 @@
+{
+  "status": "blocked",
+  "observedAt": "2026-11-03T03:59:00.279Z",
+  "phase": "native_command",
+  "code": "NATIVE_PERMISSION_CHECK_FAILED",
+  "inferenceRequested": false,
+  "modelTurns": 0
+}

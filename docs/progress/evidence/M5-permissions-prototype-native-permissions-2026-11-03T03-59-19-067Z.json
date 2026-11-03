@@ -1,0 +1,32 @@
+{
+  "status": "blocked",
+  "observedAt": "2026-11-03T03:59:19.067Z",
+  "phase": "native_command",
+  "code": "NATIVE_PERMISSION_CHECK_FAILED",
+  "inferenceRequested": false,
+  "modelTurns": 0,
+  "partialResults": [
+    {
+      "mode": "readOnly",
+      "profileId": "personal-agent-read-d643168e2a297580",
+      "contractDigest": "d643168e2a2975804da5b127f6068e0f942d3e5157506adde2c0b477e8701ed2",
+      "exitCode": 0,
+      "checks": {
+        "publicRead": true,
+        "controlReadDenied": true,
+        "ledgerReadDenied": true,
+        "symlinkDenied": true,
+        "outsideReadDenied": false,
+        "fakeCredentialsAbsent": true,
+        "workspaceWrite": false,
+        "writeDenied": true,
+        "controlWriteDenied": true,
+        "scratchWrite": true,
+        "gitRead": true,
+        "childStillDenied": true,
+        "socketDenied": true
+      },
+      "passed": false
+    }
+  ]
+}

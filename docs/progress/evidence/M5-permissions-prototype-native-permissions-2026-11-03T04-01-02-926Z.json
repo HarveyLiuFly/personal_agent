@@ -1,0 +1,39 @@
+{
+  "status": "blocked",
+  "observedAt": "2026-11-03T04:01:02.926Z",
+  "phase": "native_command",
+  "code": "NATIVE_COMMAND_NO_RESULT",
+  "inferenceRequested": false,
+  "modelTurns": 0,
+  "partialResults": [
+    {
+      "mode": "readOnly",
+      "profileId": "personal-agent-read-797f12cd052cb09d",
+      "contractDigest": "797f12cd052cb09d2b1431539e95267971431c15319b6313c36a7a874bab5f03",
+      "exitCode": 0,
+      "checks": {
+        "publicRead": true,
+        "controlReadDenied": true,
+        "ledgerReadDenied": true,
+        "symlinkDenied": true,
+        "outsideReadDenied": true,
+        "fakeCredentialsAbsent": true,
+        "workspaceWrite": false,
+        "writeDenied": true,
+        "controlWriteDenied": true,
+        "scratchWrite": true,
+        "gitRead": true,
+        "childStillDenied": true,
+        "socketDenied": true
+      },
+      "passed": true
+    },
+    {
+      "kind": "context_only_thread",
+      "profileMatched": true,
+      "workspaceRootsMatched": true,
+      "userReviewer": true,
+      "legacyProjection": "workspaceWrite"
+    }
+  ]
+}

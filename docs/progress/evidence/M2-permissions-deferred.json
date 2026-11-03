@@ -1,0 +1,21 @@
+{
+  "status": "deferred_to_M5_by_user",
+  "observedAt": "2026-11-03T04:18:39.149958+00:00",
+  "archive": "ignored_local_archive",
+  "archivedSourceFiles": 901,
+  "copyHashesVerified": true,
+  "stableProtocolTypes": 747,
+  "experimentalPrototypeTypes": 896,
+  "productionPermissionChangesEnabled": false,
+  "prototypeChecks": {
+    "passed": 230,
+    "scope": "includes_5_prototype_guards_not_current_production_test_count"
+  },
+  "nativeProbe": {
+    "modelTurns": 0,
+    "executedCommands": 2,
+    "rejectedRequests": 4,
+    "scope": "controlled_fake_markers_and_socket_only"
+  },
+  "next": "M2 background lifecycle, worktree and terminal features"
+}

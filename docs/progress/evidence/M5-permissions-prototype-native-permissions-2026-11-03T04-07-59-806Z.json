@@ -1,0 +1,109 @@
+{
+  "status": "passed",
+  "observedAt": "2026-11-03T04:07:59.806Z",
+  "kind": "real_locked_experimental_profiles_and_native_sandbox",
+  "platform": "darwin-arm64",
+  "cliVersion": "codex-cli 0.163.0",
+  "binarySha256": "8813367285524ac798dd96d1b071aea30d58708c7226fd236cd275cf1cfdee31",
+  "experimentalTypes": 896,
+  "experimentalFingerprint": "7455d2e2fa106de5d809bb23cd0eb0697d1ca04b9b7c50ecc2e8f946d3e4b61d",
+  "stableTypesUnchanged": 747,
+  "inferenceRequested": false,
+  "modelTurns": 0,
+  "commandExecCalls": 6,
+  "executedNativeCommands": 2,
+  "rejectedCommandRequests": 4,
+  "threadIntents": 1,
+  "turnIntents": 0,
+  "contextOnlyRunStatus": "failed_no_model_turn_requested",
+  "nodeVersion": "v24.19.0",
+  "nodeSha256": "27db838bb204ef7c21df2931f5656e4c8fb32e6e947f363a402b49714d32b5b1",
+  "gitVersion": "git version 2.50.1 (Apple Git-155)",
+  "gitSha256": "3121e7e4d16059539731c58d94888709c12904abe922acde8e37caef4607c1d1",
+  "trustedEndpointConnections": 1,
+  "untrustedEndpointConnections": 0,
+  "controlMarkerUnchanged": true,
+  "controlWriteNotCreated": true,
+  "socketPathBytes": 74,
+  "publicFixtureOnly": true,
+  "results": [
+    {
+      "mode": "readOnly",
+      "profileId": "personal-agent-read-251558783738198a",
+      "contractDigest": "251558783738198a6f06b2edd9bb7dff675e57cf370cf35c5f11d1e40199062a",
+      "exitCode": 0,
+      "checks": {
+        "publicRead": true,
+        "controlReadDenied": true,
+        "ledgerReadDenied": true,
+        "symlinkDenied": true,
+        "outsideReadDenied": true,
+        "fakeCredentialsAbsent": true,
+        "workspaceWrite": false,
+        "writeDenied": true,
+        "controlWriteDenied": true,
+        "scratchWrite": true,
+        "gitRead": true,
+        "childStillDenied": true,
+        "socketDenied": true
+      },
+      "passed": true
+    },
+    {
+      "kind": "context_only_thread",
+      "profileMatched": true,
+      "workspaceRootsMatched": true,
+      "userReviewer": true,
+      "legacyProjection": "workspaceWrite"
+    },
+    {
+      "kind": "unknown_profile",
+      "mode": "readOnly",
+      "rejected": true,
+      "code": "REMOTE_-32600",
+      "noCommandExecuted": true
+    },
+    {
+      "kind": "conflicting_legacy_policy",
+      "mode": "readOnly",
+      "rejected": true,
+      "code": "REMOTE_-32600",
+      "noCommandExecuted": true
+    },
+    {
+      "mode": "workspaceWrite",
+      "profileId": "personal-agent-write-c4d7a4539b3856ae",
+      "contractDigest": "c4d7a4539b3856aeecd107ba202d6cb02b10834141262b39743567afe9a3c556",
+      "exitCode": 0,
+      "checks": {
+        "publicRead": true,
+        "controlReadDenied": true,
+        "ledgerReadDenied": true,
+        "symlinkDenied": true,
+        "outsideReadDenied": true,
+        "fakeCredentialsAbsent": true,
+        "workspaceWrite": true,
+        "controlWriteDenied": true,
+        "scratchWrite": true,
+        "gitRead": true,
+        "childStillDenied": true,
+        "socketDenied": true
+      },
+      "passed": true
+    },
+    {
+      "kind": "unknown_profile",
+      "mode": "workspaceWrite",
+      "rejected": true,
+      "code": "REMOTE_-32600",
+      "noCommandExecuted": true
+    },
+    {
+      "kind": "conflicting_legacy_policy",
+      "mode": "workspaceWrite",
+      "rejected": true,
+      "code": "REMOTE_-32600",
+      "noCommandExecuted": true
+    }
+  ]
+}

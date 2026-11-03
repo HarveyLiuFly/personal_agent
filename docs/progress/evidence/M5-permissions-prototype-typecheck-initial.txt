@@ -1,0 +1,4 @@
+$ tsc --noEmit
+scripts/probe-native-permissions.ts(29,229): error TS2345: Argument of type '{ mode: "readOnly" | "workspaceWrite"; workspace: string; privateRoots: string[]; readRoots: string[]; scratch: string; toolHome: string; }' is not assignable to parameter of type 'NativePermissionInput'.
+  Type '{ mode: "readOnly" | "workspaceWrite"; workspace: string; privateRoots: string[]; readRoots: string[]; scratch: string; toolHome: string; }' is missing the following properties from type 'NativePermissionInput': node, git
+[ELIFECYCLE] Command failed with exit code 2.
