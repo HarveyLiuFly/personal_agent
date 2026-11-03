@@ -1,0 +1,29 @@
+[1103/110427.979784:ERROR:electron/shell/common/mac/codesign_util.cc:79] task_name_for_pid: (os/kern) failure (5)
+[1103/110428.058848:ERROR:electron/shell/common/mac/codesign_util.cc:79] task_name_for_pid: (os/kern) failure (5)
+✔ once atomically enqueues one immutable input and Outbox; consumption queues exactly once without a Run (30.900125ms)
+✔ schedule commands deduplicate and reject stale, malformed or cross-project inputs before persistence (13.097291ms)
+✔ Cron coalesces years of misfires into the latest due slot with a compact skipped-range event (15.741333ms)
+✔ late once skips by policy and expires within its explicit bounded deadline (14.620625ms)
+✔ bounded catch-up obeys 1–10 per schedule step and coalesces overlap to one waiting slot (14.655334ms)
+✔ overlap skip/coalesce never queues another wake while the Task is already queued or unknown (17.933125ms)
+✔ pause/cancel revokes a committed but unconsumed wake and resume uses a new version (15.676ms)
+✔ replacing a schedule cancels its old instances and a stale version cannot change the new plan (13.476583ms)
+✔ Task pause/cancel atomically stops schedules and unconsumed deliveries, and manual resume never rearms them (12.759375ms)
+✔ Policy, privacy, calendar and Source changes are rechecked before enqueue and before delivery (16.394291ms)
+✔ a disabled internal Source cannot deliver its already enqueued wake (12.549167ms)
+✔ untrusted internal Source and changed Policy fail before any input or cursor is committed (13.741583ms)
+✔ a Task tombstone hides schedules/instances and prevents pending wake consumption (11.998458ms)
+✔ unsupported historical schedule contracts pause instead of inferring a new authorization (10.755125ms)
+✔ storage faults roll back occurrence, immutable input, Outbox and next-fire together (13.093042ms)
+✔ clock rollback does not rewind the durable cursor or reproduce an acknowledged occurrence (14.365916ms)
+✔ real SIGKILL before and after occurrence commit recovers without duplicate inputs or queue delivery (295.681458ms)
+ℹ SCHEDULER_CRASH_RECEIPT {"phase":"inside","signal":"SIGKILL","exitCode":null,"projectId":"e823edf3-531f-4323-99f5-946dc0995636","scheduleId":"schedule:8e4b9638c3b8653985ef464c858556c16a2c4484bbe3e73ea3cff7cdf34bccd0","occurrenceId":"occurrence:0517c21772820bd9e22c41f02d27a0784d5c3db45345a193ebc1f1d934819830","triggerId":"schedule-trigger:bd3ae153b68e91811f3b3fb4a05f78b569e8f455cac7670fcf666f18a75cc45e","inputsBeforeKill":0,"inputsAfterRecovery":1,"acknowledged":true,"taskQueued":true,"runs":0}
+ℹ SCHEDULER_CRASH_RECEIPT {"phase":"committed","signal":"SIGKILL","exitCode":null,"projectId":"4a0427b4-d6c7-4bfd-a4b0-f572df4021ab","scheduleId":"schedule:8e4b9638c3b8653985ef464c858556c16a2c4484bbe3e73ea3cff7cdf34bccd0","occurrenceId":"occurrence:0517c21772820bd9e22c41f02d27a0784d5c3db45345a193ebc1f1d934819830","triggerId":"schedule-trigger:bd3ae153b68e91811f3b3fb4a05f78b569e8f455cac7670fcf666f18a75cc45e","inputsBeforeKill":1,"inputsAfterRecovery":1,"acknowledged":true,"taskQueued":true,"runs":0}
+ℹ tests 17
+ℹ suites 0
+ℹ pass 17
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 675.039791

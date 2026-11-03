@@ -31,7 +31,7 @@ export type ActionStatus = typeof actionStatuses[number];
 /** These transitions also require the guards specified in the design document. */
 export const taskTransitions: Readonly<Record<TaskStatus, readonly TaskStatus[]>> = {
   created: ["queued", "cancelled"],
-  queued: ["running", "paused", "cancelled"],
+  queued: ["running", "waiting_trigger", "paused", "cancelled"],
   running: ["waiting_input", "waiting_approval", "waiting_trigger", "paused", "needs_review", "completed", "failed", "cancelled", "outcome_unknown"],
   waiting_input: ["queued", "running", "paused", "cancelled", "outcome_unknown"],
   waiting_approval: ["queued", "running", "paused", "cancelled", "outcome_unknown"],

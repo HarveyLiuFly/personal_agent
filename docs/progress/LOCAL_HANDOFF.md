@@ -2,7 +2,7 @@
 
 交接日期：2026-11-02（Asia/Shanghai）。用户决定停止在当前云环境中推进，改用本地电脑的 Codex 继续开发。本文件是接手入口，详细执行历史保留在阶段记录中。
 
-本机后续状态以[本机平台接续](LOCAL_BASELINE.md)、[阶段总览](README.md)、[M1](M1.md)和[M2](M2.md)记录为准：**M0/M1 Gate 已在已记录的 macOS arm64 范围通过，M1 定位 `checkpoint/M1`。** 见[历史 Gate](evidence/M1-gate.json)。**M2.1a 文件/Git、M2.2a/b 命令/队列、M2.2c Token/单前台准入与 M2.2d 多项 Operation DAG 完成（`checkpoint/M2.2d`）。Schema Revision 4，2/3→4 先备份验证；184/184 用例、四处真实 SIGKILL、批量 UI/29 项白名单通过。一次真实只读模型 Smoke 报告 17,620 Token 已结算，0 工具、Task 待审查。** M2.3a 时间计算基线完成（`checkpoint/M2.3a`），196/196 及 Electron 12/12；持久调度尚未完成。临时仓库已归档清理，继续调度、工作树/PTY、后台与恢复。M2 Gate 开放，尚无 Daemon/关闭 GUI 后继续执行承诺；不推断 USD/套餐费用。历史冻结合同的 Verifier Hash 变化仍拒绝复用，不可手改 Hash 绕过。下文保留原云交接事实，不覆盖本机结果。
+本机后续状态以[本机平台接续](LOCAL_BASELINE.md)、[阶段总览](README.md)、[M1](M1.md)和[M2](M2.md)记录为准：**M0/M1 Gate 已在已记录的 macOS arm64 范围通过，M1 定位 `checkpoint/M1`。** 见[历史 Gate](evidence/M1-gate.json)。**M2.1a 文件/Git、M2.2a/b 命令/队列、M2.2c Token/单前台准入与 M2.2d 多项 Operation DAG 完成（`checkpoint/M2.2d`）。Schema Revision 4，2/3→4 先备份验证；184/184 用例、四处真实 SIGKILL、批量 UI/29 项白名单通过。一次真实只读模型 Smoke 报告 17,620 Token 已结算，0 工具、Task 待审查。** M2.3a/b 时间与内部持久调度完成（`checkpoint/M2.3b`），213/213、六个真实故障位置及 Electron 调度 17/17；目前仅入队，桌面计划和自动派发待接。临时仓库已归档清理，继续调度、工作树/PTY、后台与恢复。M2 Gate 开放，尚无 Daemon/关闭 GUI 后继续执行承诺；不推断 USD/套餐费用。历史冻结合同的 Verifier Hash 变化仍拒绝复用，不可手改 Hash 绕过。下文保留原云交接事实，不覆盖本机结果。
 
 ## 1. Git 与交付范围
 

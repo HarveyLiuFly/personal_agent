@@ -11,6 +11,9 @@ import type {CodeTaskSpec} from '../../contracts/src/views.ts';
 import type {TaskSummary,TaskCommand,OperationReceipt,ActivityPage,TaskPlanCommand,TaskPlanView,TaskPlanNode,TaskPlanOperation} from '../../contracts/src/tasks.ts';
 import {BudgetLedger} from './budget.ts';
 import type {BudgetPolicy} from './budget.ts';
+import {SchedulerLedger} from './scheduler.ts';
+import type {ScheduleCommand} from '../../contracts/src/schedules.ts';
+import {ScheduleTimeError,scheduleTime} from '../../runtime/src/calendar.ts';
 
 export class LedgerError extends Error { readonly code: string; constructor(code: string) { super(code); this.code = code; } }
 const fail = (code: string): never => { throw new LedgerError(code); };
@@ -33,7 +36,7 @@ export interface ReconciliationClaim {
 }
 export interface OutboxClaim {outboxId:string;claimEpoch:number;runtimeEpoch:number;eventId:string;taskId:string;expiresAt:number}
 export interface QueuedRun {token:RunToken;created:boolean;text:string;code?:CodeTaskSpec;threadId?:string;sourceRunId?:string}
-export interface LedgerOptions {/** Trusted fault injection only; never accepted over IPC. */afterOutboxProjectionForTests?:()=>void;afterPlanEffectForTests?:(index:number)=>void;/** Seeds a new local policy only. Never accepted over execution IPC. */budgetPolicy?:BudgetPolicy}
+export interface LedgerOptions {/** Trusted fault injection only; never accepted over IPC. */afterOutboxProjectionForTests?:()=>void;afterPlanEffectForTests?:(index:number)=>void;afterScheduleTickForTests?:()=>void;/** Trusted clock injection; never accepted over IPC. */schedulerClock?:()=>number;/** Seeds a new local policy only. Never accepted over execution IPC. */budgetPolicy?:BudgetPolicy}
 
 /** Host-only local store. startOwner requires the caller to hold the OS single-instance lock. */
 export class ExecutionLedger {
@@ -42,6 +45,7 @@ export class ExecutionLedger {
   #instance = '';
   private options:LedgerOptions;
   private budget:BudgetLedger;
+  private scheduler:SchedulerLedger;
   readonly profileId = 'local-profile';
   readonly dotId = 'local-dot';
   constructor(path: string, schemaSql: string, options:LedgerOptions={}) {
@@ -74,6 +78,11 @@ export class ExecutionLedger {
         });
       } else if (revision !== 4) fail('LEDGER_SCHEMA_UNSUPPORTED');
       this.budget=new BudgetLedger(this.#db,this.dotId,fail,options.budgetPolicy);
+      this.scheduler=new SchedulerLedger(this.#db,this.dotId,fail,{task:(projectId,taskId)=>{
+        this.workspace(projectId);const task=this.taskRow(projectId,taskId),authority=this.taskAuthority(task),constraints=JSON.parse(String(task.constraints_json));
+        if(typeof constraints.inputHash!=='string'||typeof constraints.text!=='string')return fail('TASK_INPUT_UNAVAILABLE');
+        return{taskId,projectId,version:Number(task.version),status:String(task.status),blocked:task.dispatch_blocked===1,active:Boolean(this.one(`SELECT run_id FROM task_runs WHERE task_id=? AND status IN ${active}`,taskId)),authority,inputHash:constraints.inputHash};
+      },event:(taskId,type,payload)=>{this.event(taskId,null,type,payload);},transition:(taskId,status)=>{this.transition(taskId,status);}});
       if (path !== ':memory:') chmodSync(path, 0o600);
     } catch (error) { this.#db.close(); throw error; }
   }
@@ -101,6 +110,7 @@ export class ExecutionLedger {
     const task = this.one('SELECT status FROM tasks WHERE task_id=?', taskId);
     if (!task || !taskTransitions[task.status as TaskStatus].includes(target)) fail('INVALID_TASK_TRANSITION');
     this.exec('UPDATE tasks SET status=?,version=version+1,updated_at_ms=? WHERE task_id=?', target, Date.now(), taskId);
+    if(target==='paused'||target==='cancelled'||target==='completed')this.scheduler.stopTask(taskId,target==='paused'?'paused':'cancelled');
   }
   startOwner(instanceId: string, exclusiveLockHeld: true): number {
     if (!id(instanceId) || exclusiveLockHeld !== true || this.#epoch) return fail('OWNER_LOCK_REQUIRED');
@@ -257,6 +267,7 @@ export class ExecutionLedger {
     const task=this.taskRow(input.projectId,input.taskId);if(task.version!==input.expectedVersion)return fail('TASK_VERSION_CONFLICT');
     if(this.one("SELECT operation_id FROM operations WHERE task_id=? AND state IN ('executing','outcome_unknown')",input.taskId))return fail('TASK_STOP_PENDING');
     const run=this.one(`SELECT * FROM task_runs WHERE task_id=? AND status IN ${active}`,input.taskId);
+    if(input.kind!=='rename')this.scheduler.stopTask(input.taskId,input.kind==='cancel'?'cancelled':'paused');
     if(input.kind==='rename'){
       this.taskAuthority(task);
       if(run||['completed','cancelled','outcome_unknown'].includes(String(task.status)))return fail('TASK_NOT_EDITABLE');
@@ -369,6 +380,32 @@ export class ExecutionLedger {
       if(!changed)break;
     }return this.taskPlan(projectId,planId);
   }
+  private schedulerNow():number {try{return scheduleTime(this.options.schedulerClock?.()??Date.now());}catch(error){if(error instanceof ScheduleTimeError)return fail(error.code);throw error;}}
+  scheduleCommand(input:unknown){
+    if(!input||typeof input!=='object'||Array.isArray(input))return fail('INVALID_SCHEDULE_COMMAND');const q=input as ScheduleCommand;
+    if(!id(q.projectId)||!id(q.commandKey)||!['create','pause','cancel','resume','replace'].includes(q.kind))return fail('INVALID_SCHEDULE_COMMAND');
+    const fields=q.kind==='create'?['kind','projectId','taskId','expectedTaskVersion','commandKey','config']:['kind','projectId','scheduleId','expectedVersion','commandKey',...(q.kind==='replace'?['config']:[])];
+    if(Object.keys(q).length!==fields.length||!fields.every(k=>Object.hasOwn(q,k)))return fail('INVALID_SCHEDULE_COMMAND');
+    if(q.kind==='create'?(!id(q.taskId)||!Number.isSafeInteger(q.expectedTaskVersion)||q.expectedTaskVersion<1):(!id(q.scheduleId)||!Number.isSafeInteger(q.expectedVersion)||q.expectedVersion<1))return fail('INVALID_SCHEDULE_COMMAND');
+    this.workspace(q.projectId);
+    try{
+      const config=q.kind==='create'||q.kind==='replace'?this.scheduler.config(q.config):undefined,normalized={kind:q.kind,projectId:q.projectId,...(q.kind==='create'?{taskId:q.taskId,expectedTaskVersion:q.expectedTaskVersion}:{scheduleId:q.scheduleId,expectedVersion:q.expectedVersion}),commandKey:q.commandKey,...(config?{config}:{})};
+      return this.tx(()=>{this.owner();const scheduleId=q.kind==='create'?'schedule:'+hashInput([this.dotId,q.commandKey]):q.scheduleId,previous=q.kind==='create'?null:this.scheduler.view(q.projectId,scheduleId),taskId=q.kind==='create'?q.taskId:previous!.taskId;
+        const operation=this.openOperation('schedule:'+q.commandKey,'SCHEDULE_'+q.kind.toUpperCase(),normalized,taskId,q.kind==='create'?q.expectedTaskVersion:null);
+        if(!operation.created)return this.scheduler.view(q.projectId,scheduleId);
+        const now=this.schedulerNow(),view=q.kind==='create'?this.scheduler.create(q.projectId,q.taskId,q.expectedTaskVersion,scheduleId,config!,now):this.scheduler.control(q.projectId,scheduleId,q.expectedVersion,q.kind,config,now);
+        this.sealOperation(operation.operationId,taskId,'completed',null);return view;
+      });
+    }catch(error){if(error instanceof ScheduleTimeError)return fail(error.code);throw error;}
+  }
+  schedules(projectId:string){if(!id(projectId))return fail('INVALID_SCHEDULE_QUERY');this.workspace(projectId);return this.scheduler.list(projectId);}
+  scheduleOccurrences(projectId:string,scheduleId:string){if(!id(projectId)||!id(scheduleId))return fail('INVALID_SCHEDULE_QUERY');this.workspace(projectId);return this.scheduler.occurrences(projectId,scheduleId);}
+  stepSchedules(){
+    this.owner();const now=this.schedulerNow(),due=this.scheduler.due(now);let processed=0;
+    for(const scheduleId of due)processed+=this.tx(()=>{this.owner();const count=this.scheduler.tick(scheduleId,now);this.options.afterScheduleTickForTests?.();return count;});
+    return{processed};
+  }
+  deliverScheduleWakes(){return this.tx(()=>{this.owner();return{queued:this.scheduler.deliver(this.schedulerNow())};});}
   claimTask(projectId:string,taskId:string,expectedVersion:number,key:string):QueuedRun {
     if(!id(key)||!id(taskId)||!Number.isSafeInteger(expectedVersion)||expectedVersion<1)return fail('INVALID_TASK_COMMAND');this.workspace(projectId);
     return this.tx(()=>{

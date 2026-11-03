@@ -1,0 +1,48 @@
+{
+  "checkpoint": "M2.3b",
+  "status": "passed_internal_scheduler_domain_scope",
+  "baselineCommit": "ef4302df98d1236dcfd6c4e7e346ebefcd4ded7d",
+  "stageGate": "open",
+  "schemaRevision": 4,
+  "mode": "queue_only",
+  "guiCommandsExposed": false,
+  "automaticModelDispatch": false,
+  "checks": {
+    "discovered": 213,
+    "executed": 213,
+    "passed": 213,
+    "failed": 0,
+    "skipped": 0,
+    "newSchedulerTests": 17,
+    "electronNodeSchedulerTests": 17,
+    "realSigkillFaultLocationsTotal": 6,
+    "designContracts": 17,
+    "generatedTypes": 747,
+    "typecheck": "passed",
+    "build": "passed"
+  },
+  "m0Regression": {
+    "status": "passed",
+    "apiWhitelistCount": 29,
+    "inferenceRequested": false
+  },
+  "modelTurns": 0,
+  "sourceAndBuildHashes": {
+    "packages/store/src/ledger.ts": "19b7e7bc51ace09cb5e0c9ebef651be1a3ec59fc7a4a097a582a17add8428416",
+    "packages/store/src/scheduler.ts": "dac8bd871aba5a68cbafeb29d97ef863775d3ee04b34671577c569328f830637",
+    "packages/runtime/src/calendar.ts": "ea009bc3c04078b4dd2f678d3163c7df63d88186ce0e462d0bfa2f192eaf332e",
+    "packages/contracts/src/schedules.ts": "73a5dd5143ac54666858e0e27047609e6752dea4e1e15030eb0eb04126a3d71e",
+    "docs/design/contracts/domain.ts": "6989cd25bae9a1af3de08c75605c20d9e1f7b83d8bf9bc22a67df839653513e0",
+    "docs/design/contracts/schema.sql": "a6368c594384a914bff78285778e86082704b711f57211c3aa07c53a34ff91aa",
+    "tests/scheduler.test.ts": "ae798a21f7cff71e74793a7c80e7c80ca27b0a8ec21b96541b2ba5399b68773b",
+    "tests/fixtures/scheduler-worker.ts": "315897dc2ba555842c25201036a790cd2d4693598eb506872c723f91a24c7191",
+    "build/desktop/main.js": "be4af13640519e02b0dc2456922b01d24d5fd7afe19450bbe09184823e5ce090"
+  },
+  "remaining": [
+    "scheduler_desktop_and_runtime_pump",
+    "automatic_dispatch_authorization",
+    "daemon_protected_ipc",
+    "pty_worktree_lifecycle",
+    "full_resource_limits_and_backup_gate"
+  ]
+}

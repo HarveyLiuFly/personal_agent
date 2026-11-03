@@ -1,0 +1,66 @@
+{
+  "status": "passed",
+  "realProcesses": true,
+  "fixture": "owned_public_scheduler_tasks",
+  "modelTurns": 0,
+  "cliReceipts": [
+    {
+      "phase": "inside",
+      "signal": "SIGKILL",
+      "exitCode": null,
+      "projectId": "f068de1e-f072-468b-9dc4-b92580f86b7b",
+      "scheduleId": "schedule:8e4b9638c3b8653985ef464c858556c16a2c4484bbe3e73ea3cff7cdf34bccd0",
+      "occurrenceId": "occurrence:0517c21772820bd9e22c41f02d27a0784d5c3db45345a193ebc1f1d934819830",
+      "triggerId": "schedule-trigger:bd3ae153b68e91811f3b3fb4a05f78b569e8f455cac7670fcf666f18a75cc45e",
+      "inputsBeforeKill": 0,
+      "inputsAfterRecovery": 1,
+      "acknowledged": true,
+      "taskQueued": true,
+      "runs": 0
+    },
+    {
+      "phase": "committed",
+      "signal": "SIGKILL",
+      "exitCode": null,
+      "projectId": "9651c305-6376-49f0-b857-8b552e1696e6",
+      "scheduleId": "schedule:8e4b9638c3b8653985ef464c858556c16a2c4484bbe3e73ea3cff7cdf34bccd0",
+      "occurrenceId": "occurrence:0517c21772820bd9e22c41f02d27a0784d5c3db45345a193ebc1f1d934819830",
+      "triggerId": "schedule-trigger:bd3ae153b68e91811f3b3fb4a05f78b569e8f455cac7670fcf666f18a75cc45e",
+      "inputsBeforeKill": 1,
+      "inputsAfterRecovery": 1,
+      "acknowledged": true,
+      "taskQueued": true,
+      "runs": 0
+    }
+  ],
+  "electronNodeReceipts": [
+    {
+      "phase": "inside",
+      "signal": "SIGKILL",
+      "exitCode": null,
+      "projectId": "e823edf3-531f-4323-99f5-946dc0995636",
+      "scheduleId": "schedule:8e4b9638c3b8653985ef464c858556c16a2c4484bbe3e73ea3cff7cdf34bccd0",
+      "occurrenceId": "occurrence:0517c21772820bd9e22c41f02d27a0784d5c3db45345a193ebc1f1d934819830",
+      "triggerId": "schedule-trigger:bd3ae153b68e91811f3b3fb4a05f78b569e8f455cac7670fcf666f18a75cc45e",
+      "inputsBeforeKill": 0,
+      "inputsAfterRecovery": 1,
+      "acknowledged": true,
+      "taskQueued": true,
+      "runs": 0
+    },
+    {
+      "phase": "committed",
+      "signal": "SIGKILL",
+      "exitCode": null,
+      "projectId": "4a0427b4-d6c7-4bfd-a4b0-f572df4021ab",
+      "scheduleId": "schedule:8e4b9638c3b8653985ef464c858556c16a2c4484bbe3e73ea3cff7cdf34bccd0",
+      "occurrenceId": "occurrence:0517c21772820bd9e22c41f02d27a0784d5c3db45345a193ebc1f1d934819830",
+      "triggerId": "schedule-trigger:bd3ae153b68e91811f3b3fb4a05f78b569e8f455cac7670fcf666f18a75cc45e",
+      "inputsBeforeKill": 1,
+      "inputsAfterRecovery": 1,
+      "acknowledged": true,
+      "taskQueued": true,
+      "runs": 0
+    }
+  ]
+}
