@@ -9,6 +9,8 @@
     "node": ">=24.19.0 <25"
   },
   "scripts": {
+    "postinstall": "node scripts/setup-terminal.mjs",
+    "setup:terminal": "node scripts/setup-terminal.mjs",
     "dev": "node scripts/dev.mjs",
     "build": "node scripts/build.mjs",
     "typecheck": "tsc --noEmit",
@@ -18,6 +20,7 @@
     "protocol:verify": "node scripts/generate-protocol.mjs --verify",
     "smoke:codex": "node --disable-warning=ExperimentalWarning scripts/smoke-codex.ts",
     "smoke:connection": "node --disable-warning=ExperimentalWarning scripts/probe-codex.ts",
+    "smoke:terminal:desktop": "node scripts/smoke-desktop.mjs --terminal",
     "smoke:worktrees:desktop": "node scripts/smoke-desktop.mjs --worktrees",
     "smoke:desktop": "node scripts/smoke-desktop.mjs",
     "smoke:history:local": "node --disable-warning=ExperimentalWarning scripts/probe-history.ts",
@@ -47,7 +50,9 @@
     "check": "node scripts/check.mjs"
   },
   "dependencies": {
+    "@xterm/xterm": "6.0.0",
     "cron-parser": "5.10.3",
+    "node-pty": "1.1.0",
     "react": "19.3.1",
     "react-dom": "19.3.1"
   },

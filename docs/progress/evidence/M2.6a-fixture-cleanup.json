@@ -1,0 +1,81 @@
+{
+  "observedAt": "2026-11-03T05:46:40.728099+00:00",
+  "scope": "owned_public_git_desktop_fixtures_only",
+  "privateRecoveryArchive": "ignored_local_only",
+  "entries": [
+    {
+      "fixture": "fixture-1",
+      "regularFiles": 30,
+      "archiveSha256": "99a436adef97b1805764aad07cc5b7604a592d52efd165149a343c819886f6a6",
+      "manifestSha256": "cafcd8bb7911da62751e34d513dd6d4b9f69de7a54c1c3fa604e91f4cd06bdf2",
+      "archiveBytesVerified": true,
+      "modelRuns": 0,
+      "remotes": 0,
+      "recordedProcessesGone": true,
+      "openFiles": 0,
+      "removed": true
+    },
+    {
+      "fixture": "fixture-2",
+      "regularFiles": 30,
+      "archiveSha256": "badd24708e2d79f6a563bba84a641793c4df1175301f4f572581d497a2d9636b",
+      "manifestSha256": "2ba442030a87f761df606cd82262da05f94dc2c6802c3356d6fd4ebc3aefc3a8",
+      "archiveBytesVerified": true,
+      "modelRuns": 0,
+      "remotes": 0,
+      "recordedProcessesGone": true,
+      "openFiles": 0,
+      "removed": true
+    },
+    {
+      "fixture": "fixture-3",
+      "regularFiles": 31,
+      "archiveSha256": "2e4f570650c4ae73498984726a0d2bbf2819abfa5221e604cca472ad84d4942f",
+      "manifestSha256": "e4aaf15ac98cda5ad2101f268225469ccfe36f374c9b503e9e3374cb51373f33",
+      "archiveBytesVerified": true,
+      "modelRuns": 0,
+      "remotes": 0,
+      "recordedProcessesGone": true,
+      "openFiles": 0,
+      "removed": true
+    },
+    {
+      "fixture": "fixture-4",
+      "regularFiles": 31,
+      "archiveSha256": "fb03a8bcd74bba1bee244f4e8b697e5ba43e3f70a7c78ebfb8709558af925ea6",
+      "manifestSha256": "3a3e87bb4640318ea034585f2728911c02352c4c25ccfbd1292e14bec07b3fa0",
+      "archiveBytesVerified": true,
+      "modelRuns": 0,
+      "remotes": 0,
+      "recordedProcessesGone": true,
+      "openFiles": 0,
+      "removed": true
+    },
+    {
+      "fixture": "fixture-5",
+      "regularFiles": 31,
+      "archiveSha256": "8eead1599f1c8caa5e4d0c566e1870ee26612d4e7a354a058e1592d347fe8393",
+      "manifestSha256": "1d27571496f7ba5f1be45b9397805d3d6ef02cf05d7cd1f85547695f8febbe39",
+      "archiveBytesVerified": true,
+      "modelRuns": 0,
+      "remotes": 0,
+      "recordedProcessesGone": true,
+      "openFiles": 0,
+      "removed": true
+    },
+    {
+      "fixture": "fixture-6",
+      "regularFiles": 30,
+      "archiveSha256": "e5dae892e7f6488c06ee10e5ecc5d119c1e4349c18daca4ffd492c49dc3928a1",
+      "manifestSha256": "c7b5fa4c2e6ea443b619d29a8c1a0a0eb6f9a42e191f3fbf1ce8a12f4c7731a8",
+      "archiveBytesVerified": true,
+      "modelRuns": 0,
+      "remotes": 0,
+      "recordedProcessesGone": true,
+      "openFiles": 0,
+      "removed": true
+    }
+  ],
+  "skipped": [],
+  "repositoryWorktrees": 1
+}

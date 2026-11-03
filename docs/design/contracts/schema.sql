@@ -12,7 +12,7 @@ CREATE TABLE schema_metadata (
   singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
   schema_revision INTEGER NOT NULL CHECK (schema_revision > 0)
 );
-INSERT INTO schema_metadata VALUES (1, 5);
+INSERT INTO schema_metadata VALUES (1, 6);
 
 CREATE TABLE profiles (
   profile_id TEXT PRIMARY KEY,
@@ -104,6 +104,39 @@ CREATE TABLE managed_worktrees (
   git_identity_json TEXT NOT NULL CHECK (json_valid(git_identity_json)),
   version INTEGER NOT NULL DEFAULT 1,
   state TEXT NOT NULL CHECK (state IN ('ready','removed','invalid'))
+);
+
+CREATE TABLE terminal_sessions (
+  session_id TEXT PRIMARY KEY,
+  operation_id TEXT NOT NULL UNIQUE REFERENCES operations(operation_id),
+  dot_id TEXT NOT NULL REFERENCES dots(dot_id),
+  workspace_id TEXT NOT NULL,
+  state TEXT NOT NULL CHECK (state IN ('prepared','starting','running','stopping','exited','outcome_unknown')),
+  runtime_epoch INTEGER NOT NULL,
+  workspace_fence INTEGER NOT NULL,
+  supervisor_pid INTEGER,
+  pty_pid INTEGER,
+  cols INTEGER NOT NULL,
+  rows INTEGER NOT NULL,
+  last_input_sequence INTEGER NOT NULL DEFAULT 0,
+  exit_code INTEGER,
+  error_code TEXT,
+  created_at_ms INTEGER NOT NULL,
+  FOREIGN KEY(workspace_id,dot_id) REFERENCES workspaces(workspace_id,dot_id)
+);
+CREATE TABLE workspace_terminal_leases (
+  workspace_id TEXT PRIMARY KEY REFERENCES workspaces(workspace_id),
+  session_id TEXT NOT NULL UNIQUE REFERENCES terminal_sessions(session_id),
+  runtime_epoch INTEGER NOT NULL,
+  workspace_fence INTEGER NOT NULL
+);
+CREATE TABLE terminal_inputs (
+  session_id TEXT NOT NULL REFERENCES terminal_sessions(session_id),
+  sequence INTEGER NOT NULL CHECK (sequence>0),
+  input_hash TEXT NOT NULL,
+  bytes INTEGER NOT NULL,
+  state TEXT NOT NULL CHECK (state IN ('sending','accepted','outcome_unknown')),
+  PRIMARY KEY(session_id,sequence)
 );
 
 CREATE TABLE goals (

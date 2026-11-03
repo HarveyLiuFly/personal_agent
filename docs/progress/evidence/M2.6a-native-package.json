@@ -1,0 +1,28 @@
+{
+  "version": "1.1.0",
+  "integrityVerified": true,
+  "integrity": "sha512-20JqtutY6JPXTUnL0ij1uad7Qe1baT46lyolh2sSENDd4sTzKZ4nmAFkeAARDKwmlLjPx6XKRlwRUxwjOy+lUg==",
+  "files": [
+    {
+      "file": "spawn-helper",
+      "packageMode": "0o644",
+      "sha256": "21c589109bca43e287df884f3c34ab888033a83927ea7d273949ac5030583f26"
+    },
+    {
+      "file": "pty.node",
+      "packageMode": "0o644",
+      "sha256": "e6457d66f45af3facd02920a5b212164e80fe0bb758afe6e6eab1eceeba3fc9a"
+    }
+  ],
+  "modeAfterSetup": "0755",
+  "verifiedBytesChanged": false,
+  "runtime": {
+    "workerNode": "24.19.0",
+    "workerModules": "137",
+    "electron": "45.2.1",
+    "electronNode": "24.22.1",
+    "electronModules": "150",
+    "napi": "10",
+    "nativeModuleLoadedBy": "verified_Node_worker_only"
+  }
+}

@@ -1,3 +1,5 @@
+import {TerminalService} from '../packages/workspace/src/terminal.ts';
+import {resolveVerifierNode} from '../packages/codex-adapter/src/launch.ts';
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {mkdtempSync,mkdirSync,readFileSync,realpathSync,rmSync} from 'node:fs';
@@ -56,4 +58,12 @@ test('real SIGKILL around scheduled Run commit never repeats a committed claim a
   const ready=await new Promise<{projectId:string;triggerId:string}>((done,reject)=>{const timer=setTimeout(()=>{child.kill('SIGKILL');reject(new Error('SCHEDULED_CLAIM_CHILD_TIMEOUT'));},5000);child.once('error',e=>{clearTimeout(timer);reject(e);});child.stdout.on('data',chunk=>{buffer+=String(chunk);if(buffer.includes('\n')){clearTimeout(timer);done(JSON.parse(buffer.trim()));}});});const before=new DatabaseSync(file,{readOnly:true});assert.equal(before.prepare('SELECT COUNT(*) AS n FROM task_runs').get()!.n,phase==='committed'?1:0);before.close();child.kill('SIGKILL');const [code,signal]=await closed;assert.equal(code,null);assert.equal(signal,'SIGKILL');const store=new ExecutionLedger(file,schema,{schedulerClock:()=>start+60000});store.startOwner('recovered-after-owned-child-exit',true);
   try{const claimed=store.claimScheduledTask(ready.projectId,ready.triggerId);assert.equal(claimed.created,phase==='inside');assert.equal(store.runs(ready.projectId).length,1);if(phase==='committed'){assert.equal(store.runs(ready.projectId)[0]!.status,'outcome_unknown');assert.equal(store.scheduledCandidates().length,0);}assert.equal(store.claimScheduledTask(ready.projectId,ready.triggerId).created,false);t.diagnostic('SCHEDULED_CLAIM_CRASH_RECEIPT '+JSON.stringify({phase,signal,exitCode:code,...ready,runId:claimed.token.runId,newClaimAfterRecovery:claimed.created,runStatus:store.runs(ready.projectId)[0]!.status,totalRuns:1,rpcOrModelStarted:false}));}finally{store.close();}
  }
+});
+
+
+test('real user PTY makes automatic scheduling wait without a Run, then one synthetic dispatch follows close',{skip:process.platform!=='darwin'||process.arch!=='arm64'},async t=>{
+ const f=fixture(t),schedule=f.arm('terminal-wait'),terminal=new TerminalService(f.store,{node:resolveVerifierNode(resolve('.')),worker:resolve('packages/workspace/src/terminal-worker.mjs'),stateDirectory:join(f.root,'terminals')});try{
+ const opened=await terminal.open({projectId:f.project.id,commandKey:'terminal',cols:80,rows:24});f.due();f.service.step();assert.equal(f.connections(),0);assert.equal(f.store.runs(f.project.id).length,0);assert.equal(f.store.resourceBudget().reservedTokens,0);assert.equal(f.db.prepare('SELECT reason_code FROM trigger_deliveries').get()!.reason_code,'AUTO_WAIT_WORKSPACE_TERMINAL_ACTIVE');assert.equal(f.store.scheduledCandidates().length,1);
+ await terminal.close({projectId:f.project.id,sessionId:opened.session!.sessionId,commandKey:'stop'});f.service.step();await f.execution.wait();assert.equal(f.connections(),1);assert.equal(f.execution.diagnostics.clientTurnStarts,1);assert.equal(f.db.prepare('SELECT reason_code FROM trigger_deliveries').get()!.reason_code,'AUTO_DISPATCHED');
+ }finally{await terminal.stop();}
 });

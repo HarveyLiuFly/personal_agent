@@ -1,0 +1,78 @@
+{
+  "observedAt": "2026-11-03T06:07:23.152170+00:00",
+  "scope": "previously_owned_deferred_M5_probe_fixtures_only_no_new_permission_probe",
+  "privateRecoveryArchive": "ignored_local_only",
+  "entries": [
+    {
+      "fixture": "deferred-fixture-1",
+      "emptyGitRepositories": 1,
+      "files": 96,
+      "symlinksArchivedWithoutDereference": 2,
+      "orphanSocketsWithoutListeners": 0,
+      "archiveSha256": "e41462ad89e055d732a46770ea085f8d6f55b8d415a588ae45529766fb62b420",
+      "manifestSha256": "7e4c5b391432b5da8cfa0f52586e8e948f1f7ca9f6372e27a5f11a06ce42e723",
+      "regularFileBytesVerified": true,
+      "commits": 0,
+      "remotes": 0,
+      "openFiles": 0,
+      "removed": true
+    },
+    {
+      "fixture": "deferred-fixture-2",
+      "emptyGitRepositories": 1,
+      "files": 95,
+      "symlinksArchivedWithoutDereference": 2,
+      "orphanSocketsWithoutListeners": 0,
+      "archiveSha256": "bd65cd6292ad3a32bf528d1ad530f385cf049ce447a6e46f86ac9e4993e92fba",
+      "manifestSha256": "50a87bb3e110c85b618de7d69d0d2b35d29604967daa0cd7bd68805807623216",
+      "regularFileBytesVerified": true,
+      "commits": 0,
+      "remotes": 0,
+      "openFiles": 0,
+      "removed": true
+    },
+    {
+      "fixture": "deferred-fixture-3",
+      "emptyGitRepositories": 1,
+      "files": 87,
+      "symlinksArchivedWithoutDereference": 2,
+      "orphanSocketsWithoutListeners": 0,
+      "archiveSha256": "eae259921eb66f590f67f878108fb507289fb1a212ffae5c6c472e581d2bd682",
+      "manifestSha256": "2f6cbf65b58b645dbd5dbeccf4511864354ec584852b34c8e457dbe6e842ce90",
+      "regularFileBytesVerified": true,
+      "commits": 0,
+      "remotes": 0,
+      "openFiles": 0,
+      "removed": true
+    },
+    {
+      "fixture": "deferred-fixture-4",
+      "emptyGitRepositories": 1,
+      "files": 87,
+      "symlinksArchivedWithoutDereference": 2,
+      "orphanSocketsWithoutListeners": 0,
+      "archiveSha256": "bc97e04979901983a969b1c4297db47b27dc81a2d7d4bf2b7cb545a8e4137378",
+      "manifestSha256": "8906b4ca8543ab160cae2b4550b795d30f38d80b12c95fffaf177de4101ff125",
+      "regularFileBytesVerified": true,
+      "commits": 0,
+      "remotes": 0,
+      "openFiles": 0,
+      "removed": true
+    },
+    {
+      "fixture": "deferred-fixture-5",
+      "emptyGitRepositories": 1,
+      "files": 24,
+      "symlinksArchivedWithoutDereference": 2,
+      "orphanSocketsWithoutListeners": 1,
+      "archiveSha256": "f1fa8bb9d9234c961300ef34b0de6f8f2430f23d4f9c03e105a7b735369b416b",
+      "manifestSha256": "e7d20a7186c61215b78a9bf095e4ee9020bf5aeee1a0af190ce2ddc0f9bb225b",
+      "regularFileBytesVerified": true,
+      "commits": 0,
+      "remotes": 0,
+      "openFiles": 0,
+      "removed": true
+    }
+  ],
+  "skipped": []
+}

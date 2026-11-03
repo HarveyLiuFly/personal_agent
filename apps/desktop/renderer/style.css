@@ -119,3 +119,8 @@ pre { white-space: pre-wrap; overflow-wrap: anywhere; font-family: ui-monospace,
 .worktree-manager small {font-size:11px;color:#8194ae;overflow-wrap:anywhere;}
 .worktree-manager input {padding:7px;border:1px solid #304258;border-radius:6px;background:#101a2a;color:#e7edf6;font:inherit;font-size:12px;}
 .worktree-manager button {padding:6px 10px;font-size:12px;}
+.terminal-panel {padding:14px;margin:0 0 18px;border:1px solid #304258;border-radius:10px;}
+.terminal-panel summary {cursor:pointer;font-size:14px;font-weight:600;}
+.terminal-actions {display:flex;gap:8px;flex-wrap:wrap;margin:10px 0;}
+.terminal-actions button {font-size:12px;padding:7px 10px;}
+.terminal-screen {height:360px;overflow:auto;padding:8px;background:#0b1422;border-radius:7px;}

@@ -1,0 +1,23 @@
+[ERR_PNPM_ADDING_TO_ROOT] Running this command will add the dependency to the workspace root, which might not be what you want - if you really meant it, make it explicit by running this command again with the -w flag (or --workspace-root). If you don't want to see this warning anymore, you may set the ignore-workspace-root-check setting to true.
+✓ Lockfile passes supply-chain policies (verified 2h ago)
+Progress: resolved 1, reused 0, downloaded 0, added 0
+Progress: resolved 10, reused 0, downloaded 0, added 0
+Progress: resolved 12, reused 0, downloaded 0, added 0
+Progress: resolved 50, reused 0, downloaded 0, added 0
+Progress: resolved 92, reused 0, downloaded 0, added 0, done
+
+dependencies:
++ @xterm/xterm 6.0.0
++ node-pty 1.1.0
+
+Packages: +3
++++
+.../node-pty@1.1.0/node_modules/node-pty install$ node scripts/prebuild.js || node-gyp rebuild
+.../node-pty@1.1.0/node_modules/node-pty install: > Checking prebuilds...
+.../node-pty@1.1.0/node_modules/node-pty install: Done
+.../node-pty@1.1.0/node_modules/node-pty postinstall$ node scripts/post-install.js
+.../node-pty@1.1.0/node_modules/node-pty postinstall: > Cleaning release folder...
+.../node-pty@1.1.0/node_modules/node-pty postinstall: > Moving conpty.dll...
+.../node-pty@1.1.0/node_modules/node-pty postinstall:   SKIPPED (not Windows)
+.../node-pty@1.1.0/node_modules/node-pty postinstall: Done
+Done in 9.6s using pnpm v11.25.0

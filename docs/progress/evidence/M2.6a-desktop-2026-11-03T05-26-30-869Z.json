@@ -1,0 +1,10 @@
+{
+  "status": "blocked",
+  "code": "TERMINAL_DESKTOP_TIMEOUT",
+  "observedAt": "2026-11-03T05:26:30.869Z",
+  "display": "native_desktop",
+  "exitCode": 1,
+  "signal": null,
+  "timedOut": false,
+  "platform": "darwin-arm64"
+}

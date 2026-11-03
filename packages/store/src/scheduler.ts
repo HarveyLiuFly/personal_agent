@@ -158,7 +158,7 @@ export class SchedulerLedger {
  dispatchWait(projectId:string,triggerId:string,code:string){
   if(!/^[A-Z0-9_]{1,100}$/.test(code))return this.fail('INVALID_DIAGNOSTIC');const row=this.dispatchRow(projectId,triggerId);
   if(this.one("SELECT event_id FROM task_events WHERE task_id=? AND event_type='scheduled_run_claimed' AND json_extract(payload_json,'$.triggerId')=?",row.task_id!,triggerId))return;
-  const temporary=['RUNTIME_BUSY','TOKEN_BUDGET_EXHAUSTED','COST_ESTIMATE_UNAVAILABLE','WORKSPACE_BUSY'].includes(code),reason=(temporary?'AUTO_WAIT_':'AUTO_SKIPPED_')+code;
+  const temporary=['RUNTIME_BUSY','TOKEN_BUDGET_EXHAUSTED','COST_ESTIMATE_UNAVAILABLE','WORKSPACE_BUSY','WORKSPACE_TERMINAL_ACTIVE'].includes(code),reason=(temporary?'AUTO_WAIT_':'AUTO_SKIPPED_')+code;
   if(row.reason_code===reason)return;this.exec('UPDATE trigger_deliveries SET reason_code=? WHERE delivery_id=?',reason,row.delivery_id!);this.host.event(String(row.task_id),temporary?'schedule_dispatch_waiting':'schedule_dispatch_stopped',{scheduleId:row.schedule_id,triggerId,code});this.completeIdle(String(row.schedule_id));
  }
 }

@@ -1,0 +1,45 @@
+$ tsc --noEmit
+✔ queued terminal paste never crosses a session change, including its unsent remaining chunks (2.979583ms)
+✔ a late failure from an old session does not block the new session; a current unknown never retries (1.92425ms)
+✔ terminal queue rejects oversized paste, preserves Unicode chunks and saved sequence high water (0.626833ms)
+✔ disposing the view drops unsent keyboard events without forwarding them after recreation (0.10675ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 79.892292
+$ node scripts/build.mjs
+vite v8.3.5 building client environment for production...
+transforming...
+✓ 28 modules transformed.
+rendering chunks...
+computing gzip size...
+build/desktop/renderer/index.html                            0.62 kB │ gzip:  0.37 kB
+build/desktop/renderer/assets/terminal-panel-BrP-ENHg.css    3.93 kB │ gzip:  1.01 kB
+build/desktop/renderer/assets/index-CEjvMYPI.css            11.70 kB │ gzip:  3.09 kB
+build/desktop/renderer/assets/index-Dm8aHC8r.js            274.87 kB │ gzip: 85.19 kB
+build/desktop/renderer/assets/terminal-panel-CH9x54xq.js   337.35 kB │ gzip: 85.63 kB
+
+✓ built in 107ms
+$ python3 docs/design/contracts/validate_contracts.py
+PASS single_schema_initialization_and_foreign_keys
+PASS sql_typescript_status_consistency
+PASS task_transition_guards_shape
+PASS single_active_run_and_nonreused_fence
+PASS orphan_and_cross_dot_references_rejected
+PASS stale_fence_cas_rejected
+PASS stop_requested_task_blocks_new_claims
+PASS task_event_sequence_and_run_scope
+PASS active_thread_and_workspace_writer_uniqueness
+PASS intent_ordering_and_idempotency
+PASS per_operation_identity_and_dependency
+PASS immutable_source_and_per_task_delivery
+PASS occurrence_dedup_and_schedule_version_guard
+PASS single_use_hash_bound_action_receipt
+PASS budget_admission_and_actual_overrun_accounting
+PASS privacy_tombstone_dependency_lookup
+PASS stage_document_navigation_requirements_and_protocol_evidence
+17 design checks passed. Application E2E and runtime security are not verified.

@@ -40,7 +40,7 @@ export function ExecutionPanel({ project, disabled = false, mode = 'readOnly', c
       setContinuation(undefined);
       setReview(undefined); setStopping(false); setSelected(run.runId); selectedRef.current = run.runId;setView({...run,snapshot:null}); setRequests([]); pendingDraft.current = run.runId;
       setRuns(rows => [run,...rows.filter(row => row.runId !== run.runId)]);
-    } catch (failure) { setError(failure instanceof Error && failure.message === 'RUNTIME_BUSY' ? '已有执行尚未结束或待核对，请先处理当前任务。' : failure instanceof Error && failure.message==='TOKEN_BUDGET_EXHAUSTED'?'本机 Token 预算不足，未确认用量的预留仍保留。草稿与提交标识已保留。':'提交未确认，草稿和提交标识已保留。请先检查执行记录。'); }
+    } catch (failure) { setError(failure instanceof Error && failure.message==='WORKSPACE_TERMINAL_ACTIVE'?'请先关闭本项目的用户终端，再启动模型任务。':failure instanceof Error && failure.message === 'RUNTIME_BUSY' ? '已有执行尚未结束或待核对，请先处理当前任务。' : failure instanceof Error && failure.message==='TOKEN_BUDGET_EXHAUSTED'?'本机 Token 预算不足，未确认用量的预留仍保留。草稿与提交标识已保留。':'提交未确认，草稿和提交标识已保留。请先检查执行记录。'); }
     finally { setSending(false); }
   }
   async function verify() {

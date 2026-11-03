@@ -1,0 +1,121 @@
+{
+  "checkpoint": "M2.6a",
+  "status": "passed_user_terminal_scope",
+  "baselineCommit": "90b788ccfffa7bc20ff0658467ce536cf858e36c",
+  "schemaRevision": 6,
+  "stageGate": "open",
+  "permissionManagement": "deferred_to_M5",
+  "checks": {
+    "discovered": 255,
+    "executed": 255,
+    "passed": 255,
+    "failed": 0,
+    "skipped": 0,
+    "designContracts": 17,
+    "stableGeneratedTypes": 747,
+    "electronCoreCases": 11,
+    "finalQueueCases": 4,
+    "finalTypecheck": "passed",
+    "finalBuild": "passed"
+  },
+  "newModelTurns": 0,
+  "substitutions": {
+    "historyMetadata": "synthetic_fixture_in_desktop_only",
+    "inputQueueDelayedAckTests": "controlled_transport_not_native",
+    "receiptWindowTest": "synthetic_PID_metadata_no_processes",
+    "scheduleIntegration": "real_PTY_SQLite_with_one_synthetic_model_turn_0_real_inference"
+  },
+  "desktop": {
+    "status": "passed",
+    "observedAt": "2026-11-03T05:54:22.943Z",
+    "apiWhitelistCount": 42,
+    "realRendererSigkill": true,
+    "windowlessShellAndReopen": "same_session_no_input_replay",
+    "oversizedSyntheticPaste": "refused_without_persistent_input_sequence",
+    "explicitQuitWithActivePtyAndJob": true,
+    "actualPidChecks": "host_supervisor_shell_and_owned_sleep_job",
+    "m0NativeMetadataRegression": "passed_0_inference"
+  },
+  "faults": {
+    "newActualHostSigkill": [
+      "terminal_prepared_before_spawn",
+      "terminal_running_with_owned_sleep_job"
+    ],
+    "newFaultLocations": 2,
+    "cumulativeLedgerFaultLocations": 13,
+    "oldOwnedProcessesActuallyStopped": true,
+    "automaticShellOrInputRestarts": 0,
+    "notTested": "fork_before_child_PID_receipt_loss_remains_conservative_unknown"
+  },
+  "privacy": {
+    "terminalInputPlaintextInSqlite": false,
+    "terminalOutputInSqliteOrProductLogs": false,
+    "fingerprint": "HMAC_SHA256_session_and_sequence",
+    "key": "RAM_only_per_session_not_backed_up",
+    "acceptedReceiptWindow": 1000,
+    "expiredSequence": "rejected_not_resent",
+    "newOwnerOldInput": "rejected_no_key"
+  },
+  "limits": {
+    "activeOrUnknownSessions": 4,
+    "outputBytesPerSession": 1048576,
+    "outputChunksPerSession": 4096,
+    "readBytesPerPage": 131072,
+    "pendingGuiUtf16Units": 65536,
+    "pendingGuiEvents": 256,
+    "ipcInputBytes": 16384,
+    "scrollbackRows": 1000
+  },
+  "migration": {
+    "supportedFrom": [
+      2,
+      3,
+      4,
+      5
+    ],
+    "backup": "VACUUM_INTO_0600_quick_and_fk_check",
+    "revision5ActualWalDataAndRollback": "verified"
+  },
+  "cleanup": {
+    "ownedDesktopGitFixturesArchivedAndRemoved": 6,
+    "deferredM5OwnedProbeFixturesArchivedAndRemoved": 5,
+    "authFilesCopied": false,
+    "rawArchivesInGit": false,
+    "developmentRepositoryWorktrees": 1
+  },
+  "remaining": [
+    "worktree_recovery_directory_management_and_interrupted_metadata_repair",
+    "workspace_editing_and_real_agent_tool_status",
+    "resource_backup_restore",
+    "managed_worktree_native_model_task_integration",
+    "full_M2_gate"
+  ],
+  "sourceAndBuildHashes": {
+    "package.json": "fd6ebffbd7ebab46e922991778e27d8af2549db2843e860cfe1b746f7e7e2a97",
+    "pnpm-lock.yaml": "407581ee0a22e3738c2dd62ef37b686505790162e79fa1883c8c821496f167ac",
+    "pnpm-workspace.yaml": "428e7e48daf775cae8ae42a702c5b9d0ebd50c169f14891058cd57d3b84893a9",
+    "scripts/setup-terminal.mjs": "f4b15385f3f93efb35192f163295b77137b9fe90149ff984b105c288586e76ee",
+    "packages/store/src/ledger.ts": "3e40b8766b7098c500e1a4883a1a8925cbb493777ce7623945e5381205af19b3",
+    "packages/store/src/terminal.ts": "89e0d1664b365fcf1766c48b3710a89bccb8fe6cbe69efa4f01aff4a65682d0c",
+    "packages/store/src/scheduler.ts": "bb6d1f08c5932feab9628ea4c5049f1f944375f1f83b617b683a05e695f1284c",
+    "packages/contracts/src/terminal.ts": "962ef755dc870afeddc808f5c9cc74d806160d4957acb484150921ddcf8536e2",
+    "packages/workspace/src/terminal.ts": "5b331cff3b7cd60c5d05629c4fc9250fb4297506b100f0df82936067cbeae630",
+    "packages/workspace/src/terminal-worker.mjs": "f57099eee204473180d50789ffb8f9964b36729bfe31d1323a34c355aeefb319",
+    "packages/workspace/src/terminal-binding.ts": "95224c8defcf59ddeb5d4be68e5e33381c8c202ee806b3989dc5c8cc62f5a0ae",
+    "apps/desktop/src/main.ts": "2ce48e37a4a4f65c645c6b08a0d8266bf3635bb317af6a2a79124f3e3fdde29c",
+    "apps/desktop/src/terminal-probe.ts": "854750e249c6561ff120b80f820a08fe489b740b2c22628eceab05cf1fb59523",
+    "apps/desktop/src/bridge.ts": "58dd4313f34d23e19136f836cbab30233d040730ab6f6263d8887cfd587ae288",
+    "apps/desktop/src/preload.ts": "485aae0c66526ee9be51c35446616e943deb6c5ee82a2a68ac3bee4035411bc9",
+    "apps/desktop/renderer/terminal-panel.tsx": "13a5ec2a9a5e07c286ea5fecb257e4fd374765b6f6ab8b220c12024312bb08ff",
+    "apps/desktop/renderer/terminal-input.ts": "46ffce40d27f3c0f8dc4c87c4557100502d4ba3c4356edeef25073497eaa26cf",
+    "apps/desktop/renderer/workspace-panel.tsx": "4b4748050a143c2bd6119f45a1ba2699d06dddd6475451d4d98d1fb0fedaaafb",
+    "tests/terminal.test.ts": "fa0ae4f45a726714b11b60f0e173dd3ed20705e4092fe5531bc8d5c13690d4c8",
+    "tests/terminal-input.test.ts": "5e04c37a05079e3be914371a572e4e7d32ea93d685d010fbc13ea2574736aa63",
+    "tests/fixtures/terminal-crash-worker.ts": "c7dce471d919358ec4eb793241163dcf83b5fadbd87fd79d4f92faafb3582012",
+    "tests/scheduled-execution.test.ts": "559812611d7e4333ac5deef62076404e1c189b1d2341d03d7b0fe178bfcbb5ba",
+    "docs/design/contracts/schema.sql": "6e3b73a15e2631598fb76f071eed0ddd03493585abeef22c303f9a179729ff6b",
+    "build/desktop/main.js": "caeba3ae32f121d7f184205a75d24dd1be586d0a6788707d187f95d4bca97245",
+    "build/desktop/preload.cjs": "13ed498d9f5f5c7c6d0be7363c1be859bec7d5a794473b8065ac99a9be76f5d0",
+    "build/desktop/terminal-worker.mjs": "f57099eee204473180d50789ffb8f9964b36729bfe31d1323a34c355aeefb319"
+  }
+}

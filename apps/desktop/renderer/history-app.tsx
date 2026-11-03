@@ -23,6 +23,7 @@ export function HistoryApp({ children }: { children: React.ReactNode }) {
   const [mode, setMode] = useState<'readOnly' | 'workspaceWrite'>('readOnly');
   const [canCode, setCanCode] = useState(false);
   const [canBrowseWorkspace,setCanBrowseWorkspace]=useState(false),[workspaceMode,setWorkspaceMode]=useState(false);
+  const [canUseTerminal,setCanUseTerminal]=useState(false);
   const [canSubmit, setCanSubmit] = useState(false);
   const [backgroundEnabled,setBackgroundEnabled]=useState(false);
   const [canManageTasks,setCanManageTasks]=useState(false),[requestedRun,setRequestedRun]=useState<{projectId:string;runId:string}>();
@@ -47,7 +48,7 @@ export function HistoryApp({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let stopped = false;
     void value(window.personalAgent.workspaceState()).then(state => {
-      if (stopped) return; setCanSubmit(state.canSubmit);setBackgroundEnabled(state.backgroundEnabled);setCanManageTasks(state.canManageTasks); setCanCode(state.canCode);setCanBrowseWorkspace(state.canBrowseWorkspace); setMode(state.mode); setProjects(state.projects);
+      if (stopped) return; setCanUseTerminal(state.canUseTerminal);setCanSubmit(state.canSubmit);setBackgroundEnabled(state.backgroundEnabled);setCanManageTasks(state.canManageTasks); setCanCode(state.canCode);setCanBrowseWorkspace(state.canBrowseWorkspace); setMode(state.mode); setProjects(state.projects);
       if (state.projects[0]) { setProject(state.projects[0]); }
     }).catch(() => { if (!stopped) setError('HOST_DISCONNECTED'); });
     return () => { stopped = true; };
@@ -103,7 +104,7 @@ export function HistoryApp({ children }: { children: React.ReactNode }) {
       <header className="toolbar"><div><span className="eyebrow">PERSONAL WORKSPACE</span><h1>{project?.name ?? '我的工作区'}</h1></div>{children}</header>
       <div className="connection-status">已有会话保留在本机，选择项目后即可浏览。</div>
       {error && <div role="alert" className="notice error">{errorText(error)}</div>}
-      {workspaceMode&&project?<WorkspacePanel key={project.id} project={project} onBusyChange={setBusy} onProjectsChanged={setProjects} onSelected={p=>{setProject(p);setThreads(undefined);resetThread();setExecutionMode(true);setWorkspaceMode(true);}}/>:executionMode && project && canSubmit ? <>{canManageTasks&&<TaskManager key={'tasks:'+project.id} project={project} canCode={canCode} onBusyChange={setBusy} onStarted={runId=>setRequestedRun({projectId:project.id,runId})}/>}<ExecutionPanel key={project.id} project={project} disabled={busy} mode={mode} canCode={canCode} requestedRunId={requestedRun?.projectId===project.id?requestedRun.runId:undefined}/></> : !thread ? <section className="welcome"><span className="welcome-mark">⌘</span><h2>{project ? '继续查看你的工作' : '从一个项目开始'}</h2>
+      {workspaceMode&&project?<WorkspacePanel key={project.id} project={project} canUseTerminal={canUseTerminal} onBusyChange={setBusy} onProjectsChanged={setProjects} onSelected={p=>{setProject(p);setThreads(undefined);resetThread();setExecutionMode(true);setWorkspaceMode(true);}}/>:executionMode && project && canSubmit ? <>{canManageTasks&&<TaskManager key={'tasks:'+project.id} project={project} canCode={canCode} onBusyChange={setBusy} onStarted={runId=>setRequestedRun({projectId:project.id,runId})}/>}<ExecutionPanel key={project.id} project={project} disabled={busy} mode={mode} canCode={canCode} requestedRunId={requestedRun?.projectId===project.id?requestedRun.runId:undefined}/></> : !thread ? <section className="welcome"><span className="welcome-mark">⌘</span><h2>{project ? '继续查看你的工作' : '从一个项目开始'}</h2>
         <p>{project ? '从左侧选择一个会话，查看消息、命令和文件变更记录。' : '选择本机的项目目录，打开属于这个项目的会话历史。'}</p>
         <div className="welcome-note">当前为只读浏览，发送新任务暂未开放。</div>
       </section> : <section className="history-panel">

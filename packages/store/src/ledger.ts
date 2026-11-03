@@ -11,6 +11,8 @@ import type {CodeTaskSpec} from '../../contracts/src/views.ts';
 import type {TaskSummary,TaskCommand,OperationReceipt,ActivityPage,TaskPlanCommand,TaskPlanView,TaskPlanNode,TaskPlanOperation} from '../../contracts/src/tasks.ts';
 import {BudgetLedger} from './budget.ts';
 import type {BudgetPolicy} from './budget.ts';
+import {TerminalLedger} from './terminal.ts';
+import type {OpenTerminal,TerminalHostSession,TerminalInputReceipt,TerminalSession,WriteTerminal} from '../../contracts/src/terminal.ts';
 import {SchedulerLedger,scheduledRunKey} from './scheduler.ts';
 import type {ScheduleCommand} from '../../contracts/src/schedules.ts';
 import {ScheduleTimeError,scheduleTime} from '../../runtime/src/calendar.ts';
@@ -47,6 +49,7 @@ export class ExecutionLedger {
   private options:LedgerOptions;
   private budget:BudgetLedger;
   private scheduler:SchedulerLedger;
+  private terminals:TerminalLedger;
   readonly profileId = 'local-profile';
   readonly dotId = 'local-dot';
   constructor(path: string, schemaSql: string, options:LedgerOptions={}) {
@@ -62,7 +65,7 @@ export class ExecutionLedger {
       if (tables.length === 0) this.#db.exec(schemaSql);
       else if (!tables.some(row => row.name === 'schema_metadata')) fail('LEDGER_SCHEMA_UNSUPPORTED');
       const revision = this.one('SELECT schema_revision FROM schema_metadata WHERE singleton=1')?.schema_revision;
-      if (revision === 2 || revision === 3 || revision === 4) {
+      if (revision === 2 || revision === 3 || revision === 4 || revision === 5) {
         const ddl=(name:string)=>schemaSql.match(new RegExp('CREATE TABLE '+name+' \\([\\s\\S]*?\\n\\);'))?.[0]??fail('LEDGER_MIGRATION_UNAVAILABLE');
         if (path !== ':memory:') {
           const backupPath = `${path}.revision${revision}-${randomUUID()}.backup`;
@@ -75,11 +78,13 @@ export class ExecutionLedger {
           if(revision===2)this.#db.exec(ddl('runtime_requests'));
           if(revision<=3)this.#db.exec('ALTER TABLE budget_reservations ADD COLUMN actual_units INTEGER CHECK (actual_units IS NULL OR actual_units>=0); ALTER TABLE budget_reservations ADD COLUMN settlement_hash TEXT;');
           if(revision<=3)for(const name of ['budget_policies','run_usage','thread_usage'])this.#db.exec(ddl(name));
-          for(const name of ['worktree_operations','project_operation_leases','managed_worktrees'])this.#db.exec(ddl(name));
-          this.exec('UPDATE schema_metadata SET schema_revision=5 WHERE singleton=1');
+          if(revision<=4)for(const name of ['worktree_operations','project_operation_leases','managed_worktrees'])this.#db.exec(ddl(name));
+          for(const name of ['terminal_sessions','workspace_terminal_leases','terminal_inputs'])this.#db.exec(ddl(name));
+          this.exec('UPDATE schema_metadata SET schema_revision=6 WHERE singleton=1');
         });
-      } else if (revision !== 5) fail('LEDGER_SCHEMA_UNSUPPORTED');
+      } else if (revision !== 6) fail('LEDGER_SCHEMA_UNSUPPORTED');
       this.budget=new BudgetLedger(this.#db,this.dotId,fail,options.budgetPolicy);
+      this.terminals=new TerminalLedger(this.#db,this.dotId,fail,{owner:()=>this.owner(),tx:work=>this.tx(work),context:id=>this.worktreeContext(id),available:id=>this.projectOperationAvailable(id),open:(key,kind,input)=>this.openOperation(key,kind,input,null,null),epoch:()=>this.#epoch});
       this.scheduler=new SchedulerLedger(this.#db,this.dotId,fail,{task:(projectId,taskId)=>{
         this.workspace(projectId);const task=this.taskRow(projectId,taskId),authority=this.taskAuthority(task),constraints=JSON.parse(String(task.constraints_json));
         if(typeof constraints.inputHash!=='string'||typeof constraints.text!=='string')return fail('TASK_INPUT_UNAVAILABLE');
@@ -115,6 +120,7 @@ export class ExecutionLedger {
     if(target==='paused'||target==='cancelled'||target==='completed')this.scheduler.stopTask(taskId,target==='paused'?'paused':'cancelled');
   }
   private projectOperationAvailable(workspaceId:string):void {
+    if(this.one('SELECT l.session_id FROM workspace_terminal_leases l JOIN workspaces w ON w.workspace_id=l.workspace_id JOIN workspaces scope ON scope.project_id=w.project_id WHERE scope.workspace_id=? AND scope.dot_id=?',workspaceId,this.dotId))return fail('WORKSPACE_TERMINAL_ACTIVE');
     if(this.one('SELECT l.operation_id FROM project_operation_leases l JOIN workspaces w USING(project_id) WHERE w.workspace_id=? AND w.dot_id=?',workspaceId,this.dotId))return fail('WORKSPACE_BUSY');
   }
   startOwner(instanceId: string, exclusiveLockHeld: true): number {
@@ -127,6 +133,7 @@ export class ExecutionLedger {
       this.exec("INSERT INTO runtime_owners VALUES (?,?,?,'main','ready',?) ON CONFLICT(profile_id) DO UPDATE SET runtime_epoch=excluded.runtime_epoch,instance_id=excluded.instance_id,state='ready',updated_at_ms=excluded.updated_at_ms", this.profileId, next, instanceId, Date.now());
       this.exec("UPDATE runtime_requests SET state=CASE WHEN state='responding' THEN 'outcome_unknown' ELSE 'cancelled' END WHERE state IN ('pending','responding')");
       this.exec("UPDATE outbox_events SET lease_until_ms=0 WHERE state='claimed' AND aggregate_ref IN (SELECT task_id FROM tasks WHERE dot_id=?)",this.dotId);
+      this.terminals.recover();
       for(const op of this.all("SELECT * FROM worktree_operations WHERE dot_id=? AND state IN ('prepared','dispatching')",this.dotId)){
         const state=op.state==='prepared'?'failed':'outcome_unknown';this.exec('UPDATE worktree_operations SET state=?,error_code=? WHERE operation_id=?',state,op.state==='prepared'?'OWNER_STOPPED_BEFORE_SEND':'OWNER_RECOVERY_UNKNOWN',op.operation_id!);this.exec('UPDATE operations SET state=? WHERE operation_id=?',state,op.operation_id!);
         if(state==='failed')this.exec('DELETE FROM project_operation_leases WHERE operation_id=?',op.operation_id!);
@@ -198,6 +205,17 @@ export class ExecutionLedger {
       return { id: workspaceId, name: managed?this.managedWorktree(workspaceId).name:basename(cwd), directory: cwd };
     } catch (error) { if (error instanceof LedgerError) throw error; return fail('PROJECT_UNAVAILABLE'); }
   }
+  terminalOpen(input:OpenTerminal):{session:TerminalHostSession;created:boolean}{return this.terminals.open(input);}
+  terminalHost(projectId:string,sessionId:string):TerminalHostSession{return this.terminals.host(projectId,sessionId);}
+  terminalLatest(projectId:string):TerminalSession|null{return this.terminals.latest(projectId);}
+  terminalDispatch(projectId:string,sessionId:string,pid:number):void{this.terminals.dispatch(projectId,sessionId,pid);}
+  terminalStarted(projectId:string,sessionId:string,pid:number):void{this.terminals.started(projectId,sessionId,pid);}
+  terminalInput(input:WriteTerminal):{receipt:TerminalInputReceipt;created:boolean}{return this.terminals.input(input);}
+  terminalInputAccepted(projectId:string,sessionId:string,sequence:number):void{this.terminals.acceptInput(projectId,sessionId,sequence);}
+  terminalResize(projectId:string,sessionId:string,cols:number,rows:number):void{this.terminals.resize(projectId,sessionId,cols,rows);}
+  terminalCloseRequest(projectId:string,sessionId:string,key:string):boolean{return this.terminals.requestClose(projectId,sessionId,key);}
+  terminalFinished(projectId:string,sessionId:string,code:number|null,errorCode?:string,reconciled=false):void{this.terminals.finish(projectId,sessionId,code,errorCode,reconciled);}
+  terminalUnknown(projectId:string,sessionId:string,code:string):void{this.terminals.unknown(projectId,sessionId,code);}
   worktreeContext(workspaceId:string):{projectId:string;root:string;workspace:ProjectView} {
     const workspace=this.workspace(workspaceId),row=this.one('SELECT p.* FROM projects p JOIN workspaces w USING(project_id) WHERE w.workspace_id=? AND w.dot_id=?',workspaceId,this.dotId)!;
     return{projectId:String(row.project_id),root:String(row.canonical_git_root),workspace};

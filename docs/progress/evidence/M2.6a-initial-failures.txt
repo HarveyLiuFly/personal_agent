@@ -1,0 +1,82 @@
+Original native helper launch: official tarball mode 0644 caused posix_spawnp failed; verified original bytes and setup corrected only executable mode.
+
+✔ real user PTY has tty stdin/stdout, pinned cwd, resize, input dedupe and actual process shutdown (230.542916ms)
+✖ terminal text stays out of SQLite, output is bounded and stale cursors reset (12079.160625ms)
+✔ raw command, environment, foreign workspace and invalid dimensions are refused (273.99625ms)
+✖ lost input acknowledgement does not resend, and process termination preserves an unknown input receipt (275.095958ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 2
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 12998.694042
+
+✖ failing tests:
+
+test at tests/terminal.test.ts:19:1
+✖ terminal text stays out of SQLite, output is bounded and stale cursors reset (12079.160625ms)
+  Error: TERMINAL_WAIT_TIMEOUT
+      at wait (file://<REPOSITORY>/tests/terminal.test.ts:12:132)
+      at async TestContext.<anonymous> (file://<REPOSITORY>/tests/terminal.test.ts:20:284)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7)
+
+test at tests/terminal.test.ts:25:1
+✖ lost input acknowledgement does not resend, and process termination preserves an unknown input receipt (275.095958ms)
+  Error: ENOENT: no such file or directory, open '<TEMP_ROOT>/personal-agent-terminal-KXI6t4/workspace/once.txt'
+      at readFileSync (node:fs:484:20)
+      at TestContext.<anonymous> (file://<REPOSITORY>/tests/terminal.test.ts:26:333)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    errno: -2,
+    code: 'ENOENT',
+    syscall: 'open',
+    path: '<TEMP_ROOT>/personal-agent-terminal-KXI6t4/workspace/once.txt'
+  }
+
+Cursor correction still required a deliberate stale cursor after consuming output:
+✔ real user PTY has tty stdin/stdout, pinned cwd, resize, input dedupe and actual process shutdown (116.8925ms)
+✖ terminal text stays out of SQLite, output is bounded and stale cursors reset (12069.104083ms)
+✔ raw command, environment, foreign workspace and invalid dimensions are refused (274.363541ms)
+✔ lost input acknowledgement does not resend, and process termination preserves an unknown input receipt (219.892125ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 3
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 12825.342834
+
+✖ failing tests:
+
+test at tests/terminal.test.ts:19:1
+✖ terminal text stays out of SQLite, output is bounded and stale cursors reset (12069.104083ms)
+  Error: TERMINAL_WAIT_TIMEOUT
+      at wait (file://<REPOSITORY>/tests/terminal.test.ts:12:132)
+      at async TestContext.<anonymous> (file://<REPOSITORY>/tests/terminal.test.ts:20:319)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7)
+
+Initial fingerprint fixture used immediate Ctrl-C, which can terminate a starting Shell:
+# Subtest: input fingerprints use an ephemeral key and sequence, and a new Owner cannot replay old terminal text
+not ok 209 - input fingerprints use an ephemeral key and sequence, and a new Owner cannot replay old terminal text
+  ---
+  duration_ms: 76.036166
+  type: 'test'
+  location: '<REPOSITORY>/tests/terminal.test.ts:47:1'
+  failureType: 'testCodeFailure'
+  error: 'TERMINAL_INPUT_UNKNOWN'
+  code: 'TERMINAL_INPUT_UNKNOWN'
+  stack: |-
+    ChildProcess.<anonymous> (file://<REPOSITORY>/packages/workspace/src/terminal.ts:37:97)
+    Object.onceWrapper (node:events:631:26)
+    ChildProcess.emit (node:events:509:28)
+    maybeClose (node:internal/child_process:1141:16)
+    Socket.<anonymous> (node:internal/child_process:498:11)
+    Socket.emit (node:events:509:28)
+    Pipe.<anonymous> (node:net:355:12)
+  ...

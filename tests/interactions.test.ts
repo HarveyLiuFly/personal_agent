@@ -87,6 +87,6 @@ test('revision 2 migration creates a verified private snapshot including WAL dat
  const backup=new DatabaseSync(join(root,backups[0]!),{readOnly:true});assert.equal(backup.prepare('SELECT schema_revision FROM schema_metadata').get()!.schema_revision,2);
  assert.equal(backup.prepare('SELECT display_name FROM profiles').get()!.display_name,'retained-wal-record');backup.close();
  assert.equal(statSync(join(root,backups[0]!)).mode&0o777,0o600);
- const current=new DatabaseSync(file,{readOnly:true});assert.equal(current.prepare('SELECT schema_revision FROM schema_metadata').get()!.schema_revision,5);
+ const current=new DatabaseSync(file,{readOnly:true});assert.equal(current.prepare('SELECT schema_revision FROM schema_metadata').get()!.schema_revision,6);
  assert.equal(current.prepare('SELECT display_name FROM profiles').get()!.display_name,'retained-wal-record');assert.ok(current.prepare("SELECT name FROM sqlite_master WHERE name='runtime_requests'").get());current.close();
 });

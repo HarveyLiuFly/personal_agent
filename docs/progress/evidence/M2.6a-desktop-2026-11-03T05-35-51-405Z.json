@@ -1,0 +1,31 @@
+{
+  "observedAt": "2026-11-03T05:35:51.405Z",
+  "status": "passed",
+  "kind": "real_electron_nodepty_xterm_renderer_kill_and_reopen",
+  "modelTurns": 0,
+  "historyMetadata": "synthetic_fixture",
+  "result": {
+    "realTty": true,
+    "realXtermKeyboardInput": true,
+    "resized": true,
+    "extraRejected": true,
+    "foreignRejected": true,
+    "realRendererSigkill": true,
+    "windowless": true,
+    "shellKeptWhileWindowless": true,
+    "sameSession": true,
+    "replayedOutputVisible": true,
+    "noDuplicateInput": true,
+    "realProcessesStopped": true,
+    "noModelRuns": true,
+    "apiCount": true,
+    "sandboxed": true,
+    "isolated": true,
+    "noRequire": true
+  },
+  "display": "native_desktop",
+  "exitCode": 0,
+  "signal": null,
+  "timedOut": false,
+  "platform": "darwin-arm64"
+}

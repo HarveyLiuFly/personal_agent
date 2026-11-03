@@ -1,0 +1,21 @@
+[1103/134738.581877:ERROR:electron/shell/common/mac/codesign_util.cc:79] task_name_for_pid: (os/kern) failure (5)
+[1103/134738.650071:ERROR:electron/shell/common/mac/codesign_util.cc:79] task_name_for_pid: (os/kern) failure (5)
+✔ real user PTY has tty stdin/stdout, pinned cwd, resize, input dedupe and actual process shutdown (121.05025ms)
+✔ terminal text stays out of SQLite, output is bounded and stale cursors reset (345.440125ms)
+✔ raw command, environment, foreign workspace and invalid dimensions are refused (65.407167ms)
+✔ lost input acknowledgement does not resend, and process termination preserves an unknown input receipt (218.692375ms)
+✔ terminal admission is blocked by existing model execution; unsent recovery never spawns a shell (17.381625ms)
+✔ revision 5 migration preserves actual WAL data and worktree tables, failed DDL rolls back terminal tables (35.953833ms)
+✔ actual terminal Host SIGKILL at prepared never restarts a Shell or input (139.510834ms)
+✔ actual terminal Host SIGKILL at running never restarts a Shell or input (224.151792ms)
+✔ input fingerprints use an ephemeral key and sequence, and a new Owner cannot replay old terminal text (63.902667ms)
+✔ Store input receipt window expires old sequences without resending; metadata fixture starts no processes (413.344209ms)
+✔ replaying an old open key returns its original session without replacing or starting the newer live Shell (327.977666ms)
+ℹ tests 11
+ℹ suites 0
+ℹ pass 11
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2263.38575

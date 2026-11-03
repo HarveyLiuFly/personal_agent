@@ -1,3 +1,4 @@
+import type {OpenTerminal,TerminalView,TerminalInputReceipt,WriteTerminal} from '../../../packages/contracts/src/terminal.ts';
 import type {WorktreeCommand,WorktreePage,WorktreeInspection} from '../../../packages/contracts/src/worktrees.ts';
 import type { HostResult, ProjectView, ThreadSummary, TurnView, ItemView, Page, ProjectQuery, ThreadQuery, ItemQuery } from '../../../packages/contracts/src/views.ts';
 import type { ContinueMessage, InteractionView, ReplyInteraction, VerificationView, RunQuery, RunSummary, RunView, SubmitMessage } from '../../../packages/contracts/src/views.ts';
@@ -19,7 +20,7 @@ export interface DesktopApi {
   listThreads(query: ProjectQuery): Promise<HostResult<Page<ThreadSummary>>>;
   listTurns(query: ThreadQuery): Promise<HostResult<Page<TurnView>>>;
   listItems(query: ItemQuery): Promise<HostResult<Page<ItemView>>>;
-  workspaceState(): Promise<HostResult<{ projects: ProjectView[]; canSubmit: boolean; canCode: boolean; canBrowseWorkspace:boolean;canManageTasks:boolean;backgroundEnabled:boolean; mode: 'readOnly' | 'workspaceWrite' }>>;
+  workspaceState(): Promise<HostResult<{ projects: ProjectView[]; canSubmit: boolean; canCode: boolean; canBrowseWorkspace:boolean;canManageTasks:boolean;backgroundEnabled:boolean;canUseTerminal:boolean; mode: 'readOnly' | 'workspaceWrite' }>>;
   listTasks(query:{projectId:string}):Promise<HostResult<TaskSummary[]>>;
   applyTaskCommand(command:TaskCommand):Promise<HostResult<OperationReceipt>>;
   startTask(input:StartTask):Promise<HostResult<RunSummary>>;
@@ -31,6 +32,12 @@ export interface DesktopApi {
   applyTaskPlan(input:TaskPlanCommand):Promise<HostResult<TaskPlanView>>;
   listTaskPlans(query:{projectId:string}):Promise<HostResult<TaskPlanView[]>>;
   cancelTaskPlan(query:{projectId:string;planId:string;commandKey:string}):Promise<HostResult<TaskPlanView>>;
+  openTerminal(query:OpenTerminal):Promise<HostResult<TerminalView>>;
+  readTerminal(query:{projectId:string;afterSequence:number}):Promise<HostResult<TerminalView>>;
+  writeTerminal(query:WriteTerminal):Promise<HostResult<TerminalInputReceipt>>;
+  resizeTerminal(query:{projectId:string;sessionId:string;cols:number;rows:number}):Promise<HostResult<TerminalView>>;
+  closeTerminal(query:{projectId:string;sessionId:string;commandKey:string}):Promise<HostResult<TerminalView>>;
+  reconcileTerminal(query:{projectId:string;sessionId:string}):Promise<HostResult<TerminalView>>;
   listWorktrees(query:{projectId:string}):Promise<HostResult<WorktreePage>>;
   applyWorktreeCommand(input:WorktreeCommand):Promise<HostResult<WorktreePage>>;
   inspectWorktree(query:{projectId:string;workspaceId:string}):Promise<HostResult<WorktreeInspection>>;
