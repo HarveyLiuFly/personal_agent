@@ -1,0 +1,76 @@
+TAP version 13
+# Subtest: consistent backup includes real committed WAL and dedupes without replaying or changing live tasks
+ok 1 - consistent backup includes real committed WAL and dedupes without replaying or changing live tasks
+  ---
+  duration_ms: 66.555541
+  type: 'test'
+  ...
+# Subtest: real receipt files and snapshot watermarks are verified; validation never starts an old Owner
+ok 2 - real receipt files and snapshot watermarks are verified; validation never starts an old Owner
+  ---
+  duration_ms: 52.813208
+  type: 'test'
+  ...
+# Subtest: missing or changed receipt refuses publication, preserves incomplete state and refuses same-key retry
+ok 3 - missing or changed receipt refuses publication, preserves incomplete state and refuses same-key retry
+  ---
+  duration_ms: 58.4015
+  type: 'test'
+  ...
+# Subtest: copied file corruption, receipt symlink and reference mismatch fail explicit verification
+ok 4 - copied file corruption, receipt symlink and reference mismatch fail explicit verification
+  ---
+  duration_ms: 194.933875
+  type: 'test'
+  ...
+# Subtest: arbitrary fields, paths and unknown published artifact kinds are refused before any external file read
+ok 5 - arbitrary fields, paths and unknown published artifact kinds are refused before any external file read
+  ---
+  duration_ms: 28.134542
+  type: 'test'
+  ...
+# Subtest: private root identity, source receipt symlink, stale Owner and bounded inventory are enforced
+ok 6 - private root identity, source receipt symlink, stale Owner and bounded inventory are enforced
+  ---
+  duration_ms: 42.312041
+  type: 'test'
+  ...
+# Subtest: publication refuses a newly occupied target and filesystem write failure keeps only an incomplete copy
+ok 7 - publication refuses a newly occupied target and filesystem write failure keeps only an incomplete copy
+  ---
+  duration_ms: 189.519958
+  type: 'test'
+  ...
+# Subtest: unsupported receipt sizes and extra copied files cannot pass integrity checks
+ok 8 - unsupported receipt sizes and extra copied files cannot pass integrity checks
+  ---
+  duration_ms: 57.528792
+  type: 'test'
+  ...
+# Subtest: real FIFO manifest, copied receipt and source receipt are refused without blocking the Host
+ok 9 - real FIFO manifest, copied receipt and source receipt are refused without blocking the Host
+  ---
+  duration_ms: 487.039041
+  type: 'test'
+  ...
+# Subtest: real Host SIGKILL at backup snapshot never publishes partial state or retries the old copy
+ok 10 - real Host SIGKILL at backup snapshot never publishes partial state or retries the old copy
+  ---
+  duration_ms: 116.42175
+  type: 'test'
+  ...
+# Subtest: real Host SIGKILL at backup published never publishes partial state or retries the old copy
+ok 11 - real Host SIGKILL at backup published never publishes partial state or retries the old copy
+  ---
+  duration_ms: 136.455958
+  type: 'test'
+  ...
+1..11
+# tests 11
+# suites 0
+# pass 11
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1552.609125

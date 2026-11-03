@@ -6,6 +6,7 @@ import type {WorkspaceQuery,WorkspaceEntryQuery,WorkspaceDiffQuery,WorkspaceOver
 import type {TaskSummary,TaskCommand,OperationReceipt,StartTask,ActivityPage,TaskPlanCommand,TaskPlanView} from '../../../packages/contracts/src/tasks.ts';
 import type {ResourceBudget} from '../../../packages/contracts/src/budget.ts';
 import type {ScheduleCommand,ScheduleView,OccurrenceView} from '../../../packages/contracts/src/schedules.ts';
+import type {BackupCommand,BackupCommandResult,BackupPage} from '../../../packages/contracts/src/backups.ts';
 export interface ConnectionInfo {
   status: 'connected' | 'error';
   models?: number;
@@ -14,6 +15,8 @@ export interface ConnectionInfo {
 }
 export interface SmokeInfo { status: 'passed' | 'error'; finalText?: string; threadId?: string; turnId?: string; errorCode?: string }
 export interface DesktopApi {
+  listBackups():Promise<HostResult<BackupPage>>;
+  applyBackupCommand(input:BackupCommand):Promise<HostResult<BackupCommandResult>>;
   readonly security: { readonly sandboxed: boolean; readonly isolated: boolean };
   inspect(): Promise<ConnectionInfo>;
   chooseProject(): Promise<HostResult<ProjectView | null>>;

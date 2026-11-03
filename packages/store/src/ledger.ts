@@ -916,6 +916,14 @@ export class ExecutionLedger {
     this.tx(()=>{this.owner();const run=this.runForHost(token.runId);if(run.epoch!==token.epoch||token.epoch!==this.#epoch)return fail('STALE_RUN');this.event(run.taskId,run.runId,'executor_closed',{connectionEpoch,runtimeEpoch:token.epoch});if(run.status==='outcome_unknown')this.budget.unknown(run.runId,true);});
   }
   resourceBudget(){return this.tx(()=>{this.owner();return this.budget.snapshot();});}
+  /** Host-only consistent export, never a Renderer-selected destination. VACUUM includes committed WAL. */
+  snapshotForBackup(destination:string):void {
+    this.owner();
+    const bytes=Number(this.one('PRAGMA page_count')?.page_count)*Number(this.one('PRAGMA page_size')?.page_size);
+    if(!Number.isSafeInteger(bytes)||bytes>128*1024*1024)return fail('BACKUP_DATABASE_TOO_LARGE');
+    try{lstatSync(destination);return fail('BACKUP_TARGET_EXISTS');}catch(error){if((error as NodeJS.ErrnoException).code!=='ENOENT')throw error;}
+    this.#db.prepare('VACUUM INTO ?').run(destination);chmodSync(destination,0o600);
+  }
   recordTokenUsage(token:RunToken,threadId:string,turnId:string,total:unknown):void {
     this.tx(()=>{
       this.owner();const run=this.one('SELECT r.*,t.write_fence FROM task_runs r JOIN tasks t USING(task_id) WHERE r.run_id=? AND r.dot_id=?',token.runId,this.dotId);

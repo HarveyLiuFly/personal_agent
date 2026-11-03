@@ -1,0 +1,182 @@
+{
+  "checkpoint": "M2.7a",
+  "kind": "parallel_existing_function_regression",
+  "status": "passed",
+  "startedAt": "2026-11-03T08:09:56.575880+00:00",
+  "baselineCommit": "dbdadd59c43a0bc06758956607537351027a3f9e",
+  "platform": "darwin-arm64",
+  "nodeVersion": "v24.19.0",
+  "testFiles": [
+    "tests/binary.test.ts",
+    "tests/budget.test.ts",
+    "tests/calendar.test.ts",
+    "tests/execution-interactions.test.ts",
+    "tests/execution.test.ts",
+    "tests/history.test.ts",
+    "tests/interactions.test.ts",
+    "tests/ledger.test.ts",
+    "tests/outbox.test.ts",
+    "tests/projection.test.ts",
+    "tests/reconciliation.test.ts",
+    "tests/rpc.test.ts",
+    "tests/scheduled-execution.test.ts",
+    "tests/scheduler.test.ts",
+    "tests/task-commands.test.ts",
+    "tests/task-plans.test.ts",
+    "tests/task-runtime.test.ts",
+    "tests/terminal-input.test.ts",
+    "tests/terminal.test.ts",
+    "tests/tool-activity.test.ts",
+    "tests/verification-reporter.test.ts",
+    "tests/verification.test.ts",
+    "tests/workspace.test.ts",
+    "tests/worktrees.test.ts"
+  ],
+  "excluded": [
+    "tests/backup.test.ts"
+  ],
+  "sourceHashes": {
+    "tests/binary.test.ts": "a01f4275b5ae8553e18552ecdc1fd41db087d2566f78e3098dd5f54108c7b965",
+    "tests/budget.test.ts": "3790cbc9e2692c05411df1769242f26a998e0470289c4befa17425f77efeb9ac",
+    "tests/calendar.test.ts": "34560c48f7b2b6a6dce17dac6180bcbf5a0992e5e9b29268764f3efb244370e8",
+    "tests/execution-interactions.test.ts": "4f3f58289b041dc9af0c15233f4bfa85c65d26bfef8c50041418557f86551024",
+    "tests/execution.test.ts": "e25f3783285b3731bf935d05bd37702b0645d36da549dd148655b490ca03553b",
+    "tests/history.test.ts": "4f5747448b22c037a1dd0aca450c159f0c556f998d7f70202dd8d13047c405dd",
+    "tests/interactions.test.ts": "2b0450f14b4022fffa14c03c91a41df88689ae18aea9e42ecbdb681070e735b0",
+    "tests/ledger.test.ts": "e469276d232bc68b25e25ec4c465c4de06f6f828e93786e9e3438bef34ad4ddf",
+    "tests/outbox.test.ts": "beb5a6f4465baa45effa74758af776c86250d722bc4a586da9c003c7dada1577",
+    "tests/projection.test.ts": "bc0a0c01718938abce18449381b026f790a8c67355ff3ee299ef2fc2f37fea8f",
+    "tests/reconciliation.test.ts": "26a1f8e117d773f4033fea8813a59f504d81c4c3b95b863bf0ae8695293b00af",
+    "tests/rpc.test.ts": "5b4bb90c7fd11e874d28dc58920631a5f29bd22f0d26d30777d0093e8a0b8a64",
+    "tests/scheduled-execution.test.ts": "559812611d7e4333ac5deef62076404e1c189b1d2341d03d7b0fe178bfcbb5ba",
+    "tests/scheduler.test.ts": "8f7de4d3fab09cf5bac2e6807325457449eaf1f77c8ccbe706721ab10e290029",
+    "tests/task-commands.test.ts": "3f162c25f1fa55036a26b8dbd9c7a90a4419817f418b3035d0c442253729b790",
+    "tests/task-plans.test.ts": "28fb679488528d0db75e787d5789a080e8fd4ab15e4e455424dc6aad21384152",
+    "tests/task-runtime.test.ts": "fad2b81dd622a5514979be5583d933f8ea12141ee2334faca82b1e46fabb45b1",
+    "tests/terminal-input.test.ts": "5e04c37a05079e3be914371a572e4e7d32ea93d685d010fbc13ea2574736aa63",
+    "tests/terminal.test.ts": "fa0ae4f45a726714b11b60f0e173dd3ed20705e4092fe5531bc8d5c13690d4c8",
+    "tests/tool-activity.test.ts": "570b051f8f2a4fb0db06374b0df9eceac11f6fbfaab0094a3f303a820e2bab43",
+    "tests/verification-reporter.test.ts": "fb2e61aded9826db4768bc2c847506361bdac1fd06262bdad3bd114154491114",
+    "tests/verification.test.ts": "c68f161e58ae6da7e2e93553406c5441f069333b9f9554aa7de27ee799712340",
+    "tests/workspace.test.ts": "657cfbd21a85442ac04d84ea06e3bba7979e2eb39c2c5b77ff3cc6b0840950ab",
+    "tests/worktrees.test.ts": "e01a5482cd51ea938c09b7bde08197d99000f91268d7833fe73a1ebbbd95a000"
+  },
+  "boundaries": {
+    "realModelInference": false,
+    "guiStarted": false,
+    "buildRun": false,
+    "globalTypecheckRun": false,
+    "testScope": "existing component/integration suites; actual SQLite/Git/PTY and owned child processes, with explicit synthetic stdio/model/usage and controlled verifier fixtures where defined; does not claim native model task or UI acceptance",
+    "workspaceReadComponentTests": "explicit withoutSandboxForTests; native sandbox GUI not run",
+    "fixedVerificationComponentTests": "controlled testRunner fixture where specified",
+    "schedulingModelBackend": "synthetic stdio and usage fixtures, no real inference",
+    "electronNativeComponents": "real Git/SQLite/PTY and owned processes; synthetic receipt-window/PID metadata where explicitly defined by tests"
+  },
+  "results": [
+    {
+      "command": [
+        "node",
+        "--disable-warning=ExperimentalWarning",
+        "--test",
+        "--test-reporter=tap",
+        "tests/binary.test.ts",
+        "tests/budget.test.ts",
+        "tests/calendar.test.ts",
+        "tests/execution-interactions.test.ts",
+        "tests/execution.test.ts",
+        "tests/history.test.ts",
+        "tests/interactions.test.ts",
+        "tests/ledger.test.ts",
+        "tests/outbox.test.ts",
+        "tests/projection.test.ts",
+        "tests/reconciliation.test.ts",
+        "tests/rpc.test.ts",
+        "tests/scheduled-execution.test.ts",
+        "tests/scheduler.test.ts",
+        "tests/task-commands.test.ts",
+        "tests/task-plans.test.ts",
+        "tests/task-runtime.test.ts",
+        "tests/terminal-input.test.ts",
+        "tests/terminal.test.ts",
+        "tests/tool-activity.test.ts",
+        "tests/verification-reporter.test.ts",
+        "tests/verification.test.ts",
+        "tests/workspace.test.ts",
+        "tests/worktrees.test.ts"
+      ],
+      "startedAt": "2026-11-03T08:09:56.613488+00:00",
+      "finishedAt": "2026-11-03T08:10:16.525172+00:00",
+      "exitCode": 0,
+      "counts": {
+        "tests": 271,
+        "pass": 271,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0
+      }
+    },
+    {
+      "command": [
+        "pnpm",
+        "protocol:verify"
+      ],
+      "startedAt": "2026-11-03T08:09:56.613608+00:00",
+      "finishedAt": "2026-11-03T08:09:58.566281+00:00",
+      "exitCode": 0,
+      "stableGeneratedTypes": 747
+    },
+    {
+      "command": [
+        "pnpm",
+        "test:contracts"
+      ],
+      "startedAt": "2026-11-03T08:09:56.613694+00:00",
+      "finishedAt": "2026-11-03T08:09:57.843145+00:00",
+      "exitCode": 0,
+      "designContracts": 17
+    }
+  ],
+  "existingStatus": "passed",
+  "electron": {
+    "command": [
+      "ELECTRON_RUN_AS_NODE=1",
+      "pnpm",
+      "exec",
+      "electron",
+      "--disable-warning=ExperimentalWarning",
+      "--test",
+      "--test-reporter=tap",
+      "tests/worktrees.test.ts",
+      "tests/terminal.test.ts"
+    ],
+    "startedAt": "2026-11-03T08:10:45.961348+00:00",
+    "finishedAt": "2026-11-03T08:11:02.177130+00:00",
+    "exitCode": 0,
+    "counts": {
+      "tests": 35,
+      "pass": 35,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0
+    },
+    "mode": "electron_node_no_GUI"
+  },
+  "finishedAt": "2026-11-03T08:11:02.177130+00:00",
+  "selectedTestSourcesUnchangedDuringRun": true,
+  "implementationFilesChangedByThisAgent": [],
+  "gitMutations": false,
+  "artifactWrites": [
+    "docs/progress/evidence/M2.7a-existing-regression.txt",
+    "docs/progress/evidence/M2.7a-existing-electron.txt",
+    "docs/progress/evidence/M2.7a-existing-regression.json"
+  ],
+  "notRun": [
+    "pnpm check final integration",
+    "global typecheck",
+    "build",
+    "GUI smoke",
+    "real model inference",
+    "new backup.test.ts"
+  ],
+  "nextStep": "由主 Agent 整合新备份功能后执行新功能与最终集成验证；本回归不关闭 M2 Gate。"
+}

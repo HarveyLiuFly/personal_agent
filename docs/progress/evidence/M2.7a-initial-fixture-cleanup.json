@@ -1,0 +1,64 @@
+{
+  "kind": "own_failed_setup_public_empty_ledger_fixtures",
+  "count": 8,
+  "entries": [
+    {
+      "fixture": "personal-agent-backup-dwUEeo",
+      "databaseSha256": "1364b31e867c3a5e6cdbf67d375ee89f9ac923229e448c8a0d4b08425f575923",
+      "tasks": 0,
+      "openFiles": 0,
+      "removed": true
+    },
+    {
+      "fixture": "personal-agent-backup-nVyUGK",
+      "databaseSha256": "bef985ef64cf02de3a1e0bc5dc89ec456c17166cdd8527f05604f73f4a767729",
+      "tasks": 0,
+      "openFiles": 0,
+      "removed": true
+    },
+    {
+      "fixture": "personal-agent-backup-T5WEfU",
+      "databaseSha256": "57a7aab37ad550b1e48432101cdea6ee131d36fbc28fe6719b34702b83aa608b",
+      "tasks": 0,
+      "openFiles": 0,
+      "removed": true
+    },
+    {
+      "fixture": "personal-agent-backup-2wuGDz",
+      "databaseSha256": "e48f34a7b6257abf7fee6081b69ff0de10944f8eb3f5444a1f5f218c86f96d20",
+      "tasks": 0,
+      "openFiles": 0,
+      "removed": true
+    },
+    {
+      "fixture": "personal-agent-backup-HX4hs1",
+      "databaseSha256": "08582480576793db6d90ca4f917da704619e433db6d83b8472c266f918b04e55",
+      "tasks": 0,
+      "openFiles": 0,
+      "removed": true
+    },
+    {
+      "fixture": "personal-agent-backup-TurVxV",
+      "databaseSha256": "37151ab4ff95ee02ed7425455e7532a2732db66dd842bedb173c24a730867b9b",
+      "tasks": 0,
+      "openFiles": 0,
+      "removed": true
+    },
+    {
+      "fixture": "personal-agent-backup-Kh4oLy",
+      "databaseSha256": "f20a195b5c1a7007b72b761787811f3c9620191b031642d005a32e1d1fd60d0a",
+      "tasks": 0,
+      "openFiles": 0,
+      "removed": true
+    },
+    {
+      "fixture": "personal-agent-backup-mE8R96",
+      "databaseSha256": "e29a0cdaf353e38ecc9b28804cd219cab79660620cfa1291c18f654f1116c4c8",
+      "tasks": 0,
+      "openFiles": 0,
+      "removed": true
+    }
+  ],
+  "credentialsCopied": false,
+  "gitWorktreesAffected": false
+}

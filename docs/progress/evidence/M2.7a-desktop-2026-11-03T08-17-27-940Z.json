@@ -1,0 +1,32 @@
+{
+  "status": "passed",
+  "observedAt": "2026-11-03T08:17:27.940Z",
+  "kind": "real_electron_sqlite_wal_backup_and_corruption_detection",
+  "history": "synthetic_metadata",
+  "inferenceRequested": false,
+  "modelTurns": 0,
+  "result": {
+    "created": true,
+    "sameKeyNoRepeat": true,
+    "failedCopyRetained": true,
+    "extraRejected": true,
+    "restoreRejected": true,
+    "foreignRejected": true,
+    "sandboxed": true,
+    "isolated": true,
+    "noRequire": true,
+    "apiCount": true,
+    "corruptionRejected": true,
+    "twoSavedOneIncomplete": true,
+    "walPresent": true,
+    "committedWalTaskInSnapshot": true,
+    "liveTaskUnchangedByVerification": true,
+    "zeroModelRuns": true,
+    "zeroIntents": true
+  },
+  "display": "native_desktop",
+  "exitCode": 0,
+  "signal": null,
+  "timedOut": false,
+  "platform": "darwin-arm64"
+}

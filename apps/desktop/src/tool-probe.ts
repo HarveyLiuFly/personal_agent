@@ -19,7 +19,7 @@ export async function runToolProbe(root:string,app:App,window:BrowserWindow,stor
     const plainText=!document.querySelector('[data-agent-tools] img')&&document.querySelector('[data-tool-id="failed"] [data-tool-text]').textContent.includes('<img src=x onerror=alert(1)>');
     const noSecrets=!document.querySelector('[data-agent-tools]').textContent.includes('DO_NOT_COPY');
     const state=await window.personalAgent.workspaceState(),projectId=state.value.projects[0].id,rows=await window.personalAgent.listRuns({projectId}),view=await window.personalAgent.getRun({projectId,runId:rows.value[0].runId});
-    document.querySelector('[data-agent-tools]').scrollIntoView();return{projectId,runId:view.value.runId,liveObserved,count,failedFilter,emptyFilter,filesFilter,plainText,noSecrets,states,taskNeedsReview:view.value.taskStatus==='needs_review',sandboxed:window.personalAgent.security.sandboxed,isolated:window.personalAgent.security.isolated,noRequire:typeof require==='undefined',apiCount:Object.keys(window.personalAgent).length===42};
+    document.querySelector('[data-agent-tools]').scrollIntoView();return{projectId,runId:view.value.runId,liveObserved,count,failedFilter,emptyFilter,filesFilter,plainText,noSecrets,states,taskNeedsReview:view.value.taskStatus==='needs_review',sandboxed:window.personalAgent.security.sandboxed,isolated:window.personalAgent.security.isolated,noRequire:typeof require==='undefined',apiCount:Object.keys(window.personalAgent).length===44};
   })()`);
   const {projectId,runId,states,...checks}=result;
   const expected={ok:'completed',failed:'failed',declined:'declined',files:'completed',pending:'unknown',mcp:'failed',legacy:'unknown'};

@@ -1,0 +1,232 @@
+M2.7a 现有工作树/用户 PTY 回归；Electron Node 模式，无 GUI，无真实模型。
+真实 Git/SQLite/文件系统/PTY/自有子进程；部分读取用例明确 withoutSandboxForTests，不代替原生 GUI Sandbox 验收。
+命令 ELECTRON_RUN_AS_NODE=1 pnpm exec electron --disable-warning=ExperimentalWarning --test --test-reporter=tap tests/worktrees.test.ts tests/terminal.test.ts
+开始 2026-11-03T08:10:45.961348+00:00
+[1103/161046.385520:ERROR:electron/shell/common/mac/codesign_util.cc:79] task_name_for_pid: (os/kern) failure (5)
+TAP version 13
+# [1103/161046.581928:ERROR:electron/shell/common/mac/codesign_util.cc:79] task_name_for_pid: (os/kern) failure (5)
+# Subtest: real user PTY has tty stdin/stdout, pinned cwd, resize, input dedupe and actual process shutdown
+ok 1 - real user PTY has tty stdin/stdout, pinned cwd, resize, input dedupe and actual process shutdown
+  ---
+  duration_ms: 120.73825
+  type: 'test'
+  ...
+# Subtest: terminal text stays out of SQLite, output is bounded and stale cursors reset
+ok 2 - terminal text stays out of SQLite, output is bounded and stale cursors reset
+  ---
+  duration_ms: 336.235667
+  type: 'test'
+  ...
+# Subtest: raw command, environment, foreign workspace and invalid dimensions are refused
+ok 3 - raw command, environment, foreign workspace and invalid dimensions are refused
+  ---
+  duration_ms: 60.874708
+  type: 'test'
+  ...
+# Subtest: lost input acknowledgement does not resend, and process termination preserves an unknown input receipt
+ok 4 - lost input acknowledgement does not resend, and process termination preserves an unknown input receipt
+  ---
+  duration_ms: 216.160542
+  type: 'test'
+  ...
+# Subtest: terminal admission is blocked by existing model execution; unsent recovery never spawns a shell
+ok 5 - terminal admission is blocked by existing model execution; unsent recovery never spawns a shell
+  ---
+  duration_ms: 16.687583
+  type: 'test'
+  ...
+# Subtest: revision 5 migration preserves actual WAL data and worktree tables, failed DDL rolls back terminal tables
+ok 6 - revision 5 migration preserves actual WAL data and worktree tables, failed DDL rolls back terminal tables
+  ---
+  duration_ms: 29.218792
+  type: 'test'
+  ...
+# Subtest: actual terminal Host SIGKILL at prepared never restarts a Shell or input
+ok 7 - actual terminal Host SIGKILL at prepared never restarts a Shell or input
+  ---
+  duration_ms: 139.850917
+  type: 'test'
+  ...
+# Subtest: actual terminal Host SIGKILL at running never restarts a Shell or input
+ok 8 - actual terminal Host SIGKILL at running never restarts a Shell or input
+  ---
+  duration_ms: 232.435083
+  type: 'test'
+  ...
+# Subtest: input fingerprints use an ephemeral key and sequence, and a new Owner cannot replay old terminal text
+ok 9 - input fingerprints use an ephemeral key and sequence, and a new Owner cannot replay old terminal text
+  ---
+  duration_ms: 61.854166
+  type: 'test'
+  ...
+# Subtest: Store input receipt window expires old sequences without resending; metadata fixture starts no processes
+ok 10 - Store input receipt window expires old sequences without resending; metadata fixture starts no processes
+  ---
+  duration_ms: 441.141375
+  type: 'test'
+  ...
+# Subtest: replaying an old open key returns its original session without replacing or starting the newer live Shell
+ok 11 - replaying an old open key returns its original session without replacing or starting the newer live Shell
+  ---
+  duration_ms: 306.510042
+  type: 'test'
+  ...
+# [1103/161046.581950:ERROR:electron/shell/common/mac/codesign_util.cc:79] task_name_for_pid: (os/kern) failure (5)
+# Subtest: real Git creates an isolated managed branch from committed HEAD, dedupes, and removes without deleting branch
+ok 12 - real Git creates an isolated managed branch from committed HEAD, dedupes, and removes without deleting branch
+  ---
+  duration_ms: 805.459667
+  type: 'test'
+  ...
+# Subtest: tracked, untracked, ignored files and unmerged commits prevent removal and remain intact
+ok 13 - tracked, untracked, ignored files and unmerged commits prevent removal and remain intact
+  ---
+  duration_ms: 1117.425875
+  type: 'test'
+  ...
+# Subtest: fresh inspection, task state and project exclusion are enforced without creating model Runs
+ok 14 - fresh inspection, task state and project exclusion are enforced without creating model Runs
+  ---
+  duration_ms: 728.633125
+  type: 'test'
+  ...
+# Subtest: unsupported helpers and unmanaged linked roots fail before a Git write
+ok 15 - unsupported helpers and unmanaged linked roots fail before a Git write
+  ---
+  duration_ms: 121.517708
+  type: 'test'
+  ...
+# Subtest: lost Git result is Unknown, never resent, and explicit reconciliation adopts the one actual worktree
+ok 16 - lost Git result is Unknown, never resent, and explicit reconciliation adopts the one actual worktree
+  ---
+  duration_ms: 284.799083
+  type: 'test'
+  ...
+# Subtest: Owner recovery distinguishes unsent preparation from dispatch and retains Unknown project lease
+ok 17 - Owner recovery distinguishes unsent preparation from dispatch and retains Unknown project lease
+  ---
+  duration_ms: 95.234833
+  type: 'test'
+  ...
+# Subtest: revision 4 WAL migration backs up actual data and creates revision 6 atomically
+ok 18 - revision 4 WAL migration backs up actual data and creates revision 6 atomically
+  ---
+  duration_ms: 13.478917
+  type: 'test'
+  ...
+# Subtest: revision 4 failed migration rolls all new tables and metadata back
+ok 19 - revision 4 failed migration rolls all new tables and metadata back
+  ---
+  duration_ms: 13.8985
+  type: 'test'
+  ...
+# Subtest: real Host SIGKILL at prepared preserves committed Git intent and requires explicit recovery
+ok 20 - real Host SIGKILL at prepared preserves committed Git intent and requires explicit recovery
+  ---
+  duration_ms: 243.070917
+  type: 'test'
+  ...
+# Subtest: real Host SIGKILL at dispatch preserves committed Git intent and requires explicit recovery
+ok 21 - real Host SIGKILL at dispatch preserves committed Git intent and requires explicit recovery
+  ---
+  duration_ms: 370.918375
+  type: 'test'
+  ...
+# Subtest: real Host SIGKILL at result preserves committed Git intent and requires explicit recovery
+ok 22 - real Host SIGKILL at result preserves committed Git intent and requires explicit recovery
+  ---
+  duration_ms: 428.342292
+  type: 'test'
+  ...
+# Subtest: a last-moment ignored file survives removal in the private atomic recovery directory
+ok 23 - a last-moment ignored file survives removal in the private atomic recovery directory
+  ---
+  duration_ms: 837.286417
+  type: 'test'
+  ...
+# Subtest: managed linked Git previews use the recorded metadata identity, while retargeting is rejected
+ok 24 - managed linked Git previews use the recorded metadata identity, while retargeting is rejected
+  ---
+  duration_ms: 440.894791
+  type: 'test'
+  ...
+# Subtest: a foreign workspace, raw argv and a changed branch cannot authorize managed removal
+ok 25 - a foreign workspace, raw argv and a changed branch cannot authorize managed removal
+  ---
+  duration_ms: 326.101667
+  type: 'test'
+  ...
+# Subtest: explicit fresh repair removes only stale Git registration, resolves parent and preserves archive and branch
+ok 26 - explicit fresh repair removes only stale Git registration, resolves parent and preserves archive and branch
+  ---
+  duration_ms: 1069.862583
+  type: 'test'
+  ...
+# Subtest: recovery lookup can reveal owned data after the source repository disappears, without execution authority
+ok 27 - recovery lookup can reveal owned data after the source repository disappears, without execution authority
+  ---
+  duration_ms: 683.625625
+  type: 'test'
+  ...
+# Subtest: a reappearing broken symlink or replaced recovery directory blocks repair without touching either location
+ok 28 - a reappearing broken symlink or replaced recovery directory blocks repair without touching either location
+  ---
+  duration_ms: 765.96775
+  type: 'test'
+  ...
+# Subtest: Git locked metadata and foreign recovery IDs are refused before new repair intent
+ok 29 - Git locked metadata and foreign recovery IDs are refused before new repair intent
+  ---
+  duration_ms: 1060.871667
+  type: 'test'
+  ...
+# Subtest: failed repair before dispatch retains unresolved project lock and a later explicit child can converge the chain
+ok 30 - failed repair before dispatch retains unresolved project lock and a later explicit child can converge the chain
+  ---
+  duration_ms: 1011.590625
+  type: 'test'
+  ...
+# Subtest: a path recreated after dispatch is preserved by the supervised final guard rather than removed
+ok 31 - a path recreated after dispatch is preserved by the supervised final guard rather than removed
+  ---
+  duration_ms: 945.294084
+  type: 'test'
+  ...
+# Subtest: actual SIGKILL at archived keeps the unresolved project lock until explicit metadata repair or reconciliation
+ok 32 - actual SIGKILL at archived keeps the unresolved project lock until explicit metadata repair or reconciliation
+  ---
+  duration_ms: 1014.048875
+  type: 'test'
+  ...
+# WORKTREE_RECOVERY_SIGKILL_RECEIPT {"stage":"archived","signal":"SIGKILL","operationId":"b9957aa3-ffce-4667-b78c-437464ecd6cd","keptLockAfterRecovery":true,"automaticResends":0,"explicitNewMetadataIntent":true,"archivePreserved":true,"modelRuns":0}
+# Subtest: actual SIGKILL at repair-prepared keeps the unresolved project lock until explicit metadata repair or reconciliation
+ok 33 - actual SIGKILL at repair-prepared keeps the unresolved project lock until explicit metadata repair or reconciliation
+  ---
+  duration_ms: 1137.565834
+  type: 'test'
+  ...
+# WORKTREE_RECOVERY_SIGKILL_RECEIPT {"stage":"repair-prepared","signal":"SIGKILL","operationId":"285398bb-75d0-4d46-b77f-a8f4f5611a19","keptLockAfterRecovery":true,"automaticResends":0,"explicitNewMetadataIntent":true,"archivePreserved":true,"modelRuns":0}
+# Subtest: actual SIGKILL at repair-result keeps the unresolved project lock until explicit metadata repair or reconciliation
+ok 34 - actual SIGKILL at repair-result keeps the unresolved project lock until explicit metadata repair or reconciliation
+  ---
+  duration_ms: 1072.935875
+  type: 'test'
+  ...
+# WORKTREE_RECOVERY_SIGKILL_RECEIPT {"stage":"repair-result","signal":"SIGKILL","operationId":"a84949bd-8faa-456c-abe1-72f2b6731234","keptLockAfterRecovery":true,"automaticResends":0,"explicitNewMetadataIntent":false,"archivePreserved":true,"modelRuns":0}
+# Subtest: a forced epoch change after archive fences the old continuation before Git metadata starts
+ok 35 - a forced epoch change after archive fences the old continuation before Git metadata starts
+  ---
+  duration_ms: 845.527625
+  type: 'test'
+  ...
+1..35
+# tests 35
+# suites 0
+# pass 35
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 15635.602792
+
+结束 2026-11-03T08:11:02.177130+00:00 / exit 0

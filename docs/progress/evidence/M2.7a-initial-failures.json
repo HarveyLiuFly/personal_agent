@@ -1,0 +1,38 @@
+{
+  "checkpoint": "M2.7a",
+  "failures": [
+    {
+      "check": "initial typecheck",
+      "result": "failed_before_tests",
+      "reason": "never-returning arrow did not supply control-flow narrowing",
+      "fix": "explicit function declaration"
+    },
+    {
+      "check": "first backup component run",
+      "discovered": 8,
+      "passed": 0,
+      "failed": 8,
+      "reason": "fixture tmpdir used macOS alias rather than canonical realpath; private directory identity guard rejected setup",
+      "fix": "canonical realpath fixture and early cleanup registration",
+      "actualSigkillRunInFailedSetup": false
+    }
+  ],
+  "productionGuardRemoved": false,
+  "credentialsCopied": false,
+  "reviewFindings": [
+    {
+      "priority": "P2",
+      "issue": "failed creation Key prevented a fresh backup in current UI",
+      "fix": "retain original Key for reconciliation and provide explicit new-key button",
+      "verification": "real Electron controlled preparation failure and explicit alternate copy passed"
+    },
+    {
+      "priority": "P2",
+      "issue": "blocking open before regular-file check can hang Main on FIFO",
+      "reproduced": "independent owned public FIFO process blocked until killed",
+      "fix": "O_NONBLOCK before fstat for file and sync paths",
+      "verification": "manifest/copied receipt/source receipt FIFO rejected in child processes with external 3-second timeout"
+    }
+  ],
+  "boundary": "private_0700_single_owner_no_claim_against_same_UID_lstat_rename_race"
+}

@@ -136,3 +136,8 @@ pre { white-space: pre-wrap; overflow-wrap: anywhere; font-family: ui-monospace,
 .tool-record[data-tool-state=unknown] summary span {color:#ead08d;}
 .tool-record pre {white-space:pre-wrap;overflow-wrap:anywhere;max-height:280px;overflow:auto;font-size:12px;}
 .tool-record small {display:block;overflow-wrap:anywhere;margin-top:10px;}
+.backup-manager {margin:12px 28px;padding:12px 16px;border:1px solid #304258;border-radius:10px;}
+.backup-manager>summary {cursor:pointer;font-size:14px;color:#a5ece0;font-weight:600;}
+.backup-manager article {padding:12px 0;border-top:1px solid #304258;}
+.backup-manager article>div {display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-size:13px;}
+.backup-manager article>button {font-size:12px;padding:6px 10px;}

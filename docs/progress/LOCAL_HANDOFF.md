@@ -2,7 +2,7 @@
 
 交接日期：2026-11-02（Asia/Shanghai）。用户决定停止在当前云环境中推进，改用本地电脑的 Codex 继续开发。本文件是接手入口，详细执行历史保留在阶段记录中。
 
-本机后续状态以[本机平台接续](LOCAL_BASELINE.md)、[阶段总览](README.md)、[M1](M1.md)和[M2](M2.md)为准：**M0/M1 Gate 在已记录的 macOS arm64 范围通过，M1 定位 `checkpoint/M1`**，见[历史 Gate](evidence/M1-gate.json)。**M2 最新 `checkpoint/M2.1b`：Agent 工具状态/筛选与托管工作树真实代码任务集成。271/271、Electron 投影 19/19、合成工具桌面通过；一次 gpt-6.1-sol Turn、4 条真实工具，源仓库脏文件保留，四项冻结测试独立通过才完成 Task，74,356 报告 Token 已结算。Schema 6 / 42 IPC 不变。** 既有工作树恢复索引/显式修复和真实 PTY 保留，累计 16 个账本故障位置；Finder 实际窗口仍未验。权限管理继续在 M5，接着资源/备份恢复与必要编辑；M2 Gate 开放。开发仓库仅 main 工作树；关闭窗口保留 Main，显式退出停止，不承诺独立 Daemon/休眠执行。旧 Verifier Hash 变化继续拒绝复用，不可绕过。下文保留原云交接事实。
+本机后续状态以[本机平台接续](LOCAL_BASELINE.md)、[阶段总览](README.md)、[M1](M1.md)和[M2](M2.md)为准：**M0/M1 Gate 在已记录的 macOS arm64 范围通过，M1 定位 `checkpoint/M1`**，见[历史 Gate](evidence/M1-gate.json)。**M2 最新 `checkpoint/M2.7a`：本机执行账本/已发布验证收据的一致性备份、列表与校验。282/282、Electron 备份 11/11；另有并行旧功能 271/271 与 Electron 35/35。两个真实备份文件系统 SIGKILL、真实桌面 WAL/显式另建/篡改拒绝通过，本点 0 推理。Schema 6 / 44 IPC。** 备份含任务内容，不含源码/托管工作树文件、认证、原始 Codex 历史和终端输出；完整恢复/水位合并仍待开发。既有原生工作树代码任务四项独立测试通过（M2.1b，1 Turn/74,356 报告 Token），工具面板/真实 PTY/工作树恢复保留。原 16 个账本故障位置与本点两个备份位置分别记录。权限管理在 M5，继续恢复/资源与必要编辑；M2 Gate 开放。开发仓库仅 main，关闭窗口保留 Main，显式退出停止，不承诺独立 Daemon/休眠执行；旧验证 Hash 不可绕过。下文保留原云交接事实。
 
 ## 1. Git 与交付范围
 

@@ -1,5 +1,5 @@
 {
-  "observedAt": "2026-11-03T07:58:48.852Z",
+  "observedAt": "2026-11-03T08:22:09.823Z",
   "kind": "real_electron_window_smoke",
   "status": "passed",
   "browserSandbox": "enabled",
@@ -8,6 +8,7 @@
     "rendered": true,
     "hasRequire": false,
     "bridgeKeys": [
+      "applyBackupCommand",
       "applyScheduleCommand",
       "applyTaskCommand",
       "applyTaskPlan",
@@ -23,6 +24,7 @@
       "inspect",
       "inspectWorktree",
       "interruptRun",
+      "listBackups",
       "listInteractions",
       "listItems",
       "listRuns",

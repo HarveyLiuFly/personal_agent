@@ -1,5 +1,8 @@
 import {runWorktreeRecoveryProbe} from './worktree-recovery-probe.ts';
 import {runToolProbe} from './tool-probe.ts';
+import {BackupService} from '../../../packages/backup/src/service.ts';
+import {runBackupProbe} from './backup-probe.ts';
+import type {BackupCommand} from '../../../packages/contracts/src/backups.ts';
 import {runWorktreeCodeProbe} from './worktree-code-probe.ts';
 import {runTerminalProbe} from './terminal-probe.ts';
 import {TerminalService} from '../../../packages/workspace/src/terminal.ts';
@@ -50,6 +53,7 @@ let controller: AbortController | undefined;
 let quitting = false;
 let window: BrowserWindow | undefined;
 let ledger: ExecutionLedger | undefined;
+let backupService:BackupService|undefined;
 let execution: ForegroundExecution | undefined;
 let verifier: NodeVerification | undefined;
 let terminalService:TerminalService|undefined;
@@ -61,6 +65,8 @@ let scheduleService:ScheduleService|undefined,scheduleTimer:ReturnType<typeof se
 let taskService:TaskService|undefined,outboxPump:OutboxPump|undefined,outboxTimer:ReturnType<typeof setInterval>|undefined;
 const recoverySmoke=process.argv.includes('--m2-worktree-recovery-smoke');
 const toolsSmoke=process.argv.includes('--m2-tools-smoke');
+const backupSmoke=process.argv.includes('--m2-backups-smoke');
+let backupSmokeFirstCopy=backupSmoke;
 const worktreeCodePreflight=process.argv.includes('--m2-worktree-code-preflight');
 const worktreeCodeSmoke=worktreeCodePreflight||process.argv.includes('--m2-worktree-code-smoke');
 const recoveryProbeState=recoverySmoke?{archiveStops:0,revealed:[] as string[]}:undefined;
@@ -82,9 +88,9 @@ const planSmoke=process.argv.includes('--m2-plans-smoke');
 const taskSmoke=process.argv.includes('--m2-tasks-smoke')||budgetSmoke||planSmoke||scheduleSmoke;
 const executionSmoke = toolsSmoke || backgroundSmoke || process.argv.includes('--m1-execution-smoke') || interactionSmoke || continuationSmoke || taskSmoke;
 const historySmoke = process.argv.includes('--m1-history-smoke');
-const keepRunningWithoutWindow=backgroundProbe||terminalSmoke||!(worktreeCodeSmoke||recoverySmoke||worktreeSmoke||nativeCodeSmoke||executionSmoke||historySmoke||acceptanceProbe||process.argv.includes('--m0-window-smoke'));
+const keepRunningWithoutWindow=backgroundProbe||terminalSmoke||!(backupSmoke||worktreeCodeSmoke||recoverySmoke||worktreeSmoke||nativeCodeSmoke||executionSmoke||historySmoke||acceptanceProbe||process.argv.includes('--m0-window-smoke'));
 let windowsReady=false,windowOpening:Promise<BrowserWindow>|undefined;
-if(worktreeCodeSmoke||backgroundNativeSmoke||worktreeSmoke||terminalSmoke||recoverySmoke){mkdirSync(resolve(root,'.local'),{recursive:true});app.setPath('userData',mkdtempSync(resolve(root,'.local/desktop-background-native-')));}
+if(backupSmoke||worktreeCodeSmoke||backgroundNativeSmoke||worktreeSmoke||terminalSmoke||recoverySmoke){mkdirSync(resolve(root,'.local'),{recursive:true});app.setPath('userData',mkdtempSync(resolve(root,'.local/desktop-background-native-')));}
 let fixtureDirectory: string | undefined;
   if (process.argv.includes('--m0-window-smoke')) app.setPath('userData', resolve(root, '.local/desktop-smoke-data'));
   if (historySmoke) app.setPath('userData', resolve(root, '.local/desktop-history-smoke-data'));
@@ -96,9 +102,9 @@ else if (!singleInstanceHeld) app.quit();
 else void boot().catch(async error => {
   const code = error instanceof Error && /^[A-Z0-9_]{1,100}$/.test(error.message) ? error.message : 'HOST_ERROR';
   console.error('DESKTOP_BOOT_FAILED', code);
-  if (worktreeCodeSmoke || recoverySmoke || terminalSmoke || worktreeSmoke || backgroundProbe || acceptanceProbe || nativeCodeSmoke || executionSmoke || historySmoke || process.argv.includes('--m0-window-smoke')) {
+  if (backupSmoke || worktreeCodeSmoke || recoverySmoke || terminalSmoke || worktreeSmoke || backgroundProbe || acceptanceProbe || nativeCodeSmoke || executionSmoke || historySmoke || process.argv.includes('--m0-window-smoke')) {
     if (window) { try { writeFileSync(resolve(root, '.local/desktop-failure.png'), (await window.webContents.capturePage()).toPNG()); } catch {} }
-    const file = worktreeCodeSmoke?(worktreeCodePreflight?'M2.1b-worktree-preflight':'M2.1b-worktree-native'):toolsSmoke?'M2.1b-tools-desktop':recoverySmoke?'M2.5b-desktop':terminalSmoke?'M2.6a-desktop':worktreeSmoke?'M2.5a-desktop':backgroundProbe?(backgroundNativeSmoke?'M2.4a-native-background':'M2.4a-desktop'):scheduleAutoSmoke?'M2.3d-desktop':scheduleSmoke?'M2.3c-desktop':planSmoke?'M2.2d-desktop':budgetSmoke?'M2.2c-desktop':taskSmoke?'M2.2b-desktop':acceptanceProbe?acceptanceProbe.kind==='workspace'?'M2.1a-desktop':`M1.4b-${acceptanceProbe.kind==='folder'?'native-folder':acceptanceProbe.kind==='restart'?'native-restart':'owner'}`:nativeCodeSmoke ? 'M1-native-code-desktop' : continuationSmoke?'M1.3c-desktop':interactionSmoke ? 'M1.2-desktop' : executionSmoke ? 'M1.1c-desktop' : historySmoke ? 'M1.1b-desktop' : 'M0-desktop-smoke';
+    const file = backupSmoke?'M2.7a-desktop':worktreeCodeSmoke?(worktreeCodePreflight?'M2.1b-worktree-preflight':'M2.1b-worktree-native'):toolsSmoke?'M2.1b-tools-desktop':recoverySmoke?'M2.5b-desktop':terminalSmoke?'M2.6a-desktop':worktreeSmoke?'M2.5a-desktop':backgroundProbe?(backgroundNativeSmoke?'M2.4a-native-background':'M2.4a-desktop'):scheduleAutoSmoke?'M2.3d-desktop':scheduleSmoke?'M2.3c-desktop':planSmoke?'M2.2d-desktop':budgetSmoke?'M2.2c-desktop':taskSmoke?'M2.2b-desktop':acceptanceProbe?acceptanceProbe.kind==='workspace'?'M2.1a-desktop':`M1.4b-${acceptanceProbe.kind==='folder'?'native-folder':acceptanceProbe.kind==='restart'?'native-restart':'owner'}`:nativeCodeSmoke ? 'M1-native-code-desktop' : continuationSmoke?'M1.3c-desktop':interactionSmoke ? 'M1.2-desktop' : executionSmoke ? 'M1.1c-desktop' : historySmoke ? 'M1.1b-desktop' : 'M0-desktop-smoke';
     writeFileSync(resolve(root, `docs/progress/evidence/${file}.json`), JSON.stringify({ status: 'blocked', code, observedAt: new Date().toISOString() }) + '\n');
   }
   try {await terminalService?.stop();await worktreeService?.stop();await execution?.close(); ledger?.close();}catch{}
@@ -127,7 +133,7 @@ async function boot(): Promise<void> {
   if(nativeCodeSmoke){nativeCodeWorkspace=realpathSync(await mkdtemp(resolve(tmpdir(),'personal-agent-code-')));createCodeFixture(nativeCodeWorkspace);}
   let fixtureWorkspace: string | undefined;
   const fixtureMethods = new Set<string>();
-  if (worktreeCodeSmoke || historySmoke || executionSmoke || backgroundNativeSmoke || worktreeSmoke || terminalSmoke || recoverySmoke) {
+  if (backupSmoke || worktreeCodeSmoke || historySmoke || executionSmoke || backgroundNativeSmoke || worktreeSmoke || terminalSmoke || recoverySmoke) {
     mkdirSync(resolve(root, '.local'), { recursive: true });
     fixtureDirectory = worktreeCodeSmoke?realpathSync(await mkdtemp('/private/tmp/personal-agent-worktree-code-')):await mkdtemp(resolve(root, '.local/history-desktop-'));
     fixtureWorkspace = resolve(fixtureDirectory, 'workspace'); await mkdir(fixtureWorkspace);if(worktreeSmoke||terminalSmoke||recoverySmoke)createWorktreeFixture(fixtureWorkspace);
@@ -136,6 +142,7 @@ async function boot(): Promise<void> {
   if (!historySmoke) {
     ledger = new ExecutionLedger(resolve(fixtureDirectory ?? app.getPath('userData'), 'execution/ledger.db'), readFileSync(resolve(directory, 'schema.sql'), 'utf8'),budgetSmoke?{budgetPolicy:{dailyTokens:150,reservationTokens:60}}:{});
     ownerEpoch=ledger.startOwner(randomUUID(), true); // OS single-instance lock was acquired before boot().
+    backupService=new BackupService(ledger,{directory:resolve(fixtureDirectory??app.getPath('userData'),'backups'),verificationDirectory:resolve(app.getPath('userData'),'verification/artifacts'),...(backupSmoke?{afterStage:(stage:'snapshot'|'published')=>{if(stage==='snapshot'&&backupSmokeFirstCopy){backupSmokeFirstCopy=false;throw new LedgerError('CONTROLLED_BACKUP_COPY_FAILURE');}}}:{})});
     if (!executionSmoke && process.platform === 'darwin' && process.arch === 'arm64') {
       try { verifier = new NodeVerification(ledger,{node:resolveVerifierNode(root),cli:executable(),reporter:resolve(directory,'verification-reporter.mjs'),stateDirectory:resolve(app.getPath('userData'),'verification')}); } catch {}
       try {terminalService=new TerminalService(ledger,{node:resolveVerifierNode(root),worker:resolve(directory,'terminal-worker.mjs'),stateDirectory:resolve(fixtureDirectory??app.getPath('userData'),'terminals')});}catch{}
@@ -149,7 +156,7 @@ async function boot(): Promise<void> {
         args: [resolve(root, 'tests/fixtures/execution-server.ts'), toolsSmoke?'tool-status':backgroundSmoke||scheduleAutoSmoke?'usage':taskSmoke?'interrupt-ok':interactionSmoke ? 'approval-accept' : 'slow', resolve(fixtureDirectory!, 'execution/ledger.db'), resolve(fixtureDirectory!, 'execution-receipts')], env: runtimeEnvironment(), ...callbacks }) } : {}) });
   }
   const history = new HistoryBrowser(async read => {
-    if (!worktreeCodeSmoke && !historySmoke && !executionSmoke && !worktreeSmoke && !terminalSmoke && !recoverySmoke) return readConnection(executable(), state, controller?.signal)(port=>read({request:async<T>(method:string,params:unknown)=>{acceptanceProbe?.readMethods.add(method);return port.request<T>(method,params);}}));
+    if (!backupSmoke && !worktreeCodeSmoke && !historySmoke && !executionSmoke && !worktreeSmoke && !terminalSmoke && !recoverySmoke) return readConnection(executable(), state, controller?.signal)(port=>read({request:async<T>(method:string,params:unknown)=>{acceptanceProbe?.readMethods.add(method);return port.request<T>(method,params);}}));
     // Fixed internal integration fixture. No Renderer API selects a process, path, or fixture mode.
     const rpc = new StdioRpcClient({ executable: resolveExecutable('node'),
       args: [resolve(root, 'tests/fixtures/history-server.ts'), fixtureWorkspace!], env: runtimeEnvironment(), signal: controller?.signal });
@@ -186,6 +193,8 @@ async function boot(): Promise<void> {
   ipcMain.handle('tasks:list',(event,...args:unknown[])=>executionCommand(event,args,1,()=>{if(!taskService)throw new LedgerError('TASKS_UNAVAILABLE');return taskService.list(args[0]);}));
   ipcMain.handle('tasks:activity',(event,...args:unknown[])=>executionCommand(event,args,1,()=>{if(!taskService)throw new LedgerError('TASKS_UNAVAILABLE');return taskService.activity(args[0]);}));
   ipcMain.handle('runtime:resourceBudget',(event,...args:unknown[])=>executionCommand(event,args,0,()=>{if(!ledger)throw new LedgerError('TASKS_UNAVAILABLE');return ledger.resourceBudget();}));
+  ipcMain.handle('backups:list',(event,...args:unknown[])=>executionCommand(event,args,0,()=>{if(!backupService)throw new LedgerError('BACKUPS_UNAVAILABLE');return backupService.list();}));
+  ipcMain.handle('backups:command',(event,...args:unknown[])=>executionCommand(event,args,1,()=>{if(!backupService)throw new LedgerError('BACKUPS_UNAVAILABLE');return backupService.command(args[0] as BackupCommand);}));
   ipcMain.handle('tasks:plans',(event,...args:unknown[])=>executionCommand(event,args,1,()=>{if(!taskService)throw new LedgerError('TASKS_UNAVAILABLE');return taskService.plans(args[0]);}));
   ipcMain.handle('tasks:cancelPlan',(event,...args:unknown[])=>executionCommand(event,args,1,()=>{if(!taskService)throw new LedgerError('TASKS_UNAVAILABLE');return taskService.cancelPlan(args[0]);}));
   ipcMain.handle('tasks:plan',async(event,...args:unknown[])=>{
@@ -282,6 +291,7 @@ async function boot(): Promise<void> {
   Menu.setApplicationMenu(Menu.buildFromTemplate([{label:'Personal Agent',submenu:[{label:'显示主窗口',click:()=>{void showMainWindow().catch(()=>{});}},{type:'separator'},{label:'退出并停止运行',accelerator:'CmdOrCtrl+Q',click:()=>app.quit()}]},{role:'editMenu'},{role:'windowMenu'}]));
   window=await showMainWindow();
   if(toolsSmoke){await runToolProbe(root,app,window,ledger!);return;}
+  if(backupSmoke){await runBackupProbe(root,app,window,ledger!,resolve(fixtureDirectory!,'execution/ledger.db'),resolve(fixtureDirectory!,'backups'));return;}
   if(worktreeCodeSmoke){await runWorktreeCodeProbe(root,app,window,ledger!,execution!,fixtureWorkspace!,resolve(fixtureDirectory!,'execution/ledger.db'),worktreeCodePreflight);return;}
   if(recoverySmoke){await runWorktreeRecoveryProbe(root,app,window,ledger!,fixtureWorkspace!,resolve(fixtureDirectory!,'execution/ledger.db'),recoveryProbeState!);return;}
   if(terminalSmoke){await runTerminalProbe(root,app,window,ledger!,terminalService!,fixtureWorkspace!,showMainWindow);return;}
@@ -314,7 +324,7 @@ async function boot(): Promise<void> {
     const passed = r.rendered === true && r.hasRequire === false && r.sandboxed === true && r.isolated === true
       && r.uiConnected === true && !app.commandLine.hasSwitch('no-sandbox')
       && (r.connection as ConnectionInfo)?.status === 'connected'
-      && JSON.stringify(r.bridgeKeys) === JSON.stringify(['applyScheduleCommand', 'applyTaskCommand', 'applyTaskPlan', 'applyWorktreeCommand', 'cancelTaskPlan', 'chooseProject', 'closeTerminal', 'continueRun', 'getRun', 'getVerification', 'getWorkspace', 'getWorkspaceDiff', 'inspect', 'inspectWorktree', 'interruptRun', 'listInteractions', 'listItems', 'listRuns', 'listScheduleOccurrences', 'listSchedules', 'listTaskActivity', 'listTaskPlans', 'listTasks', 'listThreads', 'listTurns', 'listWorkspaceDirectory', 'listWorktrees', 'openTerminal', 'readTerminal', 'readWorkspaceFile', 'reconcileRun', 'reconcileTerminal', 'replyInteraction', 'resizeTerminal', 'resourceBudget', 'security', 'startTask', 'submitMessage', 'useWorktree', 'verifyRun', 'workspaceState', 'writeTerminal']);
+      && JSON.stringify(r.bridgeKeys) === JSON.stringify(['applyBackupCommand', 'applyScheduleCommand', 'applyTaskCommand', 'applyTaskPlan', 'applyWorktreeCommand', 'cancelTaskPlan', 'chooseProject', 'closeTerminal', 'continueRun', 'getRun', 'getVerification', 'getWorkspace', 'getWorkspaceDiff', 'inspect', 'inspectWorktree', 'interruptRun', 'listBackups', 'listInteractions', 'listItems', 'listRuns', 'listScheduleOccurrences', 'listSchedules', 'listTaskActivity', 'listTaskPlans', 'listTasks', 'listThreads', 'listTurns', 'listWorkspaceDirectory', 'listWorktrees', 'openTerminal', 'readTerminal', 'readWorkspaceFile', 'reconcileRun', 'reconcileTerminal', 'replyInteraction', 'resizeTerminal', 'resourceBudget', 'security', 'startTask', 'submitMessage', 'useWorktree', 'verifyRun', 'workspaceState', 'writeTerminal']);
     const evidence = { observedAt: new Date().toISOString(), kind: 'real_electron_window_smoke',
       status: passed ? 'passed' : 'blocked',
       browserSandbox: app.commandLine.hasSwitch('no-sandbox') ? 'disabled' : 'enabled', result };

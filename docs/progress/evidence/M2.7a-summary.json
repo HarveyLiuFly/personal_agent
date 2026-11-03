@@ -1,0 +1,100 @@
+{
+  "checkpoint": "M2.7a",
+  "status": "passed_private_consistent_backup_and_integrity_check_scope",
+  "observedAt": "2026-11-03T08:25:59.352281+00:00",
+  "baselineCommit": "dbdadd59c43a0bc06758956607537351027a3f9e",
+  "stageGate": "open",
+  "schemaRevision": 6,
+  "fixedDesktopApiCount": 44,
+  "permissionManagement": "deferred_to_M5",
+  "checks": {
+    "discovered": 282,
+    "executed": 282,
+    "passed": 282,
+    "failed": 0,
+    "skipped": 0,
+    "designContracts": 17,
+    "stableGeneratedTypes": 747,
+    "backupElectronCases": 11,
+    "parallelExistingCases": 271,
+    "parallelExistingElectronCases": 35,
+    "typecheck": "passed",
+    "build": "passed"
+  },
+  "backup": {
+    "scope": "ledger_and_published_verification_receipts",
+    "includesCommittedWal": true,
+    "metadataFromSnapshot": true,
+    "ownerCheckedExport": true,
+    "oldSnapshotOwnerStartedByVerification": false,
+    "manifestAndDatabaseReferencesCompared": true,
+    "pendingDirectoryNeverAutomaticallyRetriedOrRemoved": true,
+    "publishedReplyLoss": "read_and_verify_same_object",
+    "limits": {
+      "backupsIncludingIncomplete": 20,
+      "databaseBytes": 134217728,
+      "receiptCount": 512,
+      "receiptBytes": 1048576,
+      "totalReceiptBytes": 67108864,
+      "manifestBytes": 262144
+    },
+    "modeDirectory": "0700",
+    "modeFiles": "0600",
+    "fifoOpen": "O_NONBLOCK_before_fstat",
+    "signatureOrCrossSourceAuthenticityClaimed": false,
+    "sameUidLstatRenameRaceResistanceClaimed": false
+  },
+  "newActualHostSigkillLocations": [
+    "snapshot_written_before_manifest_publish",
+    "published_directory_before_caller_receipt"
+  ],
+  "existingLedgerFaultLocations": 16,
+  "newBackupFilesystemFaultLocations": 2,
+  "newModelTurns": 0,
+  "desktop": {
+    "realElectronSqliteWalAndFilesystem": true,
+    "history": "synthetic_metadata",
+    "failedCopy": "trusted_fault_injection_after_snapshot",
+    "oldKeyDidNotRepeat": true,
+    "explicitAlternateBackupCreated": true,
+    "actualBackupDatabaseCorruptionDetected": true,
+    "liveDatabaseUnchangedByVerification": true,
+    "zeroRunsAndIntents": true,
+    "sandboxAndIsolation": true
+  },
+  "testSubstitutions": [
+    "published_unknown_receipt_metadata_fixture_not_verifier_run",
+    "ENOSPC_injected_not_actual_disk_exhaustion"
+  ],
+  "parallelWork": {
+    "regressionAndReviewAgent": "read_only_implementation_no_build_no_GUI_no_models",
+    "featureAndIntegration": "primary_agent",
+    "foundAndFixed": [
+      "failed_create_key_UI_lockout",
+      "blocking_FIFO_open"
+    ]
+  },
+  "remaining": [
+    "actual_restore_activation_and_rehearsal",
+    "merge_current_deletion_revocation_watermarks_on_restore",
+    "old_lease_approval_schedule_reconciliation",
+    "necessary_editing_and_resource_integration",
+    "full_M2_gate"
+  ],
+  "sourceAndBuildHashes": {
+    "packages/backup/src/service.ts": "84de509d160c8947107672912fdc0f599c99bde0f55f912079dbb65fd6f9a450",
+    "packages/contracts/src/backups.ts": "f151201de21856f36f5adb63cf1b38636596abe882b2968ce554e4dde6ea6905",
+    "packages/store/src/ledger.ts": "561f2ff2b9d95728acb41ae82175521c12c63166ff75fd7f09e67c181e3de5c7",
+    "apps/desktop/src/main.ts": "c8a001f598391bbd86006ee9940636bda5bd4b7261d79f5c57332d37ab7e953e",
+    "apps/desktop/src/preload.ts": "afdbaab59428be623b422eb6eb8fe2d5eb423bef7679861537ac2edfe44eebe3",
+    "apps/desktop/src/bridge.ts": "9bfa4310b11e2edd3846e56f9cdc8a890b5b666039d9a34da7b7eaedcb29bcf5",
+    "apps/desktop/src/backup-probe.ts": "2171b20a4b0e4ad60f9d0abff7b7922f1972c712dc27753d13ed808b3180aa77",
+    "apps/desktop/renderer/backup-manager.tsx": "32d76870e87f314de61491f1f721b9519275600ff57872b109d7b4189adbe185",
+    "apps/desktop/renderer/history-app.tsx": "152a6055af1a2312a4955837abada20663c16c99e60091830d3b304b0d17b055",
+    "scripts/smoke-desktop.mjs": "882972f170cf051de45b0fd6cabd396972712ff705be68f1a593bcdc6ce4974b",
+    "tests/backup.test.ts": "1d0fe87d604ae45d946b1b85ea32afe4a6412be8ee2c7a0488b8f22d21cb8921",
+    "tests/fixtures/backup-crash-worker.ts": "bbe4ae9ece2a8160ed8cc80193444e6d3b29cdb0a80cff4a91c385238d3a5ddd",
+    "tests/fixtures/backup-fifo-worker.ts": "9213d837bff4510a1814cff4d2c442f7bbe522a7d0807938d557c6af4406d155",
+    "build/desktop/main.js": "50f6c6ad3eebcd800988a1341f7c8ed726e5661c8182bfe0865584c9d33f53ff"
+  }
+}

@@ -4,6 +4,7 @@ import type { HostResult, ItemView, Page, ProjectView, ThreadSummary, TurnView }
 import { ExecutionPanel } from './execution-panel.tsx';
 import {WorkspacePanel} from './workspace-panel.tsx';
 import {TaskManager} from './task-manager.tsx';
+import {BackupManager} from './backup-manager.tsx';
 
 const labels: Record<string, string> = { completed: '已结束', inProgress: '进行中', failed: '失败', interrupted: '已中断', unknown: '状态未知' };
 function errorText(code: string): string {
@@ -103,6 +104,7 @@ export function HistoryApp({ children }: { children: React.ReactNode }) {
     <main>
       <header className="toolbar"><div><span className="eyebrow">PERSONAL WORKSPACE</span><h1>{project?.name ?? '我的工作区'}</h1></div>{children}</header>
       <div className="connection-status">已有会话保留在本机，选择项目后即可浏览。</div>
+      <BackupManager/>
       {error && <div role="alert" className="notice error">{errorText(error)}</div>}
       {workspaceMode&&project?<WorkspacePanel key={project.id} project={project} canUseTerminal={canUseTerminal} onBusyChange={setBusy} onProjectsChanged={setProjects} onSelected={p=>{setProject(p);setThreads(undefined);resetThread();setExecutionMode(true);setWorkspaceMode(true);}}/>:executionMode && project && canSubmit ? <>{canManageTasks&&<TaskManager key={'tasks:'+project.id} project={project} canCode={canCode} onBusyChange={setBusy} onStarted={runId=>setRequestedRun({projectId:project.id,runId})}/>}<ExecutionPanel key={project.id} project={project} disabled={busy} mode={mode} canCode={canCode} requestedRunId={requestedRun?.projectId===project.id?requestedRun.runId:undefined}/></> : !thread ? <section className="welcome"><span className="welcome-mark">⌘</span><h2>{project ? '继续查看你的工作' : '从一个项目开始'}</h2>
         <p>{project ? '从左侧选择一个会话，查看消息、命令和文件变更记录。' : '选择本机的项目目录，打开属于这个项目的会话历史。'}</p>

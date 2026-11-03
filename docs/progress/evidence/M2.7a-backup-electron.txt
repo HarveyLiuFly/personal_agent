@@ -1,0 +1,78 @@
+[1103/161943.899729:ERROR:electron/shell/common/mac/codesign_util.cc:79] task_name_for_pid: (os/kern) failure (5)
+TAP version 13
+# [1103/161943.975850:ERROR:electron/shell/common/mac/codesign_util.cc:79] task_name_for_pid: (os/kern) failure (5)
+# Subtest: consistent backup includes real committed WAL and dedupes without replaying or changing live tasks
+ok 1 - consistent backup includes real committed WAL and dedupes without replaying or changing live tasks
+  ---
+  duration_ms: 67.758167
+  type: 'test'
+  ...
+# Subtest: real receipt files and snapshot watermarks are verified; validation never starts an old Owner
+ok 2 - real receipt files and snapshot watermarks are verified; validation never starts an old Owner
+  ---
+  duration_ms: 57.997458
+  type: 'test'
+  ...
+# Subtest: missing or changed receipt refuses publication, preserves incomplete state and refuses same-key retry
+ok 3 - missing or changed receipt refuses publication, preserves incomplete state and refuses same-key retry
+  ---
+  duration_ms: 67.942875
+  type: 'test'
+  ...
+# Subtest: copied file corruption, receipt symlink and reference mismatch fail explicit verification
+ok 4 - copied file corruption, receipt symlink and reference mismatch fail explicit verification
+  ---
+  duration_ms: 223.661292
+  type: 'test'
+  ...
+# Subtest: arbitrary fields, paths and unknown published artifact kinds are refused before any external file read
+ok 5 - arbitrary fields, paths and unknown published artifact kinds are refused before any external file read
+  ---
+  duration_ms: 31.170875
+  type: 'test'
+  ...
+# Subtest: private root identity, source receipt symlink, stale Owner and bounded inventory are enforced
+ok 6 - private root identity, source receipt symlink, stale Owner and bounded inventory are enforced
+  ---
+  duration_ms: 46.096584
+  type: 'test'
+  ...
+# Subtest: publication refuses a newly occupied target and filesystem write failure keeps only an incomplete copy
+ok 7 - publication refuses a newly occupied target and filesystem write failure keeps only an incomplete copy
+  ---
+  duration_ms: 91.015958
+  type: 'test'
+  ...
+# Subtest: unsupported receipt sizes and extra copied files cannot pass integrity checks
+ok 8 - unsupported receipt sizes and extra copied files cannot pass integrity checks
+  ---
+  duration_ms: 87.709375
+  type: 'test'
+  ...
+# Subtest: real FIFO manifest, copied receipt and source receipt are refused without blocking the Host
+ok 9 - real FIFO manifest, copied receipt and source receipt are refused without blocking the Host
+  ---
+  duration_ms: 590.683292
+  type: 'test'
+  ...
+# Subtest: real Host SIGKILL at backup snapshot never publishes partial state or retries the old copy
+ok 10 - real Host SIGKILL at backup snapshot never publishes partial state or retries the old copy
+  ---
+  duration_ms: 172.683958
+  type: 'test'
+  ...
+# Subtest: real Host SIGKILL at backup published never publishes partial state or retries the old copy
+ok 11 - real Host SIGKILL at backup published never publishes partial state or retries the old copy
+  ---
+  duration_ms: 171.134709
+  type: 'test'
+  ...
+1..11
+# tests 11
+# suites 0
+# pass 11
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1766.529084
