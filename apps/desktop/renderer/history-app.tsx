@@ -5,6 +5,7 @@ import { ExecutionPanel } from './execution-panel.tsx';
 import {WorkspacePanel} from './workspace-panel.tsx';
 import {TaskManager} from './task-manager.tsx';
 import {BackupManager} from './backup-manager.tsx';
+import {ProjectSkillsDialog} from './skills-panel.tsx';
 
 const labels: Record<string, string> = { completed: '已结束', inProgress: '进行中', failed: '失败', interrupted: '已中断', unknown: '状态未知' };
 function errorText(code: string): string {
@@ -24,6 +25,7 @@ export function HistoryApp({ children }: { children: React.ReactNode }) {
   const [mode, setMode] = useState<'readOnly' | 'workspaceWrite'>('readOnly');
   const [canCode, setCanCode] = useState(false);
   const [canBrowseWorkspace,setCanBrowseWorkspace]=useState(false),[workspaceMode,setWorkspaceMode]=useState(false);
+  const [skillsMode,setSkillsMode]=useState(false),[canBrowseSkills,setCanBrowseSkills]=useState(false);
   const [canUseTerminal,setCanUseTerminal]=useState(false);
   const [canSubmit, setCanSubmit] = useState(false);
   const [backgroundEnabled,setBackgroundEnabled]=useState(false);
@@ -49,7 +51,7 @@ export function HistoryApp({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let stopped = false;
     void value(window.personalAgent.workspaceState()).then(state => {
-      if (stopped) return; setCanUseTerminal(state.canUseTerminal);setCanSubmit(state.canSubmit);setBackgroundEnabled(state.backgroundEnabled);setCanManageTasks(state.canManageTasks); setCanCode(state.canCode);setCanBrowseWorkspace(state.canBrowseWorkspace); setMode(state.mode); setProjects(state.projects);
+      if (stopped) return; setCanUseTerminal(state.canUseTerminal);setCanSubmit(state.canSubmit);setCanBrowseSkills(state.canBrowseSkills===true);setBackgroundEnabled(state.backgroundEnabled);setCanManageTasks(state.canManageTasks); setCanCode(state.canCode);setCanBrowseWorkspace(state.canBrowseWorkspace); setMode(state.mode); setProjects(state.projects);
       if (state.projects[0]) { setProject(state.projects[0]); }
     }).catch(() => { if (!stopped) setError('HOST_DISCONNECTED'); });
     return () => { stopped = true; };
@@ -58,7 +60,7 @@ export function HistoryApp({ children }: { children: React.ReactNode }) {
   const choose = () => perform(async () => {
     const selected = await value(window.personalAgent.chooseProject());
     if (!selected) return;
-    setProject(selected); setExecutionMode(true);setWorkspaceMode(false); setProjects(rows => [selected,...rows.filter(p => p.id !== selected.id)]); setThreads(undefined); resetThread();
+    setProject(selected); setExecutionMode(true);setWorkspaceMode(false);setSkillsMode(false); setProjects(rows => [selected,...rows.filter(p => p.id !== selected.id)]); setThreads(undefined); resetThread();
     setThreads(await value(window.personalAgent.listThreads({ projectId: selected.id })));
   });
   const pageThreads = (cursor?: string) => perform(async () => {
@@ -67,7 +69,7 @@ export function HistoryApp({ children }: { children: React.ReactNode }) {
   });
   const openThread = (selected: ThreadSummary) => perform(async () => {
     if (!project) return;
-    setExecutionMode(false);setWorkspaceMode(false); resetThread(); setThread(selected);
+    setExecutionMode(false);setWorkspaceMode(false);setSkillsMode(false); resetThread(); setThread(selected);
     setTurns(await value(window.personalAgent.listTurns({ projectId: project.id, threadId: selected.id })));
   });
   const pageTurns = (cursor: string) => perform(async () => {
@@ -88,9 +90,10 @@ export function HistoryApp({ children }: { children: React.ReactNode }) {
     <aside className="sidebar">
       <div className="brand"><span className="brand-mark">P</span><div>Personal Agent<small>你的个人工作区</small></div></div>
       <button data-action="choose-project" className="choose-project" disabled={busy} onClick={() => void choose()}>＋ 选择项目</button>
-      {projects.length > 0 && <select className="project-select" aria-label="已保存项目" disabled={busy} value={project?.id ?? ''} onChange={e => { const p = projects.find(p => p.id === e.target.value); if (p) { setProject(p); setExecutionMode(true);setWorkspaceMode(false); resetThread(); setThreads(undefined); } }}>{projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select>}
-      {project && canSubmit && <button className="text-button" data-action="project-tasks" disabled={busy} onClick={() => {setExecutionMode(true);setWorkspaceMode(false);}}>项目任务</button>}
-      {project&&canBrowseWorkspace&&<button className="text-button" data-action="open-workspace" disabled={busy} onClick={()=>setWorkspaceMode(true)}>工作区 · 文件与 Git</button>}
+      {projects.length > 0 && <select className="project-select" aria-label="已保存项目" disabled={busy} value={project?.id ?? ''} onChange={e => { const p = projects.find(p => p.id === e.target.value); if (p) { setProject(p); setExecutionMode(true);setWorkspaceMode(false);setSkillsMode(false); resetThread(); setThreads(undefined); } }}>{projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select>}
+      {project && canSubmit && <button className="text-button" data-action="project-tasks" disabled={busy} onClick={() => {setExecutionMode(true);setWorkspaceMode(false);setSkillsMode(false);}}>项目任务</button>}
+      {project&&canBrowseWorkspace&&<button className="text-button" data-action="open-workspace" disabled={busy} onClick={()=>{setSkillsMode(false);setWorkspaceMode(true);}}>工作区 · 文件与 Git</button>}
+      {project&&canBrowseSkills&&<button className="text-button" data-action="open-project-skills" disabled={busy} onClick={()=>{setSkillsMode(true);}}>项目技能与能力</button>}
       <div className="project-heading"><span className="eyebrow">会话</span>{project && <button className="text-button" data-action="refresh-threads" disabled={busy} onClick={() => void pageThreads()}>刷新</button>}</div>
       {project && <div className="project-path" title={project.directory}>{project.name}</div>}
       <nav className="thread-list" aria-label="项目会话">
@@ -106,6 +109,7 @@ export function HistoryApp({ children }: { children: React.ReactNode }) {
       <div className="connection-status">已有会话保留在本机，选择项目后即可浏览。</div>
       <BackupManager/>
       {error && <div role="alert" className="notice error">{errorText(error)}</div>}
+      {skillsMode&&project&&<ProjectSkillsDialog key={project.id} project={project} onBusyChange={setBusy} onClose={()=>setSkillsMode(false)}/>}
       {workspaceMode&&project?<WorkspacePanel key={project.id} project={project} canUseTerminal={canUseTerminal} onBusyChange={setBusy} onProjectsChanged={setProjects} onSelected={p=>{setProject(p);setThreads(undefined);resetThread();setExecutionMode(true);setWorkspaceMode(true);}}/>:executionMode && project && canSubmit ? <>{canManageTasks&&<TaskManager key={'tasks:'+project.id} project={project} canCode={canCode} onBusyChange={setBusy} onStarted={runId=>setRequestedRun({projectId:project.id,runId})}/>}<ExecutionPanel key={project.id} project={project} disabled={busy} mode={mode} canCode={canCode} requestedRunId={requestedRun?.projectId===project.id?requestedRun.runId:undefined}/></> : !thread ? <section className="welcome"><span className="welcome-mark">⌘</span><h2>{project ? '继续查看你的工作' : '从一个项目开始'}</h2>
         <p>{project ? '从左侧选择一个会话，查看消息、命令和文件变更记录。' : '选择本机的项目目录，打开属于这个项目的会话历史。'}</p>
         <div className="welcome-note">当前为只读浏览，发送新任务暂未开放。</div>
@@ -126,7 +130,7 @@ export function HistoryApp({ children }: { children: React.ReactNode }) {
         {items?.items.length === 0 && <div className="empty-history">此轮次没有可显示的记录。</div>}
         {items?.nextCursor && <button className="secondary next-items" disabled={busy} onClick={() => void pageItems(items.nextCursor!)}>下一页记录 →</button>}
       </section>}
-      {!workspaceMode&&!(executionMode && project && canSubmit) && <footer className="composer"><textarea aria-label="任务输入" disabled placeholder="暂时无法发送新任务，仍可查看已有记录。" rows={2}/><button data-action="send" disabled>发送 ↑</button></footer>}
+      {!skillsMode&&!workspaceMode&&!(executionMode && project && canSubmit) && <footer className="composer"><textarea aria-label="任务输入" disabled placeholder="暂时无法发送新任务，仍可查看已有记录。" rows={2}/><button data-action="send" disabled>发送 ↑</button></footer>}
     </main>
   </div>;
 }

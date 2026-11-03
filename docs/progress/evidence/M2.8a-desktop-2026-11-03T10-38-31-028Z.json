@@ -1,0 +1,42 @@
+{
+  "status": "passed",
+  "observedAt": "2026-11-03T10:38:31.028Z",
+  "kind": "real_electron_locked_cli_isolated_project_skill_discovery",
+  "history": "synthetic_metadata",
+  "inferenceRequested": false,
+  "modelTurns": 0,
+  "metadataMethods": [
+    "initialize",
+    "skills/list",
+    "initialize",
+    "skills/list"
+  ],
+  "result": {
+    "modalOpen": true,
+    "onePublicSkill": true,
+    "plainText": true,
+    "bodyNotShown": true,
+    "scanErrorsShown": true,
+    "policyOnly": true,
+    "emptyFilter": true,
+    "sameOpaqueId": true,
+    "extraRejected": true,
+    "foreignRejected": true,
+    "sandboxed": true,
+    "isolated": true,
+    "noRequire": true,
+    "apiCount": true,
+    "failedRefreshMarked": true,
+    "oldViewRetained": true,
+    "unsentDraftKept": true,
+    "noRuns": true,
+    "noIntents": true,
+    "onlyMetadataMethods": true,
+    "sourceBodyPreserved": true
+  },
+  "display": "native_desktop",
+  "exitCode": 0,
+  "signal": null,
+  "timedOut": false,
+  "platform": "darwin-arm64"
+}

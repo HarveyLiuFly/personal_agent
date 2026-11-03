@@ -25,6 +25,8 @@
     "smoke:backups:desktop": "node scripts/smoke-desktop.mjs --backups",
     "smoke:rehearsal:desktop": "node scripts/smoke-desktop.mjs --rehearsal",
     "smoke:resources:desktop": "node scripts/smoke-desktop.mjs --resources",
+    "smoke:skills:desktop": "node scripts/smoke-desktop.mjs --skills",
+    "smoke:skills:native": "node --disable-warning=ExperimentalWarning scripts/probe-project-skills.ts",
     "smoke:worktree-code:preflight": "node scripts/smoke-desktop.mjs --worktree-code-preflight",
     "smoke:worktree-code:desktop": "node scripts/smoke-desktop.mjs --worktree-code",
     "smoke:terminal:desktop": "node scripts/smoke-desktop.mjs --terminal",

@@ -1,0 +1,170 @@
+{
+  "checkpoint": "M2.8a",
+  "status": "passed_isolated_project_skill_metadata_preview",
+  "observedAt": "2026-11-03T10:42:13.519440+00:00",
+  "baselineCommit": "3a190b764d19770b05d2c4b14e787764c85ad105",
+  "stageGate": "open",
+  "schemaRevision": 6,
+  "fixedDesktopApiCount": 45,
+  "permissionManagement": "deferred_to_M5",
+  "checks": {
+    "discovered": 322,
+    "executed": 322,
+    "passed": 322,
+    "failed": 0,
+    "skipped": 0,
+    "designContracts": 17,
+    "stableGeneratedTypes": 747,
+    "newProjectionCases": 12,
+    "newServiceCases": 3,
+    "electronTargetedCases": 15,
+    "typecheck": "passed",
+    "build": "passed"
+  },
+  "scope": {
+    "source": "locked_cli_isolated_project_discovery",
+    "projectOnly": true,
+    "privateConfigAndUserHomePerQuery": true,
+    "authOrUserConfigCopied": false,
+    "runtimeExecutionConfigChanged": false,
+    "preAndPostWorkspaceIdentityChecked": true,
+    "remoteMcpInventory": "not_loaded",
+    "executionCapabilities": "existing_application_profile_not_enabled",
+    "rawSkillPathsBodyPromptIconsDependenciesExported": false,
+    "maximumSkills": 200,
+    "maximumNameAndDisplayUnits": 100,
+    "maximumDescriptionUnits": 1000,
+    "maximumTotalUtf16Units": 65536,
+    "maximumRpcFrameBytes": 2097152,
+    "opaqueIds": "random_hmac_per_catalog_owner"
+  },
+  "nativeCli": {
+    "status": "passed",
+    "observedAt": "2026-11-03T10:41:33.798Z",
+    "kind": "locked_cli_isolated_project_skill_discovery",
+    "platform": "darwin-arm64",
+    "cliVersion": "codex-cli 0.163.0",
+    "inferenceRequested": false,
+    "modelTurns": 0,
+    "metadataMethods": [
+      "initialize",
+      "skills/list"
+    ],
+    "projectSkillCount": 1,
+    "scanErrors": 1,
+    "configuredMcpConnections": 0,
+    "result": {
+      "expectedProjectSkill": true,
+      "projectOnly": true,
+      "bodyNotExported": true,
+      "pathsNotExported": true,
+      "scanErrorCount": true,
+      "mcpHelperNotStarted": true,
+      "configuredHttpMcpNoConnections": true,
+      "onlyMetadataMethods": true,
+      "privateQueryDirectoryCleaned": true,
+      "sourceSkillPreserved": true
+    }
+  },
+  "desktop": {
+    "status": "passed",
+    "observedAt": "2026-11-03T10:42:02.174Z",
+    "kind": "real_electron_locked_cli_isolated_project_skill_discovery",
+    "history": "synthetic_metadata",
+    "inferenceRequested": false,
+    "modelTurns": 0,
+    "metadataMethods": [
+      "initialize",
+      "skills/list",
+      "initialize",
+      "skills/list"
+    ],
+    "result": {
+      "modalOpen": true,
+      "onePublicSkill": true,
+      "plainText": true,
+      "bodyNotShown": true,
+      "scanErrorsShown": true,
+      "policyOnly": true,
+      "emptyFilter": true,
+      "sameOpaqueId": true,
+      "extraRejected": true,
+      "foreignRejected": true,
+      "sandboxed": true,
+      "isolated": true,
+      "noRequire": true,
+      "apiCount": true,
+      "failedRefreshMarked": true,
+      "oldViewRetained": true,
+      "unsentDraftKept": true,
+      "noRuns": true,
+      "noIntents": true,
+      "onlyMetadataMethods": true,
+      "sourceBodyPreserved": true
+    },
+    "display": "native_desktop",
+    "exitCode": 0,
+    "signal": null,
+    "timedOut": false,
+    "platform": "darwin-arm64"
+  },
+  "nativeWindowRegression": {
+    "status": "passed",
+    "apiExactWhitelist": 45,
+    "inferenceRequested": false,
+    "file": "M2.8a-native-window-regression.json"
+  },
+  "parallelWork": {
+    "subagent": [
+      "projection",
+      "twelve targeted cases",
+      "read_only_integration_review"
+    ],
+    "primary": [
+      "isolated CLI connection",
+      "project identity service",
+      "Host/UI",
+      "native probes",
+      "documentation/build/Git"
+    ],
+    "sameImplementationFileConcurrentWrites": false
+  },
+  "actualTestFailures": 0,
+  "newCrashLocations": 0,
+  "existingLedgerFaultLocations": 16,
+  "existingBackupRehearsalFilesystemFaultLocations": 4,
+  "remaining": [
+    "necessary_workspace_editor",
+    "effective_global_skill_and_remote_connector_inventory",
+    "running_environment_restore_activation_and_reconciliation",
+    "full_M2_gate"
+  ],
+  "sourceAndBuildHashes": {
+    "packages/contracts/src/skills.ts": "ca9838b64a3412e297693a204360aaa69dd87444eddb6389815ab6a94a7bd536",
+    "packages/codex-adapter/src/skills.ts": "57e4c03ad285816c24cbf3b133d02367589fabf79bc838497d04e5d26b315284",
+    "packages/runtime/src/skills.ts": "0a158a311fb383b8a44c56c9ddfa41cd7f83f502cfdc1a6c1d6f6221f89e3502",
+    "packages/runtime/src/skills-connection.ts": "b605247930201b2bfbe4f31d9ba7ceb8b99ec679e3faeee4d82f53cc9f1cbca4",
+    "apps/desktop/src/main.ts": "a8d94f8568195a96f011baec6b9605a4397f2d7f93b1236ad08187a1ee9d17ad",
+    "apps/desktop/src/bridge.ts": "e2eead0cf81bab71ca762f742bf260af09c27af6aa5464c6f24296fb7455af1c",
+    "apps/desktop/src/preload.ts": "e03e4e13867df08a7088a80d99d2827c5f82df36761ef97bb82419b1c9a8fa15",
+    "apps/desktop/renderer/skills-panel.tsx": "de5a70366ff382b1f2d99ffb2d72b9874bd55bc80df1bfc0e1dfc50aa3085a64",
+    "apps/desktop/renderer/history-app.tsx": "afd2face73defecf966a0f10eec88f7dde3ff49fe6f4a987c6d3a05b0b7bb9c9",
+    "apps/desktop/renderer/style.css": "27ba2bd03ac436200b5bc63bc9b64570b590241e866feba0d288f6aada8bdf3b",
+    "apps/desktop/src/skills-probe.ts": "792a32eae3bfecca506e9b9a417e9271b6b2a52882337d069ffa8d54776e0254",
+    "scripts/probe-project-skills.ts": "d8da14c3de91f102f6192d94ebe50e5878b2656301e449ca0f82c04d6a1892d0",
+    "scripts/smoke-desktop.mjs": "8bdcc0a833a7404e527234f4c1aed92df720e95b65512197004ce265eaaa1e52",
+    "tests/skills.test.ts": "33c32169f6d670de7471918f7b6c840372f05692df4551835baea52c61fd9fcb",
+    "tests/project-skills.test.ts": "7564966f9a724be854f310fde9f48847b0aafd44334c3bbb42c3b3d877ef82e2",
+    "build/desktop/main.js": "2fb960537c4f94fe48ac77f8be5e4beb4101666678f06e7ad2a89ea13d3c13ef",
+    "build/desktop/preload.cjs": "ec52f3de271fea83d5844a9a51c9fc595f0ba8673b3a6cdb023945aaf3cf2fc8",
+    "build/desktop/renderer/assets/terminal-panel-BrP-ENHg.css": "0e5386f16cb4be78a2fe911e014a810da76ea2db47d8c8b2a966516b2fd5270b",
+    "build/desktop/renderer/assets/terminal-panel-Bj3l4KHA.js": "b04da869750be6b2d35328d861b84b7b29d826e8e04fa0151358dcd1d076242d",
+    "build/desktop/renderer/assets/index-CSNWDl7Y.js": "05e97a92e861920147c6bdda74f9fb3c9aaf2b2895b66db6527aef504ac07383",
+    "build/desktop/renderer/assets/index-BlXxy4U9.css": "8a2ff52e4cb95ceb9744bef964fb48c383d55323b956c96c99f6f71f7b116f23"
+  },
+  "review": {
+    "blockingFindings": 0,
+    "minorCleanupBoundaryFixed": "mkdir in try/finally so failed private config setup cleans query directory",
+    "actualEnospcTestRun": false
+  }
+}

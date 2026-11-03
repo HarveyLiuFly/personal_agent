@@ -145,3 +145,11 @@ pre { white-space: pre-wrap; overflow-wrap: anywhere; font-family: ui-monospace,
 .runtime-resources small {color:#93a8c1;line-height:1.6;}
 .resource-grid {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:12px 0;}
 @media(max-width:850px){.resource-grid{grid-template-columns:1fr;}}
+.skills-panel {padding:22px 28px;}
+.skills-capabilities,.skill-card {padding:14px;margin:14px 0;border:1px solid #35485f;border-radius:10px;overflow-wrap:anywhere;}
+.skills-capabilities {font-size:12px;color:#a8bad0;}
+.skill-filter {display:flex;gap:12px;align-items:center;font-size:12px;}
+.skill-filter input {padding:8px;background:#101a2a;color:#e7edf6;border:1px solid #35485f;border-radius:6px;min-width:0;}
+.skill-card h3 {font-size:14px;margin:0 0 8px;}.skill-card p {font-size:13px;white-space:pre-wrap;line-height:1.7;}.skill-card small {font-size:11px;color:#93a8c1;}
+.skills-dialog {background:#101a2a;color:#e7edf6;border:1px solid #35485f;border-radius:14px;width:min(850px,90vw);max-height:85vh;padding:0;}
+.skills-dialog::backdrop {background:#020810b0;}.skills-dialog-actions{display:flex;justify-content:flex-end;padding:14px 22px 0;}

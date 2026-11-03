@@ -1,0 +1,28 @@
+{
+  "status": "passed",
+  "observedAt": "2026-11-03T10:38:20.411Z",
+  "kind": "locked_cli_isolated_project_skill_discovery",
+  "platform": "darwin-arm64",
+  "cliVersion": "codex-cli 0.163.0",
+  "inferenceRequested": false,
+  "modelTurns": 0,
+  "metadataMethods": [
+    "initialize",
+    "skills/list"
+  ],
+  "projectSkillCount": 1,
+  "scanErrors": 1,
+  "configuredMcpConnections": 0,
+  "result": {
+    "expectedProjectSkill": true,
+    "projectOnly": true,
+    "bodyNotExported": true,
+    "pathsNotExported": true,
+    "scanErrorCount": true,
+    "mcpHelperNotStarted": true,
+    "configuredHttpMcpNoConnections": true,
+    "onlyMetadataMethods": true,
+    "privateQueryDirectoryCleaned": true,
+    "sourceSkillPreserved": true
+  }
+}

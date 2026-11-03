@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron';
 import type { DesktopApi } from './bridge.ts';
 
 const api: DesktopApi = Object.freeze<DesktopApi>({
+  listProjectSkills:query=>ipcRenderer.invoke('skills:list',query),
   listBackups:()=>ipcRenderer.invoke('backups:list'),
   applyBackupCommand:input=>ipcRenderer.invoke('backups:command',input),
   security: Object.freeze({ sandboxed: process.sandboxed === true, isolated: process.contextIsolated === true }),

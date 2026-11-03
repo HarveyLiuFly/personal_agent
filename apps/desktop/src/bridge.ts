@@ -7,6 +7,7 @@ import type {TaskSummary,TaskCommand,OperationReceipt,StartTask,ActivityPage,Tas
 import type {ResourceBudget} from '../../../packages/contracts/src/budget.ts';
 import type {ScheduleCommand,ScheduleView,OccurrenceView} from '../../../packages/contracts/src/schedules.ts';
 import type {BackupCommand,BackupCommandResult,BackupPage} from '../../../packages/contracts/src/backups.ts';
+import type {ProjectSkillsView} from '../../../packages/contracts/src/skills.ts';
 export interface ConnectionInfo {
   status: 'connected' | 'error';
   models?: number;
@@ -15,6 +16,7 @@ export interface ConnectionInfo {
 }
 export interface SmokeInfo { status: 'passed' | 'error'; finalText?: string; threadId?: string; turnId?: string; errorCode?: string }
 export interface DesktopApi {
+  listProjectSkills(query:{projectId:string}):Promise<HostResult<ProjectSkillsView>>;
   listBackups():Promise<HostResult<BackupPage>>;
   applyBackupCommand(input:BackupCommand):Promise<HostResult<BackupCommandResult>>;
   readonly security: { readonly sandboxed: boolean; readonly isolated: boolean };
@@ -23,7 +25,7 @@ export interface DesktopApi {
   listThreads(query: ProjectQuery): Promise<HostResult<Page<ThreadSummary>>>;
   listTurns(query: ThreadQuery): Promise<HostResult<Page<TurnView>>>;
   listItems(query: ItemQuery): Promise<HostResult<Page<ItemView>>>;
-  workspaceState(): Promise<HostResult<{ projects: ProjectView[]; canSubmit: boolean; canCode: boolean; canBrowseWorkspace:boolean;canManageTasks:boolean;backgroundEnabled:boolean;canUseTerminal:boolean; mode: 'readOnly' | 'workspaceWrite' }>>;
+  workspaceState(): Promise<HostResult<{ projects: ProjectView[]; canSubmit: boolean; canCode: boolean; canBrowseWorkspace:boolean;canBrowseSkills?:boolean;canManageTasks:boolean;backgroundEnabled:boolean;canUseTerminal:boolean; mode: 'readOnly' | 'workspaceWrite' }>>;
   listTasks(query:{projectId:string}):Promise<HostResult<TaskSummary[]>>;
   applyTaskCommand(command:TaskCommand):Promise<HostResult<OperationReceipt>>;
   startTask(input:StartTask):Promise<HostResult<RunSummary>>;
