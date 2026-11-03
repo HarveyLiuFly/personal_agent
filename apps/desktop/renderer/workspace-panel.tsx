@@ -13,12 +13,12 @@ function message(code:string){
 }
 export function WorkspacePanel({project,onBusyChange,onSelected,onProjectsChanged,canUseTerminal}:{project:ProjectView;canUseTerminal:boolean;onBusyChange:(busy:boolean)=>void;onSelected:(project:ProjectView)=>void;onProjectsChanged:(projects:ProjectView[])=>void}){
  const [overview,setOverview]=useState<WorkspaceOverview>(),[directory,setDirectory]=useState<WorkspaceDirectory>();
- const [tab,setTab]=useState<'files'|'git'>('files'),[preview,setPreview]=useState<WorkspacePreview|WorkspaceDiff>(),[busy,setBusy]=useState(false),[managementBusy,setManagementBusy]=useState(false),[terminalBusy,setTerminalBusy]=useState(false),[error,setError]=useState<string>();
+ const [tab,setTab]=useState<'files'|'git'>('files'),[preview,setPreview]=useState<WorkspacePreview|WorkspaceDiff>(),[busy,setBusy]=useState(false),[managementBusy,setManagementBusy]=useState(false),[terminalBusy,setTerminalBusy]=useState(false),[error,setError]=useState<string>(),[initialReadDone,setInitialReadDone]=useState(false);
  const alive=useRef(true),pending=useRef(false);
  useEffect(()=>{onBusyChange(busy||managementBusy||terminalBusy);},[busy,managementBusy,terminalBusy]);
  async function perform(work:()=>Promise<void>){if(pending.current)return;pending.current=true;setBusy(true);setError(undefined);
   try{await work();}catch(e){if(alive.current)setError(message(e instanceof Error?e.message:''));}
-  finally{pending.current=false;if(alive.current){setBusy(false);}}
+  finally{pending.current=false;if(alive.current){setBusy(false);setInitialReadDone(true);}}
  }
  const refresh=()=>perform(async()=>{const next=await value(window.personalAgent.getWorkspace({projectId:project.id}));if(alive.current){setOverview(next);setDirectory(next.directory);setPreview(undefined);}});
  useEffect(()=>{alive.current=true;void refresh();return()=>{alive.current=false;onBusyChange(false);};},[project.id]);
@@ -28,7 +28,7 @@ export function WorkspacePanel({project,onBusyChange,onSelected,onProjectsChange
  return <section className="workspace-panel" data-workspace-panel>
   <div className="workspace-heading"><div><h2>工作区</h2><span className="history-note">{overview?.git.available?`${overview.git.branch??'分离 HEAD'} · ${overview.git.head?.slice(0,10)??'尚无提交'}`:project.name}</span></div><span className="badge">只读预览</span><button className="secondary" data-action="refresh-workspace" disabled={busy||managementBusy||terminalBusy} onClick={()=>void refresh()}>刷新</button></div>
   {error&&<div className="notice error" role="alert">{error}</div>}
-  <>{overview&&<WorktreeManager project={project} disabled={busy||managementBusy||terminalBusy} onBusyChange={setManagementBusy} onSelected={onSelected} onProjectsChanged={onProjectsChanged}/>}</>
+  <>{initialReadDone&&<WorktreeManager project={project} disabled={busy||managementBusy||terminalBusy} onBusyChange={setManagementBusy} onSelected={onSelected} onProjectsChanged={onProjectsChanged}/>}</>
   {canUseTerminal&&overview&&<Suspense fallback={<p className="history-note">正在加载用户终端…</p>}><TerminalPanel project={project} disabled={busy||managementBusy||terminalBusy} onBusyChange={setTerminalBusy}/></Suspense>}
   <div className="workspace-columns">
    <aside className="workspace-explorer"><div className="workspace-tabs"><button data-action="workspace-files" aria-pressed={tab==='files'} onClick={()=>setTab('files')}>文件</button><button data-action="workspace-git" aria-pressed={tab==='git'} onClick={()=>setTab('git')}>Git 变更 {overview?.git.available?overview.git.changes.length:''}</button></div>

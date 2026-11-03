@@ -2,7 +2,7 @@
 
 交接日期：2026-11-02（Asia/Shanghai）。用户决定停止在当前云环境中推进，改用本地电脑的 Codex 继续开发。本文件是接手入口，详细执行历史保留在阶段记录中。
 
-本机后续状态以[本机平台接续](LOCAL_BASELINE.md)、[阶段总览](README.md)、[M1](M1.md)和[M2](M2.md)为准：**M0/M1 Gate 在已记录的 macOS arm64 范围通过，M1 定位 `checkpoint/M1`**，见[历史 Gate](evidence/M1-gate.json)。**M2 最新 `checkpoint/M2.6a`：工作树/队列/预算/计划/后台窗口之上，新增真实用户 PTY、xterm 输入/尺寸、关闭窗口后会话恢复及显式退出停止。Schema Revision 6，2/3/4/5→6 先验证含 WAL 备份；255/255、11 项 Electron 核心用例、4 项输入队列用例、两个新增 Host SIGKILL（累计 13 个账本故障位置）及 42 项精确 IPC 白名单通过。** 输入只持久化临时会话密钥的 HMAC/序列；输出仅有界 RAM，不跨 Owner 重启/重发 Shell 或输入。终端与项目模型/工作树互斥，Unknown 保留租约；私有恢复副本/分支继续保留。当前点 0 模型，M2.4a 原生无窗口模型证据独立保留。另归档核对后清理 6 个桌面 Git Fixture 和 5 个延期原型自有目录，开发仓库仍只有 main。权限管理在 M5；继续恢复目录/中断登记修复、编辑与真实工具状态、资源/备份恢复及工作树原生模型集成，M2 Gate 开放。关闭窗口保留 Main，显式退出应用停止，不承诺独立 Daemon 或系统休眠执行。历史 Verifier Hash 变化仍拒绝复用，不可改 Hash 绕过。下文保留原云交接事实。
+本机后续状态以[本机平台接续](LOCAL_BASELINE.md)、[阶段总览](README.md)、[M1](M1.md)和[M2](M2.md)为准：**M0/M1 Gate 在已记录的 macOS arm64 范围通过，M1 定位 `checkpoint/M1`**，见[历史 Gate](evidence/M1-gate.json)。**M2 最新 `checkpoint/M2.5b`：在真实用户 PTY/工作树/计划/后台窗口之上，新增恢复目录索引/定位和中断移除的显式元数据修复。Schema Revision 6 不变；265/265、24 项 Electron 工作树用例、三个新增 Host SIGKILL（累计 16 个账本故障位置）通过，固定 IPC 仍 42 项。** 修复用新本地 Intent/Fence，不重发原移除；文件/分支保留，准备中断或失败保持 Unknown/锁，成功才沿父链收敛。源仓库消失后仍能看恢复索引，但模型提交拒绝；目录定位适配仅做目标校验 Stub，未实际观察 Finder。当前点 0 模型，权限管理继续在 M5。继续编辑/真实工具状态、资源/备份恢复及原生模型集成；自动重新挂回恢复文件尚未交付，M2 Gate 开放。已清理旧自有临时目录，开发仓库仍仅 main；关闭窗口保留 Main，显式退出应用停止，不承诺独立 Daemon/系统休眠执行。历史 Verifier Hash 变化仍拒绝复用，不可改 Hash 绕过。下文保留原云交接事实。
 
 ## 1. Git 与交付范围
 

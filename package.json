@@ -20,6 +20,7 @@
     "protocol:verify": "node scripts/generate-protocol.mjs --verify",
     "smoke:codex": "node --disable-warning=ExperimentalWarning scripts/smoke-codex.ts",
     "smoke:connection": "node --disable-warning=ExperimentalWarning scripts/probe-codex.ts",
+    "smoke:worktree-recovery:desktop": "node scripts/smoke-desktop.mjs --worktree-recovery",
     "smoke:terminal:desktop": "node scripts/smoke-desktop.mjs --terminal",
     "smoke:worktrees:desktop": "node scripts/smoke-desktop.mjs --worktrees",
     "smoke:desktop": "node scripts/smoke-desktop.mjs",

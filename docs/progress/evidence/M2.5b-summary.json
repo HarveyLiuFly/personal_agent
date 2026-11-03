@@ -1,0 +1,83 @@
+{
+  "checkpoint": "M2.5b",
+  "status": "passed_recovery_index_and_explicit_metadata_repair_scope",
+  "baselineCommit": "4d81b59a44ee68127c342aacbcbf18f01be10b7f",
+  "schemaRevision": 6,
+  "stageGate": "open",
+  "permissionManagement": "deferred_to_M5",
+  "checks": {
+    "discovered": 265,
+    "executed": 265,
+    "passed": 265,
+    "failed": 0,
+    "skipped": 0,
+    "electronWorktreeCases": 24,
+    "designContracts": 17,
+    "stableGeneratedTypes": 747,
+    "typecheck": "passed",
+    "build": "passed"
+  },
+  "newModelTurns": 0,
+  "newActualHostSigkillLocations": [
+    "archive_moved_before_git_continue",
+    "repair_prepared_before_dispatch",
+    "repair_git_completed_before_store_receipt"
+  ],
+  "cumulativeLedgerFaultLocations": 16,
+  "repair": {
+    "newUserOperation": "REPAIR_WORKTREE_REMOVAL",
+    "sourceIntentResent": false,
+    "archiveMovedAgain": false,
+    "archiveDataCopiedOrDeleted": false,
+    "branchDeleted": false,
+    "forceOrPrune": false,
+    "oldProcessGroupCheckedGone": true,
+    "newFenceAndLeaseTakeover": "same_transaction",
+    "preparedRepairRecovery": "unknown_keeps_unresolved_lock",
+    "parentChainResolution": "explicit_child_result_or_authoritative_read_only_reconciliation"
+  },
+  "recoveryIndex": {
+    "ownedDirectoryDeviceInodeBound": true,
+    "sourceRepositoryMayBeUnavailableForLookup": true,
+    "missingSourceExecutionReauthorized": false,
+    "rawPathInputAccepted": false,
+    "automaticReattachmentOrRestore": false,
+    "automaticArchiveDeletion": false
+  },
+  "desktop": {
+    "status": "passed",
+    "historyMetadata": "synthetic_fixture",
+    "realGitAndFilesystem": true,
+    "finderAdapter": "destination_checking_stub_actual_Finder_not_run",
+    "apiWhitelistCount": 42,
+    "modelRuns": 0,
+    "sourceMissingViewReload": "passed",
+    "sourceMissingModelSubmission": "rejected_before_Run"
+  },
+  "substitutions": [
+    "forced_epoch_test_is_component_fixture_not_OS_failover",
+    "folder_reveal_adapter_stub_no_actual_Finder_window_observation"
+  ],
+  "remaining": [
+    "automatic_worktree_data_reattachment",
+    "workspace_editing_and_real_agent_tool_status",
+    "resource_backup_restore",
+    "managed_worktree_native_model_task_integration",
+    "full_M2_gate"
+  ],
+  "sourceAndBuildHashes": {
+    "packages/store/src/ledger.ts": "dcea433f735617130f3bead196115822a21bde69e0c6575862ef34335c242ee0",
+    "packages/contracts/src/worktrees.ts": "940345cb572b69eda035fec101ccb3444e791154e179e130b20b534c2a098cb9",
+    "packages/workspace/src/worktrees.ts": "3fc97410c66fe9ebd0a19852d670cc50b687e9394d7b7db69ee3a741a8535655",
+    "packages/workspace/src/worktree-worker.mjs": "1db9fbdb2a7ce3ea2255d939a9e929035279f7864d02adcf3139904be9085b43",
+    "apps/desktop/src/main.ts": "45898d8f63d11cb8506e564e46934ce7489140ea6432510f20ebd8ee82611da9",
+    "apps/desktop/src/worktree-recovery-probe.ts": "debbfab1af27ffc0278146b0d234c339d26b0c841658738a90a285a1530093b3",
+    "apps/desktop/renderer/workspace-panel.tsx": "e19205225e5fb389214d1f7b05855420d6b6b9c27efbe13294e325045ae7bb88",
+    "apps/desktop/renderer/worktree-manager.tsx": "95affb080f3912c2760e638b88125162b1ff8fd67244fd89018a67c874ebfb04",
+    "scripts/smoke-desktop.mjs": "4358cf3dd7da953d2694f7c3dbccd6013bbeb32312ac468df41c527a5befecae",
+    "tests/worktrees.test.ts": "e01a5482cd51ea938c09b7bde08197d99000f91268d7833fe73a1ebbbd95a000",
+    "tests/fixtures/worktree-recovery-worker.ts": "c78d5abcafcfa3de6c29e38b570ba4be46254d2f1ff12ed16500d08f482b7cd6",
+    "build/desktop/main.js": "5140c80fb675ae461ef2c045f7dd8f1bb52e2c2e60fa1aa9097584717f2e4f62",
+    "build/desktop/worktree-worker.mjs": "1db9fbdb2a7ce3ea2255d939a9e929035279f7864d02adcf3139904be9085b43"
+  }
+}

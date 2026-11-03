@@ -135,7 +135,7 @@ export class ExecutionLedger {
       this.exec("UPDATE outbox_events SET lease_until_ms=0 WHERE state='claimed' AND aggregate_ref IN (SELECT task_id FROM tasks WHERE dot_id=?)",this.dotId);
       this.terminals.recover();
       for(const op of this.all("SELECT * FROM worktree_operations WHERE dot_id=? AND state IN ('prepared','dispatching')",this.dotId)){
-        const state=op.state==='prepared'?'failed':'outcome_unknown';this.exec('UPDATE worktree_operations SET state=?,error_code=? WHERE operation_id=?',state,op.state==='prepared'?'OWNER_STOPPED_BEFORE_SEND':'OWNER_RECOVERY_UNKNOWN',op.operation_id!);this.exec('UPDATE operations SET state=? WHERE operation_id=?',state,op.operation_id!);
+        const state=op.state==='prepared'&&!JSON.parse(String(op.payload_json)).repairOf?'failed':'outcome_unknown';this.exec('UPDATE worktree_operations SET state=?,error_code=? WHERE operation_id=?',state,op.state==='prepared'?'OWNER_STOPPED_BEFORE_SEND':'OWNER_RECOVERY_UNKNOWN',op.operation_id!);this.exec('UPDATE operations SET state=? WHERE operation_id=?',state,op.operation_id!);
         if(state==='failed')this.exec('DELETE FROM project_operation_leases WHERE operation_id=?',op.operation_id!);
       }
       for (const run of this.all(`SELECT * FROM task_runs WHERE status IN ${active} AND dot_id=?`, this.dotId)) {
@@ -216,10 +216,10 @@ export class ExecutionLedger {
   terminalCloseRequest(projectId:string,sessionId:string,key:string):boolean{return this.terminals.requestClose(projectId,sessionId,key);}
   terminalFinished(projectId:string,sessionId:string,code:number|null,errorCode?:string,reconciled=false):void{this.terminals.finish(projectId,sessionId,code,errorCode,reconciled);}
   terminalUnknown(projectId:string,sessionId:string,code:string):void{this.terminals.unknown(projectId,sessionId,code);}
-  worktreeContext(workspaceId:string):{projectId:string;root:string;workspace:ProjectView} {
-    const workspace=this.workspace(workspaceId),row=this.one('SELECT p.* FROM projects p JOIN workspaces w USING(project_id) WHERE w.workspace_id=? AND w.dot_id=?',workspaceId,this.dotId)!;
-    return{projectId:String(row.project_id),root:String(row.canonical_git_root),workspace};
+  worktreeScope(workspaceId:string):{projectId:string;root:string} {
+    const row=this.one('SELECT p.* FROM projects p JOIN workspaces w USING(project_id) WHERE w.workspace_id=? AND w.dot_id=?',workspaceId,this.dotId)??fail('UNKNOWN_PROJECT');return{projectId:String(row.project_id),root:String(row.canonical_git_root)};
   }
+  worktreeContext(workspaceId:string):{projectId:string;root:string;workspace:ProjectView} {return{...this.worktreeScope(workspaceId),workspace:this.workspace(workspaceId)};}
   managedWorktree(workspaceId:string):ManagedWorktreeView {
     const row=this.one('SELECT m.*,w.canonical_cwd FROM managed_worktrees m JOIN workspaces w USING(workspace_id) WHERE workspace_id=? AND w.dot_id=?',workspaceId,this.dotId)??fail('WORKTREE_NOT_MANAGED');
     return{id:workspaceId,name:String(row.display_name),directory:String(row.canonical_cwd),sourceWorkspaceId:String(row.source_workspace_id),branch:String(row.branch),baseCommit:String(row.base_commit),version:Number(row.version),state:row.state as ManagedWorktreeView['state']};
@@ -231,15 +231,15 @@ export class ExecutionLedger {
     return Number(this.one("SELECT COUNT(*) AS n FROM tasks WHERE workspace_id=? AND dot_id=? AND status NOT IN ('completed','cancelled')",workspaceId,this.dotId)!.n);
   }
   worktreeOperations(workspaceId:string):WorktreeOperationView[] {
-    const context=this.worktreeContext(workspaceId);
-    return this.all('SELECT * FROM worktree_operations WHERE project_id=? AND dot_id=? ORDER BY created_at_ms DESC,rowid DESC LIMIT 20',context.projectId,this.dotId).map(row=>{const p=JSON.parse(String(row.payload_json)) as WorktreePayload;return{operationId:String(row.operation_id),kind:row.kind as 'create'|'remove',state:row.state as WorktreeOperationView['state'],workspaceId:row.target_workspace_id as string|null,name:p.name,branch:p.branch,errorCode:row.error_code as string|null,createdAt:Number(row.created_at_ms)};});
+    const context=this.worktreeScope(workspaceId);
+    return this.all('SELECT * FROM worktree_operations WHERE project_id=? AND dot_id=? ORDER BY created_at_ms DESC,rowid DESC LIMIT 20',context.projectId,this.dotId).map(row=>{const p=JSON.parse(String(row.payload_json)) as WorktreePayload;return{operationId:String(row.operation_id),kind:p.repairOf?'repairRemove':row.kind as 'create'|'remove',state:row.state as WorktreeOperationView['state'],workspaceId:row.target_workspace_id as string|null,name:p.name,branch:p.branch,errorCode:row.error_code as string|null,createdAt:Number(row.created_at_ms)};});
   }
   worktreeList(workspaceId:string):ManagedWorktreeView[] {
-    const context=this.worktreeContext(workspaceId);return this.all("SELECT m.workspace_id FROM managed_worktrees m JOIN workspaces w USING(workspace_id) WHERE w.project_id=? AND w.dot_id=? AND m.state<>'removed' ORDER BY w.rowid LIMIT 16",context.projectId,this.dotId).map(row=>this.managedWorktree(String(row.workspace_id)));
+    const context=this.worktreeScope(workspaceId);return this.all("SELECT m.workspace_id FROM managed_worktrees m JOIN workspaces w USING(workspace_id) WHERE w.project_id=? AND w.dot_id=? AND m.state<>'removed' ORDER BY w.rowid LIMIT 16",context.projectId,this.dotId).map(row=>this.managedWorktree(String(row.workspace_id)));
   }
-  worktreeReplay(workspaceId:string,key:string,input:unknown,kind:'create'|'remove'):WorktreeDispatch|null {
+  worktreeReplay(workspaceId:string,key:string,input:unknown,kind:'create'|'remove'|'repairRemove'):WorktreeDispatch|null {
     this.owner();this.worktreeContext(workspaceId);const row=this.one('SELECT o.* FROM operations o JOIN router_decisions d USING(decision_id) JOIN messages m USING(message_id) WHERE decision_id=? AND m.dot_id=?','command:'+hashInput([this.dotId,'worktree:'+key]),this.dotId);
-    if(!row)return null;if(row.input_hash!==hashInput(input)||row.kind!==(kind==='create'?'CREATE_WORKTREE':'REMOVE_WORKTREE'))return fail('IDEMPOTENCY_CONFLICT');return this.worktreeDispatch(workspaceId,String(row.operation_id));
+    if(!row)return null;if(row.input_hash!==hashInput(input)||row.kind!==(kind==='create'?'CREATE_WORKTREE':kind==='remove'?'REMOVE_WORKTREE':'REPAIR_WORKTREE_REMOVAL'))return fail('IDEMPOTENCY_CONFLICT');return this.worktreeDispatch(workspaceId,String(row.operation_id));
   }
   prepareWorktree(workspaceId:string,key:string,input:unknown,kind:'create'|'remove',source:GitWorkspaceSnapshot,managedRoot:string,target?:{workspaceId:string;version:number;snapshot:GitWorkspaceSnapshot;inspectionHash:string}):WorktreeDispatch {
     if(!id(key))return fail('INVALID_WORKTREE_COMMAND');const context=this.worktreeContext(workspaceId);
@@ -264,19 +264,44 @@ export class ExecutionLedger {
       this.exec('INSERT INTO project_operation_leases VALUES (?,?,?,?)',context.projectId,opened.operationId,this.#epoch,fence);return this.worktreeDispatch(workspaceId,opened.operationId);
     });
   }
+  worktreeRecoveries(workspaceId:string):WorktreeDispatch[] {
+    const context=this.worktreeScope(workspaceId);return this.all("SELECT operation_id FROM worktree_operations WHERE project_id=? AND dot_id=? AND kind='remove' AND json_extract(payload_json,'$.repairOf') IS NULL AND state IN ('completed','outcome_unknown') ORDER BY created_at_ms DESC,rowid DESC LIMIT 100",context.projectId,this.dotId).map(row=>this.worktreeDispatch(workspaceId,String(row.operation_id)));
+  }
+  currentWorktreeOperation(workspaceId:string):WorktreeDispatch|null {
+    const context=this.worktreeScope(workspaceId),row=this.one('SELECT operation_id FROM project_operation_leases WHERE project_id=?',context.projectId);return row?this.worktreeDispatch(workspaceId,String(row.operation_id)):null;
+  }
+  prepareWorktreeRepair(workspaceId:string,key:string,input:unknown,parentId:string,source:GitWorkspaceSnapshot):WorktreeDispatch {
+    if(!id(key))return fail('INVALID_WORKTREE_COMMAND');const context=this.worktreeContext(workspaceId);
+    return this.tx(()=>{this.owner();const opened=this.openOperation('worktree:'+key,'REPAIR_WORKTREE_REMOVAL',input,null,null);if(!opened.created)return this.worktreeDispatch(workspaceId,opened.operationId);
+      const parent=this.worktreeDispatch(workspaceId,parentId),lease=this.one('SELECT * FROM project_operation_leases WHERE project_id=?',context.projectId);
+      if(this.one('SELECT w.write_fence FROM worktree_operations o JOIN workspaces w ON w.workspace_id=o.source_workspace_id WHERE o.operation_id=?',parentId)?.write_fence!==parent.sourceFence)return fail('STALE_WORKTREE_OPERATION');
+      if(parent.kind!=='remove'||parent.state!=='outcome_unknown'||!parent.payload.recoveryDirectory||!parent.payload.target||lease?.operation_id!==parentId||lease.source_fence!==parent.sourceFence)return fail('WORKTREE_REPAIR_NOT_ALLOWED');
+      let ancestor:string|undefined=parentId;for(let depth=0;ancestor;depth++){if(depth>=8)return fail('WORKTREE_REPAIR_CHAIN_LIMIT');ancestor=this.worktreeDispatch(workspaceId,ancestor).payload.repairOf;}
+      this.exec('UPDATE workspaces SET write_fence=write_fence+1 WHERE workspace_id=?',workspaceId);const fence=Number(this.one('SELECT write_fence FROM workspaces WHERE workspace_id=?',workspaceId)!.write_fence),payload:WorktreePayload={...parent.payload,source,executionDirectory:context.root,repairOf:parentId};
+      this.exec("INSERT INTO worktree_operations(operation_id,dot_id,project_id,source_workspace_id,target_workspace_id,kind,state,source_fence,runtime_epoch,payload_json,payload_sha256,created_at_ms) VALUES (?,?,?,?,?,'remove','prepared',?,?,?,?,?)",opened.operationId,this.dotId,context.projectId,workspaceId,payload.targetId,fence,this.#epoch,JSON.stringify(payload),hashInput(payload),Date.now());
+      this.exec('UPDATE project_operation_leases SET operation_id=?,runtime_epoch=?,source_fence=? WHERE project_id=?',opened.operationId,this.#epoch,fence,context.projectId);return this.worktreeDispatch(workspaceId,opened.operationId);
+    });
+  }
   worktreeDispatch(workspaceId:string,operationId:string):WorktreeDispatch {
-    const context=this.worktreeContext(workspaceId),row=this.one('SELECT * FROM worktree_operations WHERE operation_id=? AND project_id=? AND dot_id=?',operationId,context.projectId,this.dotId)??fail('WORKTREE_OPERATION_NOT_FOUND');
-    const payload=JSON.parse(String(row.payload_json));if(hashInput(payload)!==row.payload_sha256)return fail('WORKTREE_PAYLOAD_CHANGED');return{operationId,kind:row.kind as 'create'|'remove',state:row.state as WorktreeDispatch['state'],payload,runtimeEpoch:Number(row.runtime_epoch),sourceFence:Number(row.source_fence),supervisorPid:row.supervisor_pid as number|null};
+    const context=this.worktreeScope(workspaceId),row=this.one('SELECT * FROM worktree_operations WHERE operation_id=? AND project_id=? AND dot_id=?',operationId,context.projectId,this.dotId)??fail('WORKTREE_OPERATION_NOT_FOUND');
+    const payload=JSON.parse(String(row.payload_json));if(hashInput(payload)!==row.payload_sha256)return fail('WORKTREE_PAYLOAD_CHANGED');return{operationId,kind:row.kind as 'create'|'remove',state:row.state as WorktreeDispatch['state'],payload,runtimeEpoch:Number(row.runtime_epoch),sourceFence:Number(row.source_fence),supervisorPid:row.supervisor_pid as number|null,createdAt:Number(row.created_at_ms)};
   }
   dispatchWorktree(workspaceId:string,operationId:string,pid:number):void {
     this.tx(()=>{this.owner();const op=this.worktreeDispatch(workspaceId,operationId);if(op.state!=='prepared'||op.runtimeEpoch!==this.#epoch||!Number.isSafeInteger(pid)||pid<2)return fail('STALE_WORKTREE_OPERATION');
       this.exec("UPDATE worktree_operations SET state='dispatching',supervisor_pid=? WHERE operation_id=?",pid,operationId);this.exec("UPDATE operations SET state='executing' WHERE operation_id=?",operationId);
     });
   }
+  recordWorktreeArchive(workspaceId:string,operationId:string,pid:number):boolean {
+    return this.tx(()=>{this.owner();const op=this.worktreeDispatch(workspaceId,operationId),row=this.one('SELECT source_workspace_id,result_json FROM worktree_operations WHERE operation_id=?',operationId)!;
+      if(op.kind!=='remove'||op.payload.repairOf||op.state!=='dispatching'||op.runtimeEpoch!==this.#epoch||op.supervisorPid!==pid||!this.one('SELECT operation_id FROM project_operation_leases WHERE operation_id=? AND source_fence=?',operationId,op.sourceFence)||this.one('SELECT write_fence FROM workspaces WHERE workspace_id=?',row.source_workspace_id!)?.write_fence!==op.sourceFence)return fail('STALE_WORKTREE_OPERATION');
+      if(row.result_json&&JSON.parse(String(row.result_json)).phase==='archived')return false;this.exec('UPDATE worktree_operations SET result_json=? WHERE operation_id=?',JSON.stringify({phase:'archived'}),operationId);return true;
+    });
+  }
   finishWorktree(workspaceId:string,operationId:string,outcome:'completed'|'failed'|'outcome_unknown',snapshot?:GitWorkspaceSnapshot,errorCode?:string,reconciled=false):void {
     this.tx(()=>{this.owner();const op=this.worktreeDispatch(workspaceId,operationId),row=this.one('SELECT * FROM worktree_operations WHERE operation_id=?',operationId)!;
       if(!['prepared','dispatching','outcome_unknown'].includes(op.state)||(!reconciled&&op.runtimeEpoch!==this.#epoch)||op.state==='outcome_unknown'&&!reconciled)return fail('STALE_WORKTREE_OPERATION');
       const lease=this.one('SELECT * FROM project_operation_leases WHERE operation_id=?',operationId);if(!lease||lease.source_fence!==op.sourceFence||this.one('SELECT write_fence FROM workspaces WHERE workspace_id=?',row.source_workspace_id!)?.write_fence!==op.sourceFence)return fail('STALE_WORKTREE_OPERATION');
+      if(op.payload.repairOf&&outcome==='failed'&&!reconciled)outcome='outcome_unknown';
       if(outcome==='completed'&&op.kind==='create'){
         if(!snapshot||snapshot.directory!==op.payload.targetDirectory||snapshot.head!==op.payload.baseCommit||snapshot.commonDir!==op.payload.source.commonDir)return fail('WORKTREE_RESULT_MISMATCH');
         const p=op.payload;this.exec("INSERT INTO workspaces(workspace_id,project_id,dot_id,canonical_cwd,kind,state) VALUES (?,?,?,?,'worktree','ready')",p.targetId,row.project_id!,this.dotId,p.targetDirectory);
@@ -284,9 +309,13 @@ export class ExecutionLedger {
         this.exec("INSERT INTO managed_worktrees(workspace_id,source_workspace_id,create_operation_id,display_name,branch,base_commit,git_dir,common_dir,git_identity_json,state) VALUES (?,?,?,?,?,?,?,?,?,'ready')",p.targetId,row.source_workspace_id!,operationId,p.name,p.branch,p.baseCommit,snapshot.gitDir,snapshot.commonDir,JSON.stringify(snapshot));
         this.exec('UPDATE worktree_operations SET target_workspace_id=? WHERE operation_id=?',p.targetId,operationId);
       }
-      if(outcome==='completed'&&op.kind==='remove'){this.exec("UPDATE managed_worktrees SET state='removed',version=version+1 WHERE workspace_id=?",op.payload.targetId);this.exec("UPDATE workspaces SET state='archived' WHERE workspace_id=?",op.payload.targetId);}
+      if(outcome==='completed'&&op.kind==='remove'){this.exec("UPDATE managed_worktrees SET state='removed',version=version+1 WHERE workspace_id=? AND state<>'removed'",op.payload.targetId);this.exec("UPDATE workspaces SET state='archived' WHERE workspace_id=?",op.payload.targetId);}
       this.exec('UPDATE worktree_operations SET state=?,result_json=?,error_code=? WHERE operation_id=?',outcome,JSON.stringify({workspaceId:op.payload.targetId}),errorCode??null,operationId);this.exec('UPDATE operations SET state=?,result_ref=? WHERE operation_id=?',outcome,'worktree-result:'+operationId,operationId);
-      if(outcome!=='outcome_unknown')this.exec('DELETE FROM project_operation_leases WHERE operation_id=?',operationId);
+      if(outcome!=='outcome_unknown'){
+        let ancestor=op.payload.repairOf;for(let depth=0;ancestor;depth++){if(depth>=8)return fail('WORKTREE_REPAIR_CHAIN_LIMIT');const parent=this.worktreeDispatch(workspaceId,ancestor);if(parent.kind!=='remove'||parent.state!=='outcome_unknown'||parent.payload.targetId!==op.payload.targetId)return fail('WORKTREE_REPAIR_PARENT_CHANGED');
+          this.exec('UPDATE worktree_operations SET state=?,result_json=?,error_code=? WHERE operation_id=?',outcome,JSON.stringify({workspaceId:op.payload.targetId,resolvedBy:operationId}),errorCode??null,ancestor);this.exec('UPDATE operations SET state=?,result_ref=? WHERE operation_id=?',outcome,'worktree-result:'+operationId,ancestor);ancestor=parent.payload.repairOf;
+        }this.exec('DELETE FROM project_operation_leases WHERE operation_id=?',operationId);
+      }
     });
   }
   private taskRow(projectId:string,taskId:string):Row {

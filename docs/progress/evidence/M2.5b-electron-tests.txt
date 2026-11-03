@@ -1,0 +1,37 @@
+[1103/152015.652252:ERROR:electron/shell/common/mac/codesign_util.cc:79] task_name_for_pid: (os/kern) failure (5)
+[1103/152015.754215:ERROR:electron/shell/common/mac/codesign_util.cc:79] task_name_for_pid: (os/kern) failure (5)
+✔ real Git creates an isolated managed branch from committed HEAD, dedupes, and removes without deleting branch (755.286334ms)
+✔ tracked, untracked, ignored files and unmerged commits prevent removal and remain intact (1011.882375ms)
+✔ fresh inspection, task state and project exclusion are enforced without creating model Runs (700.325125ms)
+✔ unsupported helpers and unmanaged linked roots fail before a Git write (122.157167ms)
+✔ lost Git result is Unknown, never resent, and explicit reconciliation adopts the one actual worktree (280.538459ms)
+✔ Owner recovery distinguishes unsent preparation from dispatch and retains Unknown project lease (94.093ms)
+✔ revision 4 WAL migration backs up actual data and creates revision 6 atomically (14.745042ms)
+✔ revision 4 failed migration rolls all new tables and metadata back (12.673334ms)
+✔ real Host SIGKILL at prepared preserves committed Git intent and requires explicit recovery (233.813459ms)
+✔ real Host SIGKILL at dispatch preserves committed Git intent and requires explicit recovery (378.219667ms)
+✔ real Host SIGKILL at result preserves committed Git intent and requires explicit recovery (422.00375ms)
+✔ a last-moment ignored file survives removal in the private atomic recovery directory (821.742833ms)
+✔ managed linked Git previews use the recorded metadata identity, while retargeting is rejected (434.069958ms)
+✔ a foreign workspace, raw argv and a changed branch cannot authorize managed removal (317.005625ms)
+✔ explicit fresh repair removes only stale Git registration, resolves parent and preserves archive and branch (1041.393458ms)
+✔ recovery lookup can reveal owned data after the source repository disappears, without execution authority (673.298041ms)
+✔ a reappearing broken symlink or replaced recovery directory blocks repair without touching either location (741.626542ms)
+✔ Git locked metadata and foreign recovery IDs are refused before new repair intent (1026.832833ms)
+✔ failed repair before dispatch retains unresolved project lock and a later explicit child can converge the chain (986.116875ms)
+✔ a path recreated after dispatch is preserved by the supervised final guard rather than removed (862.921125ms)
+✔ actual SIGKILL at archived keeps the unresolved project lock until explicit metadata repair or reconciliation (990.349667ms)
+ℹ WORKTREE_RECOVERY_SIGKILL_RECEIPT {"stage":"archived","signal":"SIGKILL","operationId":"a5adc534-8b0b-4a24-823e-351e0810e53d","keptLockAfterRecovery":true,"automaticResends":0,"explicitNewMetadataIntent":true,"archivePreserved":true,"modelRuns":0}
+✔ actual SIGKILL at repair-prepared keeps the unresolved project lock until explicit metadata repair or reconciliation (1105.352667ms)
+ℹ WORKTREE_RECOVERY_SIGKILL_RECEIPT {"stage":"repair-prepared","signal":"SIGKILL","operationId":"004ece54-03f9-46e7-97e9-fc1ceaa9ce0f","keptLockAfterRecovery":true,"automaticResends":0,"explicitNewMetadataIntent":true,"archivePreserved":true,"modelRuns":0}
+✔ actual SIGKILL at repair-result keeps the unresolved project lock until explicit metadata repair or reconciliation (1056.490125ms)
+ℹ WORKTREE_RECOVERY_SIGKILL_RECEIPT {"stage":"repair-result","signal":"SIGKILL","operationId":"e1fe4529-2dd4-4989-ac9a-687a5ee2ee1a","keptLockAfterRecovery":true,"automaticResends":0,"explicitNewMetadataIntent":false,"archivePreserved":true,"modelRuns":0}
+✔ a forced epoch change after archive fences the old continuation before Git metadata starts (837.410666ms)
+ℹ tests 24
+ℹ suites 0
+ℹ pass 24
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 15130.267125

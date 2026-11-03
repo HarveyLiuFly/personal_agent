@@ -1,0 +1,38 @@
+{
+  "kind": "real_owned_Host_SIGKILL_with_independent_SQLite_and_actual_Git_filesystem_checks",
+  "receipts": [
+    {
+      "stage": "archived",
+      "signal": "SIGKILL",
+      "operationId": "d12021d5-1675-4760-ba2e-c1a677ba9b4b",
+      "keptLockAfterRecovery": true,
+      "automaticResends": 0,
+      "explicitNewMetadataIntent": true,
+      "archivePreserved": true,
+      "modelRuns": 0
+    },
+    {
+      "stage": "repair-prepared",
+      "signal": "SIGKILL",
+      "operationId": "ab4b0ab8-91a7-4835-8356-28ff6e57c107",
+      "keptLockAfterRecovery": true,
+      "automaticResends": 0,
+      "explicitNewMetadataIntent": true,
+      "archivePreserved": true,
+      "modelRuns": 0
+    },
+    {
+      "stage": "repair-result",
+      "signal": "SIGKILL",
+      "operationId": "9365fc0c-c92f-4f0b-bdf3-f75f47be05ec",
+      "keptLockAfterRecovery": true,
+      "automaticResends": 0,
+      "explicitNewMetadataIntent": false,
+      "archivePreserved": true,
+      "modelRuns": 0
+    }
+  ],
+  "newFaultLocations": 3,
+  "cumulativeLedgerFaultLocations": 16,
+  "forcedEpochCase": "separate_component_fixture_not_OS_lock_proof"
+}
