@@ -7,7 +7,7 @@ export async function runPlanProbe(root:string,app:App,window:BrowserWindow,exec
  const result=await window.webContents.executeJavaScript(`(async()=>{
   const wait=async(check)=>{const deadline=Date.now()+15000;while(!await check()){if(Date.now()>deadline)throw new Error('PLAN_UI_TIMEOUT');await new Promise(r=>setTimeout(r,30));}};
   const call=async(p)=>{const r=await p;if(!r.ok)throw new Error(r.errorCode);return r.value;};
-  document.querySelector('[data-action="choose-project"]').click();await wait(()=>document.querySelector('[data-task-manager]'));document.querySelector('[data-task-manager]').open=true;
+  document.querySelector('[data-action="choose-project"]').click();await wait(()=>document.querySelector('[data-action="open-tasks"]')&&!document.querySelector('[data-action="open-tasks"]').disabled);document.querySelector('[data-action="open-tasks"]').click();await wait(()=>document.querySelector('[data-task-manager]'));document.querySelector('[data-task-manager]').open=true;
   const projectId=(await call(window.personalAgent.workspaceState())).projects[0].id;
   const tasks=[];for(let n=0;n<3;n++)tasks.push(await call(window.personalAgent.applyTaskCommand({projectId,commandKey:'plan-ui-create-'+n,kind:'create',text:'Public batch task '+n})));
   await wait(()=>document.querySelectorAll('[data-plan-select]').length===3);for(const box of document.querySelectorAll('[data-plan-select]')){box.click();await new Promise(r=>setTimeout(r,30));}

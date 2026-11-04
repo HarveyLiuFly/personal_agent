@@ -1,0 +1,112 @@
+{
+  "format": 1,
+  "checkpoint": "UI-V2.core",
+  "at": "2026-11-04T17:01:23.839893+00:00",
+  "baseline": "86980b12a78b8b8047bba34db02cb800cfed04e3",
+  "method": "Native CUA on Sculptor; dedicated production profile and public fixtures; readonly current SQLite audit",
+  "passedUI": [
+    "Automatic catalog connection without inference",
+    "Native project selection opens inline assistant",
+    "One primary assistant input",
+    "Shift Enter edits without sending",
+    "Assistant and task drafts survive page switches",
+    "Save todo does not start a Run",
+    "Cmd K focuses search",
+    "Direct memory form creates explicit source-backed claim",
+    "Memory edit creates fresh source and v2 with old version retained",
+    "Fresh natural send waits same Router then automatically commits only CHAT",
+    "Response 8+4=12 and latest UI_V2_MEMORY mark shown inline",
+    "Cold reopen leaves old uncommitted proposal untouched"
+  ],
+  "firstFailure": {
+    "runId": "601a72be-c0dc-4ce9-bae9-412bf7f73270",
+    "issue": "Host propose returns proposing immediately; initial UI checked only first response, requiring extra click",
+    "resolution": "Dedicated fresh-send readonly wait lifecycle; 3 added async guard cases, no automatic historic replay",
+    "originalProposal": "retained, not committed"
+  },
+  "realRuns": [
+    {
+      "run_id": "601a72be-c0dc-4ce9-bae9-412bf7f73270",
+      "task_id": "2452501c-fdf9-4e7a-8b0e-8601754a3562",
+      "status": "completed",
+      "reported_tokens": 15255,
+      "finalized": 1
+    },
+    {
+      "run_id": "0cb3b162-2eab-4df7-aa94-67c9f53c50bd",
+      "task_id": "a7cdd0fc-98ca-477a-acb9-b80a22215723",
+      "status": "completed",
+      "reported_tokens": 15264,
+      "finalized": 1
+    },
+    {
+      "run_id": "6448031d-088e-4113-b32c-61be574f1e6a",
+      "task_id": "cddcca44-91c5-4a01-a53b-03ca5b1e7d4c",
+      "status": "completed",
+      "reported_tokens": 14913,
+      "finalized": 1
+    }
+  ],
+  "reportedTokens": 45432,
+  "claims": [
+    {
+      "claim_id": "memory-claim:876f2214405fd889fc2a29ec05f7d55726ec4930fd6510425089c5a67a42868d",
+      "fact_key": "personal:ui_v2_preference",
+      "trust": "explicit_user",
+      "status": "superseded",
+      "version": 1
+    },
+    {
+      "claim_id": "memory-claim:cb5d368beb2a7af779c3e12a3e8e406d8bdcbbc8d994f9aa0452cc8e069dcb49",
+      "fact_key": "personal:ui_v2_preference",
+      "trust": "explicit_user",
+      "status": "active",
+      "version": 2
+    }
+  ],
+  "manifestHashes": [
+    {
+      "runId": "601a72be-c0dc-4ce9-bae9-412bf7f73270",
+      "role": "dot-router",
+      "contextHash": "e8ecf999e2f639ea898d664edf2e2358cb10fd0995c9d2e6b4f0bd043fa21ed8",
+      "nativePolicyHash": "ea2b000664268289af9c8476541032d75708889b4a563a9eea72b38527d8cfd9"
+    },
+    {
+      "runId": "0cb3b162-2eab-4df7-aa94-67c9f53c50bd",
+      "role": "dot-router",
+      "contextHash": "7ceb2927bd5ad61f3eb6a77466590660f988288d96fc5842c5c617153c2060e6",
+      "nativePolicyHash": "ea2b000664268289af9c8476541032d75708889b4a563a9eea72b38527d8cfd9"
+    },
+    {
+      "runId": "6448031d-088e-4113-b32c-61be574f1e6a",
+      "role": "dot-chat",
+      "contextHash": "fe586754d13c859577f95b1e7ef024e5aa341e5971bc7b8994c6d1a00a149a4a",
+      "nativePolicyHash": "ea2b000664268289af9c8476541032d75708889b4a563a9eea72b38527d8cfd9"
+    }
+  ],
+  "checks": {
+    "affectedNodeTests": {
+      "tests": 92,
+      "pass": 92,
+      "fail": 0,
+      "skipped": 0
+    },
+    "typecheck": "passed",
+    "productionBuild": "passed",
+    "designContractChecks": 17,
+    "fullRegression": "not run"
+  },
+  "notYetAccepted": [
+    "Real code Goal/continuation/Host verification and automatic verification-ID selection",
+    "Plan builder and remaining auxiliary native flows",
+    "Legacy synthetic GUI probes navigation updated; not executed, not claimed native evidence"
+  ],
+  "unchangedBoundaries": [
+    "63 IPC API surface",
+    "Supported local Codex login and locked CLI",
+    "Electron sandbox",
+    "Intent before real sends",
+    "Unknown never automatically resent",
+    "Old M3 deletion remains unconfirmed/unexecuted"
+  ]
+}

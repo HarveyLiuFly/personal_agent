@@ -448,7 +448,7 @@ async function boot(): Promise<void> {
         }
         return document.querySelector(selector);
       };
-      (await wait('[data-action="choose-project"]')).click();
+      (await wait('[data-action="choose-project"]')).click();(await wait('[data-action="open-native-history"]')).click();
       (await wait('[data-thread-id="fixture-thread-1"]'));
       (await wait('[data-action="next-threads"]')).click();
       await wait('[data-thread-id="fixture-thread-2"]');
@@ -486,7 +486,7 @@ async function boot(): Promise<void> {
         const deadline = Date.now() + 15000;
         while (!check()) { if (Date.now() > deadline) throw new Error('EXECUTION_UI_TIMEOUT'); await new Promise(r => setTimeout(r, 30)); }
       };
-      document.querySelector('[data-action="choose-project"]').click();
+      document.querySelector('[data-action="choose-project"]').click();await wait(()=>document.querySelector('[data-action="project-tasks"]')&&!document.querySelector('[data-action="project-tasks"]').disabled);document.querySelector('[data-action="project-tasks"]').click();
       await wait(() => document.querySelector('[data-task-draft]'));
       const input = document.querySelector('[data-task-draft]');
       Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(input, '<img src=x onerror="window.__executionInjected=true"> Synthetic execution question.');
@@ -528,7 +528,7 @@ async function boot(): Promise<void> {
   if (interactionSmoke) {
     const result = await window.webContents.executeJavaScript(`(async () => {
       const wait = async check => { const deadline=Date.now()+15000;while(!check()){if(Date.now()>deadline)throw new Error('INTERACTION_UI_TIMEOUT');await new Promise(r=>setTimeout(r,30));} };
-      document.querySelector('[data-action="choose-project"]').click();await wait(()=>document.querySelector('[data-task-draft]'));
+      document.querySelector('[data-action="choose-project"]').click();await wait(()=>document.querySelector('[data-action="project-tasks"]')&&!document.querySelector('[data-action="project-tasks"]').disabled);document.querySelector('[data-action="project-tasks"]').click();await wait(()=>document.querySelector('[data-task-draft]'));
       const fill = text => { const input=document.querySelector('[data-task-draft]');Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(input,text);input.dispatchEvent(new Event('input',{bubbles:true})); };
       fill('Synthetic approval UI fixture.');await wait(()=>!document.querySelector('[data-action="send"]').disabled);document.querySelector('[data-action="send"]').click();
       await wait(()=>document.querySelector('[data-action="accept-request"]'));
@@ -559,10 +559,10 @@ async function boot(): Promise<void> {
     const result=await window.webContents.executeJavaScript(`(async()=>{
       const wait=async check=>{const deadline=Date.now()+15000;while(!check()){if(Date.now()>deadline)throw new Error('CONTINUATION_UI_TIMEOUT');await new Promise(r=>setTimeout(r,50));}};
       const fill=text=>{const input=document.querySelector('[data-task-draft]');Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(input,text);input.dispatchEvent(new Event('input',{bubbles:true}));};
-      document.querySelector('[data-action="choose-project"]').click();await wait(()=>document.querySelector('[data-task-draft]'));fill('Synthetic first task');await wait(()=>!document.querySelector('[data-action="send"]').disabled);document.querySelector('[data-action="send"]').click();await wait(()=>document.querySelector('[data-run-status="completed"]'));
+      document.querySelector('[data-action="choose-project"]').click();await wait(()=>document.querySelector('[data-action="project-tasks"]')&&!document.querySelector('[data-action="project-tasks"]').disabled);document.querySelector('[data-action="project-tasks"]').click();await wait(()=>document.querySelector('[data-task-draft]'));fill('Synthetic first task');await wait(()=>!document.querySelector('[data-action="send"]').disabled);document.querySelector('[data-action="send"]').click();await wait(()=>document.querySelector('[data-run-status="completed"]'));
       const state=await window.personalAgent.workspaceState(),projectId=state.value.projects[0].id,first=(await window.personalAgent.listRuns({projectId})).value[0];
-      document.querySelector('[data-action="continue-run"]').click();await wait(()=>document.querySelector('[data-continuation-banner]'));fill('Synthetic explicit follow up');await wait(()=>!document.querySelector('[data-action="send"]').disabled);document.querySelector('[data-action="send"]').click();
-      await wait(()=>document.querySelectorAll('[data-run-id]').length===2);await wait(()=>document.querySelector('[data-run-status="completed"]'));
+      fill('Synthetic explicit follow up');await wait(()=>!document.querySelector('[data-action="send"]').disabled);document.querySelector('[data-action="send"]').click();
+      await wait(()=>document.querySelector('[data-execution-panel]').getAttribute('data-current-run')&&document.querySelector('[data-execution-panel]').getAttribute('data-current-run')!==first.runId);await wait(()=>document.querySelector('[data-run-status="completed"]'));
       const last=(await window.personalAgent.listRuns({projectId})).value[0],view=(await window.personalAgent.getRun({projectId,runId:last.runId})).value;
       return{sameTask:first.taskId===last.taskId,sameThread:first.threadId===last.threadId,newRun:first.runId!==last.runId,status:view.status,taskStatus:view.taskStatus,finalText:view.snapshot.items.find(i=>i.role==='assistant').text,
         sandboxed:window.personalAgent.security.sandboxed,isolated:window.personalAgent.security.isolated,hasRequire:typeof require!=='undefined'};
@@ -574,8 +574,8 @@ async function boot(): Promise<void> {
   if(nativeCodeSmoke){
     const result=await window.webContents.executeJavaScript(`(async()=>{
       const wait=async check=>{const deadline=Date.now()+210000;while(!check()){if(Date.now()>deadline)throw new Error('NATIVE_CODE_UI_TIMEOUT');await new Promise(r=>setTimeout(r,100));}};
-      document.querySelector('[data-action="choose-project"]').click();await wait(()=>document.querySelector('[data-code-profile]'));
-      document.querySelector('[data-code-profile]').click();
+      document.querySelector('[data-action="choose-project"]').click();await wait(()=>document.querySelector('[data-action="project-tasks"]')&&!document.querySelector('[data-action="project-tasks"]').disabled);document.querySelector('[data-action="project-tasks"]').click();await wait(()=>document.querySelector('[data-code-profile]'));
+      const mode=document.querySelector('[data-code-profile]');Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value').set.call(mode,'code');mode.dispatchEvent(new Event('change',{bubbles:true}));
       const fill=(selector,text)=>{const element=document.querySelector(selector);const prototype=element.tagName==='TEXTAREA'?HTMLTextAreaElement.prototype:HTMLInputElement.prototype;Object.getOwnPropertyDescriptor(prototype,'value').set.call(element,text);element.dispatchEvent(new Event('input',{bubbles:true}));};
       await wait(()=>document.querySelector('[data-code-target]'));fill('[data-code-target]','test/math.test.mjs');fill('[data-code-paths]','src/math.mjs');
       fill('[data-task-draft]','Fix the sum(a,b) bug in src/math.mjs. Modify only that file. The four frozen Node tests must pass. Do not modify tests, run Git, use network, or create other files. Do not request escalation; the Host will independently run the frozen verification.');
@@ -591,12 +591,12 @@ async function boot(): Promise<void> {
       await settle();const first=view;
       if(!view||view.status!=='completed')return{runStatus:view?.status,taskStatus:view?.taskStatus,errorCode:view?.errorCode,approvalDecisions};
       if(${nativeCodeContinuationSmoke}){
-        await wait(()=>document.querySelector('[data-run-status="completed"]'));document.querySelector('[data-action="continue-run"]').click();await wait(()=>document.querySelector('[data-continuation-banner]'));
+        await wait(()=>document.querySelector('[data-run-status="completed"]'));
         fill('[data-task-draft]','Review your prior sum fix against the four frozen tests. If any further correction is needed, change only src/math.mjs; otherwise keep the code. Do not modify tests, use Git/network, create files or request escalation. The Host will run verification.');await wait(()=>!document.querySelector('[data-action="send"]').disabled);document.querySelector('[data-action="send"]').click();
         await settle(first.runId);if(view.status!=='completed')return{runStatus:view.status,taskStatus:view.taskStatus,errorCode:view.errorCode,approvalDecisions};
       }
       await wait(()=>document.querySelector('[data-run-status="completed"]'));
-      document.querySelector('[data-action="review-run"]').click();await wait(()=>document.querySelector('[data-run-diff]'));
+      await wait(()=>document.querySelector('[data-run-diff]'));
       const diffShown=document.querySelector('[data-run-diff]').textContent.includes('src/math.mjs');
       document.querySelector('[data-action="verify-run"]').click();await wait(()=>document.querySelector('[data-verification-status="passed"]'));
       const final=await window.personalAgent.getRun({projectId,runId}),review=await window.personalAgent.getVerification({projectId,runId});

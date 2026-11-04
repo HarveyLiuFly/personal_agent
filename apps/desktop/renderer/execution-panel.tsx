@@ -1,99 +1,65 @@
-import React, { useEffect, useRef, useState } from 'react';
-import type { HostResult, InteractionView, ProjectView, RunSummary, RunView, VerificationView } from '../../../packages/contracts/src/views.ts';
-import { InteractionCard } from './interactions.tsx';
+import React,{useEffect,useRef,useState} from 'react';
+import type {HostResult,InteractionView,ProjectView,RunSummary,RunView,VerificationView} from '../../../packages/contracts/src/views.ts';
+import {InteractionCard} from './interactions.tsx';
 import {AgentToolPanel} from './tool-panel.tsx';
 import {isToolItem} from './tool-activity.ts';
-async function value<T>(request: Promise<HostResult<T>>): Promise<T> { const r = await request; if (!r.ok) throw new Error(r.errorCode); return r.value; }
-const labels: Record<string,string> = { preparing: '正在连接', submitting: '正在发送', running: '执行中', completed: '执行已结束 · 待验证', failed: '执行失败', cancelled: '已中断', outcome_unknown: '结果未知 · 待核对', waiting_approval: '等待批准', waiting_input: '等待补充' };
-export function ExecutionPanel({ project, disabled = false, mode = 'readOnly', canCode = false,requestedRunId }: { project: ProjectView; disabled?: boolean; mode?: 'readOnly'|'workspaceWrite'; canCode?: boolean;requestedRunId?:string }) {
-  const [runs,setRuns] = useState<RunSummary[]>([]), [selected,setSelected] = useState<string>(), [view,setView] = useState<RunView>();
-  const [codeEnabled,setCodeEnabled] = useState(false), [target,setTarget] = useState(''), [paths,setPaths] = useState('');
-  const [review,setReview] = useState<VerificationView>(), [verifying,setVerifying] = useState(false);
-  const [checking,setChecking] = useState(false);
-  const [checkpoint,setCheckpoint]=useState<string>(),[rolling,setRolling]=useState(false);
-  const rolloverKey=useRef<string|undefined>(undefined);
-  const [continuation,setContinuation]=useState<string>();
-  const [requests,setRequests] = useState<InteractionView[]>([]), [stopping,setStopping] = useState(false);
-  const [draft,setDraft] = useState(''), [sending,setSending] = useState(false), [error,setError] = useState<string>();
-  const key = useRef<string | undefined>(undefined), pendingDraft = useRef<string | undefined>(undefined);
-  const selectedRef = useRef(selected); selectedRef.current = selected;
-  useEffect(()=>{if(requestedRunId){setSelected(requestedRunId);selectedRef.current=requestedRunId;setView(undefined);setContinuation(undefined);setReview(undefined);setStopping(false);}},[requestedRunId]);
-  useEffect(() => {
-    let stopped = false, timer: ReturnType<typeof setTimeout>;
-    const poll = async () => {
-      try {
-        const rows = await value(window.personalAgent.listRuns({ projectId: project.id })); if (stopped) return;
-        setRuns(rows); const runId = selectedRef.current ?? rows[0]?.runId;
-        if (runId) {
-          const next = await value(window.personalAgent.getRun({ projectId: project.id, runId })); if (stopped || (selectedRef.current && selectedRef.current !== runId)) return;
-          setSelected(runId); selectedRef.current = runId; setView(next);
-          if(['completed','failed'].includes(next.status)){try{const cp=await value(window.personalAgent.getRunCheckpoint({projectId:project.id,runId}));if(!stopped&&selectedRef.current===runId)setCheckpoint(cp.checkpointId??undefined);}catch{if(!stopped)setCheckpoint(undefined);}}else setCheckpoint(undefined);
-          const pending = await value(window.personalAgent.listInteractions({ projectId: project.id, runId })); if (stopped || selectedRef.current !== runId) return; setRequests(pending.filter(request => request.state === 'pending'));
-          if (next.turnId && pendingDraft.current === runId) { setDraft(''); key.current = undefined; pendingDraft.current = undefined; }
-        }
-      } catch (failure) { if (!stopped){if(failure instanceof Error&&/RUN_NOT_IN_PROJECT|PRIVACY|THREAD_NOT_BOUND/.test(failure.message)){setView(undefined);setReview(undefined);setRequests([]);setCheckpoint(undefined);setSelected(undefined);selectedRef.current=undefined;}setError('无法更新执行状态。草稿已保留，请检查连接；不要重复提交结果未知的请求。');} }
-      finally { if (!stopped) timer = setTimeout(() => void poll(), 300); }
-    };
-    void poll(); return () => { stopped = true; clearTimeout(timer); };
-  }, [project.id]);
-  const blocked = runs.some(run => ['preparing','submitting','running','waiting_input','waiting_approval','outcome_unknown'].includes(run.status));
-  async function send() {
-    if (disabled || sending || blocked || !draft.trim() || (!continuation && codeEnabled && (!target.trim() || !paths.trim()))) return;
-    setSending(true); setError(undefined); key.current ??= crypto.randomUUID();
-    try {
-      const run = await value(continuation?window.personalAgent.continueRun({projectId:project.id,runId:continuation,text:draft,submissionKey:key.current}):window.personalAgent.submitMessage({ projectId: project.id, text: draft, submissionKey: key.current, ...(codeEnabled ? {code:{profile:'node-test' as const,target:target.trim(),allowedPaths:paths.split(/[\n,]/).map(p=>p.trim()).filter(Boolean)}} : {}) }));
-      setContinuation(undefined);
-      setReview(undefined); setStopping(false); setSelected(run.runId); selectedRef.current = run.runId;setView({...run,snapshot:null}); setRequests([]); pendingDraft.current = run.runId;
-      setRuns(rows => [run,...rows.filter(row => row.runId !== run.runId)]);
-    } catch (failure) { setError(failure instanceof Error && failure.message==='WORKSPACE_TERMINAL_ACTIVE'?'请先关闭本项目的用户终端，再启动模型任务。':failure instanceof Error && failure.message === 'RUNTIME_BUSY' ? '已有执行尚未结束或待核对，请先处理当前任务。' : failure instanceof Error && failure.message==='TOKEN_BUDGET_EXHAUSTED'?'本机 Token 预算不足，未确认用量的预留仍保留。草稿与提交标识已保留。':'提交未确认，草稿和提交标识已保留。请先检查执行记录。'); }
-    finally { setSending(false); }
-  }
-  async function verify() {
-    if (!view || verifying) return;
-    const runId=view.runId;setVerifying(true);
-    try {
-      const next=await value(window.personalAgent.verifyRun({projectId:project.id,runId}));
-      const current=await value(window.personalAgent.getRun({projectId:project.id,runId}));
-      if(selectedRef.current===runId){setReview(next);setView(current);}
-    }catch{setError('验证尚未完成，任务仍需审查。');}
-    finally{setVerifying(false);}
-  }
-  return <>
-    <section className="history-panel" data-execution-panel>
-      <div className="history-heading"><h2>项目任务</h2><span className="badge">{(view?.mode ?? (codeEnabled ? 'workspaceWrite' : mode)) === 'readOnly' ? '只读执行' : '工作区写入'}</span></div>
-      <div className="turn-list">{runs.map(run => <button className={`turn ${run.runId === selected ? 'selected' : ''}`} data-run-id={run.runId} key={run.runId} onClick={() => { setContinuation(undefined);key.current=undefined;setReview(undefined); setStopping(false); setSelected(run.runId); selectedRef.current = run.runId; setView(undefined); setRequests([]); }}>{run.title.slice(0,28)}</button>)}</div>
-      {error && <div role="alert" className="notice error">{error}</div>}
-      {view ? <>
-        {['preparing','submitting','running','waiting_input','waiting_approval'].includes(view.status) && <button className="secondary" data-action="interrupt-run" disabled={stopping} onClick={() => { setStopping(true); void value(window.personalAgent.interruptRun({projectId:project.id,runId:view.runId})).catch(()=>setError('停止尚未确认，请查看待核对状态。')); }}>停止</button>}
-        <p className="history-note" role="status" data-run-status={view.status} data-task-status={view.taskStatus}>{view.taskStatus === 'completed' ? '已验证完成' : labels[view.status] ?? '状态未知'}</p>
-        {checkpoint&&<button className="secondary" data-action="rollover-run" disabled={blocked||rolling||sending||verifying||disabled} onClick={()=>{rolloverKey.current??=crypto.randomUUID();setRolling(true);void value(window.personalAgent.rolloverRun({projectId:project.id,runId:view.runId,checkpointId:checkpoint,submissionKey:rolloverKey.current})).then(run=>{setSelected(run.runId);selectedRef.current=run.runId;setView({...run,snapshot:null});setCheckpoint(undefined);rolloverKey.current=undefined;}).catch(()=>setError('新上下文续接尚未确认，保留原标识；请先核对执行记录。')).finally(()=>setRolling(false));}}>{rolling?'正在核对新线程…':'用可信检查点在新线程继续'}</button>}
-        {view.errorCode && ['failed','outcome_unknown'].includes(view.status) && <div className="notice error">执行未完成：{view.errorCode}。请保留记录，结果未知时不要重复提交。</div>}
-        {!view.blocked&&view.threadId&&runs.find(r=>r.taskId===view.taskId)?.runId===view.runId&&['completed','failed'].includes(view.status)&&['needs_review','failed'].includes(view.taskStatus)&&<button className="secondary" data-action="continue-run" disabled={blocked||sending||checking||verifying} onClick={()=>{setContinuation(view.runId);key.current=undefined;}}>继续此任务</button>}
-        {view.mode === 'workspaceWrite' && canCode && ['completed','failed','cancelled','outcome_unknown'].includes(view.status) && <div className="approval-actions">
-          <button data-action="review-run" disabled={verifying} onClick={()=>{void value(window.personalAgent.getVerification({projectId:project.id,runId:view.runId})).then(setReview).catch(()=>setError('无法读取验证合同或 Diff。'));}}>查看 Diff 与验证合同</button>
-          <button data-action="verify-run" disabled={verifying || view.status !== 'completed' || view.taskStatus !== 'needs_review'} onClick={()=>void verify()}>{verifying?'正在验证…':'运行固定验证'}</button>
-        </div>}
-        {review && <article className="item" data-verification-status={review.receipt?.status ?? 'pending'}><strong>验证合同 · {review.target ?? '未配置'}</strong><p className="history-note">允许修改：{review.allowedPaths.join('、')} · 必要测试 {review.requiredCases} 项</p>
-          {review.receipt && <p role="status">{review.receipt.status === 'passed' ? '验证通过' : '尚未通过'} · 发现 {review.receipt.discovered} / 实际执行 {review.receipt.executed} / 跳过 {review.receipt.skipped} · {review.receipt.code}</p>}
-          {review.receipt && <p className="history-note" data-verification-id>完成核验记录 ID：<code>{review.receipt.verificationId}</code></p>}
-          <pre data-run-diff>{review.diff || '当前没有可显示的 Diff。'}</pre>{review.diffTruncated&&<small>Diff 过长，仅显示部分。</small>}
-        </article>}
-        {view.blocked && <div className="notice">{view.status==='outcome_unknown'?'该请求需要核对，新的执行已暂停。系统不会自动重发。':'后续执行已停止，请根据任务状态决定是否恢复排队。'}
-          {view.status==='outcome_unknown'&&<button className="secondary" data-action="reconcile-run" disabled={checking} onClick={()=>{const runId=view.runId;setChecking(true);void value(window.personalAgent.reconcileRun({projectId:project.id,runId})).then(next=>{if(selectedRef.current===runId){setView(next);setError(undefined);}}).catch(()=>setError('权威历史尚不足以确认结果，任务继续保持未知，不会重发。')).finally(()=>setChecking(false));}}>{checking?'正在核对…':'只读核对执行结果'}</button>}
-        </div>}
-        {view.snapshot?.needsSnapshot && <div className="notice">连接已断开，以下为最后保存的内容，尚未核对最新结果。</div>}
-        {requests.map(request=><InteractionCard key={request.requestId} request={request} reply={async(decision,answers)=>{await value(window.personalAgent.replyInteraction({projectId:project.id,runId:view.runId,requestId:request.requestId,decision,...(answers?{answers}:{})}));setRequests(rows=>rows.filter(r=>r.requestId!==request.requestId));}}/>)}
-        <AgentToolPanel key={view.runId} run={view}/>
-        <div className="items" data-execution-items>{view.snapshot?.items.filter(item=>!isToolItem(item)).map(item => <article key={`${item.turnId}:${item.id}`} className={`item ${item.role}`} data-execution-item={item.id} data-item-status={item.status}>
-          <div className="item-meta"><strong>{item.label}</strong><span>{item.status === 'streaming' ? '正在接收' : item.status === 'complete' ? '记录已结束' : '状态未知'}</span></div><pre>{item.text}</pre>
-          {item.truncated && <small className="clip-note">仅显示部分内容</small>}
-        </article>)}</div>
-      </> : <div className="empty-history">可以提出项目问题。当前只读模式，执行结束后仍需独立验证。</div>}
-    </section>
-    {continuation&&<div className="notice" data-continuation-banner>将继续所选任务，沿用线程与验证合同。<button className="secondary" onClick={()=>{setContinuation(undefined);key.current=undefined;}}>改为新任务</button></div>}
-    {canCode && !continuation && <div className="code-contract"><label><input type="checkbox" data-code-profile checked={codeEnabled} disabled={blocked || sending} onChange={e=>{setCodeEnabled(e.target.checked);key.current=undefined;}}/> 新消息作为代码任务：只修改指定文件，使用固定 Node 测试验证</label>
-      {codeEnabled && <div className="code-options"><label>测试入口<input data-code-target value={target} disabled={blocked || sending} placeholder="test/math.test.mjs" onChange={e=>{setTarget(e.target.value);key.current=undefined;}}/></label><label>允许修改的文件（逗号分隔）<input data-code-paths value={paths} disabled={blocked || sending} placeholder="src/math.mjs" onChange={e=>{setPaths(e.target.value);key.current=undefined;}}/></label></div>}
-    </div>}
-    <footer className="composer"><textarea aria-label="任务输入" data-task-draft value={draft} maxLength={32768} disabled={disabled || sending || blocked} onChange={e => { setDraft(e.target.value); key.current = undefined; }} placeholder={continuation?'补充当前任务的下一步…':codeEnabled?'描述需要完成的代码修改…':'提出一个只读问题…'} rows={2}/><button data-action="send" disabled={disabled || sending || blocked || !draft.trim() || (!continuation && codeEnabled && (!target.trim() || !paths.trim()))} onClick={() => void send()}>发送 ↑</button></footer>
-  </>;
+import {displayMessage,sendOnEnter,taskLabels} from './ui-model.ts';
+import {MessageBody} from './message-body.tsx';
+import {useDraft} from './drafts.ts';
+async function value<T>(request:Promise<HostResult<T>>):Promise<T>{const r=await request;if(!r.ok)throw Error(r.errorCode);return r.value;}
+const activeStates=['preparing','submitting','running','waiting_input','waiting_approval'];
+interface Props{project:ProjectView;disabled?:boolean;mode?:'readOnly'|'workspaceWrite';canCode?:boolean;requestedRunId?:string;fresh?:boolean;draftScope?:string;onStarted?:(run:RunSummary)=>void;onQueued?:(taskId:string)=>void}
+export function ExecutionPanel({project,disabled=false,mode='readOnly',canCode=false,requestedRunId,fresh=false,draftScope,onStarted,onQueued}:Props){
+ const [runs,setRuns]=useState<RunSummary[]>([]),[selected,setSelected]=useState<string>(requestedRunId??''),[view,setView]=useState<RunView>(),[prior,setPrior]=useState<RunView[]>([]);
+ const [codeEnabled,setCodeEnabled]=useState(false),[target,setTarget]=useState(''),[paths,setPaths]=useState('');
+ const [review,setReview]=useState<VerificationView>(),[verifying,setVerifying]=useState(false),[checking,setChecking]=useState(false),[stopping,setStopping]=useState(false);
+ const [checkpoint,setCheckpoint]=useState<string>(),[rolling,setRolling]=useState(false),rolloverKey=useRef<string|undefined>(undefined);
+ const [continuation,setContinuation]=useState<string>(),[requests,setRequests]=useState<InteractionView[]>([]);
+ const [draft,setDraft]=useDraft(draftScope??project.id+':task'),[sending,setSending]=useState(false),[error,setError]=useState(''),[uncertain,setUncertain]=useState(false),[queued,setQueued]=useState<string>();
+ const key=useRef<string|undefined>(undefined),pendingDraft=useRef<string|undefined>(undefined),selectedRef=useRef(selected),alive=useRef(true),pendingAction=useRef<'send'|'queue'>('send');selectedRef.current=selected;
+ const scroller=useRef<HTMLDivElement>(null),atEnd=useRef(true),input=useRef<HTMLTextAreaElement>(null);
+ useEffect(()=>{if(requestedRunId&&requestedRunId!==selectedRef.current){setSelected(requestedRunId);selectedRef.current=requestedRunId;setView(undefined);setReview(undefined);setStopping(false);}},[requestedRunId]);
+ useEffect(()=>{alive.current=true;let stopped=false,timer:ReturnType<typeof setTimeout>;
+  async function poll(){try{const rows=await value(window.personalAgent.listRuns({projectId:project.id}));if(stopped)return;setRuns(rows);const runId=selectedRef.current||(!fresh?rows[0]?.runId:undefined);if(runId){const next=await value(window.personalAgent.getRun({projectId:project.id,runId}));if(stopped||selectedRef.current&&selectedRef.current!==runId)return;setSelected(runId);selectedRef.current=runId;setView(next);const pending=await value(window.personalAgent.listInteractions({projectId:project.id,runId}));if(stopped||selectedRef.current!==runId)return;setRequests(pending.filter(r=>r.state==='pending'));if(next.turnId&&pendingDraft.current===runId){setDraft('');key.current=undefined;pendingDraft.current=undefined;setUncertain(false);}if(['completed','failed'].includes(next.status)){try{const cp=await value(window.personalAgent.getRunCheckpoint({projectId:project.id,runId}));if(!stopped&&selectedRef.current===runId)setCheckpoint(cp.checkpointId??undefined);}catch{if(!stopped)setCheckpoint(undefined);}}else setCheckpoint(undefined);}}
+   catch(cause){if(!stopped){if(cause instanceof Error&&/RUN_NOT_IN_PROJECT|PRIVACY|THREAD_NOT_BOUND/.test(cause.message)){setView(undefined);setReview(undefined);setRequests([]);setCheckpoint(undefined);}setError('暂时无法更新进展。输入已保留，请核对当前任务后再操作。');}}
+   finally{if(!stopped)timer=setTimeout(()=>void poll(),800);}}
+  void poll();return()=>{stopped=true;alive.current=false;clearTimeout(timer);};
+ },[project.id,fresh]);
+ const priorIds=runs.filter(r=>r.taskId===view?.taskId&&r.runId!==selected).map(r=>r.runId).slice(0,12).reverse().join('|');
+ useEffect(()=>{let stopped=false;setPrior([]);if(priorIds)void Promise.all(priorIds.split('|').map(runId=>value(window.personalAgent.getRun({projectId:project.id,runId})))).then(rows=>{if(!stopped)setPrior(rows);}).catch(()=>{});return()=>{stopped=true;};},[project.id,priorIds]);
+ useEffect(()=>{let stopped=false;if(view?.mode==='workspaceWrite'&&['completed','failed'].includes(view.status))void value(window.personalAgent.getVerification({projectId:project.id,runId:view.runId})).then(r=>{if(!stopped)setReview(r);}).catch(()=>{});return()=>{stopped=true;};},[view?.runId,view?.status]);
+ const stamp=view?.snapshot?.items.map(i=>i.id+':'+i.text.length+':'+i.status).join('|');useEffect(()=>{if(scroller.current&&atEnd.current)scroller.current.scrollTop=scroller.current.scrollHeight;},[stamp,requests.length]);
+ const blocked=runs.some(r=>[...activeStates,'outcome_unknown'].includes(r.status));
+ const eligibleContinuation=view&&!view.blocked&&view.threadId&&['completed','failed'].includes(view.status)&&['needs_review','failed'].includes(view.taskStatus)&&runs.find(r=>r.taskId===view.taskId)?.runId===view.runId?view.runId:undefined;
+ const continueId=continuation??eligibleContinuation;
+ function failure(cause:unknown){const code=cause instanceof Error?cause.message:'';if(/WORKSPACE_TERMINAL_ACTIVE/.test(code)){setError('项目终端正在使用工作区，请先关闭终端。');return;}if(/TOKEN_BUDGET_EXHAUSTED/.test(code)){setError('当前可用预算不足，请到任务页检查预算和待核对用量。');return;}if(/RUNTIME_BUSY/.test(code)){setError('当前执行尚未结束，请先处理正在进行或需要核对的任务。');return;}setUncertain(true);setError('这次提交尚未确认。输入与请求标识已保留，请核对原请求。');}
+ async function send(){if(disabled||sending||blocked||!draft.trim()||!continueId&&codeEnabled&&(!target.trim()||!paths.trim()))return;pendingAction.current='send';setSending(true);setError('');key.current??=crypto.randomUUID();
+  try{const run=await value(continueId?window.personalAgent.continueRun({projectId:project.id,runId:continueId,text:draft,submissionKey:key.current}):window.personalAgent.submitMessage({projectId:project.id,text:draft,submissionKey:key.current,...(codeEnabled?{code:{profile:'node-test',target:target.trim(),allowedPaths:paths.split(/[\n,]/).map(p=>p.trim()).filter(Boolean)}}:{})}));if(!alive.current)return;setContinuation(undefined);setReview(undefined);setStopping(false);setSelected(run.runId);selectedRef.current=run.runId;setView({...run,snapshot:null});setRequests([]);pendingDraft.current=run.runId;setRuns(rows=>[run,...rows.filter(r=>r.runId!==run.runId)]);setDraft('');setUncertain(false);key.current=undefined;atEnd.current=true;onStarted?.(run);}
+  catch(cause){if(alive.current)failure(cause);}finally{if(alive.current)setSending(false);}}
+ async function saveQueue(){if(disabled||sending||!draft.trim())return;pendingAction.current='queue';setSending(true);setError('');key.current??=crypto.randomUUID();try{const receipt=await value(window.personalAgent.applyTaskCommand({kind:'create',projectId:project.id,commandKey:key.current,text:draft,...(codeEnabled?{code:{profile:'node-test',target:target.trim(),allowedPaths:paths.split(/[\n,]/).map(p=>p.trim()).filter(Boolean)}}:{})}));if(!alive.current)return;setQueued(receipt.taskId);setDraft('');key.current=undefined;setUncertain(false);onQueued?.(receipt.taskId);}catch(cause){if(alive.current)failure(cause);}finally{if(alive.current)setSending(false);}}
+ async function verify(){if(!view||verifying)return;const runId=view.runId;setVerifying(true);try{const next=await value(window.personalAgent.verifyRun({projectId:project.id,runId})),current=await value(window.personalAgent.getRun({projectId:project.id,runId}));if(alive.current&&selectedRef.current===runId){setReview(next);setView(current);}}catch{if(alive.current)setError('验证未完成，任务仍需审阅。请查看变更和测试结果。');}finally{if(alive.current)setVerifying(false);}}
+ const messages=(run:RunView)=>run.snapshot?.items.filter(i=>!isToolItem(i)).map(item=><article key={run.runId+':'+item.id} className={'message '+item.role} data-execution-item={item.id} data-item-status={item.status}><small>{item.role==='user'?'你':item.role==='assistant'?'Personal Agent':item.label}</small><MessageBody text={displayMessage(item)}/>{item.truncated&&<small>仅显示部分内容</small>}</article>);
+ return <section className="conversation task-conversation" data-execution-panel data-current-run={view?.runId}>
+  <div className="conversation-scroll" ref={scroller} onScroll={()=>{const n=scroller.current;if(n)atEnd.current=n.scrollHeight-n.scrollTop-n.clientHeight<90;}}>
+   {!view&&<div className="conversation-empty"><span className="assistant-mark">P</span><h2>把下一件事交给我</h2><p>从一个问题开始，或者明确要修改的文件和验证方式。</p><div className="prompt-starters"><button className="secondary" onClick={()=>setDraft('概括这个项目的结构和用途，不修改文件。')}>了解这个项目 ↗</button>{canCode&&<button className="secondary" onClick={()=>{setCodeEnabled(true);input.current?.focus();}}>修改代码 ↗</button>}</div></div>}
+   {view&&<><div className="run-toolbar"><span className={'badge '+view.taskStatus} role="status" data-run-status={view.status} data-task-status={view.taskStatus}>{view.taskStatus==='completed'?'已验证完成':taskLabels[view.status]??'需要核对'}</span>{activeStates.includes(view.status)&&<button className="stop-button" data-action="interrupt-run" disabled={stopping} onClick={()=>{setStopping(true);void value(window.personalAgent.interruptRun({projectId:project.id,runId:view.runId})).catch(()=>setError('停止尚未确认，请核对任务。'));}}>停止</button>}{continueId&&<span className="muted">在下方继续这个任务</span>}</div>
+    {view.errorCode&&['failed','outcome_unknown'].includes(view.status)&&<p className="notice error">任务尚未完成，请核对执行记录。<details className="technical"><summary>原因详情</summary>{view.errorCode}</details></p>}
+    {view.snapshot?.needsSnapshot&&<p className="notice">连接中断，当前显示最后保存的内容。</p>}
+    {prior.map(run=><React.Fragment key={run.runId}>{messages(run)}</React.Fragment>)}
+    <div className="items" data-execution-items>{messages(view)}</div>
+    {requests.map(request=><InteractionCard key={request.requestId} request={request} reply={async(decision,answers)=>{await value(window.personalAgent.replyInteraction({projectId:project.id,runId:view.runId,requestId:request.requestId,decision,...(answers?{answers}:{})}));if(alive.current)setRequests(rows=>rows.filter(r=>r.requestId!==request.requestId));}}/>)}
+    {view.blocked&&<div className="notice">{view.status==='outcome_unknown'?'这次执行的结果需要核对，新的执行已暂停。':'此任务的后续执行已停止。'}{view.status==='outcome_unknown'&&<button data-action="reconcile-run" disabled={checking} onClick={()=>{const runId=view.runId;setChecking(true);void value(window.personalAgent.reconcileRun({projectId:project.id,runId})).then(next=>{if(alive.current&&selectedRef.current===runId){setView(next);setError('');}}).catch(()=>setError('现有记录还不足以确认结果，不会重复发送。')).finally(()=>setChecking(false));}}>{checking?'核对中…':'核对执行结果'}</button>}</div>}
+    {review&&<article className="review-card" data-verification-status={review.receipt?.status??'pending'}><div className="page-heading"><div><h3>变更与验证</h3><p className="muted">{review.changedFiles.length} 个变更文件 · {review.target}</p></div><button data-action="verify-run" disabled={verifying||view.status!=='completed'||view.taskStatus!=='needs_review'} onClick={()=>void verify()}>{verifying?'正在验证…':review.receipt?.status==='passed'?'验证已通过':'运行验证'}</button></div>{review.receipt&&<p role="status" className={review.receipt.status==='passed'?'success-text':'notice'}>{review.receipt.status==='passed'?'验证通过':'验证未通过'} · 实际执行 {review.receipt.executed} / 发现 {review.receipt.discovered} · 跳过 {review.receipt.skipped}</p>}<pre data-run-diff>{review.diff||'当前没有文件变更。'}</pre>{review.diffTruncated&&<small>仅显示部分差异</small>}<details className="technical"><summary>验证范围与记录</summary><p>允许修改：{review.allowedPaths.join('、')} · 固定测试 {review.requiredCases} 项</p>{review.receipt&&<p data-verification-id>核验记录：{review.receipt.verificationId} · {review.receipt.code}</p>}</details></article>}
+    {view.mode==='workspaceWrite'&&!review&&['completed','failed'].includes(view.status)&&<button data-action="review-run" onClick={()=>void value(window.personalAgent.getVerification({projectId:project.id,runId:view.runId})).then(setReview).catch(()=>setError('暂时无法读取变更。'))}>查看变更与验证</button>}
+    <details className="work-log"><summary>查看执行过程</summary><AgentToolPanel key={view.runId} run={view}/></details>
+    {checkpoint&&!view.blocked&&<details className="technical"><summary>上下文与恢复</summary><p>当前上下文不可继续时，可用可信检查点建立新线程。</p><button data-action="rollover-run" disabled={blocked||rolling||sending||verifying||disabled} onClick={()=>{rolloverKey.current??=crypto.randomUUID();setRolling(true);void value(window.personalAgent.rolloverRun({projectId:project.id,runId:view.runId,checkpointId:checkpoint,submissionKey:rolloverKey.current})).then(run=>{setSelected(run.runId);selectedRef.current=run.runId;setView({...run,snapshot:null});setCheckpoint(undefined);rolloverKey.current=undefined;onStarted?.(run);}).catch(()=>setError('新上下文尚未确认，请核对原请求。')).finally(()=>setRolling(false));}}>使用检查点继续</button></details>}
+   </>}
+   {queued&&<p className="notice success-text" role="status">已保存到待办，还没有开始执行。</p>}
+  </div>
+  {error&&<p className="notice error" role="alert">{error}</p>}
+  {blocked&&!view&&<p className="notice">当前有正在执行或需要核对的任务，处理后即可开始新任务。</p>}
+  {canCode&&!continueId&&<div className="execution-scope"><label>任务方式<select data-code-profile aria-label="任务方式" value={codeEnabled?'code':'read'} disabled={blocked||sending||uncertain} onChange={e=>{setCodeEnabled(e.target.value==='code');key.current=undefined;}}><option value="read">只读任务</option><option value="code">修改代码</option></select></label>{codeEnabled&&<div className="code-options"><label>验证测试文件<input data-code-target value={target} disabled={blocked||sending||uncertain} placeholder="test/math.test.mjs" onChange={e=>{setTarget(e.target.value);key.current=undefined;}}/></label><label>允许修改的文件<input data-code-paths value={paths} disabled={blocked||sending||uncertain} placeholder="src/math.mjs，多项用逗号分隔" onChange={e=>{setPaths(e.target.value);key.current=undefined;}}/></label></div>}</div>}
+  <footer className="composer task-composer"><textarea ref={input} aria-label="任务输入" data-task-draft value={draft} maxLength={32768} disabled={disabled||sending||blocked||uncertain} onChange={e=>{setDraft(e.target.value);key.current=undefined;}} onKeyDown={e=>{if(sendOnEnter(e)){e.preventDefault();void send();}}} placeholder={continueId?'继续这个任务，补充你的要求…':codeEnabled?'描述希望完成的修改…':'描述任务，或提出一个项目问题…'} rows={3}/><div className="composer-tools"><span className="muted">{continueId?'延续当前任务':codeEnabled?'仅修改指定文件':'只读访问项目'}</span>{!continueId&&<button className="text-button" data-action="save-draft-task" disabled={disabled||sending||uncertain||!draft.trim()||codeEnabled&&(!target.trim()||!paths.trim())} onClick={()=>void saveQueue()}>保存待办</button>}{uncertain?<button disabled={sending||blocked} onClick={()=>void(pendingAction.current==='queue'?saveQueue():send())}>核对这次提交</button>:<button data-action="send" disabled={disabled||sending||blocked||!draft.trim()||!continueId&&codeEnabled&&(!target.trim()||!paths.trim())} onClick={()=>void send()}>{sending?'正在发送…':continueId?'继续 ↑':'发送 ↑'}</button>}</div></footer>
+  <p className="composer-hint">Enter 发送 · Shift + Enter 换行{view?.taskStatus==='completed'?' · 此任务已验证完成，可从侧栏新建后续任务':''}</p>
+ </section>;
 }
