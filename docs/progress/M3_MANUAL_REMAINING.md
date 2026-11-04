@@ -61,3 +61,17 @@ Q Goal唯一真实代码Run5553b7c0结束，实际只改math；假ID拒绝时Goa
 11笔Run全部completed/finalized，累计归属314,436；C续接121,615为累计快照，减78,720基线后是42,895，未重复累计。未知预留0。P/Q仅math有变更，R无变更，真实代码/Goal收据与Context分域摘要见evidence/M3-manual-code-goal.json。
 
 F02新任务后台排队唤醒已安排16:10Z/queue_only，16:06:03Z原生关闭窗口，此后到期前不做CUA观察，避免activate重新建窗。16:06:40Z只读核对Main94509/Owner12同实例、11Run、schedule active/v1，任务等待触发。初次审计列名next_due_at_ms不存在，按实际schema next_fire_at_ms修正；未写库。旧E06暖关窗时模型已完成，不能作为运行中关窗证据。
+
+## F01–F06实际完成与界面修复
+
+16:10:21Z先Host只读核对，未激活窗口：原Owner12/实例不变、schedulefulfilled/v1、唯一occurrenceenqueued、Taskqueued/v4，Run仍11。随后CUA观察触发activate重建窗口，另点菜单显示主窗口；不能称此工具能在保持窗口关闭时操控菜单。冷退出后首次默认沙箱启动SIGABRT，原官方入口在许可Host上下文冷开成功、Electron沙箱保留。新Main98427/Owner13；第二入口退出0/仍唯一Main，同U实际App Server刷新后选择非空Turn436c04读到7+5=12，聊天与Englishv2记忆均在。每次新窗口均实际移到Sculptor并从反向菜单核对。
+
+F03真实创建/明确校验备份（3文件/2份真实收据），生成隔离演练并逐文件Hash核对。备份后保存note，再准备恢复，之后新增队列Task；旧激活实际拒绝/expired，环境未切。重新准备且无后续写入后明确激活，active.json/ACTIVATED真实提交，Owner15，旧legacy库/旧准备/3备份保留；恢复库无备份后note/Task，源码P/Q仍加法。0活动旧计划/批准，10旧binding全部invalidated、旧Taskdispatch_blocked，UI不提供续接并显示后续停止；R新建业务queued/v2成功。没有靠改指针回退。
+
+完成F06后才改Renderer：UX-07明确GOAL_VERIFICATION_REQUIRED提示；UX-08加载/刷新同步选中Goal通知。TS/构建通过，真实Q首次加载/刷新无需查看按钮即见唯一failed/脱敏通知，OS未送达事实不改。新R无计划目标以假ID提交实际拒绝且active/v1，文案正确，随后取消，0Run。退出工具一次timeout，Host只读确认Ownerstopped再冷开，不是把工具timeout当产品运行失败。
+
+S01–S03因无自有生产HTTPS Provider阻塞；19项受控HTTP/config/signature组件与生产接线分开。S06共63不同组件用例，首62/63中Clock Fixture跨日失败，修正后该项和goals文件在50/50批次通过；不虚称一次63/63。S07各规则/路由/记忆CAS批次有重叠不相加，实际SQLite/合成executor。S08隔离26项与F实际OS/切换分别记录。证据evidence/M3-manual-boundaries.json、M3-manual-recovery-ui.json。
+
+G01选择WALK_M3_SECRET来源message:cd1cf12e-aecc-4777-a725-2e28f623d5ae，未勾确认执行按钮disabled。删除前只读扫描：marker在legacy1文件、3备份、1演练、runtime4文件；未改库。原生工具永久删除当次确认要求已在真实动作前向用户提出，范围含专用档案全部旧备份/演练/旧副本、保留源码和认证。待回答，不以等待时长当批准；此期间仅整理独立记录，不执行G02。G06可选付费运行中分支本轮跳过，旧Gate不替代本轮。
+
+code-goal点提交3bb3cb305a36aff2e3d5404a61af5e5db7c07994已推送，远程main/对应标签实际核对一致。首次Git索引受默认沙箱拒绝，许可上下文重试成功，无强推。

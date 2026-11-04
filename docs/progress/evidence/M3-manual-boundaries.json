@@ -1,0 +1,132 @@
+{
+  "format": 1,
+  "at": "2026-11-04T16:20:19.183878+00:00",
+  "incrementalOnly": true,
+  "componentBatches": [
+    {
+      "localReceiptAlias": "source-boundaries",
+      "counts": {
+        "tests": 19,
+        "pass": 19,
+        "fail": 0,
+        "skipped": 0
+      },
+      "sha256": "5b2c7375f9fd6218369b90cc82b9449a6b393b480d0fba362c25d398355f2542"
+    },
+    {
+      "localReceiptAlias": "s05-privacy",
+      "counts": {
+        "tests": 15,
+        "pass": 15,
+        "fail": 0,
+        "skipped": 0
+      },
+      "sha256": "b1b120f4f9e7bf0892ec40e580084a1958ceb9124b0a8e03c202d89474a82afb"
+    },
+    {
+      "localReceiptAlias": "s06-goal-budget",
+      "counts": {
+        "tests": 63,
+        "pass": 62,
+        "fail": 1,
+        "skipped": 0
+      },
+      "sha256": "1fed5bf9b48206f3f23e49c05251aca3a55a009fb01d34899719c9f507c027fe"
+    },
+    {
+      "localReceiptAlias": "s07-route-cas",
+      "counts": {
+        "tests": 39,
+        "pass": 39,
+        "fail": 0,
+        "skipped": 0
+      },
+      "sha256": "d0ba9c8b5c60aef499240f06baf2a34926a2da774158014f3579d034e9ede9c0"
+    },
+    {
+      "localReceiptAlias": "s08-restore-verification",
+      "counts": {
+        "tests": 26,
+        "pass": 26,
+        "fail": 0,
+        "skipped": 0
+      },
+      "sha256": "f1f4c40999adb08b096dc8d722504ef9c3684ebebcec6bcfc75e087b25ca0bac"
+    },
+    {
+      "localReceiptAlias": "route-goal-fixes",
+      "counts": {
+        "tests": 50,
+        "pass": 50,
+        "fail": 0,
+        "skipped": 0
+      },
+      "sha256": "97aa33f8a018ce72c71499c07c4697b6420486ad3a950bf8304c4ea9f6bc6f4d"
+    },
+    {
+      "localReceiptAlias": "route-title-fix",
+      "counts": {
+        "tests": 43,
+        "pass": 43,
+        "fail": 0,
+        "skipped": 0
+      },
+      "sha256": "5e7e372ed8ad5b764b03d990b05f93599df826e0140abaa832bf8ebf0d8eee3a"
+    }
+  ],
+  "S01": {
+    "state": "blocked production HTTPS acceptance",
+    "actualUI": "No source registered",
+    "fixtures": "19 actual component tests, controlled HTTP/config/signature fixtures, not external account or production HTTPS"
+  },
+  "S02": {
+    "state": "blocked production HTTPS acceptance",
+    "coveredByComponents": [
+      "correct/wrong signature",
+      "old nonce",
+      "self/disallowed actor/type",
+      "expired/size bounds",
+      "duplicate event same/different hash",
+      "atomic cursor/batch rejection"
+    ],
+    "boundary": "Controlled local HTTP provider is a test transport; no production provider available"
+  },
+  "S03": {
+    "state": "blocked production Source subscription integration",
+    "components": "Actual SQLite Goal/Source/CAS/mandate tests use controlled event input; scoped subscriptions/pause/revisions/duplicate invariants passed",
+    "boundary": "No real provider registered in walkthrough profile, do not claim real event chain"
+  },
+  "S04": "Actual eleven Run manifests/native policy audited in M3-manual-code-goal.json",
+  "S05": {
+    "state": "15 component cases passed; current-profile physical deletion awaits action-time confirmation",
+    "components": "Actual SQLite/files; controlled worker delay/failure/provider fixtures; restart same cleanup ticket tested separately",
+    "mainProfile": "G01 byte baseline captured; no delete or post-cleanup scan yet"
+  },
+  "S06": {
+    "state": "passed component boundary; OS delivery failed separately E08",
+    "components": "63 distinct cases: initial 62/63; one clock fixture mismatch corrected and that case plus goals file passed in final 50/50 batch",
+    "correctedCase": "Goal budget configuration is validated and a revision lowers current buckets without freeing Unknown occupancy",
+    "clock": "Synthetic UTC clock in isolated tests, aligned to persisted bucket day; product budget unchanged",
+    "actual": "E05 budget1/global idle two checks zeroRun; G1 unique completion notification failed; no OS delivered claim"
+  },
+  "S07": {
+    "state": "passed isolated component boundary",
+    "components": "39 rule/route cases + affected memory/context 48 cases, overlapping later 50/43 batches not added together",
+    "actualMechanism": "SQLite/command transactions and controlled executor responses; no real failure-induced extra model requests",
+    "covered": [
+      "stable key/hash and changed content rejection",
+      "Focus/Task/Claim CAS",
+      "old pending selection",
+      "partial effect preservation and route correction",
+      "completed malformed route output reclassification without new Run",
+      "true Unknown never auto-replayed",
+      "whole revision ancestry source guard"
+    ]
+  },
+  "S08": {
+    "state": "passed component boundary and actual native process boundary",
+    "components": "26 actual restore/filesystem/SQLite/fixed Node verification cases; controlled fault and test-report fixtures, no model",
+    "actual": "F01 new Main/Owner + OS second instance; F03-F06 real idle restore and disabled old authorization, source unchanged",
+    "boundary": "Did not corrupt main profile active pointer; pointer fault only isolated cases"
+  }
+}

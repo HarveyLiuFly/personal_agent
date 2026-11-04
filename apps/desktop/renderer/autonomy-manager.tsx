@@ -48,6 +48,7 @@ function errorText(error:unknown):string{
  if(/PRIVATE_CODING_MEMORY_REJECTED/.test(code))return '公开编码经验必须明确选择公开级别，并由同键 /remember 原消息明确确认。';
  if(/EXPLICIT_USER_REQUIRED|EVIDENCE_MISMATCH|REVISION_SOURCE_REQUIRED/.test(code))return '请选择新的同键 /remember 确认消息，引用和修订值必须与原文一致。';
  if(/RUNTIME_BUSY/.test(code))return '当前有操作正在执行，请稍后刷新。';
+ if(code==='GOAL_VERIFICATION_REQUIRED')return '目标尚未满足完成条件。请使用本目标所有计划任务通过 Host 独立验证后显示的核验记录 ID。';
  return '本次操作的结果尚未核对，请刷新记录。目标命令可使用原操作核对，结果未知时不会自动重发。';
 }
 export function AutonomyDialog({project,onClose}:{project:ProjectView;onClose:()=>void}){
@@ -71,7 +72,10 @@ export function AutonomyDialog({project,onClose}:{project:ProjectView;onClose:()
  }
  async function load(){
   const [nextGoals,nextTasks,nextEpochs,nextSources,chat]=await Promise.all([value(window.personalAgent.listGoals({projectId:project.id})),value(window.personalAgent.listTasks({projectId:project.id})),value(window.personalAgent.memoryState()),value(window.personalAgent.listGoalSources()),value(window.personalAgent.readMainChat({projectId:project.id}))]);
-  if(!alive.current)return;await checkMemoryRevision(nextEpochs,chat.messages);if(!alive.current)return;setPrevious(lastGoals.current);lastGoals.current=nextGoals;setGoals(nextGoals);setTasks(nextTasks);setEpochs(nextEpochs);setSources(nextSources);setMessages(chat.messages);setClaims([]);if(messageId&&!chat.messages.some(message=>message.messageId===messageId)){setMessageId('');setFactText('');setQuote('');}
+  if(!alive.current)return;
+  const nextSelected=nextGoals.find(goal=>goal.goalId===selectedId)??nextGoals[0];
+  const nextNotifications=nextSelected?await value(window.personalAgent.listGoalNotifications({goalId:nextSelected.goalId})):[];
+  if(!alive.current)return;await checkMemoryRevision(nextEpochs,chat.messages);if(!alive.current)return;setPrevious(lastGoals.current);lastGoals.current=nextGoals;setGoals(nextGoals);setTasks(nextTasks);setEpochs(nextEpochs);setSources(nextSources);setMessages(chat.messages);setNotifications(nextNotifications);setClaims([]);if(messageId&&!chat.messages.some(message=>message.messageId===messageId)){setMessageId('');setFactText('');setQuote('');}
  }
  async function perform(work:()=>Promise<void>){if(pending.current)return;pending.current=true;setBusy(true);setError(undefined);try{await work();}catch(error){if(alive.current)setError(errorText(error));}finally{pending.current=false;if(alive.current)setBusy(false);}}
  async function refresh(){await perform(load);}

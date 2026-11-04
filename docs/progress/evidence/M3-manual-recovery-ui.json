@@ -1,0 +1,203 @@
+{
+  "format": 1,
+  "checkpoint": "M3.manual-recovery-ui",
+  "at": "2026-11-04T16:18:34.745076+00:00",
+  "ui": "Native CUA, external Sculptor confirmed again after every cold/new window",
+  "F01": {
+    "cold": {
+      "main": [
+        {
+          "pid": 98427,
+          "parentPid": 98421
+        }
+      ],
+      "owner": {
+        "runtime_epoch": 13,
+        "instance_id": "8d0d23ab-bf45-442a-90ce-b8596d6d0b34",
+        "state": "ready"
+      },
+      "runs": 11,
+      "notifications": [
+        {
+          "operation_id": "52b27941-059d-4587-805f-30e0b027cad4",
+          "state": "failed"
+        }
+      ]
+    },
+    "nativeHistory": "Actual App Server refresh, chosen nonempty Turn 436c04 showed 7 + 5 = 12",
+    "mainChat": "Persisted user discussion records readable",
+    "memory": "WALK_M3_LANGUAGE_English explicit active/v2 readable",
+    "warmReopen": "CUA getAX activates app; explicit menu Show main window also checked, do not claim menu alone sustained windowless evidence",
+    "initialSandboxLaunch": "SIGABRT in default sandbox; same official entry succeeded with permitted host context, Electron sandbox retained"
+  },
+  "F02": {
+    "before": {
+      "observedAt": "2026-11-04T16:06:40.713504+00:00",
+      "main": [
+        {
+          "pid": 94509,
+          "parentPid": 94503
+        }
+      ],
+      "owner": {
+        "runtime_epoch": 12,
+        "instance_id": "e499b3ff-5483-4513-afed-5b788b5997fc",
+        "state": "ready"
+      },
+      "runCount": 11,
+      "scheduled": [
+        {
+          "schedule_id": "schedule:b00539d4d10cb30fe2a96b4d73ee5070a41cffa2c7c291aeace5b4d0c116e5f8",
+          "state": "active",
+          "version": 1
+        }
+      ]
+    },
+    "dueBeforeUIReactivation": {
+      "observedAt": "2026-11-04T16:10:21.204910+00:00",
+      "task": {
+        "task_id": "d33efe9b-fed0-452e-bb40-1c5c1abee541",
+        "status": "queued",
+        "version": 4
+      },
+      "schedule": {
+        "schedule_id": "schedule:b00539d4d10cb30fe2a96b4d73ee5070a41cffa2c7c291aeace5b4d0c116e5f8",
+        "state": "fulfilled",
+        "version": 1,
+        "next_fire_at_ms": null
+      },
+      "occurrences": [
+        {
+          "occurrence_id": "occurrence:b51503fa09ae49a286c854986d8400448b293c458cefb3b1671fad5aef068e2e",
+          "state": "enqueued",
+          "scheduled_at_ms": 1793808600000
+        }
+      ],
+      "runCount": 11,
+      "owner": {
+        "runtime_epoch": 12,
+        "instance_id": "e499b3ff-5483-4513-afed-5b788b5997fc",
+        "state": "ready"
+      }
+    },
+    "nativeCloseAt": "2026-11-04T16:06:03.479Z",
+    "noUIObservationUntil": "after 16:10:21Z",
+    "queueOnly": true,
+    "ui": "After reopen unique occurrence showed input enqueued/restored queue"
+  },
+  "F03": {
+    "backupId": "a65cbf5dd238e88eaec1c4f2c3890a339271e6e57c2d5a392271578275045208",
+    "ui": "Created, explicit integrity verified, 3 files / 2 real verification receipts / zero active execution",
+    "rehearsals": [
+      {
+        "id": "2a95a43b70302951cf99eca605d53d4e0b32944f3b599ca99ab70652f1a60e93",
+        "backupId": "a65cbf5dd238e88eaec1c4f2c3890a339271e6e57c2d5a392271578275045208",
+        "summary": {
+          "runtimeEpoch": 14,
+          "policyEpoch": 2,
+          "privacyEpoch": 2,
+          "tombstones": 0,
+          "unknownRuns": 0,
+          "pausedSchedules": 0,
+          "revokedApprovals": 0,
+          "retainedLeases": 0,
+          "quarantinedArtifacts": 0
+        },
+        "filesHashVerified": 4,
+        "quarantined": true
+      }
+    ]
+  },
+  "F04": {
+    "ui": "Created post-backup note, prepared, then created a queue Task; old activation refused and marked expired",
+    "expiredRestoreIds": [
+      "f701764e97a5e2c56a189da049071382b222428096bd6b8656580e00684eb0d4"
+    ],
+    "sourceRuntimeUnchangedOnRefusal": true
+  },
+  "F05": {
+    "activeGeneration": "f152e9b6586c203d3931a24d3f56d72f5b855dadeaf04414487c271efde5d337",
+    "restore": {
+      "id": "f152e9b6586c203d3931a24d3f56d72f5b855dadeaf04414487c271efde5d337",
+      "backupId": "a65cbf5dd238e88eaec1c4f2c3890a339271e6e57c2d5a392271578275045208",
+      "safetyBackupId": "ea259b409cb10330b18b52c829b3bc3e344852d742a2b3b5b93085f43ba53ed9",
+      "summary": {
+        "runtimeEpoch": 14,
+        "policyEpoch": 2,
+        "privacyEpoch": 2,
+        "tombstones": 0,
+        "unknownRuns": 0,
+        "pausedSchedules": 0,
+        "revokedApprovals": 0,
+        "retainedLeases": 0,
+        "quarantinedArtifacts": 0,
+        "mergedBudgetBuckets": 2
+      }
+    },
+    "committedPointer": true,
+    "legacyDatabaseRetained": true,
+    "postBackupTaskAbsent": true,
+    "postBackupNoteAbsent": true,
+    "noActiveSchedule": true,
+    "oldGrantedApprovals": 0
+  },
+  "F06": {
+    "oldTaskStates": [
+      {
+        "task_id": "8eb2c9d2-4aac-4a83-b1be-ba38cc7ed616",
+        "status": "paused",
+        "dispatch_blocked": 1
+      },
+      {
+        "task_id": "98b1c566-cabd-4922-bd34-f8aec9426fa3",
+        "status": "needs_review",
+        "dispatch_blocked": 1
+      },
+      {
+        "task_id": "a3a189ff-cfbf-4d21-b407-b7fdb7845034",
+        "status": "paused",
+        "dispatch_blocked": 1
+      }
+    ],
+    "allThreadBindingsInvalidated": true,
+    "ui": "Old continuation absent, stopped authorization wording; new R Task saved queued",
+    "newTask": [
+      {
+        "task_id": "14fb2076-713d-47ee-8cb9-4feeabc86ba0",
+        "title": "恢复环境新业务演练",
+        "status": "queued",
+        "version": 2,
+        "dispatch_blocked": 0
+      }
+    ]
+  },
+  "uiFixes": {
+    "UX07": "Actual fresh no-model R Goal invalid verification refused with specific completion-condition text, remained active/v1 then explicitly cancelled",
+    "UX08": "Actual Q initial load and Refresh actual records displayed one failed/redacted notification without inspect button",
+    "checks": [
+      "pnpm typecheck passed",
+      "pnpm build passed",
+      "native UI zero-model retest passed"
+    ],
+    "unitTests": "not added for low-impact Renderer refresh/text; no full regression"
+  },
+  "modelCount": 11,
+  "reportedTokens": 314436,
+  "sourcePreserved": {
+    "code": {
+      "isAddition": true,
+      "sha256": "c01a4dda8409c0ac1b53b9223b8700f9be4a9024245cf8ec125ceebf4f7f5709"
+    },
+    "goal": {
+      "isAddition": true,
+      "sha256": "c01a4dda8409c0ac1b53b9223b8700f9be4a9024245cf8ec125ceebf4f7f5709"
+    }
+  },
+  "G01": {
+    "sourceRef": "message:cd1cf12e-aecc-4777-a725-2e28f623d5ae",
+    "marker": "WALK_M3_SECRET",
+    "uncheckedDisabled": true,
+    "confirmation": "action-time question pending; no irreversible cleanup executed"
+  },
+  "scope": "Real Main/SQLite/files/native UI; S component fixtures archived separately, no synthetic model success"
+}

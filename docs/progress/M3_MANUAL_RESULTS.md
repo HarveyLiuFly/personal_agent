@@ -6,7 +6,7 @@
 
 2026-11-04：用户确认A04三条任务均“已排队”后，明确要求简单操作由Agent鼠标执行验证。Agent已实际完成A05–A10及B/C规则聊天和记忆检查，包括跨原定时刻暂停不触发、改期、显式启用和真实到期仅排队唤醒。使用原走查进程、生产Renderer/Main/SQLite/真实PTY/Git/Finder，不替换后端，不通过Host写库模拟操作。定位`checkpoint/M3.manual-basic-ui`，见[脱敏证据](evidence/M3-manual-basic-ui.json)。
 
-54项桌面用例 + 8组Host协助边界。当前42项通过（用户4、Agent UI37、Host实际分域1），E08通知投递/刷新缺口未通过，另19项继续执行。D06–D08和E01–E07完成；本轮累计11笔真实请求、已结算314,436报告Token，Unknown预留0。续接用量按latest减baseline归属，未把累计快照重复相加。
+54项桌面用例 + 8组Host协助边界。当前52项通过（用户4、Agent UI44、Host/独立组件4）；E08 OS投递失败1项，S01–S03生产HTTPS接线阻塞3项，G06可选付费分支跳过1项；G02–G05及S05当前档案物理清理共5项待当次确认后执行。11笔真实请求已结算314,436报告Token，Unknown预留0，无全量回归。UX-07/08修复并零模型UI复验。
 
 执行档案：独立 `.local/m3-manual-20261103/profile`；项目路径由该会话 `session.json` 的 `code/goal/other` 指向系统临时目录。运行数据库、完整路径清单、原始输出均留本地忽略目录；Git只收脱敏摘要。正式默认档案未被选为本轮目标。
 
@@ -68,27 +68,27 @@
 | E05 | 通过（Agent UI实测） | 修订预算1需重确认计划；execute_once仍排队，随后取消Goal。 | 间隔81秒两次全局空闲检查、本Goal0Run；cancelledv8/plan7。 [本批证据](evidence/M3-manual-code-goal.json) | 无新增重发；审计更正见执行日志 |
 | E06 | 通过（Agent UI实测） | Q明确提交execute_once后自动领取唯一代码Run；刷新/关窗不重复领取。 | 模型只改允许文件；关窗时模型已结束，不声称运行中无窗口。 [本批证据](evidence/M3-manual-code-goal.json) | 无新增重发；审计更正见执行日志 |
 | E07 | 通过（Agent UI实测） | 假ID拒绝且0完成通知；直接从验证UI复制真实ID，Goal才完成。 | b41d3e97；Host4/4/0，Goalcompletedv3/plan2；UX-01独立UI闭环通过。 [本批证据](evidence/M3-manual-code-goal.json) | 无新增重发；审计更正见执行日志 |
-| E08 | 未通过（OS投递失败；记录去重通过） | 查看任务与通知显示失败，未见横幅；刷新实际记录未更新已加载通知。 | 唯一通知52b27941 state=failed，无providerRef、无新Run。 | UX-08刷新投影缺口待修；OS失败原因未确定，不改系统权限。 |
-| F01 | 待执行 | — | — | — |
-| F02 | 待执行 | — | — | 仅排队唤醒 |
-| F03 | 待执行 | — | — | — |
-| F04 | 待执行 | — | — | 仅专用档案 |
-| F05 | 待执行 | — | — | 仅专用档案，依赖无未决执行 |
-| F06 | 待执行 | — | — | — |
-| G01 | 待执行 | — | — | 最后执行；先核对遗忘范围 |
-| G02 | 待执行 | — | — | — |
-| G03 | 待执行 | — | — | — |
-| G04 | 待执行 | — | — | — |
-| G05 | 待执行 | — | — | 无pending不得冒称覆盖故障恢复 |
-| G06 | 待执行 | — | — | 可选付费运行中遗忘，不能替Unknown改成功 |
-| S01 | 待执行 | — | — | 自有HTTPS Provider尚未为本轮配置 |
-| S02 | 待执行 | — | — | 同上；逐负例记录 |
-| S03 | 待执行 | — | — | 依赖本轮真实Source接线 |
+| E08 | 未通过（OS投递失败；记录去重通过） | 唯一通知failed；恢复后脱敏保留；UX-08刷新修复后无需再点查看即可见失败。 | 52b27941唯一，无新Run、无横幅/送达证据。 | OS投递失败原因未确定，不修改系统权限。 |
+| F01 | 通过（Agent UI+Host核对） | 关闭/激活同Main；显式退出后新PID98427/Owner13。实际原生Turn回答12、主聊天与Englishv2记忆可读。 | 第二入口退出0，仅一个Main/Owner，Run仍11；初次默认沙箱启动SIGABRT保留。 [证据](evidence/M3-manual-recovery-ui.json) | 按实际结果分界 |
+| F02 | 通过（Agent UI+Host核对） | 16:06原生关窗，到16:10:21前不观察目标应用；到期唯一恢复排队，重开可见唯一实例。 | 同Owner12，fulfilled/v1、Taskqueued/v4、1enqueued、11Run。 [证据](evidence/M3-manual-recovery-ui.json) | 按实际结果分界 |
+| F03 | 通过（Agent UI+Host核对） | 创建备份、明确完整性校验、生成真实隔离演练，3文件含2份真实验证收据。 | 演练文件Hash逐一只读相符、quarantine在，0未决模型/终端/工作树操作。 [证据](evidence/M3-manual-recovery-ui.json) | 按实际结果分界 |
+| F04 | 通过（Agent UI+Host核对） | 备份后笔记保存；准备恢复后另建队列任务，激活旧准备拒绝并显示已过期。 | 原环境不变、旧准备和安全备份保留，不吞掉后续变化。 [证据](evidence/M3-manual-recovery-ui.json) | 按实际结果分界 |
+| F05 | 通过（Agent UI+Host核对） | 重新准备后实际重启/切运行代，原备份后的笔记/Task不在恢复库；源码仍加法。 | active指针/ACTIVATED真实，新Owner15；安全备份/旧库保留，Run11，0活动旧计划/批准。 [证据](evidence/M3-manual-recovery-ui.json) | 按实际结果分界 |
+| F06 | 通过（Agent UI+Host核对） | 旧续接入口已不提供、显示后续停止；R能保存新的排队业务。 | 10个旧binding全部invalidated，旧Task dispatch_blocked，新R queued可用，0新Run。 [证据](evidence/M3-manual-recovery-ui.json) | 按实际结果分界 |
+| G01 | 通过（Agent UI实测） | 选中WALK_M3_SECRET的来源证据，遗忘引用精确，未勾确认按钮disabled。 | message:cd1cf12e-aecc-4777-a725-2e28f623d5ae；删除前字节基线/3备份1演练及旧副本已核对。 [证据](evidence/M3-manual-recovery-ui.json) | 按实际结果分界 |
+| G02 | 等待当次确认 | 已准备精确来源和不可逆范围，确认框尚未勾。 | 原生工具要求永久删除当次确认；异步问题已发出，不把整体走查授权当该次确认。 [证据](evidence/M3-manual-recovery-ui.json) | 按实际结果分界 |
+| G03 | 等待G02 | 不可逆删除尚未执行，不填删除后恢复通过。 | — [证据](evidence/M3-manual-recovery-ui.json) | 按实际结果分界 |
+| G04 | 等待G02 | 旧副本现仍保留；有删除前字节基线。 | — [证据](evidence/M3-manual-recovery-ui.json) | 按实际结果分界 |
+| G05 | 等待G02条件 | 本次尚未执行；是否出现pending据实际收据决定。 | 15项隐私组件含故障和重开边界，不能替代此处条件。 [证据](evidence/M3-manual-recovery-ui.json) | 按实际结果分界 |
+| G06 | 跳过（可选付费分支） | 本轮未另发运行中遗忘模型任务，不反复付费等待碰时序。 | 既有Gate不填成本轮通过；本轮实际11请求，无此分支。 [证据](evidence/M3-manual-recovery-ui.json) | 按实际结果分界 |
+| S01 | 阻塞（生产HTTPS未配置） | 真实UI缺配置分支通过，尚未登记来源；无可用自有HTTPS Provider。 | 19项Source配置/传输/签名组件通过；HTTP测试传输不等于生产HTTPS验收。 [证据](evidence/M3-manual-boundaries.json) | 按实际结果分界 |
+| S02 | 阻塞（生产HTTPS未配置） | 本轮未实际接收生产Provider事件。 | 签名/nonce/actor/type/大小/重复Hash/原子批次负例有受控组件结果。 [证据](evidence/M3-manual-boundaries.json) | 按实际结果分界 |
+| S03 | 阻塞（生产Source未配置） | 本轮未通过Provider驱动真实订阅链。 | 隔离SQLite事件输入验证scope/plan/mandate/暂停/重复，非真实账号接线。 [证据](evidence/M3-manual-boundaries.json) | 按实际结果分界 |
 | S04 | 通过（Host实际分域） | Host实际Run核对：Router无Claim，Chat个人有效且排除敏感，Coding仅public规则及本Task。 | 实际Manifest/Context Hash/native_policy_verified，不用Fixture替代真实上下文。 [本批证据](evidence/M3-manual-code-goal.json) | 无新增重发；审计更正见执行日志 |
-| S05 | 待执行 | — | — | 当前档案扫描与独立故障档案分开 |
-| S06 | 待执行 | — | — | 时钟/通知Fixture和真实OS分开 |
-| S07 | 待执行 | — | — | 独立故障注入 |
-| S08 | 待执行 | — | — | 独立副本，不破坏人工档案 |
+| S05 | 等待G02（组件15项通过） | 当前档案删除前扫描已做，尚无删除后实际物理完成收据。 | 故障档案组件通过；worker/Provider为Fixture，当前档案不替填。 [证据](evidence/M3-manual-boundaries.json) | 按实际结果分界 |
+| S06 | 通过（Host独立组件） | 预算/静默/限额/失败熔断/Unknown及修订边界完成，时钟与Provider明确Fixture。 | 63不同用例先62/63，时钟Fixture修正后失败项及goals文件在50/50批次通过；E05真实预算保护另验，OS失败留E08。 [证据](evidence/M3-manual-boundaries.json) | 按实际结果分界 |
+| S07 | 通过（Host独立组件） | 幂等/异内容/CAS/Pending/部分效果/纠错/修订祖先/Unknown不重发完成。 | 39规则路由、48记忆上下文及后续50/43重叠专项，不重复累计；实际SQLite、合成executor。 [证据](evidence/M3-manual-boundaries.json) | 按实际结果分界 |
+| S08 | 通过（Host组件+实际OS） | 隔离恢复/合同负例26项通过；本轮F真实单实例、Owner冷重启、恢复切换另通过。 | 缺指针/文件故障仅隔离副本注入；没破坏人工档案，未以Fixture冒称模型。 [证据](evidence/M3-manual-boundaries.json) | 按实际结果分界 |
 
 ## 问题单
 
@@ -100,8 +100,8 @@
 | UX-05 | D03真实复现，修复后复走通过 | Router混合CHAT+CLARIFY被校验拒绝，却错误标为未知；Router误把无个人记忆当澄清理由。 | 明确只转交CHAT；实际completed且明确无效的空提案从原证据归类失败，真实Unknown保持；新请求复走成功。 |
 | UX-06 | D04真实复现，修复后补测通过 | CREATE_TASK未把提案独立title传入账本，标题变成正文。 | 有界可选title独立于text，纳入命令Hash；真实新UI创建标题/正文分别正确。旧错误Task保留。 |
 | UX-04 | C07拒绝文字缺口，已调整 | 私人推断写coding被正确拒绝，但显示未知泛化提示。 | 增加明确公开/确认要求的错误文案；原拒绝与真实公开保存均保留。 |
-| UX-07 | E07错误文案待改 | 假核验ID正确拒绝，却显示结果待核对通用文字。 | 业务保护通过；F06后增量修正文案。 |
-| UX-08 | E08真实UI复现，待改 | 已加载通知的“刷新实际记录”没有重新取通知；另点查看才从等待变失败。 | F06后接刷新选中Goal通知；OS实际失败另记，不混称已送达。 |
+| UX-07 | 修复并真实UI负例通过 | 假核验ID显示明确完成条件/Host记录ID要求；Goal仍active。 | 新R目标0Run复验后已取消；TS/构建通过。 |
+| UX-08 | 修复并实际UI复验 | 刷新选中Goal的通知；Q初次加载和刷新均见failed/脱敏，无需再次查看。 | TS/构建与零模型UI通过；OS投递失败事实保留。 |
 | CONN-01 | 修复完成，Agent验证与用户人工复走均通过 | 首轮initialize 15002ms超时；真实冷启动需17615ms。原专用索引自然恢复；用户于2026-11-04确认连续两次目录连接8模型。 | 关闭本问题的人工复走项，失败历史保留；不将目录读取当作推理成功。 |
 
 ## 走查任务别名（公开测试数据）
@@ -124,7 +124,7 @@ A05后T3当前标题为“人工走查只读任务已改名”。新增取消演
 
 ## 下一步
 
-D/E实际收据已归档，继续F后台/冷重启/恢复，再G隐私及S边界收尾。F02窗口已关闭，16:10Z到期前不观察目标应用以免触发activate。UX-07假核验ID通用错误文案与UX-08通知刷新缺口在F06旧合同验收后修正，避免中途覆盖冻结Verifier。HTTPS Provider未配置；G不可逆动作须遵循工具当次确认。
+只剩不可逆G02–G05及当前U的S05须用户当次确认后继续；问题已在真实动作前发出。其余本轮用例均有通过/失败/阻塞/跳过结论。生产HTTPS无Provider，S01–S03保持阻塞；OS通知failed不冒称送达。G06可选运行中遗忘跳过。无待确认模型请求，11Run均结算；不自动重发Unknown。
 
 ## CONN-01 排查与修复过程（2026-11-03）
 
