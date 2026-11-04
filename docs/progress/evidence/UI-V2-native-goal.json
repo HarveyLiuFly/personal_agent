@@ -1,0 +1,205 @@
+{
+  "format": 1,
+  "checkpoint": "UI-V2.goal-flow",
+  "at": "2026-11-04T17:23:55.047490+00:00",
+  "method": "Native CUA on Sculptor, real supported locked Codex/App Server and Node Host verification, readonly SQLite/artifact audit",
+  "goal": {
+    "goal_id": "goal:1496010ad69f020069f55fe85a414a950103955d535872bacc166b929e733b01",
+    "status": "completed",
+    "version": 3,
+    "plan_version": 2
+  },
+  "task": {
+    "task_id": "a47aace1-58e2-4f6b-80fe-baa6aba0cf3f",
+    "status": "completed",
+    "version": 8
+  },
+  "codeRuns": [
+    {
+      "run_id": "80d8965d-fe13-4e77-9285-d13cf5969dc0",
+      "status": "completed",
+      "goal_plan_version": 2
+    },
+    {
+      "run_id": "1321dce1-774f-480a-895b-aff0eef6083a",
+      "status": "completed",
+      "goal_plan_version": 2
+    }
+  ],
+  "intents": [
+    {
+      "run_id": "80d8965d-fe13-4e77-9285-d13cf5969dc0",
+      "kind": "thread_start",
+      "state": "accepted",
+      "execution_thread_id": "01a1a792-80d2-75c0-89b6-12b4db84b0e0",
+      "execution_turn_id": null
+    },
+    {
+      "run_id": "80d8965d-fe13-4e77-9285-d13cf5969dc0",
+      "kind": "turn_start",
+      "state": "accepted",
+      "execution_thread_id": "01a1a792-80d2-75c0-89b6-12b4db84b0e0",
+      "execution_turn_id": "01a1a792-816d-73d0-9b2a-5cc0e9da6ff4"
+    },
+    {
+      "run_id": "1321dce1-774f-480a-895b-aff0eef6083a",
+      "kind": "thread_resume",
+      "state": "accepted",
+      "execution_thread_id": "01a1a792-80d2-75c0-89b6-12b4db84b0e0",
+      "execution_turn_id": null
+    },
+    {
+      "run_id": "1321dce1-774f-480a-895b-aff0eef6083a",
+      "kind": "turn_start",
+      "state": "accepted",
+      "execution_thread_id": "01a1a792-80d2-75c0-89b6-12b4db84b0e0",
+      "execution_turn_id": "01a1a794-0092-7282-9524-52739d98d4e6"
+    }
+  ],
+  "frozenFieldsEqual": [
+    "baselineCommit",
+    "target",
+    "allowedPaths",
+    "files",
+    "testHash",
+    "nodeHash",
+    "reporterHash",
+    "cliHash",
+    "verifierHash",
+    "requiredCases",
+    "knownCases",
+    "commandArgv"
+  ],
+  "frozenVerifierHash": "477b1c5745023c8b9f1902bf064785d2c085cebdd52538f8de5f994f64da6171",
+  "verification": {
+    "verification_id": "dd2918a2-c21e-4b05-8c13-407a9e4abd1f",
+    "run_id": "1321dce1-774f-480a-895b-aff0eef6083a",
+    "status": "passed",
+    "discovered_count": 4,
+    "executed_count": 4,
+    "skipped_count": 0,
+    "evidence_ref": "dd2918a2-c21e-4b05-8c13-407a9e4abd1f"
+  },
+  "artifactSha256": "3af9a83eabf62479899406a3d2dd892184ecd7f46cff698fd4cc44545787af3d",
+  "goalCompletion": "Native button automatically read genuine verification IDs; no manual ID copy or JSON editing",
+  "source": [
+    {
+      "alias": "code",
+      "changedFiles": [],
+      "isAddition": false
+    },
+    {
+      "alias": "goal",
+      "changedFiles": [
+        "src/math.mjs"
+      ],
+      "isAddition": true
+    },
+    {
+      "alias": "other",
+      "changedFiles": [
+        "src/math.mjs"
+      ],
+      "isAddition": true
+    }
+  ],
+  "originalUnsentFailure": {
+    "run_id": "043defed-9f39-4f07-891f-95dcc8c20b62",
+    "status": "failed",
+    "goal_plan_version": null,
+    "intents": 0,
+    "settlements": [
+      {
+        "state": "settled",
+        "actual_units": 0
+      },
+      {
+        "state": "settled",
+        "actual_units": 0
+      }
+    ],
+    "proofs": [
+      {
+        "reason": "missing_goal_plan_preparation",
+        "intentCount": 0,
+        "serverRequestCount": 0,
+        "reportedTokens": 0
+      }
+    ]
+  },
+  "allRuns": [
+    {
+      "run_id": "601a72be-c0dc-4ce9-bae9-412bf7f73270",
+      "status": "completed",
+      "baseline_tokens": 0,
+      "latest_total_tokens": 15255,
+      "finalized": 1,
+      "turn_intents": 1,
+      "attributedReportedTokens": 15255
+    },
+    {
+      "run_id": "0cb3b162-2eab-4df7-aa94-67c9f53c50bd",
+      "status": "completed",
+      "baseline_tokens": 0,
+      "latest_total_tokens": 15264,
+      "finalized": 1,
+      "turn_intents": 1,
+      "attributedReportedTokens": 15264
+    },
+    {
+      "run_id": "6448031d-088e-4113-b32c-61be574f1e6a",
+      "status": "completed",
+      "baseline_tokens": 0,
+      "latest_total_tokens": 14913,
+      "finalized": 1,
+      "turn_intents": 1,
+      "attributedReportedTokens": 14913
+    },
+    {
+      "run_id": "c9269eb0-178b-4fc8-9b1c-6f8a780915eb",
+      "status": "completed",
+      "baseline_tokens": 0,
+      "latest_total_tokens": 57894,
+      "finalized": 1,
+      "turn_intents": 1,
+      "attributedReportedTokens": 57894
+    },
+    {
+      "run_id": "043defed-9f39-4f07-891f-95dcc8c20b62",
+      "status": "failed",
+      "baseline_tokens": null,
+      "latest_total_tokens": null,
+      "finalized": 1,
+      "turn_intents": 0,
+      "attributedReportedTokens": 0
+    },
+    {
+      "run_id": "80d8965d-fe13-4e77-9285-d13cf5969dc0",
+      "status": "completed",
+      "baseline_tokens": 0,
+      "latest_total_tokens": 76852,
+      "finalized": 1,
+      "turn_intents": 1,
+      "attributedReportedTokens": 76852
+    },
+    {
+      "run_id": "1321dce1-774f-480a-895b-aff0eef6083a",
+      "status": "completed",
+      "baseline_tokens": 76852,
+      "latest_total_tokens": 138296,
+      "finalized": 1,
+      "turn_intents": 1,
+      "attributedReportedTokens": 61444
+    }
+  ],
+  "actualModelTurns": 6,
+  "reportedTokens": 241622,
+  "unknownHeldTokens": 0,
+  "boundaries": [
+    "First proposal async UI failure retained, not automatically committed on reopen",
+    "First Q code Run changed math but original Goal later cancelled after unsent continuation defect; not counted completed business",
+    "Historical unsent Run retained missing goal_plan_version, settled zero only by explicit exact local-evidence reconciliation",
+    "New R Goal was a separate explicit corrected UI acceptance; no old Unknown replay",
+    "No full regression; original M3 irreversible deletion remains unconfirmed/unexecuted"
+  ]
+}

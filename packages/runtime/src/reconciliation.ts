@@ -16,6 +16,7 @@ export class HistoryReconciliation {
  async reconcile(input:unknown):Promise<void>{
   if(!isObject(input)||Object.keys(input).length!==2||!identity(input.projectId)||!identity(input.runId))return fail('INVALID_EXECUTION_QUERY');
   const run=this.store.runForHost(input.runId);if(run.workspaceId!==input.projectId)return fail('RUN_NOT_IN_PROJECT');
+  if(this.store.reconcileUnsentGoalPreparation(input.projectId,input.runId))return;
   if(this.busy)return fail('RECONCILIATION_BUSY');const claim=this.store.reconciliationClaim(input.runId),cwd=this.store.workspace(input.projectId).directory;
   this.busy=true;
   try{

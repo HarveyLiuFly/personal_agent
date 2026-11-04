@@ -821,11 +821,13 @@ export class ExecutionLedger {
       const task=this.one('SELECT * FROM tasks WHERE task_id=?',source.taskId)!;
       if(!['completed','failed'].includes(source.status)||!['needs_review','failed'].includes(String(task.status))||source.blocked||task.write_fence!==source.taskFence)return fail('RUN_NOT_CONTINUABLE');
       if(this.hasBlockingExecution(source.mode))return fail('RUNTIME_BUSY');
-      const epochs=this.taskAuthority(task);const sourceEpochs=this.one('SELECT policy_epoch,privacy_epoch FROM task_runs WHERE run_id=?',sourceRunId)!;if(sourceEpochs.policy_epoch!==epochs.policy_epoch||sourceEpochs.privacy_epoch!==epochs.privacy_epoch)return fail('RUN_GRANT_EXPIRED');
+      const epochs=this.taskAuthority(task);const sourceEpochs=this.one('SELECT policy_epoch,privacy_epoch,goal_plan_version FROM task_runs WHERE run_id=?',sourceRunId)!;if(sourceEpochs.policy_epoch!==epochs.policy_epoch||sourceEpochs.privacy_epoch!==epochs.privacy_epoch)return fail('RUN_GRANT_EXPIRED');
+      const goalPlan=task.goal_id?this.one("SELECT plan_version FROM goals WHERE goal_id=? AND dot_id=? AND status='active'",task.goal_id,this.dotId):undefined;
+      if(task.goal_id&&(!goalPlan||sourceEpochs.goal_plan_version!==goalPlan.plan_version))return fail('RUN_GRANT_EXPIRED');
       if(source.mode==='workspaceWrite'&&!this.verificationPlan(sourceRunId))return fail('VERIFICATION_NOT_CONFIGURED');
       this.transition(source.taskId,'queued');this.transition(source.taskId,'running');this.exec('UPDATE tasks SET write_fence=write_fence+1 WHERE task_id=?',source.taskId);
       const current=this.one('SELECT version,write_fence FROM tasks WHERE task_id=?',source.taskId)!,runId=randomUUID(),fence=Number(current.write_fence);
-      this.exec("INSERT INTO task_runs(run_id,task_id,dot_id,idempotency_key,executor_kind,status,task_snapshot_version,task_fence,runtime_epoch,policy_epoch,privacy_epoch,worker_id,lease_until_ms,started_at_ms) VALUES (?,?,?,?,'codex','preparing',?,?,?,?,?,?,?,?)",runId,source.taskId,this.dotId,key,current.version!,fence,this.#epoch,epochs.policy_epoch!,epochs.privacy_epoch!,this.#instance,Date.now()+60000,Date.now());
+      this.exec("INSERT INTO task_runs(run_id,task_id,dot_id,idempotency_key,executor_kind,status,task_snapshot_version,task_fence,runtime_epoch,policy_epoch,privacy_epoch,goal_plan_version,worker_id,lease_until_ms,started_at_ms) VALUES (?,?,?,?,'codex','preparing',?,?,?,?,?,?,?,?,?)",runId,source.taskId,this.dotId,key,current.version!,fence,this.#epoch,epochs.policy_epoch!,epochs.privacy_epoch!,goalPlan?.plan_version??null,this.#instance,Date.now()+60000,Date.now());
       this.budget.reserve(runId,task.goal_id as string|null);
       if(source.mode==='workspaceWrite'){
         this.projectOperationAvailable(workspaceId);
@@ -1171,6 +1173,31 @@ export class ExecutionLedger {
   matchesUserInput(runId: string, text: string): boolean {
     this.runForHost(runId);const row=this.one('SELECT module_hashes_json FROM prompt_manifests WHERE run_id=?',runId);
     return Boolean(row && JSON.parse(String(row.module_hashes_json)).user===hashInput(text));
+  }
+  /** Explicit reconciliation of the historical missing-Goal-plan preparation defect.
+   * Any Intent, request, policy change or other failure remains on the normal
+   * Unknown path. No source grant is repaired and no execution is dispatched. */
+  reconcileUnsentGoalPreparation(projectId:string,runId:string):boolean {
+    return this.tx(()=>{
+      this.owner();const view=this.runForHost(runId);if(view.workspaceId!==projectId)return fail('RUN_NOT_IN_PROJECT');
+      if(view.status!=='outcome_unknown')return false;
+      const run=this.one('SELECT r.*,t.goal_id,t.write_fence,t.status AS task_status FROM task_runs r JOIN tasks t USING(task_id) WHERE r.run_id=? AND r.dot_id=?',runId,this.dotId)!;
+      if(!run.goal_id||run.goal_plan_version!==null||run.task_status!=='outcome_unknown'||run.task_fence!==run.write_fence)return false;
+      if(this.one('SELECT intent_id FROM execution_intents WHERE run_id=?',runId)||this.one('SELECT request_id FROM runtime_requests WHERE run_id=?',runId))return false;
+      if(!this.one("SELECT event_id FROM task_events WHERE run_id=? AND event_type='run_continued'",runId)||!this.one("SELECT event_id FROM task_events WHERE run_id=? AND event_type='run_diagnostic' AND json_extract(payload_json,'$.code')='RUN_GRANT_EXPIRED'",runId))return false;
+      const epochs=this.one('SELECT policy_epoch,privacy_epoch FROM dots WHERE dot_id=?',this.dotId)!;
+      if(run.policy_epoch!==epochs.policy_epoch||run.privacy_epoch!==epochs.privacy_epoch)return false;
+      this.transition(view.taskId,'failed');const stop=this.stopTarget(view.taskId);
+      if(stop){if(stop==='paused')this.transition(view.taskId,'queued');this.transition(view.taskId,stop);this.stopOperation(view.taskId,'completed',runId);}
+      this.exec('UPDATE tasks SET dispatch_blocked=? WHERE task_id=?',stop?1:0,view.taskId);
+      this.exec("UPDATE task_runs SET status='failed',finished_at_ms=? WHERE run_id=?",Date.now(),runId);
+      this.exec('DELETE FROM workspace_write_leases WHERE run_id=?',runId);
+      this.exec("UPDATE workspaces SET state='ready' WHERE workspace_id=? AND NOT EXISTS(SELECT 1 FROM workspace_write_leases WHERE workspace_id=?)",projectId,projectId);
+      const usage=this.budget.finish(runId);if(!usage.known||usage.tokens!==0)return fail('UNSENT_USAGE_NOT_PROVEN');
+      this.event(view.taskId,runId,'run_not_dispatched_reconciled',{reason:'missing_goal_plan_preparation',intentCount:0,serverRequestCount:0,reportedTokens:0});
+      this.event(view.taskId,runId,'run_diagnostic',{code:'RUN_NOT_SENT'});
+      return true;
+    });
   }
   reconciliationClaim(runId:string):ReconciliationClaim {
     this.owner();const run=this.runForHost(runId),task=this.one('SELECT * FROM tasks WHERE task_id=?',run.taskId)!;
