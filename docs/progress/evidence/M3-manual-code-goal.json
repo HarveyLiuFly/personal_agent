@@ -1,0 +1,425 @@
+{
+  "format": 1,
+  "checkpoint": "M3.manual-code-goal",
+  "observedAt": "2026-11-04T16:07:18.628074+00:00",
+  "method": "Agent native CUA on external Sculptor; Host read-only current SQLite/files, actual locked App Server and Node verifier",
+  "casesPassed": [
+    "D06",
+    "D07",
+    "D08",
+    "E01",
+    "E02",
+    "E03",
+    "E04",
+    "E05",
+    "E06",
+    "E07",
+    "S04"
+  ],
+  "notificationCase": "E08: one failed operation, no delivered/banner evidence; refresh button stale projection found UX-08, inspect button loads failed",
+  "codeContinuation": {
+    "taskId": "7ad2d7de-29cb-4317-9e1c-f40cb16a8325",
+    "taskStatus": "completed",
+    "runs": [
+      {
+        "run_id": "71ee660d-5fdf-4017-a3d7-6b5166d57a60",
+        "status": "completed",
+        "baseline_tokens": 0,
+        "latest_total_tokens": 78720,
+        "finalized": 1
+      },
+      {
+        "run_id": "0b315ab5-e815-4350-be65-2e2e0fb11a89",
+        "status": "completed",
+        "baseline_tokens": 78720,
+        "latest_total_tokens": 121615,
+        "finalized": 1
+      }
+    ],
+    "intents": [
+      {
+        "run_id": "71ee660d-5fdf-4017-a3d7-6b5166d57a60",
+        "kind": "thread_start",
+        "execution_thread_id": "01a1a72f-ac01-7562-88e0-bb00a2666b81",
+        "execution_turn_id": null,
+        "state": "accepted"
+      },
+      {
+        "run_id": "71ee660d-5fdf-4017-a3d7-6b5166d57a60",
+        "kind": "turn_start",
+        "execution_thread_id": "01a1a72f-ac01-7562-88e0-bb00a2666b81",
+        "execution_turn_id": "01a1a72f-ac88-79d2-a031-28c5eb4c4187",
+        "state": "accepted"
+      },
+      {
+        "run_id": "0b315ab5-e815-4350-be65-2e2e0fb11a89",
+        "kind": "thread_resume",
+        "execution_thread_id": "01a1a72f-ac01-7562-88e0-bb00a2666b81",
+        "execution_turn_id": null,
+        "state": "accepted"
+      },
+      {
+        "run_id": "0b315ab5-e815-4350-be65-2e2e0fb11a89",
+        "kind": "turn_start",
+        "execution_thread_id": "01a1a72f-ac01-7562-88e0-bb00a2666b81",
+        "execution_turn_id": "01a1a731-97a1-7923-8f8f-9f0aacbfd33c",
+        "state": "accepted"
+      }
+    ],
+    "frozenFieldsEqual": [
+      "baselineCommit",
+      "target",
+      "allowedPaths",
+      "files",
+      "testHash",
+      "nodeHash",
+      "reporterHash",
+      "cliHash",
+      "verifierHash",
+      "requiredCases",
+      "knownCases",
+      "commandArgv"
+    ],
+    "onlyChangedContractMetadata": [
+      "specId",
+      "runId",
+      "createdAt"
+    ],
+    "frozenExpectationHash": "22970fb50803608b560edf4cf7879ed6d99ce5ab942607059cb10fde30179fc8",
+    "verification": {
+      "verification_id": "a228f336-3b92-4c53-bad8-fb9ff09be4b1",
+      "run_id": "0b315ab5-e815-4350-be65-2e2e0fb11a89",
+      "spec_id": "0603ee42-ad80-4e65-bd07-5455ea21e70a",
+      "status": "passed",
+      "discovered_count": 4,
+      "executed_count": 4,
+      "skipped_count": 0,
+      "evidence_ref": "a228f336-3b92-4c53-bad8-fb9ff09be4b1",
+      "observed_at_ms": 1793806469359
+    },
+    "verificationIdShownInUi": "a228f336-3b92-4c53-bad8-fb9ff09be4b1",
+    "changedFiles": [
+      "src/math.mjs"
+    ],
+    "source": "export const sum = (a, b) => a + b;",
+    "auditNote": "Initial full-JSON equality assertion included expected fresh specId/runId/createdAt; rechecked all frozen fields individually, all equal. This was an audit assertion correction, not a product failure."
+  },
+  "goals": [
+    {
+      "goal_id": "goal:8be0e867a80a8e98abdc4fb45bb775ca47208621028d31cb8c0c0a6370e7e972",
+      "status": "cancelled",
+      "version": 8,
+      "plan_version": 7
+    },
+    {
+      "goal_id": "goal:a149bd75e0b9d58ae7582a7cd95b9ca9ed9d71546908948d770f1a801266a962",
+      "status": "completed",
+      "version": 3,
+      "plan_version": 2
+    }
+  ],
+  "goalVerification": [
+    {
+      "verification_id": "b41d3e97-4d41-4bc5-9ec6-8ad5dab297b4",
+      "run_id": "5553b7c0-7d23-4cdc-8f69-32b521a611fc",
+      "status": "passed",
+      "discovered_count": 4,
+      "executed_count": 4,
+      "skipped_count": 0
+    }
+  ],
+  "notifications": [
+    {
+      "operation_id": "52b27941-059d-4587-805f-30e0b027cad4",
+      "state": "failed",
+      "receipt": {
+        "state": "failed",
+        "claimId": "d3e64f52-9bb2-4241-9b14-f02b18395492",
+        "runtimeEpoch": 12,
+        "day": 20761,
+        "providerRef": null
+      }
+    }
+  ],
+  "realRuns": [
+    {
+      "run_id": "915f8337-8adf-4b5e-81cf-8886863e9b58",
+      "task_id": "6a67095e-4ea9-4025-90dc-1d617f88b5e1",
+      "status": "completed",
+      "finalized": 1,
+      "attributedReportedTokens": 15932
+    },
+    {
+      "run_id": "80564a75-d7b3-408a-a11a-a6ddeed77847",
+      "task_id": "76d88a8a-93a4-4f1e-9389-58019d6658a4",
+      "status": "completed",
+      "finalized": 1,
+      "attributedReportedTokens": 16094
+    },
+    {
+      "run_id": "40d30e54-f23c-4f00-b102-98366d2f4e1f",
+      "task_id": "24811880-1da4-48f3-82e9-52fde441686d",
+      "status": "completed",
+      "finalized": 1,
+      "attributedReportedTokens": 16190
+    },
+    {
+      "run_id": "2320b033-1ec3-4e60-bb49-accf76d6d344",
+      "task_id": "cc247b60-bfe9-4791-9e9f-57b36774989f",
+      "status": "completed",
+      "finalized": 1,
+      "attributedReportedTokens": 15411
+    },
+    {
+      "run_id": "aa7f75c6-643e-4923-a0d4-b7b2689d85f9",
+      "task_id": "90c5eb25-2f14-49b1-b152-b745c9546034",
+      "status": "completed",
+      "finalized": 1,
+      "attributedReportedTokens": 16324
+    },
+    {
+      "run_id": "6f613a48-39ea-4a64-8c9b-219a02701097",
+      "task_id": "14672c59-aa97-4c82-aabf-0ac875895b6d",
+      "status": "completed",
+      "finalized": 1,
+      "attributedReportedTokens": 16450
+    },
+    {
+      "run_id": "71ee660d-5fdf-4017-a3d7-6b5166d57a60",
+      "task_id": "7ad2d7de-29cb-4317-9e1c-f40cb16a8325",
+      "status": "completed",
+      "finalized": 1,
+      "attributedReportedTokens": 78720
+    },
+    {
+      "run_id": "0b315ab5-e815-4350-be65-2e2e0fb11a89",
+      "task_id": "7ad2d7de-29cb-4317-9e1c-f40cb16a8325",
+      "status": "completed",
+      "finalized": 1,
+      "attributedReportedTokens": 42895
+    },
+    {
+      "run_id": "d598c931-b1e5-4740-850f-79c7418bdc84",
+      "task_id": "98b1c566-cabd-4922-bd34-f8aec9426fa3",
+      "status": "completed",
+      "finalized": 1,
+      "attributedReportedTokens": 18347
+    },
+    {
+      "run_id": "f8fae13c-f41f-4899-bba8-25ec136207b1",
+      "task_id": "98b1c566-cabd-4922-bd34-f8aec9426fa3",
+      "status": "completed",
+      "finalized": 1,
+      "attributedReportedTokens": 19099
+    },
+    {
+      "run_id": "5553b7c0-7d23-4cdc-8f69-32b521a611fc",
+      "task_id": "24759584-af7b-4135-b1bd-c889256686a5",
+      "status": "completed",
+      "finalized": 1,
+      "attributedReportedTokens": 58974
+    }
+  ],
+  "attributedReportedTokens": 314436,
+  "unknownReservations": 0,
+  "source": [
+    {
+      "projectAlias": "code",
+      "changedFiles": [
+        "src/math.mjs"
+      ],
+      "mathSha256": "c01a4dda8409c0ac1b53b9223b8700f9be4a9024245cf8ec125ceebf4f7f5709",
+      "sumIsAddition": true
+    },
+    {
+      "projectAlias": "goal",
+      "changedFiles": [
+        "src/math.mjs"
+      ],
+      "mathSha256": "c01a4dda8409c0ac1b53b9223b8700f9be4a9024245cf8ec125ceebf4f7f5709",
+      "sumIsAddition": true
+    },
+    {
+      "projectAlias": "other",
+      "changedFiles": [],
+      "mathSha256": "2d864757af083c7a572b6928d3316fd110ebcc6e15a2f9e5c7189bf78152ec22",
+      "sumIsAddition": false
+    }
+  ],
+  "contextAudit": {
+    "router": "no Claims",
+    "chat": "personal language v2 + guess, no sensitive or other Task claims",
+    "coding": "public coding rule + own Task C only; no personal/T1/T2 private",
+    "evidenceKind": "actual prompt manifests and native_policy_verified events, not fabricated model success",
+    "manifests": [
+      {
+        "runId": "915f8337-8adf-4b5e-81cf-8886863e9b58",
+        "role": "dot-router",
+        "contentHash": "64dcefdd7f2cacb424491f5d7899db1f58930e756d6fa5daa54ea2629bc65abf",
+        "claimRefs": [],
+        "toolSnapshotHash": "f7a299325e504a18bf52d47cbac0a23145f2d3c25b0a841cf6b4231df57dd9e9",
+        "nativePolicyHashes": [
+          "ea2b000664268289af9c8476541032d75708889b4a563a9eea72b38527d8cfd9"
+        ]
+      },
+      {
+        "runId": "80564a75-d7b3-408a-a11a-a6ddeed77847",
+        "role": "dot-router",
+        "contentHash": "935cec454d1187fbac3ca0cb905dab4ac14c7d03467d736720b258c3991bf9d3",
+        "claimRefs": [],
+        "toolSnapshotHash": "f7a299325e504a18bf52d47cbac0a23145f2d3c25b0a841cf6b4231df57dd9e9",
+        "nativePolicyHashes": [
+          "ea2b000664268289af9c8476541032d75708889b4a563a9eea72b38527d8cfd9"
+        ]
+      },
+      {
+        "runId": "40d30e54-f23c-4f00-b102-98366d2f4e1f",
+        "role": "dot-router",
+        "contentHash": "d746b45e5ad1af74d49330e31599d44dd7280908f67d3e9432fedc8b359c83b9",
+        "claimRefs": [],
+        "toolSnapshotHash": "f7a299325e504a18bf52d47cbac0a23145f2d3c25b0a841cf6b4231df57dd9e9",
+        "nativePolicyHashes": [
+          "ea2b000664268289af9c8476541032d75708889b4a563a9eea72b38527d8cfd9"
+        ]
+      },
+      {
+        "runId": "2320b033-1ec3-4e60-bb49-accf76d6d344",
+        "role": "dot-chat",
+        "contentHash": "8125ae5eba0509d617972c7da9adb7a32bc543d24a49d14f8567af3b50c1d984",
+        "claimRefs": [
+          {
+            "ref": "claim:memory-claim:1444a0c9dea35b63134310b45d9b295e961ab82ca44eef61d5fe46767dce734f",
+            "revision": "a8faa7edcfcdb92a413eebe62dcba83c9f652cb13e82e91ef023882c30dba566",
+            "contentHash": "d2ee54dc35322bb4fc58ec92a79a8549fd0a615fdb8506814698485dc1d919e1"
+          },
+          {
+            "ref": "claim:memory-claim:b484295908b49df39eccbf926064390e29508fbbe1660891645d2d378269916f",
+            "revision": "706b038c82abf8b83c3400a35ee086e8e8fd86c1674117afda312fa239a59279",
+            "contentHash": "a2260b2861adc68b367339f31e374ff8fb55af95165627d30a21a530ed77c7c1"
+          }
+        ],
+        "toolSnapshotHash": "562af35e410fc5a7255ea2e15910a444126f89a7d6edb1964ebbca0b493e5dd6",
+        "nativePolicyHashes": [
+          "ea2b000664268289af9c8476541032d75708889b4a563a9eea72b38527d8cfd9"
+        ]
+      },
+      {
+        "runId": "aa7f75c6-643e-4923-a0d4-b7b2689d85f9",
+        "role": "dot-router",
+        "contentHash": "83a03851f35af415d7a9a5c46ad2fb656b7a91f004b1642b9ddaace4ccfc7f02",
+        "claimRefs": [],
+        "toolSnapshotHash": "f7a299325e504a18bf52d47cbac0a23145f2d3c25b0a841cf6b4231df57dd9e9",
+        "nativePolicyHashes": [
+          "ea2b000664268289af9c8476541032d75708889b4a563a9eea72b38527d8cfd9"
+        ]
+      },
+      {
+        "runId": "6f613a48-39ea-4a64-8c9b-219a02701097",
+        "role": "dot-router",
+        "contentHash": "cbacf0d2f4786537e25d64fdcbd71a8254ac6461fde316501097314a4667583e",
+        "claimRefs": [],
+        "toolSnapshotHash": "f7a299325e504a18bf52d47cbac0a23145f2d3c25b0a841cf6b4231df57dd9e9",
+        "nativePolicyHashes": [
+          "ea2b000664268289af9c8476541032d75708889b4a563a9eea72b38527d8cfd9"
+        ]
+      },
+      {
+        "runId": "71ee660d-5fdf-4017-a3d7-6b5166d57a60",
+        "role": "coding",
+        "contentHash": "5bc93495f0b076f7a0355a252ae12b69b8dc9f13fe63fab4731bacf32a87235a",
+        "claimRefs": [
+          {
+            "ref": "claim:memory-claim:67513a904af153ee00f5600815f9b652336ebe7cbb495c1d15f8d9c689a5f109",
+            "revision": "88c4b41850725cd094944bc9594424e2b7c2c6d71685246832ace46602220eef",
+            "contentHash": "eb9afced31b65d7aff744ce73c61123dea26166ecd576880f872435b889dac8f"
+          },
+          {
+            "ref": "claim:memory-claim:fb5763dbbe290a4318e07397d253ea207c4865e93c4550bb1e0b1bc03c0b9ab3",
+            "revision": "f539b5cdbdee975bbcd86d7d60e1a5e6fef404ff4263d8d0347a65ef6c64105f",
+            "contentHash": "f172d699d19c83c502da0e07ad5722288cf9aae829bea89bd7064e5c452d534d"
+          }
+        ],
+        "toolSnapshotHash": "790738f186434f5629f25d2dc0b4ae313d5c509afbb26713a1379d6b89889649",
+        "nativePolicyHashes": [
+          "1599283e6295f081d5307ffefc5089335003d51d078f9bd91a2d037ebd9ef234"
+        ]
+      },
+      {
+        "runId": "0b315ab5-e815-4350-be65-2e2e0fb11a89",
+        "role": "coding",
+        "contentHash": "a9ebc9b312163d28b0fd528bffc02c0b4185c384b30f0b336d5a13dbdd231286",
+        "claimRefs": [
+          {
+            "ref": "claim:memory-claim:67513a904af153ee00f5600815f9b652336ebe7cbb495c1d15f8d9c689a5f109",
+            "revision": "88c4b41850725cd094944bc9594424e2b7c2c6d71685246832ace46602220eef",
+            "contentHash": "eb9afced31b65d7aff744ce73c61123dea26166ecd576880f872435b889dac8f"
+          },
+          {
+            "ref": "claim:memory-claim:fb5763dbbe290a4318e07397d253ea207c4865e93c4550bb1e0b1bc03c0b9ab3",
+            "revision": "f539b5cdbdee975bbcd86d7d60e1a5e6fef404ff4263d8d0347a65ef6c64105f",
+            "contentHash": "f172d699d19c83c502da0e07ad5722288cf9aae829bea89bd7064e5c452d534d"
+          }
+        ],
+        "toolSnapshotHash": "790738f186434f5629f25d2dc0b4ae313d5c509afbb26713a1379d6b89889649",
+        "nativePolicyHashes": [
+          "1599283e6295f081d5307ffefc5089335003d51d078f9bd91a2d037ebd9ef234"
+        ]
+      },
+      {
+        "runId": "d598c931-b1e5-4740-850f-79c7418bdc84",
+        "role": "coding",
+        "contentHash": "16fb927433aad1207e9b1ead151a6e09452b771249de7ff2d14322aab82bbe4a",
+        "claimRefs": [
+          {
+            "ref": "claim:memory-claim:67513a904af153ee00f5600815f9b652336ebe7cbb495c1d15f8d9c689a5f109",
+            "revision": "88c4b41850725cd094944bc9594424e2b7c2c6d71685246832ace46602220eef",
+            "contentHash": "eb9afced31b65d7aff744ce73c61123dea26166ecd576880f872435b889dac8f"
+          }
+        ],
+        "toolSnapshotHash": "e922621ff48c0bdcd1295f1d7922ce06fe6680fa3de790ee66a775deef7075f3",
+        "nativePolicyHashes": [
+          "ea2b000664268289af9c8476541032d75708889b4a563a9eea72b38527d8cfd9"
+        ]
+      },
+      {
+        "runId": "f8fae13c-f41f-4899-bba8-25ec136207b1",
+        "role": "coding",
+        "contentHash": "7b21caf5496414e511f111b7cd9b3440147184ec567c63f0816811633332aae4",
+        "claimRefs": [
+          {
+            "ref": "claim:memory-claim:67513a904af153ee00f5600815f9b652336ebe7cbb495c1d15f8d9c689a5f109",
+            "revision": "88c4b41850725cd094944bc9594424e2b7c2c6d71685246832ace46602220eef",
+            "contentHash": "eb9afced31b65d7aff744ce73c61123dea26166ecd576880f872435b889dac8f"
+          }
+        ],
+        "toolSnapshotHash": "e922621ff48c0bdcd1295f1d7922ce06fe6680fa3de790ee66a775deef7075f3",
+        "nativePolicyHashes": [
+          "ea2b000664268289af9c8476541032d75708889b4a563a9eea72b38527d8cfd9"
+        ]
+      },
+      {
+        "runId": "5553b7c0-7d23-4cdc-8f69-32b521a611fc",
+        "role": "coding",
+        "contentHash": "d64d46b4e332a5eb7f98a0023bcb3393141894354e541a05b04be1217df01a83",
+        "claimRefs": [
+          {
+            "ref": "claim:memory-claim:67513a904af153ee00f5600815f9b652336ebe7cbb495c1d15f8d9c689a5f109",
+            "revision": "88c4b41850725cd094944bc9594424e2b7c2c6d71685246832ace46602220eef",
+            "contentHash": "eb9afced31b65d7aff744ce73c61123dea26166ecd576880f872435b889dac8f"
+          }
+        ],
+        "toolSnapshotHash": "29ee474ac113c745f7b6b25c2e8779ebd621925bed06b53691625610b7d59240",
+        "nativePolicyHashes": [
+          "1599283e6295f081d5307ffefc5089335003d51d078f9bd91a2d037ebd9ef234"
+        ]
+      }
+    ]
+  },
+  "boundaries": [
+    "Warm close after Goal model completed; does not prove running model windowless",
+    "E07 invalid verification refused, generic wording UX-07 retained",
+    "No full regression and no new model beyond the eleven listed",
+    "HTTPS Provider unavailable; S01-S03 integration not accepted",
+    "G irreversible cleanup not executed yet"
+  ]
+}

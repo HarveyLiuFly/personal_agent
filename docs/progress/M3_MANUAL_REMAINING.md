@@ -41,3 +41,23 @@ UX-05定向50/50组件通过；首次49/50中另一个失败是旧测试复制�
 D03独立Chat实际返回最新确认English及4，Router/Chat不同Run；真实Manifest确认Router无Claim、Chat只装个人有效Claim，不含敏感/T1/T2私域，各Run有native_policy_verified事件。D04三步按依赖完成，T3 v7；发现独立title未透传（UX-06），增加Task create可选有界title并绑定幂等Hash，43/43增量及TS/构建通过。保留首次正文当标题的Task，另建“路由新增待办复走”真实UI补测标题/正文分别正确，仅排队。D05更正T2，效果不撤回不复制；没有未派发项不冒称部分撤销。当前6笔真实请求全部已结算、无Unknown占用，逐笔ID/用量见evidence/M3-manual-route-ui.json。
 
 代码Task C `7ad2d7de-29cb-4317-9e1c-f40cb16a8325` 已按固定test/math.test.mjs、只允许src/math.mjs创建为queued/v2；通过UI保存本Task私人标记WALK_M3_CODE_OWN，稍后实际Coding Manifest与T1/T2私域做对照。代码启动到独立验证完成前不再覆盖构建产物，以免改变冻结Verifier Hash。下一步D06–D08，然后E/F及G/S。
+
+## D06–D08与E01–E05实际完成（继续执行）
+
+代码C首Run `71ee660d-5fdf-4017-a3d7-6b5166d57a60` 只改src/math.mjs减号为加号，真实UI先看Diff，模型结束仍待审查、未有验证收据。D07新Run `0b315ab5-e815-4350-be65-2e2e0fb11a89` 使用thread_resume，复用原Thread `01a1a72f-ac01-7562-88e0-bb00a2666b81`，不同Turn，继承全部冻结字段（仅specId/runId/createdAt换新）。Host原生独立验证4 discovered/4 executed/0 skipped/passed，发布收据`a228f336-3b92-4c53-bad8-fb9ff09be4b1`，文件Hash与账本一致，Task才completed。实际UI已显示完成核验记录ID，UX-01展示子项通过，完整Goal复制提交待E07。审计初次误将新specId/runId/createdAt也要求相同，随后逐字段核对冻结合同全部一致；初次把验证产物根猜为execution/artifacts，实际只读定位为U/verification/artifacts并完成Hash核对，均是审计断言修正而非产品失败。
+
+D08 H Task `98b1c566-cabd-4922-bd34-f8aec9426fa3`，真实首Run只读回答12；仅点击可信检查点按钮，第二Run新Thread，binding generation1 invalidated/validated_context_rollover→generation2 active，两个真实Run均结束，UI再次回答12。Host业务Checkpoint businessCompletionClaimed=false，没有以模型回答关闭业务。S04真实Coding两Run仅选public coding:walk_rule及本Task walk_code；T1/T2私域和personal均未混入，前述真实Chat/Router分域亦通过。
+
+E01 G0创建前预算未确认按钮disabled，确认后active/v1/plan1/预算100000/通知未允许，Host无Goal Task/Run。E02四类负例（非法JSON、自依赖、重复key、未登记Source）均拒绝且无可提交预览。E03预览0→2，关闭重开仍0Task；明确提交后创建两Task，首项queued，依赖项waiting_trigger，目标v2/plan2，无模型。E04替换为draft2单节点，新增/移出ID可见；旧任务保留并paused/阻止派发，暂停目标v4/plan4→恢复v5/plan4，没有重跑旧任务。
+
+E05修订预算为1、确认后Goal v6/plan5暂停旧计划；提交隔离execute_once只读计划后active/v7/plan6。15:41:15Z与15:42:36Z两次只读核对：全局10 Run且全部空闲，本Goal 0 Run，预算1，任务仍queued，排除全局忙导致的假阻塞。随后UI取消Goal，v8/plan7，新旧任务停止且无模型。来源页实际“尚未登记来源”，S01缺配置分支有真实UI结果，真实HTTPS Provider仍不可得。
+
+`checkpoint/M3.manual-route-ui`本体`eab243fb9e6cb50497e259a28a814bf077f75e2a`已推送；远程main/标签均实际核对相同SHA。当前继续E06–E08独立Q目标，然后F后台/恢复与G/S收尾；未运行全量回归。
+
+## E06–E08与D/E收据归档（2026-11-05）
+
+Q Goal唯一真实代码Run5553b7c0结束，实际只改math；假ID拒绝时Goal仍active/v2且0通知。Host固定验证4/4/0后，Agent直接从UI取得b41d3e97并提交，Goalcompleted/v3/plan2，UX-01完整闭环。实际通知52b27941终态failed/providerRef=null，未见OS横幅；不猜失败原因，不改系统权限。发现UX-08：刷新实际记录仅刷新Goal/Task，没有重新读取已选通知；再次点查看任务与通知才显示失败。UX-07假ID通用文字亦保留待F06后修正，防止构建覆盖旧冻结合同。
+
+11笔Run全部completed/finalized，累计归属314,436；C续接121,615为累计快照，减78,720基线后是42,895，未重复累计。未知预留0。P/Q仅math有变更，R无变更，真实代码/Goal收据与Context分域摘要见evidence/M3-manual-code-goal.json。
+
+F02新任务后台排队唤醒已安排16:10Z/queue_only，16:06:03Z原生关闭窗口，此后到期前不做CUA观察，避免activate重新建窗。16:06:40Z只读核对Main94509/Owner12同实例、11Run、schedule active/v1，任务等待触发。初次审计列名next_due_at_ms不存在，按实际schema next_fire_at_ms修正；未写库。旧E06暖关窗时模型已完成，不能作为运行中关窗证据。
