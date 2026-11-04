@@ -1,0 +1,48 @@
+{
+  "checkpoint": "M3.manual-A04",
+  "date": "2026-11-04",
+  "status": "passed_user_observation_plus_host_readonly",
+  "userObservation": "看到三条任务，“已排队”",
+  "hostReadOnly": {
+    "tasks": [
+      {
+        "task_id": "8eb2c9d2-4aac-4a83-b1be-ba38cc7ed616",
+        "title": "人工走查待办",
+        "status": "queued",
+        "version": 2,
+        "mode": "readOnly",
+        "alias": "T1"
+      },
+      {
+        "task_id": "a3a189ff-cfbf-4d21-b407-b7fdb7845034",
+        "title": "人工走查待办",
+        "status": "queued",
+        "version": 2,
+        "mode": "readOnly",
+        "alias": "T2"
+      },
+      {
+        "task_id": "cd6fad39-9798-428f-b35c-f750566ba3bc",
+        "title": "人工走查只读待办",
+        "status": "queued",
+        "version": 2,
+        "mode": "readOnly",
+        "alias": "T3"
+      }
+    ],
+    "counts": {
+      "task_runs": 0,
+      "execution_intents": 0,
+      "budget_reservations": 0
+    },
+    "reservedTokens": 0
+  },
+  "inputVariation": {
+    "T3": "人工走查只读待办",
+    "planned": "人工走查只读任务",
+    "decision": "接受：自由标题差异，不影响队列/只读语义；后续使用实际名称"
+  },
+  "uiResourceObservation": "用户尚未单独报告占用/预留显示；Host值已核对，资源界面在A10继续检查",
+  "modelRequests": 0,
+  "regressionTestsRun": false
+}
