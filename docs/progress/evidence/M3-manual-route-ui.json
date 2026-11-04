@@ -1,0 +1,364 @@
+{
+  "checkpoint": "M3.manual-route-ui",
+  "at": "2026-11-04T15:29:52.333219+00:00",
+  "kind": "Agent native CUA UI plus real pinned App Server/Core and read-only ledger",
+  "screen": {
+    "target": "Sculptor",
+    "actualMoveViaNativeWindowMenu": true,
+    "reverseMenuCheck": "移到内建视网膜显示器",
+    "recheckedAfterEveryRestart": true
+  },
+  "caseResults": {
+    "D01": "One real Router proposed only query; T1 stayed queued/v4 before commit",
+    "D02": "Committed one query; repeated UI reconciliation did not replay",
+    "D03": "First Router invalid CHAT+CLARIFY was rejected. Original completed Run reclassified to failed from original evidence, no replay. Explicit new UI request then separate Chat returned WALK_M3_LANGUAGE_English and 2+2=4",
+    "D04": "Rename/query DAG completed with own receipt version v7. Initial CREATE lost separate title; fixed optional bounded title in Task command hash and route dispatch; separate explicit creation UI reproduced correct title/body without replaying prior effects",
+    "D05": "UI correction to T2; prior rename/create persisted; follow-up query Focus T2. No partial-revocation branch claimed"
+  },
+  "runs": [
+    {
+      "run_id": "915f8337-8adf-4b5e-81cf-8886863e9b58",
+      "task_id": "6a67095e-4ea9-4025-90dc-1d617f88b5e1",
+      "status": "completed",
+      "role": "dot-router",
+      "latest_total_tokens": 15932,
+      "finalized": 1
+    },
+    {
+      "run_id": "80564a75-d7b3-408a-a11a-a6ddeed77847",
+      "task_id": "76d88a8a-93a4-4f1e-9389-58019d6658a4",
+      "status": "completed",
+      "role": "dot-router",
+      "latest_total_tokens": 16094,
+      "finalized": 1
+    },
+    {
+      "run_id": "40d30e54-f23c-4f00-b102-98366d2f4e1f",
+      "task_id": "24811880-1da4-48f3-82e9-52fde441686d",
+      "status": "completed",
+      "role": "dot-router",
+      "latest_total_tokens": 16190,
+      "finalized": 1
+    },
+    {
+      "run_id": "2320b033-1ec3-4e60-bb49-accf76d6d344",
+      "task_id": "cc247b60-bfe9-4791-9e9f-57b36774989f",
+      "status": "completed",
+      "role": "dot-chat",
+      "latest_total_tokens": 15411,
+      "finalized": 1
+    },
+    {
+      "run_id": "aa7f75c6-643e-4923-a0d4-b7b2689d85f9",
+      "task_id": "90c5eb25-2f14-49b1-b152-b745c9546034",
+      "status": "completed",
+      "role": "dot-router",
+      "latest_total_tokens": 16324,
+      "finalized": 1
+    },
+    {
+      "run_id": "6f613a48-39ea-4a64-8c9b-219a02701097",
+      "task_id": "14672c59-aa97-4c82-aabf-0ac875895b6d",
+      "status": "completed",
+      "role": "dot-router",
+      "latest_total_tokens": 16450,
+      "finalized": 1
+    }
+  ],
+  "reportedTokens": 96401,
+  "budget": [
+    {
+      "reserved_units": 0,
+      "consumed_units": 96401
+    }
+  ],
+  "routes": [
+    {
+      "id": "route:a3037523-c054-4075-9e76-c1109cffe284",
+      "state": "completed",
+      "routingRunId": "915f8337-8adf-4b5e-81cf-8886863e9b58",
+      "version": 6,
+      "errorCode": null,
+      "steps": [
+        {
+          "index": 0,
+          "state": "completed",
+          "operation": {
+            "kind": "QUERY_TASK",
+            "taskId": "8eb2c9d2-4aac-4a83-b1be-ba38cc7ed616",
+            "text": "查询当前状态（候选版本：4）。",
+            "title": null,
+            "dependsOn": []
+          },
+          "taskId": "8eb2c9d2-4aac-4a83-b1be-ba38cc7ed616",
+          "result": "{\"projectId\":\"9143cc3b-145c-46fc-8999-3449f7d7e11d\",\"taskId\":\"8eb2c9d2-4aac-4a83-b1be-ba38cc7ed616\",\"title\":\"人工走查待办\",\"status\":\"queued\",\"version\":4,\"blocked\":false,\"activeRunId\":null,\"mode\":\"readOnly\",\"updatedAt\":1793801814702}"
+        }
+      ]
+    },
+    {
+      "id": "route:bc9a90a3-3d9b-4a15-89d0-0d9e94a78ac0",
+      "state": "failed",
+      "routingRunId": "80564a75-d7b3-408a-a11a-a6ddeed77847",
+      "version": 4,
+      "errorCode": "INVALID_ROUTE_CLARIFICATION",
+      "steps": []
+    },
+    {
+      "id": "route:22b10f3f-1086-4ce4-ac58-8302d2fb7c28",
+      "state": "completed",
+      "routingRunId": "40d30e54-f23c-4f00-b102-98366d2f4e1f",
+      "version": 46,
+      "errorCode": null,
+      "steps": [
+        {
+          "index": 0,
+          "state": "completed",
+          "operation": {
+            "kind": "CHAT",
+            "taskId": null,
+            "text": "只聊天，不创建任务。根据已确认个人记忆告诉我 walk_language 的最新值，再回答 2+2，简短即可",
+            "title": null,
+            "dependsOn": []
+          },
+          "runId": "2320b033-1ec3-4e60-bb49-accf76d6d344",
+          "taskId": "cc247b60-bfe9-4791-9e9f-57b36774989f",
+          "result": "walk_language 的最新确认值：`WALK_M3_LANGUAGE_English`。\n2+2=4。"
+        }
+      ]
+    },
+    {
+      "id": "route:4e268e83-cbaf-4e14-a7ba-192da9dbfd5a",
+      "state": "corrected",
+      "routingRunId": "aa7f75c6-643e-4923-a0d4-b7b2689d85f9",
+      "version": 11,
+      "errorCode": null,
+      "steps": [
+        {
+          "index": 0,
+          "state": "completed",
+          "operation": {
+            "kind": "UPDATE_TASK",
+            "taskId": "cd6fad39-9798-428f-b35c-f750566ba3bc",
+            "text": "基于当前版本 6，将任务改名为“人工走查路由改名”。",
+            "title": "人工走查路由改名",
+            "dependsOn": []
+          },
+          "receipt": {
+            "operationId": "16e4e289-7d51-4f3a-9c82-1b7a0b016063",
+            "kind": "UPDATE_TASK",
+            "state": "completed",
+            "taskId": "cd6fad39-9798-428f-b35c-f750566ba3bc",
+            "taskVersion": 7,
+            "status": "queued",
+            "blocked": false,
+            "runId": null
+          },
+          "operationId": "16e4e289-7d51-4f3a-9c82-1b7a0b016063",
+          "taskId": "cd6fad39-9798-428f-b35c-f750566ba3bc",
+          "result": "{\"operationId\":\"16e4e289-7d51-4f3a-9c82-1b7a0b016063\",\"kind\":\"UPDATE_TASK\",\"state\":\"completed\",\"taskId\":\"cd6fad39-9798-428f-b35c-f750566ba3bc\",\"taskVersion\":7,\"status\":\"queued\",\"blocked\":false,\"runId\":null}"
+        },
+        {
+          "index": 1,
+          "state": "completed",
+          "operation": {
+            "kind": "QUERY_TASK",
+            "taskId": "cd6fad39-9798-428f-b35c-f750566ba3bc",
+            "text": "查询改名后的任务状态。",
+            "title": null,
+            "dependsOn": [
+              0
+            ]
+          },
+          "taskId": "cd6fad39-9798-428f-b35c-f750566ba3bc",
+          "result": "{\"projectId\":\"9143cc3b-145c-46fc-8999-3449f7d7e11d\",\"taskId\":\"cd6fad39-9798-428f-b35c-f750566ba3bc\",\"title\":\"人工走查路由改名\",\"status\":\"queued\",\"version\":7,\"blocked\":false,\"activeRunId\":null,\"mode\":\"readOnly\",\"updatedAt\":1793805664746}"
+        },
+        {
+          "index": 2,
+          "state": "completed",
+          "operation": {
+            "kind": "CREATE_TASK",
+            "taskId": null,
+            "text": "仅创建并排队，不启动或执行此任务。",
+            "title": "路由新增待办",
+            "dependsOn": [
+              1
+            ]
+          },
+          "receipt": {
+            "operationId": "d26c5e74-4752-455f-b711-372bb9aa638a",
+            "kind": "CREATE_TASK",
+            "state": "completed",
+            "taskId": "74fbf902-3061-465f-b024-1bea27677e92",
+            "taskVersion": 2,
+            "status": "queued",
+            "blocked": false,
+            "runId": null
+          },
+          "operationId": "d26c5e74-4752-455f-b711-372bb9aa638a",
+          "taskId": "74fbf902-3061-465f-b024-1bea27677e92",
+          "result": "{\"operationId\":\"d26c5e74-4752-455f-b711-372bb9aa638a\",\"kind\":\"CREATE_TASK\",\"state\":\"completed\",\"taskId\":\"74fbf902-3061-465f-b024-1bea27677e92\",\"taskVersion\":2,\"status\":\"queued\",\"blocked\":false,\"runId\":null}"
+        }
+      ]
+    },
+    {
+      "id": "route:40dc0518-01bc-4e3a-aeb7-a467ed13c79f",
+      "state": "completed",
+      "routingRunId": "6f613a48-39ea-4a64-8c9b-219a02701097",
+      "version": 6,
+      "errorCode": null,
+      "steps": [
+        {
+          "index": 0,
+          "state": "completed",
+          "operation": {
+            "kind": "CREATE_TASK",
+            "taskId": null,
+            "text": "记录本轮标题透传验证，仅排队",
+            "title": "路由新增待办复走",
+            "dependsOn": []
+          },
+          "receipt": {
+            "operationId": "16d51ad5-29de-4063-bb93-92f3d7a53665",
+            "kind": "CREATE_TASK",
+            "state": "completed",
+            "taskId": "8a718cf3-09bc-4fed-a6ce-751372c4f9da",
+            "taskVersion": 2,
+            "status": "queued",
+            "blocked": false,
+            "runId": null
+          },
+          "operationId": "16d51ad5-29de-4063-bb93-92f3d7a53665",
+          "taskId": "8a718cf3-09bc-4fed-a6ce-751372c4f9da",
+          "result": "{\"operationId\":\"16d51ad5-29de-4063-bb93-92f3d7a53665\",\"kind\":\"CREATE_TASK\",\"state\":\"completed\",\"taskId\":\"8a718cf3-09bc-4fed-a6ce-751372c4f9da\",\"taskVersion\":2,\"status\":\"queued\",\"blocked\":false,\"runId\":null}"
+        }
+      ]
+    }
+  ],
+  "contextChecksRouterAndChat": [
+    {
+      "runId": "915f8337-8adf-4b5e-81cf-8886863e9b58",
+      "role": "dot-router",
+      "selectedFactKeys": [],
+      "contextHash": "64dcefdd7f2cacb424491f5d7899db1f58930e756d6fa5daa54ea2629bc65abf",
+      "contextRole": "dot-orchestrator",
+      "toolProfileHash": "f7a299325e504a18bf52d47cbac0a23145f2d3c25b0a841cf6b4231df57dd9e9",
+      "nativePolicyHash": "ea2b000664268289af9c8476541032d75708889b4a563a9eea72b38527d8cfd9"
+    },
+    {
+      "runId": "80564a75-d7b3-408a-a11a-a6ddeed77847",
+      "role": "dot-router",
+      "selectedFactKeys": [],
+      "contextHash": "935cec454d1187fbac3ca0cb905dab4ac14c7d03467d736720b258c3991bf9d3",
+      "contextRole": "dot-orchestrator",
+      "toolProfileHash": "f7a299325e504a18bf52d47cbac0a23145f2d3c25b0a841cf6b4231df57dd9e9",
+      "nativePolicyHash": "ea2b000664268289af9c8476541032d75708889b4a563a9eea72b38527d8cfd9"
+    },
+    {
+      "runId": "40d30e54-f23c-4f00-b102-98366d2f4e1f",
+      "role": "dot-router",
+      "selectedFactKeys": [],
+      "contextHash": "d746b45e5ad1af74d49330e31599d44dd7280908f67d3e9432fedc8b359c83b9",
+      "contextRole": "dot-orchestrator",
+      "toolProfileHash": "f7a299325e504a18bf52d47cbac0a23145f2d3c25b0a841cf6b4231df57dd9e9",
+      "nativePolicyHash": "ea2b000664268289af9c8476541032d75708889b4a563a9eea72b38527d8cfd9"
+    },
+    {
+      "runId": "2320b033-1ec3-4e60-bb49-accf76d6d344",
+      "role": "dot-chat",
+      "selectedFactKeys": [
+        "personal:walk_language",
+        "personal:walk_guess"
+      ],
+      "contextHash": "8125ae5eba0509d617972c7da9adb7a32bc543d24a49d14f8567af3b50c1d984",
+      "contextRole": "dot-chat",
+      "toolProfileHash": "562af35e410fc5a7255ea2e15910a444126f89a7d6edb1964ebbca0b493e5dd6",
+      "nativePolicyHash": "ea2b000664268289af9c8476541032d75708889b4a563a9eea72b38527d8cfd9"
+    },
+    {
+      "runId": "aa7f75c6-643e-4923-a0d4-b7b2689d85f9",
+      "role": "dot-router",
+      "selectedFactKeys": [],
+      "contextHash": "83a03851f35af415d7a9a5c46ad2fb656b7a91f004b1642b9ddaace4ccfc7f02",
+      "contextRole": "dot-orchestrator",
+      "toolProfileHash": "f7a299325e504a18bf52d47cbac0a23145f2d3c25b0a841cf6b4231df57dd9e9",
+      "nativePolicyHash": "ea2b000664268289af9c8476541032d75708889b4a563a9eea72b38527d8cfd9"
+    },
+    {
+      "runId": "6f613a48-39ea-4a64-8c9b-219a02701097",
+      "role": "dot-router",
+      "selectedFactKeys": [],
+      "contextHash": "cbacf0d2f4786537e25d64fdcbd71a8254ac6461fde316501097314a4667583e",
+      "contextRole": "dot-orchestrator",
+      "toolProfileHash": "f7a299325e504a18bf52d47cbac0a23145f2d3c25b0a841cf6b4231df57dd9e9",
+      "nativePolicyHash": "ea2b000664268289af9c8476541032d75708889b4a563a9eea72b38527d8cfd9"
+    }
+  ],
+  "correctlyNamedQueuedTask": {
+    "task_id": "8a718cf3-09bc-4fed-a6ce-751372c4f9da",
+    "title": "路由新增待办复走",
+    "status": "queued",
+    "text": "记录本轮标题透传验证，仅排队"
+  },
+  "codeTaskPreparedNotStarted": {
+    "task_id": "7ad2d7de-29cb-4317-9e1c-f40cb16a8325",
+    "title": "修复 src/math.mjs 的 sum，使它正确计算两个整数相加。只允许修改 src/math.mjs；不要修改 test/、package.json 或 Git 配置。完成后由 Host 运行冻结的 test/math.test.mj",
+    "status": "queued",
+    "version": 2
+  },
+  "fixes": {
+    "UX-05": "Known completed invalid model output fails closed; actual Unknown still never replayed. Router forwards chat requests instead of answering without personal context. Legacy classification recovered from original completed result only.",
+    "UX-06": "Optional Task create title remains separate from text and is included in stable command hash; invalid title/changed-key content rejected."
+  },
+  "incrementalChecks": {
+    "source-boundaries": {
+      "tests": 19,
+      "pass": 19,
+      "fail": 0,
+      "skipped": 0
+    },
+    "s05-privacy": {
+      "tests": 15,
+      "pass": 15,
+      "fail": 0,
+      "skipped": 0
+    },
+    "s06-goal-budget": {
+      "tests": 63,
+      "pass": 62,
+      "fail": 1,
+      "skipped": 0
+    },
+    "s07-route-cas": {
+      "tests": 39,
+      "pass": 39,
+      "fail": 0,
+      "skipped": 0
+    },
+    "s08-restore-verification": {
+      "tests": 26,
+      "pass": 26,
+      "fail": 0,
+      "skipped": 0
+    },
+    "route-goal-fixes": {
+      "tests": 50,
+      "pass": 50,
+      "fail": 0,
+      "skipped": 0
+    },
+    "route-title-fix": {
+      "tests": 43,
+      "pass": 43,
+      "fail": 0,
+      "skipped": 0
+    }
+  },
+  "failureHistory": [
+    "Source/Memory prior results preserved in BC evidence",
+    "S06 first 62/63, fixed injected Goal clock to stored current-day budget bucket; product quota logic unchanged",
+    "Route-goal first 49/50 due test duplicating previous full prompt; use actual routePrompt, 50/50 final",
+    "Route-title 43/43; TS/build passed"
+  ],
+  "fullRegressionRun": false,
+  "rawLogsCredentialsDatabasesArchived": false
+}

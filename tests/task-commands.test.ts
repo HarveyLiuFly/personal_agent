@@ -89,3 +89,11 @@ test('old tasks without reusable source input cannot be moved to a misleading qu
  const f=fixture(t),created=f.create();f.db.prepare("UPDATE tasks SET constraints_json=json_remove(constraints_json,'$.text'),status='paused' WHERE task_id=?").run(created.taskId);const before=f.counts();
  assert.throws(()=>f.store.taskCommand({projectId:f.project.id,taskId:created.taskId,expectedVersion:2,commandKey:'old-resume',kind:'resume'}),/TASK_INPUT_UNAVAILABLE/);assert.deepEqual(f.counts(),before);assert.equal(f.store.tasks(f.project.id)[0]!.status,'paused');
 });
+
+test('a queued Task keeps its explicit title separate from execution text and binds both to idempotency',t=>{
+ const f=fixture(t),input={kind:'create' as const,projectId:f.project.id,commandKey:'named-create',title:'PUBLIC_TASK_NAME',text:'Public instructions that are different from the title'},receipt=f.store.taskCommand(input);
+ assert.equal(f.store.tasks(f.project.id)[0]!.title,input.title);assert.equal(JSON.parse(String(f.db.prepare('SELECT constraints_json FROM tasks WHERE task_id=?').get(receipt.taskId)!.constraints_json)).text,input.text);
+ assert.deepEqual(f.store.taskCommand(input),receipt);assert.throws(()=>f.store.taskCommand({...input,title:'OTHER_NAME'}),/IDEMPOTENCY_CONFLICT/);
+ for(const title of ['', ' '.repeat(2), 'x'.repeat(121), 7, undefined])assert.throws(()=>f.store.taskCommand({...input,commandKey:'bad-title-'+String(title),title} as never),/INVALID_TASK_COMMAND/);
+ assert.equal(f.counts().tasks,1);assert.equal(f.counts().task_runs,0);
+});

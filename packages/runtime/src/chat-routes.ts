@@ -5,7 +5,7 @@ import type {ForegroundExecution,ExecutionRoleProfile} from './execution.ts';
 import type {TaskService} from './tasks.ts';
 import type {ChatRouteView,CommitChatRoute,ProposeMainChat,RouteStep} from '../../contracts/src/routing.ts';
 import type {OperationReceipt,TaskSummary} from '../../contracts/src/tasks.ts';
-import {routePrompt,routeOutputSchema,routeSchemaHash} from './routing.ts';
+import {routePrompt,routeOutputSchema,routeSchemaHash,isRejectedRouteOutput} from './routing.ts';
 
 type Store=Pick<ExecutionLedger,'prepareMainRoute'|'routeModelBound'|'saveRouteModel'|'mainRoutes'|'beginRouteCommit'|'routeStepContext'|'saveRouteStep'|'routeQuery'|'correctMainRoute'|'runs'|'projects'|'applyGoal'>&{routeChildResult:(projectId:string,key:string)=>{receipt:OperationReceipt|null;run:RunRecord|null;domain?:{operationId:string;result:string}}};
 type Execution=Pick<ForegroundExecution,'submitRole'|'continueRun'|'busy'>;
@@ -93,7 +93,7 @@ export class ChatRouteService {
    const run=this.execution.continueRun({projectId,runId:source.runId,text:op.text!,submissionKey:key});this.save(route,{...step,state:'executing',runId:run.runId,taskId:run.taskId});return;
   }
   const base={projectId,commandKey:key};
-  const receipt=op.kind==='CREATE_TASK'?await this.tasks.apply({...base,kind:'create',text:op.text!}):await this.tasks.apply({...base,taskId:op.taskId!,expectedVersion:this.expected(context,step),...(op.kind==='UPDATE_TASK'?{kind:'rename',title:op.title!}:{kind:op.kind==='PAUSE_TASK'?'pause':'cancel'})});
+  const receipt=op.kind==='CREATE_TASK'?await this.tasks.apply({...base,kind:'create',text:op.text!,...(op.title?.trim()?{title:op.title}:{})}):await this.tasks.apply({...base,taskId:op.taskId!,expectedVersion:this.expected(context,step),...(op.kind==='UPDATE_TASK'?{kind:'rename',title:op.title!}:{kind:op.kind==='PAUSE_TASK'?'pause':'cancel'})});
   this.save(route,{...step,state:receipt.state,receipt,operationId:receipt.operationId,taskId:receipt.taskId,...(receipt.runId?{runId:receipt.runId}:{}),result:JSON.stringify(receipt)});
  }
  private async advance(original:ChatRouteView):Promise<void>{
@@ -115,7 +115,7 @@ export class ChatRouteService {
  }
  async tick(projectId?:string):Promise<ChatRouteView[]> {
   if(projectId!==undefined&&!id(projectId))throw new LedgerError('INVALID_ROUTE_QUERY');if(this.pumping)return[];this.pumping=true;const result:ChatRouteView[]=[];
-  try{for(const project of projectId?[{id:projectId}]:this.store.projects()){let routes:ChatRouteView[];try{routes=this.store.mainRoutes(project.id);}catch{continue;}for(const route of routes){try{if(route.state==='proposing')this.proposal(route);else if(route.state==='committing'||route.state==='outcome_unknown')await this.advance(route);result.push(this.view(project.id,route.id));}catch{/* A revoked or unavailable plan cannot advance another scope. */}}}return result;}finally{this.pumping=false;}
+  try{for(const project of projectId?[{id:projectId}]:this.store.projects()){let routes:ChatRouteView[];try{routes=this.store.mainRoutes(project.id);}catch{continue;}for(const route of routes){try{if(route.state==='proposing'||route.state==='outcome_unknown'&&route.plan===null&&route.steps.length===0&&isRejectedRouteOutput(route.errorCode))this.proposal(route);else if(route.state==='committing'||route.state==='outcome_unknown')await this.advance(route);result.push(this.view(project.id,route.id));}catch{/* A revoked or unavailable plan cannot advance another scope. */}}}return result;}finally{this.pumping=false;}
  }
 }
 export {routeOutputSchema};

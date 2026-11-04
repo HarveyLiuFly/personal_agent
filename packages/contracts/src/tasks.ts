@@ -5,7 +5,7 @@ export interface TaskSummary {
  activeRunId:string|null;mode:'readOnly'|'workspaceWrite';updatedAt:number;
 }
 export type TaskCommand =
- | {projectId:string;commandKey:string;kind:'create';text:string;code?:CodeTaskSpec}
+ | {projectId:string;commandKey:string;kind:'create';text:string;title?:string;code?:CodeTaskSpec}
  | {projectId:string;commandKey:string;kind:'pause'|'cancel'|'resume';taskId:string;expectedVersion:number}
  | {projectId:string;commandKey:string;kind:'rename';taskId:string;expectedVersion:number;title:string};
 export interface OperationReceipt {
