@@ -1,0 +1,22 @@
+{
+  "format": 1,
+  "checkedAt": "2026-11-04T16:21:32.639430+00:00",
+  "remote": "origin",
+  "branch": "main",
+  "head": "8024b17ff932917f5e0359e26682190ff34dd2e7",
+  "tag": "checkpoint/M3.manual-recovery-ui",
+  "tagSha": "8024b17ff932917f5e0359e26682190ff34dd2e7",
+  "previousCheckpoint": {
+    "tag": "checkpoint/M3.manual-code-goal",
+    "sha": "3bb3cb305a36aff2e3d5404a61af5e5db7c07994"
+  },
+  "method": "Actual successful git push and git ls-remote; no force",
+  "state": "G02 action-time question pending, no irreversible deletion",
+  "counts": {
+    "passed": 52,
+    "failed": 1,
+    "blocked": 3,
+    "skipped": 1,
+    "awaitingConfirmation": 5
+  }
+}

@@ -75,3 +75,5 @@ S01–S03因无自有生产HTTPS Provider阻塞；19项受控HTTP/config/signatu
 G01选择WALK_M3_SECRET来源message:cd1cf12e-aecc-4777-a725-2e28f623d5ae，未勾确认执行按钮disabled。删除前只读扫描：marker在legacy1文件、3备份、1演练、runtime4文件；未改库。原生工具永久删除当次确认要求已在真实动作前向用户提出，范围含专用档案全部旧备份/演练/旧副本、保留源码和认证。待回答，不以等待时长当批准；此期间仅整理独立记录，不执行G02。G06可选付费运行中分支本轮跳过，旧Gate不替代本轮。
 
 code-goal点提交3bb3cb305a36aff2e3d5404a61af5e5db7c07994已推送，远程main/对应标签实际核对一致。首次Git索引受默认沙箱拒绝，许可上下文重试成功，无强推。
+
+恢复/界面点提交8024b17ff932917f5e0359e26682190ff34dd2e7已推送，远程main与checkpoint/M3.manual-recovery-ui实际核对一致。之后只追加同步收据，不移动已验收标签。等待当次确认时再只读检查：当前激活运行代Owner16ready、11Run全部completed、314436归属报告Token、活动计划0/待投递通知0；保留G01未勾选界面供确认，没有后台待执行模型。
