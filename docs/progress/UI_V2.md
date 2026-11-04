@@ -57,3 +57,7 @@ UI-V2.goal-flow提交f1b1a67088cbe4a1f0e8220d8ecb30f830c35bb9及对应标签已�
 最终只读审计7Run/6真实Turn、241,622归属报告Token、0Unknown/0预留/0工作区租约；两个计划均cancelled且0实例，两个新增定时待办均0Run；Memory真实v1→v2来源保留。132联合增量与后11UI专项批次重叠不相加，最终TS/构建/17合同通过，无全量。见[逐项验收](UI_V2_RESULTS.md)与[辅助证据](evidence/UI-V2-native-aux.json)。原始档案/日志/备份留在忽略目录，不进Git。
 
 本轮现有M0–M3桌面交互重构范围闭合，定位checkpoint/UI-V2。旧M3的OS通知失败/HTTPS配置阻塞/不可逆删除等待确认如实保留；浅色与真实IME未作原生切换验收，不能写全平台/所有能力通过。M4未启动，权限/发行仍M5；后续按真实使用反馈做增量修订。应用留在Sculptor已验证任务结果页，无活动执行或计划。
+
+## 远程交付回执
+
+UI V2交付提交fc9ad9d93613bd9bcfb0786e7f464303ed1b6d36已实际推送；ls-remote确认远程main与checkpoint/UI-V2均为该SHA。最终构建原生冷开后实际Diff与4/4收据位于最新内容区域，无需手动滚动，已完成状态栏紧凑显示；之后只读核对仍7Run/6实际模型Turn、0Unknown/预留/活动计划。此同步记录只补写远程核对结果，不改变产品构建或验收口径。
