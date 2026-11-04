@@ -28,7 +28,7 @@ export function WorkspacePanel({project,onBusyChange,onSelected,onProjectsChange
  return <section className="workspace-panel" data-workspace-panel>
   <div className="workspace-heading"><div><h2>工作区</h2><span className="history-note">{overview?.git.available?`${overview.git.branch??'分离 HEAD'} · ${overview.git.head?.slice(0,10)??'尚无提交'}`:project.name}</span></div><span className="badge">只读预览</span><button className="secondary" data-action="refresh-workspace" disabled={busy||managementBusy||terminalBusy} onClick={()=>void refresh()}>刷新</button></div>
   {error&&<div className="notice error" role="alert">{error}</div>}
-  <>{initialReadDone&&<WorktreeManager project={project} disabled={busy||managementBusy||terminalBusy} onBusyChange={setManagementBusy} onSelected={onSelected} onProjectsChanged={onProjectsChanged}/>}</>
+  {initialReadDone&&<details data-worktree-tools><summary>工作树管理</summary><WorktreeManager project={project} disabled={busy||managementBusy||terminalBusy} onBusyChange={setManagementBusy} onSelected={onSelected} onProjectsChanged={onProjectsChanged}/></details>}
   {canUseTerminal&&overview&&<Suspense fallback={<p className="history-note">正在加载用户终端…</p>}><TerminalPanel project={project} disabled={busy||managementBusy||terminalBusy} onBusyChange={setTerminalBusy}/></Suspense>}
   <div className="workspace-columns">
    <aside className="workspace-explorer"><div className="workspace-tabs"><button data-action="workspace-files" aria-pressed={tab==='files'} onClick={()=>setTab('files')}>文件</button><button data-action="workspace-git" aria-pressed={tab==='git'} onClick={()=>setTab('git')}>Git 变更 {overview?.git.available?overview.git.changes.length:''}</button></div>

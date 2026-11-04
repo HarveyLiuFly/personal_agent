@@ -1,0 +1,171 @@
+{
+  "format": 1,
+  "checkpoint": "UI-V2",
+  "at": "2026-11-04T17:44:58.387697+00:00",
+  "method": "Real production Electron, Native CUA on Sculptor; readonly SQLite and actual backup hash audit; no UI injection or profile mutation",
+  "nativeChecks": {
+    "filePreview": "src/math.mjs actual original subtraction visible alongside assistant draft; close retains draft",
+    "worktreeManager": "collapsed by default; no worktree created in this checkpoint",
+    "keyboard": "Cmd+K focuses search; matching and empty result; Cmd+N enters new Task; Shift+Enter previously verified",
+    "sidebar": "collapse and reopen retain input",
+    "windowSizes": {
+      "method": "native window-edge drag and screenshots",
+      "screenshotPixels": [
+        [
+          2240,
+          1520
+        ],
+        [
+          1800,
+          1440
+        ],
+        [
+          1440,
+          1360
+        ]
+      ],
+      "logicalAt2x": [
+        [
+          1120,
+          760
+        ],
+        [
+          900,
+          720
+        ],
+        [
+          720,
+          680
+        ]
+      ],
+      "observed": "wide split; narrow closeable file overlay; smallest input and responsive sidebar usable"
+    },
+    "memory": "latest v2 auto loads; advanced source form and irreversible forget collapsed; no deletion executed",
+    "safeMessage": "literal <b>UI_V2_SAFE_TEXT</b> rendered as text by actual /note rule; no model",
+    "automation": "10-minute queue-only create/pause/resume/cancel; final 30-minute local timezone display; both cancelled before due",
+    "backup": "create and explicit integrity check through Settings; real receipt included; no restore activation",
+    "capabilities": "actual empty project skill directory; MCP/plugins/subagents honestly unavailable",
+    "coldReopen": "completed Goal and verified Task persisted; historical pending CHAT still uncommitted; no Run added",
+    "projectDraftIsolation": "P assistant draft absent on R; restored on P; cleared manually without sending",
+    "completedTaskFooter": {
+      "compactVerifiedState": true,
+      "disabledTextareaAbsent": true,
+      "hiddenReasoningPlaceholderAbsent": true,
+      "followupButtonVisible": true,
+      "genuine4of4ReceiptPreserved": true
+    },
+    "initialLatestPosition": "On final cold-open Task selection, async prior messages and review finish at latest actual Diff/4-of-4 receipt without manual scrolling"
+  },
+  "schedules": [
+    {
+      "schedule_id": "schedule:8590651f7f82a970b40d2fc751119c6e8334cbb5af7bfe496b1ac2efd2dae2ab",
+      "state": "cancelled",
+      "version": 4,
+      "kind": "once",
+      "timezone": "Asia/Shanghai",
+      "next_fire_at_ms": null
+    },
+    {
+      "schedule_id": "schedule:9bcad99cb7e14c9eeb7dbead0a45ac237ebe9d34732e78a6fbc780049a30fcf4",
+      "state": "cancelled",
+      "version": 2,
+      "kind": "once",
+      "timezone": "Asia/Shanghai",
+      "next_fire_at_ms": null
+    }
+  ],
+  "scheduleOccurrenceCount": 0,
+  "queueOnlyTasks": [
+    {
+      "title": "UI V2 定时待办",
+      "status": "waiting_trigger",
+      "runCount": 0
+    },
+    {
+      "title": "UI V2 本机时间验收",
+      "status": "waiting_trigger",
+      "runCount": 0
+    }
+  ],
+  "memoryVersions": [
+    {
+      "version": 1,
+      "status": "superseded",
+      "trust": "explicit_user"
+    },
+    {
+      "version": 2,
+      "status": "active",
+      "trust": "explicit_user"
+    }
+  ],
+  "backup": [
+    {
+      "backupId": "735e2a9cdbe15b3ccbc6904093053a7bbad6c10bf583c7f7ebadf1f30965b7bd",
+      "files": 2,
+      "receipts": 1,
+      "hashesMatch": true,
+      "activeRuns": 0,
+      "pendingTerminals": 0,
+      "pendingWorktreeOperations": 0
+    }
+  ],
+  "runStates": [
+    {
+      "status": "completed",
+      "count": 6
+    },
+    {
+      "status": "failed",
+      "count": 1
+    }
+  ],
+  "intents": [
+    {
+      "kind": "thread_resume",
+      "state": "accepted",
+      "count": 1
+    },
+    {
+      "kind": "thread_start",
+      "state": "accepted",
+      "count": 5
+    },
+    {
+      "kind": "turn_start",
+      "state": "accepted",
+      "count": 6
+    }
+  ],
+  "allRunRecords": 7,
+  "actualModelTurns": 6,
+  "reportedTokens": 241622,
+  "reservedTokens": 0,
+  "leases": {
+    "project_operation_leases": 0,
+    "workspace_terminal_leases": 0,
+    "workspace_write_leases": 0
+  },
+  "finalState": "App visible on Sculptor at verified Task and inline Diff/4-of-4 Host receipt; idle",
+  "checks": {
+    "affectedJointBatch": {
+      "pass": 132,
+      "scope": "eleven affected test files, no full suite"
+    },
+    "uiPresentationFinal": {
+      "pass": 11,
+      "overlapsJointBatch": true
+    },
+    "designContracts": 17,
+    "typecheck": "passed",
+    "productionBuild": "passed",
+    "diffCheck": "passed"
+  },
+  "notClaimed": [
+    "OS notification delivery and production HTTPS source acceptance are old M3 failures/blocks, unchanged",
+    "No new native approval/stop, crash injection or physical deletion acceptance this UI checkpoint",
+    "Light theme and native IME not manually toggled; style branch/IME guards checked by source and affected components",
+    "Migrated old synthetic Electron probe scripts were type/build checked, not executed",
+    "No M4/M5 capability opened, no full regression"
+  ]
+}

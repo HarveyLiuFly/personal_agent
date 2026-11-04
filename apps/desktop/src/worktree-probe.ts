@@ -10,7 +10,7 @@ export async function runWorktreeProbe(root:string,app:App,window:BrowserWindow,
  const result=await window.webContents.executeJavaScript(`(async()=>{
   const call=async promise=>{const r=await promise;if(!r.ok)throw Error(r.errorCode);return r.value;},wait=async query=>{const until=Date.now()+12000;while(!query()){if(Date.now()>until)throw Error('UI_TIMEOUT');await new Promise(done=>setTimeout(done,30));}},click=async selector=>{await wait(()=>document.querySelector(selector)&&!document.querySelector(selector).disabled);document.querySelector(selector).click();};
   const project=await call(window.personalAgent.chooseProject());await wait(()=>document.querySelector('[data-action="choose-project"]')||document.querySelector('[data-action="open-workspace"]'));
-  await click('[data-action="choose-project"]');await click('[data-action="open-workspace"]');await wait(()=>document.querySelector('[data-worktree-name]'));
+  await click('[data-action="choose-project"]');await click('[data-action="open-workspace"]');await wait(()=>document.querySelector('[data-worktree-name]'));await click('[data-worktree-tools] > summary');
   const input=document.querySelector('[data-worktree-name]');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'界面工作树');input.dispatchEvent(new Event('input',{bubbles:true}));await click('[data-action="create-worktree"]');
   await wait(()=>document.querySelector('[data-worktree-id]'));const first=await call(window.personalAgent.listWorktrees({projectId:project.id})),w=first.worktrees[0];
   const extra=await window.personalAgent.applyWorktreeCommand({kind:'create',projectId:project.id,commandKey:'extra',name:'bad',path:'/etc'});

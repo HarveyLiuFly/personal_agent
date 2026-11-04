@@ -14,7 +14,7 @@ export async function runWorktreeCodeProbe(root:string,app:App,window:BrowserWin
   const sourceHead=git(['rev-parse','HEAD']).trim(),sourceStatus=git(['status','--porcelain']);
   const prepared=await window.webContents.executeJavaScript(`(async()=>{
     const call=async p=>{const r=await p;if(!r.ok)throw Error(r.errorCode);return r.value;},wait=async f=>{const until=Date.now()+20000;while(!f()){if(Date.now()>until)throw Error('WORKTREE_CODE_PREPARE_TIMEOUT');await new Promise(r=>setTimeout(r,30));}},click=async s=>{await wait(()=>document.querySelector(s)&&!document.querySelector(s).disabled);document.querySelector(s).click();};
-    await click('[data-action="choose-project"]');await click('[data-action="open-workspace"]');await wait(()=>document.querySelector('[data-worktree-name]'));
+    await click('[data-action="choose-project"]');await click('[data-action="open-workspace"]');await wait(()=>document.querySelector('[data-worktree-name]'));await click('[data-worktree-tools] > summary');
     const state=await call(window.personalAgent.workspaceState()),sourceId=state.projects[0].id;
     const input=document.querySelector('[data-worktree-name]');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'代码集成工作树');input.dispatchEvent(new Event('input',{bubbles:true}));await click('[data-action="create-worktree"]');await wait(()=>document.querySelector('[data-action="use-worktree"]'));
     const page=await call(window.personalAgent.listWorktrees({projectId:sourceId})),tree=page.worktrees[0];await click('[data-action="use-worktree"]');await wait(()=>document.querySelector('.project-select').value===tree.id);await wait(()=>document.querySelector('[data-workspace-path="src"]'));

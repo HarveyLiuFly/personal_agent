@@ -1,6 +1,6 @@
 import type {ItemView,RunSummary} from '../../../packages/contracts/src/views.ts';
 import type {ChatRouteView,RouteStep} from '../../../packages/contracts/src/routing.ts';
-export const taskLabels:Record<string,string>={created:'待处理',queued:'待开始',preparing:'准备中',submitting:'发送中',running:'进行中',waiting_input:'需要补充',waiting_approval:'需要批准',waiting_trigger:'已安排',paused:'已暂停',needs_review:'待审阅',completed:'已完成',failed:'未完成',cancelled:'已取消',outcome_unknown:'需要核对'};
+export const taskLabels:Record<string,string>={created:'待处理',queued:'待开始',preparing:'准备中',submitting:'发送中',running:'进行中',waiting_input:'需要补充',waiting_approval:'需要批准',waiting_trigger:'等待计划',paused:'已暂停',needs_review:'待审阅',completed:'已完成',failed:'未完成',cancelled:'已取消',outcome_unknown:'需要核对'};
 export const operationLabels:Record<string,string>={CHAT:'回答问题',CREATE_TASK:'添加待办',CONTINUE_TASK:'继续任务',UPDATE_TASK:'修改标题',QUERY_TASK:'查看进展',PAUSE_TASK:'暂停任务',CANCEL_TASK:'取消任务',CREATE_GOAL:'创建目标',CLARIFY:'需要补充'};
 /** Only the response to a fresh user send may use this. Polling must never dispatch. */
 export function canAnswerImmediately(route:ChatRouteView):boolean{return route.state==='proposed'&&route.plan?.operations.length===1&&route.plan.operations[0]?.kind==='CHAT'&&route.plan.operations[0].dependsOn.length===0&&route.steps.length===1&&route.steps[0]?.operation.kind==='CHAT'&&route.steps[0].state==='pending';}
