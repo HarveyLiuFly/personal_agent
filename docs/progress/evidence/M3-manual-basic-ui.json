@@ -1,0 +1,551 @@
+{
+  "checkpoint": "M3.manual-basic-ui",
+  "date": "2026-11-04",
+  "baseCommit": "9c4585f856726c99c7a4bab437102cc7c220a3fb",
+  "operator": "Agent mouse and keyboard via native CUA, explicitly authorized by user",
+  "classification": {
+    "userOperatedCases": [
+      "A01",
+      "A02",
+      "A03",
+      "A04"
+    ],
+    "agentUiPassedCases": [
+      "A05",
+      "A06",
+      "A07",
+      "A08",
+      "A09",
+      "A10"
+    ],
+    "agentUiInProgress": [],
+    "backend": "production Renderer/Main/SQLite, native PTY/Git/Finder; public disposable Git projects",
+    "syntheticBackend": false,
+    "hostMutationUsedForUiResults": false
+  },
+  "uiObservations": {
+    "A05": {
+      "title": "人工走查只读任务已改名",
+      "transitions": [
+        "queued",
+        "paused",
+        "queued"
+      ],
+      "cancellationCard": "已取消; no start action",
+      "activityVisible": true,
+      "inputAttemptNote": "First typeText did not update input; original-title save was applied once. Paste was confirmed in UI before second save."
+    },
+    "A06": {
+      "selected": 2,
+      "perOperationResult": [
+        "操作已处理",
+        "操作已处理"
+      ],
+      "transitions": [
+        "both paused",
+        "first queued",
+        "both queued"
+      ]
+    },
+    "A07": {
+      "pwd": "<P>",
+      "gitStatusShort": "empty",
+      "resize": "100x30",
+      "pageSwitchPreservedOutput": true,
+      "worktreeRefusal": "请先关闭本项目的用户终端，再操作工作树。",
+      "taskStartRefusal": "请先关闭本项目的用户终端，再创建或启动任务。",
+      "finalUi": "已结束; input disabled",
+      "stopExitCodeIsNotCommandTestResult": true
+    },
+    "A08": {
+      "createdName": "walk-manual-one",
+      "switchedTitle": "walk-manual-one",
+      "readMath": "export const sum = (a, b) => a - b;",
+      "deleteInspection": "目录干净、无待处理任务，可以删除。",
+      "removedUi": "目录已保留",
+      "finderLocatedOwnRecoveryDirectory": true,
+      "recoveryPath": "<U>/worktrees/removed/<workspace-id>-<operation-id>"
+    },
+    "A10": {
+      "queueNotExecution": true,
+      "modelOccupancy": 0,
+      "unknownOccupancy": 0,
+      "reservedTokens": 0,
+      "remainingTokens": 1000000,
+      "rssCpuScope": "Main only; tools and other processes excluded",
+      "projectSkillCount": 0,
+      "disabledCapabilities": [
+        "MCP",
+        "plugins",
+        "subagents"
+      ],
+      "remoteMcpCatalog": "not loaded",
+      "returnedStatePreserved": true,
+      "performanceThresholdNotClaimed": true
+    },
+    "A09": {
+      "initialLocalTime": "2026-11-04T22:31:00+08:00",
+      "initialUtcTime": "2026-11-04T14:31:00Z",
+      "pausedPastInitialDue": true,
+      "rescheduledLocalTime": "2026-11-04T22:33:00+08:00",
+      "rescheduledUtcTime": "2026-11-04T14:33:00Z",
+      "deadlineLocalTime": "2026-11-04T23:33:00+08:00",
+      "autoExecutionCheckbox": false,
+      "versionSequence": [
+        "v1 active",
+        "v2 paused past due",
+        "v3 replacement active",
+        "v4 paused",
+        "v5 explicitly resumed",
+        "v5 fulfilled"
+      ],
+      "finalUi": "已结束 · v5; unique instance 输入已入队 · 已恢复任务排队; task 已排队",
+      "remainingActiveSchedules": 0,
+      "cleanup": "No active/paused plan remained; fulfilled plan exposes no cancel action."
+    }
+  },
+  "hostReadOnly": {
+    "checkedAt": "2026-11-04T14:34:05.029788+00:00",
+    "databaseSelection": "legacy execution/ledger.db only after asserting no runtimes/active.json",
+    "counts": {
+      "task_runs": 0,
+      "execution_intents": 0,
+      "budget_reservations": 0,
+      "workspace_terminal_leases": 0,
+      "project_operation_leases": 0
+    },
+    "tasks": [
+      {
+        "task_id": "8eb2c9d2-4aac-4a83-b1be-ba38cc7ed616",
+        "title": "人工走查待办",
+        "status": "queued",
+        "version": 4,
+        "dispatch_blocked": 0,
+        "mode": "readOnly"
+      },
+      {
+        "task_id": "a3a189ff-cfbf-4d21-b407-b7fdb7845034",
+        "title": "人工走查待办",
+        "status": "queued",
+        "version": 4,
+        "dispatch_blocked": 0,
+        "mode": "readOnly"
+      },
+      {
+        "task_id": "cd6fad39-9798-428f-b35c-f750566ba3bc",
+        "title": "人工走查只读任务已改名",
+        "status": "queued",
+        "version": 6,
+        "dispatch_blocked": 0,
+        "mode": "readOnly"
+      },
+      {
+        "task_id": "396b4b93-28ad-4b66-95d4-104e9b16df33",
+        "title": "可取消演练",
+        "status": "cancelled",
+        "version": 3,
+        "dispatch_blocked": 1,
+        "mode": "readOnly"
+      },
+      {
+        "task_id": "be3932a6-9c04-497c-aa47-51810a78ca2c",
+        "title": "时间计划演练",
+        "status": "queued",
+        "version": 4,
+        "dispatch_blocked": 0,
+        "mode": "readOnly"
+      }
+    ],
+    "taskEvents": [
+      {
+        "task_id": "8eb2c9d2-4aac-4a83-b1be-ba38cc7ed616",
+        "task_version": 1,
+        "event_type": "task_created",
+        "operationKind": null,
+        "status": null,
+        "state": null
+      },
+      {
+        "task_id": "8eb2c9d2-4aac-4a83-b1be-ba38cc7ed616",
+        "task_version": 2,
+        "event_type": "operation_applied",
+        "operationKind": "CREATE_TASK",
+        "status": "queued",
+        "state": "completed"
+      },
+      {
+        "task_id": "a3a189ff-cfbf-4d21-b407-b7fdb7845034",
+        "task_version": 1,
+        "event_type": "task_created",
+        "operationKind": null,
+        "status": null,
+        "state": null
+      },
+      {
+        "task_id": "a3a189ff-cfbf-4d21-b407-b7fdb7845034",
+        "task_version": 2,
+        "event_type": "operation_applied",
+        "operationKind": "CREATE_TASK",
+        "status": "queued",
+        "state": "completed"
+      },
+      {
+        "task_id": "cd6fad39-9798-428f-b35c-f750566ba3bc",
+        "task_version": 1,
+        "event_type": "task_created",
+        "operationKind": null,
+        "status": null,
+        "state": null
+      },
+      {
+        "task_id": "cd6fad39-9798-428f-b35c-f750566ba3bc",
+        "task_version": 2,
+        "event_type": "operation_applied",
+        "operationKind": "CREATE_TASK",
+        "status": "queued",
+        "state": "completed"
+      },
+      {
+        "task_id": "cd6fad39-9798-428f-b35c-f750566ba3bc",
+        "task_version": 3,
+        "event_type": "operation_applied",
+        "operationKind": "UPDATE_TASK",
+        "status": "queued",
+        "state": "completed"
+      },
+      {
+        "task_id": "cd6fad39-9798-428f-b35c-f750566ba3bc",
+        "task_version": 4,
+        "event_type": "operation_applied",
+        "operationKind": "UPDATE_TASK",
+        "status": "queued",
+        "state": "completed"
+      },
+      {
+        "task_id": "cd6fad39-9798-428f-b35c-f750566ba3bc",
+        "task_version": 5,
+        "event_type": "operation_applied",
+        "operationKind": "PAUSE_TASK",
+        "status": "paused",
+        "state": "completed"
+      },
+      {
+        "task_id": "cd6fad39-9798-428f-b35c-f750566ba3bc",
+        "task_version": 6,
+        "event_type": "operation_applied",
+        "operationKind": "CONTINUE_TASK",
+        "status": "queued",
+        "state": "completed"
+      },
+      {
+        "task_id": "396b4b93-28ad-4b66-95d4-104e9b16df33",
+        "task_version": 1,
+        "event_type": "task_created",
+        "operationKind": null,
+        "status": null,
+        "state": null
+      },
+      {
+        "task_id": "396b4b93-28ad-4b66-95d4-104e9b16df33",
+        "task_version": 2,
+        "event_type": "operation_applied",
+        "operationKind": "CREATE_TASK",
+        "status": "queued",
+        "state": "completed"
+      },
+      {
+        "task_id": "396b4b93-28ad-4b66-95d4-104e9b16df33",
+        "task_version": 3,
+        "event_type": "operation_applied",
+        "operationKind": "CANCEL_TASK",
+        "status": "cancelled",
+        "state": "completed"
+      },
+      {
+        "task_id": "8eb2c9d2-4aac-4a83-b1be-ba38cc7ed616",
+        "task_version": 3,
+        "event_type": "operation_applied",
+        "operationKind": "PAUSE_TASK",
+        "status": "paused",
+        "state": "completed"
+      },
+      {
+        "task_id": "a3a189ff-cfbf-4d21-b407-b7fdb7845034",
+        "task_version": 3,
+        "event_type": "operation_applied",
+        "operationKind": "PAUSE_TASK",
+        "status": "paused",
+        "state": "completed"
+      },
+      {
+        "task_id": "8eb2c9d2-4aac-4a83-b1be-ba38cc7ed616",
+        "task_version": 4,
+        "event_type": "operation_applied",
+        "operationKind": "CONTINUE_TASK",
+        "status": "queued",
+        "state": "completed"
+      },
+      {
+        "task_id": "a3a189ff-cfbf-4d21-b407-b7fdb7845034",
+        "task_version": 4,
+        "event_type": "operation_applied",
+        "operationKind": "CONTINUE_TASK",
+        "status": "queued",
+        "state": "completed"
+      },
+      {
+        "task_id": "be3932a6-9c04-497c-aa47-51810a78ca2c",
+        "task_version": 1,
+        "event_type": "task_created",
+        "operationKind": null,
+        "status": null,
+        "state": null
+      },
+      {
+        "task_id": "be3932a6-9c04-497c-aa47-51810a78ca2c",
+        "task_version": 2,
+        "event_type": "operation_applied",
+        "operationKind": "CREATE_TASK",
+        "status": "queued",
+        "state": "completed"
+      },
+      {
+        "task_id": "be3932a6-9c04-497c-aa47-51810a78ca2c",
+        "task_version": 3,
+        "event_type": "schedule_created",
+        "operationKind": null,
+        "status": null,
+        "state": null
+      },
+      {
+        "task_id": "be3932a6-9c04-497c-aa47-51810a78ca2c",
+        "task_version": 3,
+        "event_type": "operation_applied",
+        "operationKind": "SCHEDULE_CREATE",
+        "status": "waiting_trigger",
+        "state": "completed"
+      },
+      {
+        "task_id": "be3932a6-9c04-497c-aa47-51810a78ca2c",
+        "task_version": 3,
+        "event_type": "schedule_stopped",
+        "operationKind": null,
+        "status": null,
+        "state": "paused"
+      },
+      {
+        "task_id": "be3932a6-9c04-497c-aa47-51810a78ca2c",
+        "task_version": 3,
+        "event_type": "operation_applied",
+        "operationKind": "SCHEDULE_PAUSE",
+        "status": "waiting_trigger",
+        "state": "completed"
+      },
+      {
+        "task_id": "be3932a6-9c04-497c-aa47-51810a78ca2c",
+        "task_version": 3,
+        "event_type": "schedule_stopped",
+        "operationKind": null,
+        "status": null,
+        "state": "paused"
+      },
+      {
+        "task_id": "be3932a6-9c04-497c-aa47-51810a78ca2c",
+        "task_version": 3,
+        "event_type": "schedule_updated",
+        "operationKind": null,
+        "status": null,
+        "state": null
+      },
+      {
+        "task_id": "be3932a6-9c04-497c-aa47-51810a78ca2c",
+        "task_version": 3,
+        "event_type": "operation_applied",
+        "operationKind": "SCHEDULE_REPLACE",
+        "status": "waiting_trigger",
+        "state": "completed"
+      },
+      {
+        "task_id": "be3932a6-9c04-497c-aa47-51810a78ca2c",
+        "task_version": 3,
+        "event_type": "schedule_stopped",
+        "operationKind": null,
+        "status": null,
+        "state": "paused"
+      },
+      {
+        "task_id": "be3932a6-9c04-497c-aa47-51810a78ca2c",
+        "task_version": 3,
+        "event_type": "operation_applied",
+        "operationKind": "SCHEDULE_PAUSE",
+        "status": "waiting_trigger",
+        "state": "completed"
+      },
+      {
+        "task_id": "be3932a6-9c04-497c-aa47-51810a78ca2c",
+        "task_version": 3,
+        "event_type": "schedule_stopped",
+        "operationKind": null,
+        "status": null,
+        "state": "paused"
+      },
+      {
+        "task_id": "be3932a6-9c04-497c-aa47-51810a78ca2c",
+        "task_version": 3,
+        "event_type": "schedule_updated",
+        "operationKind": null,
+        "status": null,
+        "state": null
+      },
+      {
+        "task_id": "be3932a6-9c04-497c-aa47-51810a78ca2c",
+        "task_version": 3,
+        "event_type": "operation_applied",
+        "operationKind": "SCHEDULE_RESUME",
+        "status": "waiting_trigger",
+        "state": "completed"
+      },
+      {
+        "task_id": "be3932a6-9c04-497c-aa47-51810a78ca2c",
+        "task_version": 3,
+        "event_type": "schedule_wake_enqueued",
+        "operationKind": null,
+        "status": null,
+        "state": null
+      },
+      {
+        "task_id": "be3932a6-9c04-497c-aa47-51810a78ca2c",
+        "task_version": 4,
+        "event_type": "schedule_wake_applied",
+        "operationKind": null,
+        "status": null,
+        "state": null
+      }
+    ],
+    "terminal": [
+      {
+        "session_id": "bf80f099-89b4-4fe0-adc6-46ee3d1a5830",
+        "state": "exited",
+        "cols": 100,
+        "rows": 30,
+        "exit_code": 1,
+        "error_code": null,
+        "recordedProcessesAbsent": [
+          true,
+          true
+        ]
+      }
+    ],
+    "worktrees": [
+      {
+        "workspace_id": "b7903873-9f9b-454d-8d74-fe95c402477a",
+        "display_name": "walk-manual-one",
+        "branch": "codex/worktree-b7903873-9f9b-454d-8d74-fe95c402477a",
+        "state": "removed",
+        "version": 2
+      }
+    ],
+    "worktreeOperations": [
+      {
+        "kind": "create",
+        "state": "completed",
+        "error_code": null
+      },
+      {
+        "kind": "remove",
+        "state": "completed",
+        "error_code": null
+      }
+    ],
+    "recoveryChecks": {
+      "directoryPreserved": true,
+      "sourceBytesEqual": true,
+      "testBytesEqual": true,
+      "originalGitClean": true,
+      "registeredWorktrees": 1,
+      "preservedBranchCommit": "323c3dc2d849c95836b41dd2370d4ac0f0bfa048"
+    },
+    "budget": [
+      {
+        "limit_units": 1000000,
+        "reserved_units": 0,
+        "consumed_units": 0
+      }
+    ],
+    "pausedPastDueReceipt": {
+      "schedule_id": "schedule:04d4fe369817d9770e19c965669b1d900dcf6a6fefffcfe9b4d0400526abb904",
+      "state": "paused",
+      "version": 2,
+      "observedAt": "2026-11-04T14:31:03.083935+00:00",
+      "afterOriginalDue": true,
+      "occurrences": 0,
+      "taskStatus": "waiting_trigger",
+      "runs": 0
+    },
+    "schedules": [
+      {
+        "schedule_id": "schedule:04d4fe369817d9770e19c965669b1d900dcf6a6fefffcfe9b4d0400526abb904",
+        "task_id": "be3932a6-9c04-497c-aa47-51810a78ca2c",
+        "state": "fulfilled",
+        "version": 5,
+        "timezone": "Asia/Shanghai",
+        "next_fire_at_ms": null,
+        "expires_at_ms": 1793806380000,
+        "purpose": "queue_only",
+        "configuredAtUtc": "2026-11-04T14:33:00+00:00",
+        "expiresAtUtc": "2026-11-04T15:33:00+00:00"
+      }
+    ],
+    "occurrences": [
+      {
+        "occurrence_id": "occurrence:e2089f34f7add11b8774af1a3200b98a1fa735e11b470bdff4ed5a49fc6ab551",
+        "schedule_id": "schedule:04d4fe369817d9770e19c965669b1d900dcf6a6fefffcfe9b4d0400526abb904",
+        "schedule_version": 5,
+        "scheduled_at_ms": 1793802780000,
+        "state": "enqueued"
+      }
+    ],
+    "deliveries": [
+      {
+        "task_id": "be3932a6-9c04-497c-aa47-51810a78ca2c",
+        "delivery_kind": "wake",
+        "state": "acknowledged",
+        "reason_code": null
+      }
+    ],
+    "laterUniquenessCheck": {
+      "checkedAt": "2026-11-04T14:35:32.043400+00:00",
+      "counts": {
+        "schedule_occurrences": 1,
+        "trigger_deliveries": 1,
+        "task_runs": 0,
+        "execution_intents": 0,
+        "budget_reservations": 0
+      }
+    }
+  },
+  "modelRequests": 0,
+  "regression": {
+    "codeChanged": false,
+    "unitTestsRun": false,
+    "fullRegressionRun": false,
+    "scope": "incremental real UI cases A05-A10 plus read-only side-effect checks"
+  },
+  "privacy": "No credentials, database, terminal transcript, raw Finder tree or private paths archived.",
+  "result": {
+    "passedCases": 6,
+    "failedCases": 0,
+    "newModelRequests": 0,
+    "reportedTokens": 0,
+    "unknownReservations": 0
+  },
+  "documentationChecks": {
+    "jsonParsed": true,
+    "caseIdsUniqueAndMatchPlan": 62,
+    "passedCases": 10,
+    "pendingCases": 52,
+    "relativeLinksExist": true,
+    "privatePathExclusion": true,
+    "gitDiffCheck": "passed"
+  }
+}
