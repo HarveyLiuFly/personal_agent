@@ -75,6 +75,7 @@ export function ExecutionPanel({ project, disabled = false, mode = 'readOnly', c
         </div>}
         {review && <article className="item" data-verification-status={review.receipt?.status ?? 'pending'}><strong>验证合同 · {review.target ?? '未配置'}</strong><p className="history-note">允许修改：{review.allowedPaths.join('、')} · 必要测试 {review.requiredCases} 项</p>
           {review.receipt && <p role="status">{review.receipt.status === 'passed' ? '验证通过' : '尚未通过'} · 发现 {review.receipt.discovered} / 实际执行 {review.receipt.executed} / 跳过 {review.receipt.skipped} · {review.receipt.code}</p>}
+          {review.receipt && <p className="history-note" data-verification-id>完成核验记录 ID：<code>{review.receipt.verificationId}</code></p>}
           <pre data-run-diff>{review.diff || '当前没有可显示的 Diff。'}</pre>{review.diffTruncated&&<small>Diff 过长，仅显示部分。</small>}
         </article>}
         {view.blocked && <div className="notice">{view.status==='outcome_unknown'?'该请求需要核对，新的执行已暂停。系统不会自动重发。':'后续执行已停止，请根据任务状态决定是否恢复排队。'}

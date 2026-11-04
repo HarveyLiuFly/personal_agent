@@ -365,7 +365,7 @@ async function boot(): Promise<void> {
     const data=verifier.diff(q.projectId,q.runId),receipt=verifier.result(q.projectId,q.runId);
     return {target:data.profile?.target??null,allowedPaths:data.profile?.allowedPaths??[],requiredCases:data.profile?.requiredCases.length??0,baselineCommit:data.profile?.baselineCommit??null,
       changedFiles:data.changedFiles,diff:data.text,diffTruncated:data.text.length>=65536,
-      receipt:receipt?{status:receipt.status,code:receipt.code,discovered:receipt.discovered,executed:receipt.executed,skipped:receipt.skipped,exitCode:receipt.exitCode,observedAt:receipt.observedAt}:null};
+      receipt:receipt?{verificationId:receipt.verificationId,status:receipt.status,code:receipt.code,discovered:receipt.discovered,executed:receipt.executed,skipped:receipt.skipped,exitCode:receipt.exitCode,observedAt:receipt.observedAt}:null};
   }
   ipcMain.handle('execution:review',(event,...args:unknown[])=>executionCommand(event,args,1,()=>review(args[0])));
   ipcMain.handle('execution:verify',async(event,...args:unknown[])=>{

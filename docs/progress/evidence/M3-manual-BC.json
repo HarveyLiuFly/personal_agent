@@ -1,0 +1,200 @@
+{
+  "checkpoint": "M3.manual-BC",
+  "observedAt": "2026-11-04T15:02:55.676432+00:00",
+  "operator": "Agent native CUA mouse/keyboard; Host read-only metadata",
+  "caseResults": {
+    "B01": "inert note saved, survived close/reopen",
+    "B02": "two same-title choices; T2 selected; unsent draft preserved; snapshot 2026-11-04 22:39:42",
+    "B03": "explicit T1 then Focus T1 queries",
+    "B04": "pause prose and unknown ID clarified, no mutation",
+    "B05": "HTML shown literally; pasted 8193 ASCII characters, AX confirmed length 8192; cleared without send",
+    "B06": "independent drafts survive refresh/reconcile, cleared on unmount; sent records retained",
+    "B07": "R registered; R rejects P Task ID, P same ID succeeds; separate R queued Task",
+    "B08": "two explicit references used because P already had Focus; after deliberate T2 pause/resume v4->v6, changed candidate absent on reopen; no stale selection accepted. Natural 15-minute timeout not claimed. CAS also separately tested under S07.",
+    "C01": "remember source does not automatically save Claim",
+    "C02": "explicit private language Claim v1 with actual message/revision/quote hash",
+    "C03": "ordinary message explicit promotion refused; agent_inference v1 saved",
+    "C04": "cancel left v1; new same-key source revised to English v2",
+    "C05": "initial ancestor-source UI defect; regression failed first, chain guard fixed in UI/command/store, cold-process UI showed only unused third-value source; mismatch quote rejected; English remains v2",
+    "C06": "T1-only private memory; after short-ID selector fix, T1 result present, T2 and personal no result",
+    "C07": "private inferred coding claim refused, deliberate public explicit coding Claim v1; original refusal wording was generic and later improved",
+    "C08": "sensitive marker saved and searchable; actual trust is agent_inference; exclusion verified later with S04, not inferred from reply"
+  },
+  "hostReadOnlyBeforeRestart": {
+    "checkedAt": "2026-11-04T14:59:05.640746+00:00",
+    "counts": {
+      "task_runs": 0,
+      "execution_intents": 0,
+      "budget_reservations": 0
+    },
+    "tasks": [
+      {
+        "task_id": "8eb2c9d2-4aac-4a83-b1be-ba38cc7ed616",
+        "title": "人工走查待办",
+        "status": "queued",
+        "version": 4
+      },
+      {
+        "task_id": "a3a189ff-cfbf-4d21-b407-b7fdb7845034",
+        "title": "人工走查待办",
+        "status": "queued",
+        "version": 6
+      },
+      {
+        "task_id": "cd6fad39-9798-428f-b35c-f750566ba3bc",
+        "title": "人工走查只读任务已改名",
+        "status": "queued",
+        "version": 6
+      },
+      {
+        "task_id": "396b4b93-28ad-4b66-95d4-104e9b16df33",
+        "title": "可取消演练",
+        "status": "cancelled",
+        "version": 3
+      },
+      {
+        "task_id": "be3932a6-9c04-497c-aa47-51810a78ca2c",
+        "title": "时间计划演练",
+        "status": "queued",
+        "version": 4
+      },
+      {
+        "task_id": "a272a27a-5029-41f3-8ce8-7ed19a979ccc",
+        "title": "另一项目专用待办",
+        "status": "queued",
+        "version": 2
+      }
+    ],
+    "claims": [
+      {
+        "claim_id": "memory-claim:1815f9b213abf26c86ffdf6691d293858d6f1de56045c6306371f0bb34a505f1",
+        "fact_key": "personal:walk_language",
+        "fact_text": "WALK_M3_LANGUAGE_中文",
+        "status": "superseded",
+        "trust": "explicit_user",
+        "version": 1,
+        "supersedes_claim_id": null
+      },
+      {
+        "claim_id": "memory-claim:b484295908b49df39eccbf926064390e29508fbbe1660891645d2d378269916f",
+        "fact_key": "personal:walk_guess",
+        "fact_text": "我猜自己更喜欢很短的答案",
+        "status": "active",
+        "trust": "agent_inference",
+        "version": 1,
+        "supersedes_claim_id": null
+      },
+      {
+        "claim_id": "memory-claim:1444a0c9dea35b63134310b45d9b295e961ab82ca44eef61d5fe46767dce734f",
+        "fact_key": "personal:walk_language",
+        "fact_text": "WALK_M3_LANGUAGE_English",
+        "status": "active",
+        "trust": "explicit_user",
+        "version": 2,
+        "supersedes_claim_id": "memory-claim:1815f9b213abf26c86ffdf6691d293858d6f1de56045c6306371f0bb34a505f1"
+      },
+      {
+        "claim_id": "memory-claim:b1c30797c8be0bec2da8ba63019bd9378e2a33899efdfcd875bcd735dd0414b2",
+        "fact_key": "task:8eb2c9d2-4aac-4a83-b1be-ba38cc7ed616:walk_only",
+        "fact_text": "WALK_M3_TASK_ONLY",
+        "status": "active",
+        "trust": "explicit_user",
+        "version": 1,
+        "supersedes_claim_id": null
+      },
+      {
+        "claim_id": "memory-claim:67513a904af153ee00f5600815f9b652336ebe7cbb495c1d15f8d9c689a5f109",
+        "fact_key": "coding:walk_rule",
+        "fact_text": "只修改允许文件",
+        "status": "active",
+        "trust": "explicit_user",
+        "version": 1,
+        "supersedes_claim_id": null
+      },
+      {
+        "claim_id": "memory-claim:135783c80be71960a6553a1a73377624ebf00e2012feac69d9b706b67cd59ec6",
+        "fact_key": "personal:walk_secret",
+        "fact_text": "WALK_M3_SECRET",
+        "status": "active",
+        "trust": "agent_inference",
+        "version": 1,
+        "supersedes_claim_id": null
+      }
+    ],
+    "evidence": [
+      {
+        "claim_id": "memory-claim:1815f9b213abf26c86ffdf6691d293858d6f1de56045c6306371f0bb34a505f1",
+        "source_ref": "message:987e6838-5edd-4fd1-a03d-09cebdefd360",
+        "sensitivity": "private",
+        "quote_hash": "bd2ae005582e4e30e2aaa166366b8fbfeb61b91148dca1cb8c478ce2515428a4"
+      },
+      {
+        "claim_id": "memory-claim:b484295908b49df39eccbf926064390e29508fbbe1660891645d2d378269916f",
+        "source_ref": "message:1b2fcbe3-7b33-424d-ae9e-166fa091c662",
+        "sensitivity": "private",
+        "quote_hash": "a1f93e2971ea0bb4d70ede824cd922e1ed6062034b3e8ea2c7080c0f87651b28"
+      },
+      {
+        "claim_id": "memory-claim:1444a0c9dea35b63134310b45d9b295e961ab82ca44eef61d5fe46767dce734f",
+        "source_ref": "message:12f274a6-8918-4998-9b13-efce65e3b5f5",
+        "sensitivity": "private",
+        "quote_hash": "432564da254b79811c21400b6e510f52fdc51610f06f76197a01a3eb31257878"
+      },
+      {
+        "claim_id": "memory-claim:b1c30797c8be0bec2da8ba63019bd9378e2a33899efdfcd875bcd735dd0414b2",
+        "source_ref": "message:33d59097-034f-4b2f-a3d8-b0499d322e98",
+        "sensitivity": "private",
+        "quote_hash": "c2303d87f03534cb4f82d054c8c77f4c7be33335e33af7feb0210697cbfd02a9"
+      },
+      {
+        "claim_id": "memory-claim:67513a904af153ee00f5600815f9b652336ebe7cbb495c1d15f8d9c689a5f109",
+        "source_ref": "message:bc2491f5-dec0-4844-b035-73221f166871",
+        "sensitivity": "public",
+        "quote_hash": "42656f731621d54bf6b85026300f3371cd0a6d3bf02a2fa995439b6a3aa129f4"
+      },
+      {
+        "claim_id": "memory-claim:135783c80be71960a6553a1a73377624ebf00e2012feac69d9b706b67cd59ec6",
+        "source_ref": "message:cd1cf12e-aecc-4777-a725-2e28f623d5ae",
+        "sensitivity": "sensitive",
+        "quote_hash": "93bccaf8839fc9d320e0209450d8318c4658a5b920fcb1efaa2d1e368bbb4e4c"
+      }
+    ],
+    "pending": [
+      {
+        "interaction_id": "19710fae-f817-4a56-9f57-b1390fb1a9aa",
+        "state": "resolved",
+        "options_json": "{\"source\":\"main-chat-rules-v1\",\"projectId\":\"9143cc3b-145c-46fc-8999-3449f7d7e11d\",\"choices\":[{\"taskId\":\"a3a189ff-cfbf-4d21-b407-b7fdb7845034\",\"title\":\"人工走查待办\",\"version\":4},{\"taskId\":\"8eb2c9d2-4aac-4a83-b1be-ba38cc7ed616\",\"title\":\"人工走查待办\",\"version\":4}]}"
+      },
+      {
+        "interaction_id": "dfc17c86-5845-4790-9d9b-7e57c804a251",
+        "state": "pending",
+        "options_json": "{\"source\":\"main-chat-rules-v1\",\"projectId\":\"9143cc3b-145c-46fc-8999-3449f7d7e11d\",\"choices\":[{\"taskId\":\"8eb2c9d2-4aac-4a83-b1be-ba38cc7ed616\",\"title\":\"人工走查待办\",\"version\":4},{\"taskId\":\"a3a189ff-cfbf-4d21-b407-b7fdb7845034\",\"title\":\"人工走查待办\",\"version\":4}]}"
+      }
+    ]
+  },
+  "fixes": {
+    "UX-02": "Exclude all superseded-chain message sources; direct store and public command refusal; fresh confirmation can restore an older value",
+    "UX-03": "Task memory selector includes six-character Task ID suffix",
+    "UX-04": "Private coding-memory refusal has specific actionable wording",
+    "UX-01": "Receipt ID projection and text implemented; real UI acceptance pending D07/E07"
+  },
+  "incrementalChecks": {
+    "memoryFiles": [
+      "memory-commands",
+      "memory",
+      "automatic-memory-context",
+      "route-memory-integration"
+    ],
+    "memoryTests": 48,
+    "memoryPassed": 48,
+    "newRegressionBeforeFix": "1 test failed: missing expected rejection of ancestor source",
+    "sourceBoundaryTests": 19,
+    "sourceBoundaryPassed": 19,
+    "sourceTransport": "component fixtures, not production HTTPS Provider acceptance",
+    "typecheck": "first failed for missing verificationId in view DTO; DTO/Main projection added; final passed",
+    "build": "passed",
+    "fullRegressionRun": false
+  },
+  "modelRequests": 0,
+  "privacy": "Public walkthrough facts/IDs only; no credentials, database, original terminal or private logs."
+}

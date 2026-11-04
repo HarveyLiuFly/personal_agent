@@ -61,3 +61,15 @@ test('stale versions, different fact keys, old messages and ordinary discussion 
 test('a forgotten original cannot be revised back into use by a fresh message',t=>{
  const f=fixture(t),oldMessage=f.message('/remember personal:language = 中文'),old=rememberUserMessage(f.store,f.input(oldMessage)),newMessage=f.message('/remember personal:language = English');f.store.forgetMemory({sourceRefs:['message:'+oldMessage],expectedPrivacyEpoch:1});assert.throws(()=>rememberUserMessage(f.store,f.input(newMessage,{factText:'English',quote:'English',supersedesClaimId:old.claimId,expectedVersion:old.version})),/MEMORY_CLAIM_VERSION_CONFLICT|MEMORY_SOURCE_REVOKED/);assert.equal(listUserMemory(f.store,{domain:'personal',query:''}).length,0);assert.equal(f.db.prepare('SELECT status FROM memory_claims WHERE claim_id=?').get(old.claimId)!.status,'deleted');
 });
+
+test('revision sources exclude the whole superseded chain while a fresh user confirmation may restore an older value',t=>{
+ const f=fixture(t),firstMessage=f.message('/remember personal:language = 中文'),first=rememberUserMessage(f.store,f.input(firstMessage)),secondMessage=f.message('/remember personal:language = English'),second=rememberUserMessage(f.store,f.input(secondMessage,{factText:'English',quote:'English',supersedesClaimId:first.claimId,expectedVersion:first.version}));
+ assert.throws(()=>rememberUserMessage(f.store,f.input(firstMessage,{supersedesClaimId:second.claimId,expectedVersion:second.version})),/MEMORY_REVISION_SOURCE_REQUIRED/);
+ const entry=f.store.captureMemoryMessage(firstMessage,'private');
+ assert.throws(()=>f.store.commitMemory({entryId:entry.entryId,expectedPrivacyEpoch:entry.privacyEpoch,expectedPolicyEpoch:entry.policyEpoch,factKey:'personal:language',factText:'中文',quote:'中文',trust:'explicit_user',supersedesClaimId:second.claimId,expectedVersion:second.version}),/MEMORY_REVISION_SOURCE_REQUIRED/);
+ assert.equal(f.db.prepare('SELECT count(*) AS n FROM memory_claims').get()!.n,2);
+ assert.equal(listUserMemory(f.store,{domain:'personal',query:''})[0]!.factText,'English');
+ const thirdMessage=f.message('/remember personal:language = 中文'),third=rememberUserMessage(f.store,f.input(thirdMessage,{supersedesClaimId:second.claimId,expectedVersion:second.version}));
+ assert.equal(third.version,3);assert.equal(third.factText,'中文');assert.deepEqual(rememberUserMessage(f.store,f.input(thirdMessage,{supersedesClaimId:second.claimId,expectedVersion:second.version})),third);
+ assert.deepEqual(new Set(third.revisionSourceRefs),new Set([firstMessage,secondMessage,thirdMessage].map(id=>'message:'+id)));
+});

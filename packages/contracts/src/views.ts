@@ -54,5 +54,5 @@ export interface ReplyInteraction extends RunQuery { requestId: string; decision
 export interface VerificationView {
   target: string | null; allowedPaths: string[]; requiredCases: number; baselineCommit: string | null;
   changedFiles: string[]; diff: string; diffTruncated: boolean;
-  receipt: { status: string; code: string; discovered: number; executed: number; skipped: number; exitCode: number | null; observedAt: string } | null;
+  receipt: { verificationId: string; status: string; code: string; discovered: number; executed: number; skipped: number; exitCode: number | null; observedAt: string } | null;
 }
