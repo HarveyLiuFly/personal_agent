@@ -37,7 +37,7 @@ M3人工走查另行开展：[`M3.manual-plan`完整用例](M3_MANUAL_WALKTHROUG
 
 ## 同步记录格式
 
-人工走查最新：A01–A02人工通过，共2项；用户确认目录取消无新增、选后walkthrough-code标题和三个入口均正确。下一步A03源码/四项测试/Git预览。定位`checkpoint/M3.manual-A02`，实际反馈见[执行表](M3_MANUAL_RESULTS.md)，本次无代码修改、回归或模型调用。
+人工走查最新：A01–A03人工通过，共3项；用户确认源码为减法、测试4项、Git无变更。下一步A04保存三条队列任务。定位`checkpoint/M3.manual-A03`，实际反馈见[执行表](M3_MANUAL_RESULTS.md)，本次无代码修改、回归或模型调用。
 
 - 进展点、状态、涉及工作包。
 - 已完成的行为及可检视产物。
