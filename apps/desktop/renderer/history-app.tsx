@@ -4,26 +4,25 @@ import type {
   ItemView,
   Page,
   ProjectView,
-  RunSummary,
   ThreadSummary,
   TurnView,
 } from '../../../packages/contracts/src/views.ts';
-import type { TaskSummary } from '../../../packages/contracts/src/tasks.ts';
+import type { ConversationSummary } from '../../../packages/contracts/src/conversations.ts';
 import { MainChatWorkspace } from './main-chat.tsx';
 import { AutonomyDialog } from './autonomy-manager.tsx';
-import { ExecutionPanel } from './execution-panel.tsx';
+import { ConversationPanel } from './conversation-panel.tsx';
 import { WorkspacePanel } from './workspace-panel.tsx';
 import { TaskManager } from './task-manager.tsx';
 import { BackupManager } from './backup-manager.tsx';
 import { ProjectSkillsDialog } from './skills-panel.tsx';
-import { taskLabels, displayMessage, latestTaskRuns } from './ui-model.ts';
+import { conversationMarker, displayMessage } from './ui-model.ts';
 import { clearDrafts } from './drafts.ts';
 import { MessageBody } from './message-body.tsx';
 import { shortcutLabel } from './platform.ts';
 import { subscribeRefresh } from './host-events.ts';
 type Surface =
-  | 'assistant'
-  | 'task'
+  | 'dot'
+  | 'conversation'
   | 'tasks'
   | 'goals'
   | 'memory'
@@ -32,9 +31,9 @@ type Surface =
   | 'settings'
   | 'history';
 const titles: Record<Surface, string> = {
-  assistant: '项目助手',
-  task: '新任务',
-  tasks: '任务',
+  dot: 'Dot',
+  conversation: '新对话',
+  tasks: '任务与计划',
   goals: '目标',
   memory: '记忆',
   automation: '自动化',
@@ -50,7 +49,7 @@ async function value<T>(request: Promise<HostResult<T>>) {
 export function HistoryApp({ children }: { children: React.ReactNode }) {
   const [projects, setProjects] = useState<ProjectView[]>([]),
     [project, setProject] = useState<ProjectView>(),
-    [surface, setSurface] = useState<Surface>('assistant');
+    [surface, setSurface] = useState<Surface>('conversation');
   const [cap, setCap] = useState({
     mode: 'readOnly' as 'readOnly' | 'workspaceWrite',
     canCode: false,
@@ -61,10 +60,12 @@ export function HistoryApp({ children }: { children: React.ReactNode }) {
     canUseTerminal: false,
     backgroundEnabled: false,
   });
-  const [tasks, setTasks] = useState<TaskSummary[]>([]),
-    [runs, setRuns] = useState<RunSummary[]>([]),
-    [hiddenTasks, setHiddenTasks] = useState<Set<string>>(new Set()),
-    [taskId, setTaskId] = useState<string>(),
+  // Conversation list: pinned, then pages of the rest (all loaded pages are re-read on change).
+  const [pinned, setPinned] = useState<ConversationSummary[]>([]),
+    [listed, setListed] = useState<ConversationSummary[]>([]),
+    [moreCursor, setMoreCursor] = useState<string | null>(null),
+    [pages, setPages] = useState(1),
+    [conversationId, setConversationId] = useState<string>(),
     [newKey, setNewKey] = useState(0);
   const [threads, setThreads] = useState<Page<ThreadSummary>>(),
     [thread, setThread] = useState<ThreadSummary>(),
@@ -114,49 +115,56 @@ export function HistoryApp({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!project || !cap.canManageTasks) return;
     let stopped = false;
-    async function poll() {
+    const projectId = project.id,
+      text = query.trim();
+    async function refresh() {
       try {
-        const [nextTasks, nextRuns, routes, epochs] = await Promise.all([
-          value(window.personalAgent.listTasks({ projectId: project!.id })),
-          value(window.personalAgent.listRuns({ projectId: project!.id })),
-          value(window.personalAgent.listChatRoutes({ projectId: project!.id })),
-          value(window.personalAgent.memoryState()),
-        ]);
+        const first = await value(
+          window.personalAgent.listConversations({ projectId, ...(text ? { query: text } : {}) }),
+        );
+        const rows = [...first.items];
+        let cursor = first.nextCursor;
+        for (let page = 1; page < pages && cursor; page++) {
+          const next = await value(
+            window.personalAgent.listConversations({
+              projectId,
+              cursor,
+              ...(text ? { query: text } : {}),
+            }),
+          );
+          rows.push(...next.items);
+          cursor = next.nextCursor;
+        }
+        const epochs = await value(window.personalAgent.memoryState());
         if (stopped) return;
-        setTasks(nextTasks);
-        setRuns(nextRuns);
-        const internalRuns = new Set(
-          routes.flatMap((r) =>
-            [
-              r.routingRunId,
-              ...r.steps.filter((s) => s.operation.kind === 'CHAT').map((s) => s.runId),
-            ].filter(Boolean),
-          ),
-        );
-        setHiddenTasks(
-          new Set(nextRuns.filter((r) => internalRuns.has(r.runId)).map((r) => r.taskId)),
-        );
+        setPinned(first.pinned);
+        setListed(rows);
+        setMoreCursor(cursor);
         if (privacy.current !== undefined && privacy.current !== epochs.privacyEpoch) clearDrafts();
         privacy.current = epochs.privacyEpoch;
       } catch {
         /* retain last confirmed navigation */
       }
     }
-    setTasks([]);
-    setRuns([]);
-    setTaskId(undefined);
     // Re-read after each Host change notice instead of polling.
-    const unsubscribe = subscribeRefresh(poll);
+    const unsubscribe = subscribeRefresh(refresh);
     return () => {
       stopped = true;
       unsubscribe();
     };
-  }, [project?.id, cap.canManageTasks]);
-  function newTask() {
+  }, [project?.id, cap.canManageTasks, query, pages]);
+  useEffect(() => {
+    setPinned([]);
+    setListed([]);
+    setMoreCursor(null);
+    setPages(1);
+    setConversationId(undefined);
+  }, [project?.id]);
+  function newConversation() {
     if (busy) return;
-    setTaskId(undefined);
+    setConversationId(undefined);
     setNewKey((k) => k + 1);
-    setSurface('task');
+    setSurface('conversation');
   }
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -167,7 +175,7 @@ export function HistoryApp({ children }: { children: React.ReactNode }) {
         search.current?.focus();
       } else if (e.key.toLowerCase() === 'n' && !busy && project) {
         e.preventDefault();
-        newTask();
+        newConversation();
       }
     };
     window.addEventListener('keydown', handler);
@@ -175,16 +183,16 @@ export function HistoryApp({ children }: { children: React.ReactNode }) {
   }, [project?.id, busy]);
   function switchProject(next: ProjectView) {
     setProject(next);
-    setSurface('assistant');
-    setTaskId(undefined);
+    setSurface('conversation');
+    setConversationId(undefined);
     setThread(undefined);
     setThreads(undefined);
     setItems(undefined);
     setQuery('');
   }
-  function openTask(id: string) {
-    setTaskId(id);
-    setSurface('task');
+  function openConversation(id: string) {
+    setConversationId(id);
+    setSurface('conversation');
   }
   const choose = () =>
     perform(async () => {
@@ -202,14 +210,8 @@ export function HistoryApp({ children }: { children: React.ReactNode }) {
       ),
     );
   }
-  const latest = latestTaskRuns(runs),
-    selectedTask = tasks.find((t) => t.taskId === taskId),
-    selectedRun = latest.find((r) => r.taskId === taskId);
-  const visibleTasks = tasks.filter(
-    (t) =>
-      !hiddenTasks.has(t.taskId) &&
-      (!query || t.title.toLocaleLowerCase().includes(query.toLocaleLowerCase())),
-  );
+  const conversations = [...pinned, ...listed],
+    selected = conversations.find((c) => c.conversationId === conversationId);
   const navigate = (next: Surface) => {
     setSurface(next);
     setError('');
@@ -263,69 +265,89 @@ export function HistoryApp({ children }: { children: React.ReactNode }) {
           </button>
         </div>
         <button
+          className={'dot-entry' + (surface === 'dot' ? ' active' : '')}
+          data-action="open-main-chat"
+          disabled={!project || busy}
+          title="Dot：你的个人助手，可以帮你安排项目里的对话和待办"
+          onClick={() => navigate('dot')}
+        >
+          <span className="dot-mark" aria-hidden="true">
+            ●
+          </span>
+          Dot
+          <small>个人助手</small>
+        </button>
+        <button
           className="new-chat"
           data-action="project-tasks"
           disabled={!project || busy || !cap.canSubmit}
-          onClick={newTask}
+          onClick={newConversation}
         >
-          ＋ 新任务 <kbd>{shortcutLabel('n')}</kbd>
+          ＋ 新对话 <kbd>{shortcutLabel('n')}</kbd>
         </button>
-        <nav className="primary-nav">
-          {(['assistant', 'tasks', 'goals'] as Surface[]).map((name, i) => (
-            <button
-              key={name}
-              className={surface === name ? 'active' : ''}
-              disabled={!project || busy}
-              data-action={
-                name === 'assistant'
-                  ? 'open-main-chat'
-                  : name === 'goals'
-                    ? 'open-autonomy'
-                    : 'open-tasks'
-              }
-              onClick={() => navigate(name)}
-            >
-              <span aria-hidden="true">{['◌', '☷', '◇'][i]}</span>
-              {titles[name]}
-            </button>
-          ))}
-        </nav>
         <div className="sidebar-search">
           <input
             ref={search}
-            aria-label="搜索任务"
-            placeholder="搜索任务…"
+            aria-label="搜索对话"
+            placeholder="搜索对话…"
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setPages(1);
+            }}
           />
           <kbd>{shortcutLabel('k')}</kbd>
         </div>
         <div className="project-heading">
-          <span>近期任务</span>
-          <small>{visibleTasks.length}</small>
+          <span>对话</span>
+          <small>{conversations.length}</small>
         </div>
-        <nav className="thread-list" aria-label="任务会话">
-          {visibleTasks.map((task) => (
+        <nav className="thread-list" aria-label="对话">
+          {conversations.map((conversation) => {
+            const marker = conversationMarker(conversation);
+            return (
+              <button
+                key={conversation.conversationId}
+                className={
+                  'thread' +
+                  (surface === 'conversation' && conversationId === conversation.conversationId
+                    ? ' selected'
+                    : '') +
+                  (conversation.unread ? ' unread' : '')
+                }
+                data-task-id={conversation.conversationId}
+                data-conversation-id={conversation.conversationId}
+                data-run-id={conversation.latestRunId ?? undefined}
+                onClick={() => openConversation(conversation.conversationId)}
+              >
+                <span className={'task-dot ' + marker.dot} />
+                <span className="thread-name">
+                  {conversation.pinned && (
+                    <span className="pin-mark" aria-label="已置顶">
+                      ★{' '}
+                    </span>
+                  )}
+                  {conversation.title}
+                </span>
+                <small>{marker.label}</small>
+              </button>
+            );
+          })}
+          {moreCursor && (
             <button
-              key={task.taskId}
-              className={
-                'thread' + (surface === 'task' && taskId === task.taskId ? ' selected' : '')
-              }
-              data-task-id={task.taskId}
-              data-run-id={latest.find((run) => run.taskId === task.taskId)?.runId}
-              onClick={() => openTask(task.taskId)}
+              className="text-button more-conversations"
+              data-action="more-conversations"
+              onClick={() => setPages((n) => n + 1)}
             >
-              <span className={'task-dot ' + task.status} />
-              <span className="thread-name">{task.title}</span>
-              <small>{taskLabels[task.status] ?? '待核对'}</small>
+              更多对话
             </button>
-          ))}
-          {project && !visibleTasks.length && (
-            <p className="empty-nav">{query ? '没有匹配的任务' : '从一个想完成的任务开始。'}</p>
+          )}
+          {project && !conversations.length && (
+            <p className="empty-nav">{query ? '没有匹配的对话' : '从一个问题开始。'}</p>
           )}
         </nav>
         <nav className="secondary-nav">
-          {(['memory', 'automation', 'settings'] as Surface[]).map((name) => (
+          {(['tasks', 'goals', 'memory', 'automation', 'settings'] as Surface[]).map((name) => (
             <button
               data-action={'open-' + name}
               key={name}
@@ -359,7 +381,13 @@ export function HistoryApp({ children }: { children: React.ReactNode }) {
               )}
               <span className="project-crumb">{project?.name ?? '工作区'}</span>
               <span className="crumb-separator">/</span>
-              <h1>{surface === 'task' ? (selectedTask?.title ?? '新任务') : titles[surface]}</h1>
+              <h1>
+                {surface === 'conversation'
+                  ? conversationId
+                    ? (selected?.title ?? '对话')
+                    : '新对话'
+                  : titles[surface]}
+              </h1>
             </div>
             {project && (
               <div className="toolbar-actions">
@@ -399,47 +427,26 @@ export function HistoryApp({ children }: { children: React.ReactNode }) {
             </section>
           ) : (
             <>
-              {surface === 'assistant' && (
-                <MainChatWorkspace key={project.id} project={project} onTask={openTask} />
+              {surface === 'dot' && (
+                <MainChatWorkspace key={project.id} project={project} onTask={openConversation} />
               )}
-              {surface === 'task' &&
-                cap.canSubmit &&
-                (taskId && !selectedRun ? (
-                  <section className="page-content">
-                    <div className="page-heading">
-                      <h2>{selectedTask?.title ?? '正在读取任务…'}</h2>
-                      <span className="badge">
-                        {taskLabels[selectedTask?.status ?? ''] ?? '读取中'}
-                      </span>
-                    </div>
-                    <p className="muted">此任务尚无执行记录。可以在任务列表中开始或安排它。</p>
-                    <button onClick={() => navigate('tasks')}>管理这个任务</button>
-                  </section>
-                ) : (
-                  <ExecutionPanel
-                    key={project.id + ':' + (taskId ?? 'new:' + newKey)}
-                    project={project}
-                    disabled={busy}
-                    mode={cap.mode}
-                    canCode={cap.canCode}
-                    requestedRunId={selectedRun?.runId}
-                    fresh={!taskId}
-                    draftScope={project.id + ':' + (taskId ?? 'new')}
-                    onNew={newTask}
-                    onQueued={openTask}
-                    onStarted={(run) => {
-                      setRuns((old) => [run, ...old.filter((r) => r.runId !== run.runId)]);
-                      setTaskId(run.taskId);
-                    }}
-                  />
-                ))}
+              {surface === 'conversation' && cap.canSubmit && (
+                <ConversationPanel
+                  key={project.id + ':' + (conversationId ?? 'new:' + newKey)}
+                  project={project}
+                  conversationId={conversationId}
+                  disabled={busy}
+                  canCode={cap.canCode}
+                  onCreated={openConversation}
+                />
+              )}
               {(surface === 'goals' || surface === 'memory') && (
                 <AutonomyDialog
                   key={project.id + ':' + surface}
                   project={project}
                   embedded
                   initialTab={surface === 'memory' ? 'memory' : 'goals'}
-                  onClose={() => navigate('assistant')}
+                  onClose={() => navigate('conversation')}
                 />
               )}
               {(surface === 'tasks' || surface === 'automation') && (
@@ -451,15 +458,14 @@ export function HistoryApp({ children }: { children: React.ReactNode }) {
                     standalone
                     section={surface === 'automation' ? 'schedule' : 'tasks'}
                     onBusyChange={setBusy}
-                    onTask={openTask}
+                    onTask={openConversation}
                     onStarted={(runId) => {
                       void value(window.personalAgent.getRun({ projectId: project.id, runId }))
                         .then((run) => {
                           if (projectRef.current !== project.id) return;
-                          setRuns((old) => [run, ...old.filter((r) => r.runId !== runId)]);
-                          openTask(run.taskId);
+                          openConversation(run.taskId);
                         })
-                        .catch(() => setError('任务已启动，暂时无法打开进展；请从侧栏选择它。'));
+                        .catch(() => setError('任务已启动，暂时无法打开；请从侧栏选择它。'));
                     }}
                   />
                 </div>

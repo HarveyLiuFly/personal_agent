@@ -330,7 +330,7 @@ export function MainChatWorkspace({
     </div>
   );
   return (
-    <section className="conversation" data-main-chat aria-label="项目助手">
+    <section className="conversation" data-main-chat aria-label="Dot">
       <div
         className="conversation-scroll main-chat-entries"
         ref={scroller}

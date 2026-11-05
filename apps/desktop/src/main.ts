@@ -84,6 +84,7 @@ import { HostEvents } from './host-events.ts';
 import { BackgroundScheduler } from './background-scheduler.ts';
 import { StateIndexWarmup } from '../../../packages/codex-adapter/src/state-index.ts';
 import type { BackgroundStep } from './background-scheduler.ts';
+import { CONVERSATION_EVIDENCE, runConversationProbe } from './conversation-probe.ts';
 import { DESKTOP_API_KEYS } from './api-keys.ts';
 
 const directory = dirname(fileURLToPath(import.meta.url));
@@ -179,6 +180,8 @@ if (nativeCodeSmoke) {
 // CORE.1 acceptance: two projects run real turns at once. The profile is kept between runs so the
 // Codex state index is built only once.
 const concurrencySmoke = process.argv.includes('--core1-concurrency-smoke');
+// CORE.2d: conversation window flow on the synthetic stdio backend (no model request).
+const conversationSmoke = process.argv.includes('--core2-conversation-smoke');
 let concurrencyProjects: string[] = [];
 if (concurrencySmoke)
   app.setPath('userData', resolve(root, '.local/desktop-concurrency-smoke-data'));
@@ -191,6 +194,7 @@ const planSmoke = process.argv.includes('--m2-plans-smoke');
 const taskSmoke =
   process.argv.includes('--m2-tasks-smoke') || budgetSmoke || planSmoke || scheduleSmoke;
 const executionSmoke =
+  conversationSmoke ||
   toolsSmoke ||
   backgroundSmoke ||
   process.argv.includes('--m1-execution-smoke') ||
@@ -277,59 +281,61 @@ else
       }
       const file = concurrencySmoke
         ? CONCURRENCY_EVIDENCE
-        : autonomySmoke
-          ? 'M3.4-autonomy-desktop'
-          : chatSmoke
-            ? 'M3.1b-main-chat-regression'
-            : skillsSmoke
-              ? 'M2.8a-desktop'
-              : resourcesSmoke
-                ? 'M2.2e-desktop'
-                : rehearsalSmoke
-                  ? 'M2.7b-desktop'
-                  : backupSmoke
-                    ? 'M2.7a-desktop'
-                    : worktreeCodeSmoke
-                      ? worktreeCodePreflight
-                        ? 'M2.1b-worktree-preflight'
-                        : 'M2.1b-worktree-native'
-                      : toolsSmoke
-                        ? 'M2.1b-tools-desktop'
-                        : recoverySmoke
-                          ? 'M2.5b-desktop'
-                          : terminalSmoke
-                            ? 'M2.6a-desktop'
-                            : worktreeSmoke
-                              ? 'M2.5a-desktop'
-                              : backgroundProbe
-                                ? backgroundNativeSmoke
-                                  ? 'M2.4a-native-background'
-                                  : 'M2.4a-desktop'
-                                : scheduleAutoSmoke
-                                  ? 'M2.3d-desktop'
-                                  : scheduleSmoke
-                                    ? 'M2.3c-desktop'
-                                    : planSmoke
-                                      ? 'M2.2d-desktop'
-                                      : budgetSmoke
-                                        ? 'M2.2c-desktop'
-                                        : taskSmoke
-                                          ? 'M2.2b-desktop'
-                                          : acceptanceProbe
-                                            ? acceptanceProbe.kind === 'workspace'
-                                              ? 'M2.1a-desktop'
-                                              : `M1.4b-${acceptanceProbe.kind === 'folder' ? 'native-folder' : acceptanceProbe.kind === 'restart' ? 'native-restart' : 'owner'}`
-                                            : nativeCodeSmoke
-                                              ? 'M1-native-code-desktop'
-                                              : continuationSmoke
-                                                ? 'M1.3c-desktop'
-                                                : interactionSmoke
-                                                  ? 'M1.2-desktop'
-                                                  : executionSmoke
-                                                    ? 'M1.1c-desktop'
-                                                    : historySmoke
-                                                      ? 'M1.1b-desktop'
-                                                      : 'M0-desktop-smoke';
+        : conversationSmoke
+          ? CONVERSATION_EVIDENCE
+          : autonomySmoke
+            ? 'M3.4-autonomy-desktop'
+            : chatSmoke
+              ? 'M3.1b-main-chat-regression'
+              : skillsSmoke
+                ? 'M2.8a-desktop'
+                : resourcesSmoke
+                  ? 'M2.2e-desktop'
+                  : rehearsalSmoke
+                    ? 'M2.7b-desktop'
+                    : backupSmoke
+                      ? 'M2.7a-desktop'
+                      : worktreeCodeSmoke
+                        ? worktreeCodePreflight
+                          ? 'M2.1b-worktree-preflight'
+                          : 'M2.1b-worktree-native'
+                        : toolsSmoke
+                          ? 'M2.1b-tools-desktop'
+                          : recoverySmoke
+                            ? 'M2.5b-desktop'
+                            : terminalSmoke
+                              ? 'M2.6a-desktop'
+                              : worktreeSmoke
+                                ? 'M2.5a-desktop'
+                                : backgroundProbe
+                                  ? backgroundNativeSmoke
+                                    ? 'M2.4a-native-background'
+                                    : 'M2.4a-desktop'
+                                  : scheduleAutoSmoke
+                                    ? 'M2.3d-desktop'
+                                    : scheduleSmoke
+                                      ? 'M2.3c-desktop'
+                                      : planSmoke
+                                        ? 'M2.2d-desktop'
+                                        : budgetSmoke
+                                          ? 'M2.2c-desktop'
+                                          : taskSmoke
+                                            ? 'M2.2b-desktop'
+                                            : acceptanceProbe
+                                              ? acceptanceProbe.kind === 'workspace'
+                                                ? 'M2.1a-desktop'
+                                                : `M1.4b-${acceptanceProbe.kind === 'folder' ? 'native-folder' : acceptanceProbe.kind === 'restart' ? 'native-restart' : 'owner'}`
+                                              : nativeCodeSmoke
+                                                ? 'M1-native-code-desktop'
+                                                : continuationSmoke
+                                                  ? 'M1.3c-desktop'
+                                                  : interactionSmoke
+                                                    ? 'M1.2-desktop'
+                                                    : executionSmoke
+                                                      ? 'M1.1c-desktop'
+                                                      : historySmoke
+                                                        ? 'M1.1b-desktop'
+                                                        : 'M0-desktop-smoke';
       writeFileSync(
         resolve(evidenceDir(root), `${file}.json`),
         JSON.stringify({ status: 'blocked', code, observedAt: new Date().toISOString() }) + '\n',
@@ -1454,6 +1460,10 @@ async function boot(): Promise<void> {
       },
     );
   window = await showMainWindow();
+  if (conversationSmoke) {
+    await runConversationProbe(root, app, window, execution!);
+    return;
+  }
   if (concurrencySmoke) {
     await runConcurrencyProbe(
       root,
@@ -1727,7 +1737,7 @@ async function boot(): Promise<void> {
     );
     app.quit();
   }
-  if (executionSmoke && !interactionSmoke && !continuationSmoke) {
+  if (executionSmoke && !interactionSmoke && !continuationSmoke && !conversationSmoke) {
     const result = await window.webContents.executeJavaScript(`(async () => {
       const wait = async (check) => {
         const deadline = Date.now() + 15000;
@@ -1757,7 +1767,8 @@ async function boot(): Promise<void> {
         markupShownAsText: document.body.textContent.includes('<img src=x onerror='),
         noInjectedImage: document.querySelector('[data-execution-items] img') === null,
         noScriptExecution: window.__executionInjected !== true,
-        draftClearedAfterAcceptance: input.value === '' };
+        // The new conversation opens in its own panel; its composer must be empty.
+        draftClearedAfterAcceptance: document.querySelector('[data-task-draft]').value === '' };
     })()`);
     const r = result as Record<string, unknown>;
     const passed =

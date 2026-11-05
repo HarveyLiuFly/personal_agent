@@ -401,6 +401,45 @@ label:has(> input[type='checkbox']) {
 .task-dot.outcome_unknown {
   background: #bd9250;
 }
+.task-dot.unread {
+  background: var(--focus);
+}
+.thread.unread .thread-name {
+  font-weight: 600;
+}
+.pin-mark {
+  color: var(--muted);
+  font-size: 10px;
+}
+.more-conversations {
+  width: 100%;
+  padding: 6px;
+  font-size: 11px;
+}
+.dot-entry {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-align: left;
+  padding: 9px 12px;
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--line);
+  font-weight: 550;
+}
+.dot-entry.active {
+  background: var(--hover);
+}
+.dot-entry small {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 400;
+}
+.dot-mark {
+  color: var(--focus);
+  font-size: 11px;
+}
 .empty-nav {
   font-size: 11px;
   color: var(--muted);
@@ -658,6 +697,26 @@ label:has(> input[type='checkbox']) {
 }
 .items {
   display: block;
+}
+.conversation-turn + .conversation-turn {
+  border-top: 1px solid var(--line);
+  margin-top: 14px;
+  padding-top: 6px;
+}
+.conversation-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+  margin-bottom: 6px;
+}
+.load-older {
+  display: block;
+  margin: 0 auto 10px;
+  font-size: 11px;
+}
+.turn-empty {
+  font-size: 12px;
 }
 .working {
   font-size: 12px;

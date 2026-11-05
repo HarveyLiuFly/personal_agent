@@ -76,7 +76,7 @@ pnpm smoke:desktop
 
 ## 只读历史浏览
 
-`pnpm dev` 启动后选择项目目录，按项目查看 Codex 已保存的会话、轮次与消息/工具记录。每页最多 20 项；大文本明确截断，HTML 按纯文本展示。项目目录与任务记录保存到本机私有 SQLite，重启后复核目录身份；选择“项目任务”可发送新的只读消息。每条消息当前创建独立 Task/Thread；运行结束仍为待验证，结果未知时禁止重发。已接入只读任务的补问、拒绝与停止，原生交互验收继续推进；工作区写入、会话续接及可信验证按后续 M1 进展点开放。
+`pnpm dev` 启动后选择项目目录。侧栏顶部是 Dot（个人助手），下面是“新对话”和这个项目的对话清单。一个对话对应一个 Codex Thread：发送的是你输入的原文，之后可以在同一个对话里继续追问；停止、失败或已完成的对话也能继续。结果未知时不会自动重发。“历史”按项目浏览 Codex 已保存的原生会话（第一页由应用缓存、后台刷新）。项目目录与对话记录保存在本机私有 SQLite，重启后复核目录身份。
 
 ```bash
 pnpm smoke:history:local
@@ -92,5 +92,7 @@ pnpm smoke:history:desktop
 产品发送路径统一经过账本。M0 的无账本模型调试按钮已移除；独立协议 Smoke 仍作为显式开发诊断命令保留。M1 关闭外部 Apps/MCP/Plugins/Hooks/自治扩展，并在派发前检查线程内全部 MCP 均已明确禁用且无可用工具。
 
 `pnpm smoke:interactions:desktop` 使用真实沙箱窗口与合成 stdio 后端测试单次命令允许、越权/永久批准/重放拒绝；它不调用模型。M1.2a 的组件和迁移结果见阶段记录，原生模型交互不由该 Fixture 替代。
+
+`pnpm smoke:conversation:desktop`（CORE.2d）在真实沙箱窗口中用合成后端（不调用模型）走一遍：新对话 → 追问 → 同一对话两轮 → 侧栏一个对话 → 置顶 → 打开 Dot → 返回对话。
 
 `pnpm smoke:concurrency:desktop`（CORE.1 验收）在真实沙箱窗口中让两个临时项目同时各发一条只读问题（2 次真实模型请求，消耗额度），运行期间检查浏览文件、Diff、历史和连接检查都不被拒绝，并记录首段回答延迟和空闲 CPU。它使用独立配置目录 `.local/desktop-concurrency-smoke-data`，首次运行会先建立 Codex 索引。结果见 [CORE 计划](docs/progress/CORE.md)。

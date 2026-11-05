@@ -178,3 +178,46 @@ export function runStatusLabel(run: Pick<RunSummary, 'status' | 'taskStatus' | '
   if (run.status === 'completed') return run.mode === 'workspaceWrite' ? '待验证' : '已回复';
   return taskLabels[run.status] ?? '需要核对';
 }
+/**
+ * Turns of a conversation in reading order (oldest first). Pages arrive newest first: the first
+ * page is re-read as turns arrive, older pages are appended once; a Run seen in both keeps the
+ * first page's (fresher) copy.
+ */
+export function mergeTurns<T extends { runId: string }>(older: T[], recent: T[]): T[] {
+  const seen = new Set(recent.map((run) => run.runId));
+  return [...recent, ...older.filter((run) => !seen.has(run.runId))].reverse();
+}
+/** Sidebar marker of a conversation: what needs the user first, then running, then unread. */
+export function conversationMarker(conversation: {
+  attention: 'approval' | 'input' | 'unknown' | null;
+  activeRunId: string | null;
+  unread: boolean;
+  status: string;
+}): { dot: string; label: string } {
+  if (conversation.attention === 'approval') return { dot: 'waiting_approval', label: '需批准' };
+  if (conversation.attention === 'input') return { dot: 'waiting_input', label: '需回答' };
+  if (conversation.attention === 'unknown') return { dot: 'outcome_unknown', label: '需核对' };
+  if (conversation.activeRunId) return { dot: 'running', label: '运行中' };
+  if (conversation.unread) return { dot: 'unread', label: '未读' };
+  return { dot: conversation.status, label: '' };
+}
+/**
+ * What to tell the user when a send failed. `retry` keeps the draft and the submission key: the
+ * same key never sends twice, so trying again is safe even if the first attempt went through.
+ */
+export function sendFailure(code: string): { message: string; retry: boolean } {
+  const known: Record<string, string> = {
+    RUNTIME_BUSY: '同时运行的对话已达上限，等其中一个结束后再发送。',
+    WORKSPACE_BUSY: '这个项目正忙（另一个对话在修改文件，或正在进行工作树操作），稍后再发送。',
+    WORKSPACE_TERMINAL_ACTIVE: '项目终端正在使用工作区，请先关闭终端。',
+    TOKEN_BUDGET_EXHAUSTED: '今天的可用额度不足，请到设置检查额度。',
+    RUN_NOT_CONTINUABLE: '这段对话正在运行或需要先核对，暂时不能继续。',
+    RUN_GRANT_EXPIRED: '这段对话开始后遗忘过记忆，旧线程不能继续；可以从检查点新开。',
+    VERIFICATION_NOT_CONFIGURED: '这个代码对话缺少验证设置，暂时不能继续。',
+    CODE_EXECUTION_UNAVAILABLE: '当前环境不能运行代码对话。',
+    IDEMPOTENCY_CONFLICT: '上一条消息已经发出；这一条还没有发送。',
+  };
+  return known[code]
+    ? { message: known[code]!, retry: false }
+    : { message: '发送结果还没有确认。消息已保留，可以再次发送，不会重复。', retry: true };
+}

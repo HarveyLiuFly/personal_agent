@@ -2,9 +2,12 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   canAnswerImmediately,
+  conversationMarker,
   displayMessage,
   DraftBank,
   latestTaskRuns,
+  mergeTurns,
+  sendFailure,
   sendOnEnter,
 } from '../apps/desktop/renderer/ui-model.ts';
 import type { ChatRouteView } from '../packages/contracts/src/routing.ts';
@@ -267,4 +270,50 @@ test('model termination alone never displays verified Task completion', async ()
     runStatusLabel({ status: 'completed', taskStatus: 'cancelled', mode: 'workspaceWrite' }),
     '已取消',
   );
+});
+
+test('conversation turns read oldest first and a Run in both pages keeps the fresher copy', () => {
+  const run = (runId: string, status = 'completed') => ({ runId, status });
+  // Pages arrive newest first; the first page was re-read after r5 finished.
+  const recent = [run('r5'), run('r4'), run('r3')],
+    older = [run('r3', 'running'), run('r2'), run('r1')];
+  assert.deepEqual(
+    mergeTurns(older, recent).map((r) => r.runId),
+    ['r1', 'r2', 'r3', 'r4', 'r5'],
+  );
+  assert.equal(mergeTurns(older, recent).find((r) => r.runId === 'r3')!.status, 'completed');
+  assert.deepEqual(mergeTurns([], []), []);
+});
+test('the sidebar marks what needs the user before running and unread', () => {
+  const base = {
+    attention: null,
+    activeRunId: null,
+    unread: false,
+    status: 'needs_review',
+  } as const;
+  assert.deepEqual(conversationMarker({ ...base, attention: 'approval', activeRunId: 'r' }), {
+    dot: 'waiting_approval',
+    label: '需批准',
+  });
+  assert.equal(
+    conversationMarker({ ...base, attention: 'unknown', activeRunId: 'r' }).label,
+    '需核对',
+  );
+  assert.equal(conversationMarker({ ...base, activeRunId: 'r', unread: true }).label, '运行中');
+  assert.deepEqual(conversationMarker({ ...base, unread: true }), { dot: 'unread', label: '未读' });
+  assert.deepEqual(conversationMarker(base), { dot: 'needs_review', label: '' });
+});
+test('a known refusal frees the draft; anything else keeps the key so a resend cannot repeat', () => {
+  for (const code of [
+    'RUNTIME_BUSY',
+    'WORKSPACE_BUSY',
+    'RUN_GRANT_EXPIRED',
+    'IDEMPOTENCY_CONFLICT',
+  ])
+    assert.equal(sendFailure(code).retry, false, code);
+  for (const code of ['HOST_ERROR', 'RESPONSE_TIMEOUT', '']) {
+    const failure = sendFailure(code);
+    assert.equal(failure.retry, true, code);
+    assert.match(failure.message, /不会重复/);
+  }
 });

@@ -34,10 +34,12 @@ const execution = process.argv.includes('--execution') || interactions;
 const history = process.argv.includes('--history');
 // CORE.1 acceptance: two real model turns in two projects at once (uses model quota).
 const concurrency = process.argv.includes('--concurrency');
+// CORE.2d: conversation window flow on the synthetic backend (no model request).
+const conversation = process.argv.includes('--conversation');
 const evidenceDirectory = evidenceDir(root);
 const file = resolve(
   evidenceDirectory,
-  `${concurrency ? 'CORE.1-concurrency-desktop' : autonomy ? 'M3.4-autonomy-desktop' : mainChat ? 'M3.1b-main-chat-regression' : skills ? 'M2.8a-desktop' : resources ? 'M2.2e-desktop' : rehearsal ? 'M2.7b-desktop' : backups ? 'M2.7a-desktop' : worktreeCode ? (worktreeCodePreflight ? 'M2.1b-worktree-preflight' : 'M2.1b-worktree-native') : tools ? 'M2.1b-tools-desktop' : recovery ? 'M2.5b-desktop' : terminal ? 'M2.6a-desktop' : worktrees ? 'M2.5a-desktop' : background ? (backgroundNative ? 'M2.4a-native-background' : 'M2.4a-desktop') : schedulerAuto ? 'M2.3d-desktop' : scheduler ? 'M2.3c-desktop' : plans ? 'M2.2d-desktop' : budget ? 'M2.2c-desktop' : tasks ? 'M2.2b-desktop' : nativeCode ? 'M1-native-code-desktop' : continuation ? 'M1.3c-desktop' : interactions ? 'M1.2-desktop' : execution ? 'M1.1c-desktop' : history ? 'M1.1b-desktop' : 'M0-desktop-smoke'}.json`,
+  `${concurrency ? 'CORE.1-concurrency-desktop' : conversation ? 'CORE.2d-conversation-desktop' : autonomy ? 'M3.4-autonomy-desktop' : mainChat ? 'M3.1b-main-chat-regression' : skills ? 'M2.8a-desktop' : resources ? 'M2.2e-desktop' : rehearsal ? 'M2.7b-desktop' : backups ? 'M2.7a-desktop' : worktreeCode ? (worktreeCodePreflight ? 'M2.1b-worktree-preflight' : 'M2.1b-worktree-native') : tools ? 'M2.1b-tools-desktop' : recovery ? 'M2.5b-desktop' : terminal ? 'M2.6a-desktop' : worktrees ? 'M2.5a-desktop' : background ? (backgroundNative ? 'M2.4a-native-background' : 'M2.4a-desktop') : schedulerAuto ? 'M2.3d-desktop' : scheduler ? 'M2.3c-desktop' : plans ? 'M2.2d-desktop' : budget ? 'M2.2c-desktop' : tasks ? 'M2.2b-desktop' : nativeCode ? 'M1-native-code-desktop' : continuation ? 'M1.3c-desktop' : interactions ? 'M1.2-desktop' : execution ? 'M1.1c-desktop' : history ? 'M1.1b-desktop' : 'M0-desktop-smoke'}.json`,
 );
 await mkdir(dirname(file), { recursive: true });
 // Replace old evidence before starting so an unsuccessful new run cannot reuse a past success.
@@ -64,57 +66,59 @@ try {
       '.',
       concurrency
         ? '--core1-concurrency-smoke'
-        : autonomy
-          ? '--m3-autonomy-smoke'
-          : mainChat
-            ? '--m3-main-chat-smoke'
-            : skills
-              ? '--m2-skills-smoke'
-              : resources
-                ? '--m2-resources-smoke'
-                : rehearsal
-                  ? '--m2-rehearsal-smoke'
-                  : backups
-                    ? '--m2-backups-smoke'
-                    : worktreeCode
-                      ? worktreeCodePreflight
-                        ? '--m2-worktree-code-preflight'
-                        : '--m2-worktree-code-smoke'
-                      : tools
-                        ? '--m2-tools-smoke'
-                        : recovery
-                          ? '--m2-worktree-recovery-smoke'
-                          : terminal
-                            ? '--m2-terminal-smoke'
-                            : worktrees
-                              ? '--m2-worktrees-smoke'
-                              : background
-                                ? backgroundNative
-                                  ? '--m2-background-native-smoke'
-                                  : '--m2-background-smoke'
-                                : schedulerAuto
-                                  ? '--m2-scheduler-auto-smoke'
-                                  : scheduler
-                                    ? '--m2-scheduler-smoke'
-                                    : plans
-                                      ? '--m2-plans-smoke'
-                                      : budget
-                                        ? '--m2-budget-ui-smoke'
-                                        : tasks
-                                          ? '--m2-tasks-smoke'
-                                          : codeContinuation
-                                            ? '--m1-native-code-continuation-smoke'
-                                            : nativeCode
-                                              ? '--m1-native-code-smoke'
-                                              : continuation
-                                                ? '--m1-continuation-smoke'
-                                                : interactions
-                                                  ? '--m1-interaction-smoke'
-                                                  : execution
-                                                    ? '--m1-execution-smoke'
-                                                    : history
-                                                      ? '--m1-history-smoke'
-                                                      : '--m0-window-smoke',
+        : conversation
+          ? '--core2-conversation-smoke'
+          : autonomy
+            ? '--m3-autonomy-smoke'
+            : mainChat
+              ? '--m3-main-chat-smoke'
+              : skills
+                ? '--m2-skills-smoke'
+                : resources
+                  ? '--m2-resources-smoke'
+                  : rehearsal
+                    ? '--m2-rehearsal-smoke'
+                    : backups
+                      ? '--m2-backups-smoke'
+                      : worktreeCode
+                        ? worktreeCodePreflight
+                          ? '--m2-worktree-code-preflight'
+                          : '--m2-worktree-code-smoke'
+                        : tools
+                          ? '--m2-tools-smoke'
+                          : recovery
+                            ? '--m2-worktree-recovery-smoke'
+                            : terminal
+                              ? '--m2-terminal-smoke'
+                              : worktrees
+                                ? '--m2-worktrees-smoke'
+                                : background
+                                  ? backgroundNative
+                                    ? '--m2-background-native-smoke'
+                                    : '--m2-background-smoke'
+                                  : schedulerAuto
+                                    ? '--m2-scheduler-auto-smoke'
+                                    : scheduler
+                                      ? '--m2-scheduler-smoke'
+                                      : plans
+                                        ? '--m2-plans-smoke'
+                                        : budget
+                                          ? '--m2-budget-ui-smoke'
+                                          : tasks
+                                            ? '--m2-tasks-smoke'
+                                            : codeContinuation
+                                              ? '--m1-native-code-continuation-smoke'
+                                              : nativeCode
+                                                ? '--m1-native-code-smoke'
+                                                : continuation
+                                                  ? '--m1-continuation-smoke'
+                                                  : interactions
+                                                    ? '--m1-interaction-smoke'
+                                                    : execution
+                                                      ? '--m1-execution-smoke'
+                                                      : history
+                                                        ? '--m1-history-smoke'
+                                                        : '--m0-window-smoke',
     ],
     { cwd: root, stdio: 'inherit', env: display.env },
   );
