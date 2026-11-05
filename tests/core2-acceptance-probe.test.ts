@@ -8,3 +8,8 @@ test('every acceptance phase injects a script that parses', () => {
     assert.doesNotThrow(() => new Function('return ' + source), phase);
   }
 });
+
+test('the CORE.3 acceptance script parses', async () => {
+  const { script: core3 } = await import('../apps/desktop/src/core3-acceptance-probe.ts');
+  assert.doesNotThrow(() => new Function('return ' + core3({ allow: '/tmp/a', deny: '/tmp/b' })));
+});

@@ -93,6 +93,7 @@ import { BackgroundScheduler } from './background-scheduler.ts';
 import { StateIndexWarmup } from '../../../packages/codex-adapter/src/state-index.ts';
 import type { BackgroundStep } from './background-scheduler.ts';
 import { runCore2AcceptanceProbe } from './core2-acceptance-probe.ts';
+import { runCore3AcceptanceProbe } from './core3-acceptance-probe.ts';
 import { CONVERSATION_EVIDENCE, runConversationProbe } from './conversation-probe.ts';
 import { DESKTOP_API_KEYS } from './api-keys.ts';
 
@@ -199,6 +200,13 @@ const conversationSmoke = process.argv.includes('--core2-conversation-smoke');
 const core2Phase = process.argv
   .find((arg) => arg.startsWith('--core2-acceptance='))
   ?.slice('--core2-acceptance='.length);
+// CORE.3 closing acceptance (real model): a code task in a given project; see acceptance-core3.mjs.
+const core3Project = process.argv
+  .find((arg) => arg.startsWith('--core3-project='))
+  ?.slice('--core3-project='.length);
+const core3State = process.argv
+  .find((arg) => arg.startsWith('--core3-state='))
+  ?.slice('--core3-state='.length);
 const core2State = process.argv
   .find((arg) => arg.startsWith('--core2-state='))
   ?.slice('--core2-state='.length);
@@ -236,6 +244,7 @@ const keepRunningWithoutWindow =
     nativeCodeSmoke ||
     concurrencySmoke ||
     core2Phase ||
+    core3Project ||
     executionSmoke ||
     historySmoke ||
     acceptanceProbe ||
@@ -802,6 +811,7 @@ async function boot(): Promise<void> {
           return history.registerDirectory(acceptanceProbe.folderDirectory!);
         if (fixtureWorkspace) return history.registerDirectory(fixtureWorkspace);
         if (nativeCodeWorkspace) return history.registerDirectory(nativeCodeWorkspace);
+        if (core3Project) return history.registerDirectory(core3Project);
         if (concurrencySmoke) {
           const directory = concurrencyProjects[concurrencyChosen++];
           if (!directory) throw new LedgerError('PROJECT_DIALOG_OPEN');
@@ -1573,6 +1583,17 @@ async function boot(): Promise<void> {
   window = await showMainWindow();
   if (conversationSmoke) {
     await runConversationProbe(root, app, window, execution!);
+    return;
+  }
+  if (core3Project && core3State) {
+    const storageRoot = app.getPath('userData');
+    await runCore3AcceptanceProbe(
+      app,
+      window,
+      activeRuntimePaths(storageRoot, resolve(storageRoot, 'verification')).database,
+      core3Project,
+      core3State,
+    );
     return;
   }
   if (core2Phase && core2State) {

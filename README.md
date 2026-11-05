@@ -95,6 +95,8 @@ pnpm smoke:history:desktop
 
 `pnpm smoke:conversation:desktop`（CORE.2d/2g）在真实沙箱窗口中用合成后端（不调用模型）走一遍：新对话 → 追问 → 同一对话两轮 → 侧栏一个对话 → 置顶 → 打开 Dot → 返回对话 → 从第一轮新开 → 归档并查看已归档列表。
 
+`pnpm acceptance:core3`（CORE.3 验收，约 5 个真实模型轮次）在一个小 Python 项目里验证：“自动”模式修代码、检查命令（unittest，在 Codex 沙箱里运行）修复前失败修复后通过、越出沙箱的命令弹出审批（允许生效、拒绝无副作用）、运行中追加指令、停止后进程退出。
+
 `pnpm acceptance:core2`（CORE.2 验收，约 4 个真实模型 Turn）用上一版代码写入旧数据，再在真实窗口里验证：迁移后旧记录可读、追问引用上一轮、冷重启后继续、流式中强杀后重启自动核对且不重发。数据放在 `.local/core2-acceptance/`。
 
 `pnpm smoke:concurrency:desktop`（CORE.1 验收）在真实沙箱窗口中让两个临时项目同时各发一条只读问题（2 次真实模型请求，消耗额度），运行期间检查浏览文件、Diff、历史和连接检查都不被拒绝，并记录首段回答延迟和空闲 CPU。它使用独立配置目录 `.local/desktop-concurrency-smoke-data`，首次运行会先建立 Codex 索引。结果见 [CORE 计划](docs/progress/CORE.md)。
