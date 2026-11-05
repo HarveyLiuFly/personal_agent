@@ -35,11 +35,9 @@ Electron 45 使用显式安装器下载运行时；安装器保留官方发行�
 Linux x64/arm64 桌面的启用步骤、诊断与已知限制见 [Linux 平台适配](docs/progress/LINUX_PLATFORM.md)。简要：
 
 ```bash
-pnpm install --frozen-lockfile        # node-pty 在 Linux 上本地编译，需要 python3/make/g++
-pnpm exec install-electron
-npm install --prefix .local/codex-install --no-audit --no-fund --save-exact @openai/codex@0.163.0
-pnpm diagnose                           # 只读诊断：沙箱、显示、Codex 锁、终端、验证器
-pnpm baseline:platform                # Codex 哈希与锁不一致时，按协议一致性建立本机锁
+bash scripts/verify-linux.sh          # 一键准备与验证（Node 24、依赖、node-pty、Codex 锁、诊断、测试、真实 Smoke）；不发模型请求
+pnpm diagnose                         # 只读诊断：沙箱、显示、Codex 锁、终端、验证器
+pnpm warm:codex-index                 # 首次启动前预热 Codex 状态索引（~/.codex 历史很大时）
 pnpm dev
 ```
 

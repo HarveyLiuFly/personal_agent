@@ -5,6 +5,7 @@ import { basename,dirname,isAbsolute,join,relative,resolve,sep } from 'node:path
 import { ExecutionLedger,LedgerError } from '../../store/src/ledger.ts';
 import type { RunToken } from '../../store/src/ledger.ts';
 import { isObject } from '../../codex-adapter/src/rpc.ts';
+import { sandboxStdioFiles,sandboxStdioUsesFiles } from '../../codex-adapter/src/sandbox-stdio.ts';
 export interface CodeInput { profile: 'node-test'; target: string; allowedPaths: string[] }
 export interface TestCase { name:string; file:string; line:number; column:number; passed:boolean; skipped:boolean }
 export interface TestResult { exitCode:number|null; timedOut:boolean; cases:TestCase[] }
@@ -49,6 +50,9 @@ export function workspaceFiles(cwd:string):Record<string,string>{
   files[key]=`${info.mode&0o777}:${fileHash(full)}`;
  }};walk(cwd);return files;
 }
+/** Linux: Codex's no-network seccomp filter rejects the socketpair Node's test runner needs for child
+ * processes, so the single target file runs in-process. Tests that spawn piped children fail there. */
+const linuxTestIsolation=process.platform==='linux'?['--test-isolation=none']:[];
 const caseKey=(c:TestCase)=>JSON.stringify([c.file,c.line,c.column,c.name]);
 export class NodeVerification {
  private store:ExecutionLedger;private options:VerifierOptions;
@@ -59,26 +63,32 @@ export class NodeVerification {
   const readRoots=[dirname(dirname(this.options.node)),dirname(this.options.reporter)];
   if(process.platform==='darwin'&&existsSync('/System/Library/OpenSSL'))readRoots.push(realpathSync('/System/Library/OpenSSL'));
   if(process.platform==='linux'&&existsSync('/etc/ssl'))readRoots.push(realpathSync('/etc/ssl'));
+  // Linux: bubblewrap re-executes the Codex binary as its codex-linux-sandbox helper inside the restricted view.
+  if(process.platform==='linux')readRoots.push(this.options.cli);
   const config='[permissions.personal-agent-verifier]\nextends=":read-only"\n[permissions.personal-agent-verifier.filesystem]\n":root"="deny"\n":minimal"="read"\n'
    +readRoots.map(path=>`${JSON.stringify(path)}="read"\n`).join('')+`${JSON.stringify(scratch)}="write"\n`+'[permissions.personal-agent-verifier.filesystem.":workspace_roots"]\n"."="read"\n[permissions.personal-agent-verifier.network]\nenabled=false\n';
   writeFileSync(join(home,'config.toml'),config,{mode:0o600});
   const environment:NodeJS.ProcessEnv={PATH:process.env.PATH,HOME:home,CODEX_HOME:home,TMPDIR:scratch,LANG:'en_US.UTF-8',TZ:'UTC'};
-  const child=spawn(this.options.cli,['sandbox','--include-managed-config','--permission-profile','personal-agent-verifier','-C',cwd,'--',this.options.node,'--test',`--test-reporter=${this.options.reporter}`,'--',target],{cwd,env:environment,stdio:['ignore','pipe','pipe'],detached:process.platform!=='win32'});
+  const files=sandboxStdioUsesFiles?sandboxStdioFiles(root):undefined;
+  const child=spawn(this.options.cli,['sandbox','--include-managed-config','--permission-profile','personal-agent-verifier','-C',cwd,'--',this.options.node,'--test',...linuxTestIsolation,`--test-reporter=${this.options.reporter}`,'--',target],{cwd,env:environment,stdio:files?files.stdio:['ignore','pipe','pipe'],detached:process.platform!=='win32'});
   const cases:TestCase[]=[];let buffer='',bytes=0,timedOut=false;
   const kill=()=>{try{if(child.pid){if(process.platform==='win32')child.kill('SIGKILL');else process.kill(-child.pid,'SIGKILL');}}catch{}};
   const abort=()=>{timedOut=true;kill();};signal?.addEventListener('abort',abort,{once:true});if(signal?.aborted)abort();
   const timer=setTimeout(abort,this.options.timeoutMs??30000);
-  child.stderr.on('data',()=>{});
-  child.stdout.on('data',chunk=>{
+  child.stderr?.on('data',()=>{});
+  const consume=(chunk:Buffer)=>{
    bytes+=chunk.length;if(bytes>262144){abort();return;}buffer+=String(chunk);let i:number;
    while((i=buffer.indexOf('\n'))>=0){const line=buffer.slice(0,i);buffer=buffer.slice(i+1);try{
     const d:unknown=JSON.parse(line);if(!isObject(d)||!['test:pass','test:fail'].includes(String(d.type))||typeof d.name!=='string'||d.name.length>500||typeof d.file!=='string'||!Number.isSafeInteger(d.line)||!Number.isSafeInteger(d.column)||typeof d.skipped!=='boolean'){abort();return;}
     const file=relative(cwd,d.file).split(sep).join('/');if(file!==target){abort();return;}
     if(cases.length>=500){abort();return;}cases.push({name:d.name,file,line:Number(d.line),column:Number(d.column),passed:d.type==='test:pass',skipped:d.skipped});
    }catch{abort();return;}}
-  });
-  try{const exitCode=await new Promise<number|null>((done)=>{child.once('error',()=>done(null));child.once('close',code=>{if(buffer.trim())timedOut=true;done(code);});});return{exitCode,timedOut,cases};}
-  finally{clearTimeout(timer);signal?.removeEventListener('abort',abort);rmSync(root,{recursive:true,force:true});}
+  };
+  child.stdout?.on('data',consume);
+  try{const exitCode=await new Promise<number|null>((done)=>{child.once('error',()=>done(null));child.once('close',code=>{
+    if(files){const output=files.output(262144);if(output===null)abort();else if(output.length)consume(output);}
+    if(buffer.trim())timedOut=true;done(code);});});return{exitCode,timedOut,cases};}
+  finally{clearTimeout(timer);signal?.removeEventListener('abort',abort);files?.close();rmSync(root,{recursive:true,force:true});}
  }
  async prepare(token:RunToken,input:unknown,signal?:AbortSignal):Promise<void>{
   const profile=codeInput(input),run=this.store.runForHost(token.runId),workspace=this.store.workspace(run.workspaceId),cwd=workspace.directory;

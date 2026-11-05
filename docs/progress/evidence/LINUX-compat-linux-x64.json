@@ -1,0 +1,206 @@
+{
+  "kind": "linux_platform_verification",
+  "progressPoint": "LINUX.compat",
+  "observedAt": "2026-11-05T03:23:00Z",
+  "platform": "linux-x64",
+  "os": "Ubuntu 22.04.5 LTS, kernel 6.8, X11",
+  "git": "2.34.1",
+  "verifierNode": "v24.19.0 (official tarball, SHA-256 checked)",
+  "codexCli": "codex-cli 0.163.0, pinned linux-x64 hash matches",
+  "projectFilesystem": "ntfs3 (nosuid)",
+  "hostIoNote": "Host disk I/O pressure was high during the run (other Codex workloads); several timing-bound tests are sensitive to it.",
+  "diagnose": [
+    "✓ Platform             linux-x64 · Ubuntu 22.04.5 LTS",
+    "✓ Node                 v24.19.0",
+    "✓ Dependencies         node_modules present",
+    "✓ Electron             <repo>/node_modules/.pnpm/electron@45.2.1/node_modules/electron/dist/electron",
+    "✓ Electron sandbox     user namespaces",
+    "✓ Display              x11 :1",
+    "! Project filesystem   ntfs3 at <project mount>",
+    "   Works, but node_modules installs and builds are slower than on ext4/btrfs/xfs.",
+    "✓ Codex CLI            codex-cli 0.163.0 · pinned hash matches",
+    "✓ Codex login          Logged in using ChatGPT",
+    "✓ Verifier Node        <repo>/.local/node-v24.19.0-linux-x64/bin/node",
+    "✓ git                  /usr/bin/git",
+    "✓ Terminal (node-pty)  loads under verifier Node · shell /bin/bash --noprofile --norc -i",
+    "✓ Codex sandbox        verifier profile runs node --test inside the Codex sandbox and reports the case",
+    "",
+    "All checks passed."
+  ],
+  "smokes": {
+    "connection": {
+      "status": "passed",
+      "observedAt": "2026-11-05T03:18:30.669Z",
+      "kind": "real_app_server_catalog_probe",
+      "cliVersion": "codex-cli 0.163.0",
+      "platform": "linux-x64",
+      "verifiedMethods": [
+        "initialize",
+        "initialized",
+        "model/list"
+      ],
+      "models": 8,
+      "defaultModel": "gpt-6.1-sol"
+    },
+    "verifierSandbox": {
+      "status": "passed",
+      "observedAt": "2026-11-05T03:18:35.260Z",
+      "kind": "real_sandbox_node_verifier_with_synthetic_model_metadata",
+      "cliVersion": "codex-cli 0.163.0",
+      "platform": "linux-x64",
+      "inferenceRequested": false,
+      "modelExecution": "synthetic_metadata_only",
+      "scope": "Real CLI minimal filesystem/network permission profile, real Node test event reporter and real Git/SQLite/artifact receipt. Math edit performed by the Host fixture; not a model code task or M1 gate.",
+      "requiredCases": 2,
+      "discovered": 2,
+      "executed": 2,
+      "skipped": 0,
+      "exitCode": 0,
+      "taskStatus": "completed",
+      "receiptHashVerified": true
+    },
+    "workspaceSandbox": {
+      "status": "passed",
+      "observedAt": "2026-11-05T03:18:39.857Z",
+      "kind": "real_filesystem_git_and_native_read_only_sandbox",
+      "platform": "linux-x64",
+      "cliVersion": "codex-cli 0.163.0",
+      "inferenceRequested": false,
+      "gitBackend": "real_system_git",
+      "sandbox": "real_locked_cli_permission_profile",
+      "ordinaryGitStatus": true,
+      "stagedAndUnstagedDiffSeparated": true,
+      "plainTextPreview": true,
+      "protectedFileNoGrant": true,
+      "indexUnchanged": true,
+      "sourceUnchangedByReads": true,
+      "outsideReadBlocked": true,
+      "protectedRootFileReadBlocked": true,
+      "workspaceWriteBlocked": true,
+      "loopbackNetworkBlocked": true,
+      "serverConnections": 0,
+      "parentToolBridgeAbsent": true,
+      "authenticationEnvironmentAbsent": true
+    },
+    "desktopWindow": {
+      "passed": {
+        "observedAt": "2026-11-05T03:12:27.329Z",
+        "kind": "real_electron_window_smoke",
+        "status": "passed",
+        "browserSandbox": "enabled",
+        "result": {
+          "title": "Personal Agent",
+          "rendered": true,
+          "hasRequire": false,
+          "bridgeKeys": "63 keys",
+          "sandboxed": true,
+          "isolated": true,
+          "connection": {
+            "status": "connected",
+            "models": 8,
+            "defaultModel": "gpt-6.1-sol"
+          },
+          "uiConnected": true
+        },
+        "display": "existing_display",
+        "exitCode": 0,
+        "signal": null,
+        "timedOut": false,
+        "platform": "linux-x64"
+      },
+      "laterRuns": [
+        {
+          "status": "blocked",
+          "connection": {
+            "status": "error",
+            "errorCode": "RUNTIME_BUSY"
+          },
+          "sandboxed": true,
+          "isolated": true,
+          "uiConnected": true,
+          "code": "ELECTRON_VALIDATION_FAILED"
+        },
+        {
+          "status": "blocked",
+          "connection": {
+            "status": "error",
+            "errorCode": "RUNTIME_BUSY"
+          },
+          "sandboxed": true,
+          "isolated": true,
+          "uiConnected": true,
+          "code": "ELECTRON_VALIDATION_FAILED"
+        },
+        {
+          "status": "blocked",
+          "connection": {
+            "status": "error",
+            "errorCode": "RUNTIME_BUSY"
+          },
+          "sandboxed": true,
+          "isolated": true,
+          "uiConnected": true,
+          "code": "ELECTRON_VALIDATION_FAILED"
+        }
+      ],
+      "laterRunsNote": "Window sandboxed/isolated and UI connected in every run; the smoke's own inspect call collided with the window's polling inspect on the shared busy flag (review L4/A5), not a Linux issue."
+    },
+    "model": {
+      "observedAt": "2026-11-05T03:22:57.160Z",
+      "cliVersion": "codex-cli 0.163.0",
+      "platform": "linux-x64",
+      "status": "passed",
+      "model": "gpt-6.1-sol",
+      "threadId": "01a1a9bb-2e2d-7283-a8dc-c5281a1162e4",
+      "turnId": "01a1a9bb-2eae-7362-8055-2fa1f02b1142",
+      "finalText": "M0_READY_a9b90e49ec2b",
+      "expectedText": "M0_READY_a9b90e49ec2b",
+      "serverRequestsDenied": 0,
+      "toolItems": 0,
+      "notificationCounts": {
+        "remoteControl/status/changed": 1,
+        "account/updated": 1,
+        "thread/started": 1,
+        "mcpServer/startupStatus/updated": 6,
+        "thread/status/changed": 2,
+        "turn/started": 1,
+        "item/started": 2,
+        "item/completed": 2,
+        "item/agentMessage/delta": 12,
+        "thread/tokenUsage/updated": 1,
+        "account/rateLimits/updated": 1,
+        "turn/completed": 1
+      },
+      "completionSource": "notification",
+      "kind": "real_app_server_model_smoke",
+      "executableSha256": "399ff69c431c066e40de318fba45c2b07f45a76b19939d247ee4828fc70c4215",
+      "schemaFingerprint": "d3bb2d6b3aba976aecaa62eab4f0496f3cccd4bfc5b355190b23bd14c1bb545c",
+      "verifiedMethods": [
+        "initialize",
+        "initialized",
+        "model/list",
+        "thread/start",
+        "turn/start"
+      ],
+      "scope": "One client turn/start in an isolated ephemeral read-only workspace; no tools permitted or task Composer enabled.",
+      "tokens": "not recorded by this smoke (one thread/tokenUsage/updated notification)"
+    }
+  },
+  "normalLaunch": {
+    "seconds": 25,
+    "optionalServicesUnavailable": 0,
+    "electronSandbox": "enabled"
+  },
+  "tests": {
+    "suites": 12,
+    "total": 124,
+    "pass": 123,
+    "fail": 1,
+    "skipped": 0,
+    "failing": [
+      "scheduled-execution: budget waits … (500 ms real-time window; passed/failed alternately in solo reruns under I/O pressure)"
+    ]
+  },
+  "codexStateIndex": "Each private sqlite_home re-indexes ~/.codex (2,139 sessions, 3.7 GB). Interrupted first start left a running lease that blocked starts for ~15 min; completed in ~90 s once claimed. scripts/warm-codex-index.ts added.",
+  "inferenceRequests": 1
+}

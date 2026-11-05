@@ -6,7 +6,7 @@
 
 走查最新（2026-11-05，`checkpoint/M3.manual-recovery-ui`）：52项通过（用户4、Agent UI44、Host/组件4），OS通知失败1、生产HTTPS缺配置阻塞3、可选付费G06跳过1；余G02–G05/S05共5项等待不可逆动作当次确认。F01–F06真实后台/冷进程/备份/失效准备拒绝/运行代切换通过，源码保留、旧资格停止、0模型重发。UX-07/08已修复并TS/构建、真实UI零模型复验。累计11请求已结算314,436报告Token、Unknown预留0，无全量。见[执行表](M3_MANUAL_RESULTS.md)与[执行日志](M3_MANUAL_REMAINING.md)。以下旧摘要保留当时事实。
 
-Linux 适配（2026-11-05，`LINUX.compat`）：可选服务按能力探测；终端/git/临时目录/显示/文案/托盘支持 Linux；修复 Ubuntu 22.04（git 2.34）上工作树全部失败的问题；新增 `pnpm diagnose`、`pnpm baseline:platform` 与 `scripts/verify-linux.sh`。本机 Ubuntu 22.04 沙箱内类型检查/构建通过，受影响 91 项中 88 通过（3 项为宿主机 I/O 压力下的超时，未计为通过）；Electron 窗口与 Codex 沙箱待用户在桌面会话运行第 3 轮，Linux 上未发模型请求。见 [Linux 平台适配](LINUX_PLATFORM.md)。同日完成并经两路独立复核的架构/界面/逻辑审查：[审查报告](../reviews/2026-11-05-architecture-ui-logic-review.md)，结论是先收敛产品主干（Thread、可写工作区+审批、去全局单槽、事件推送）再继续 M4。
+Linux 适配（2026-11-05，`LINUX.compat`）：**本机 Ubuntu 22.04 x64 宿主机已验证可用**。修复了 Linux 上原本不可用的部分：工作树（git 2.34 不支持 `-z`）、Codex 沙箱内的代码验证与文件浏览（辅助程序读取、seccomp 下的 stdio）、可选服务按能力探测、终端/托盘/文案。宿主机实测：诊断全部通过，真实连接、沙箱验证器、沙箱文件浏览、Electron 沙箱窗口内连接、1 次真实只读模型请求通过；受影响 124 项中 123 通过（1 项 500 ms 实时窗口用例受 I/O 压力影响）。真实代码任务端到端未在 Linux 运行。见 [Linux 平台适配](LINUX_PLATFORM.md)、[证据](evidence/LINUX-compat-linux-x64.json)。同日的架构/界面/逻辑审查已逐页对齐 Codex 应用：[审查报告](../reviews/2026-11-05-architecture-ui-logic-review.md)，结论是先收敛产品主干（三栏首页、Thread、可写工作区+审批、去全局单槽、事件推送）再继续 M4。
 
 每个 M 分为四个主要进展点；必要时拆成可独立交付的子进展点，并沿用相同的记录、提交与推送规则。进展点完成或出现具体外部阻塞时，更新阶段记录并同步：已完成、验证证据、阻塞/风险、下一步。进展点是交付检查点，不把静态检查通过等同于功能可用。
 

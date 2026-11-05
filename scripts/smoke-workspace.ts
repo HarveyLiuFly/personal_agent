@@ -19,10 +19,12 @@ try{
  assert.equal(digest(readFileSync(join(cwd,'.git/index'))),index);assert.equal(readFileSync(join(cwd,'src/math.txt'),'utf8'),'unstaged fixture\n');
  await new Promise<void>(done=>server.listen(0,'127.0.0.1',done));const address=server.address();assert.ok(address&&typeof address==='object');const outside=join(folder,'outside-canary');writeFileSync(outside,'public synthetic sentinel');
  const probe=join(folder,'boundary-probe.mjs');writeFileSync(probe,`import assert from 'node:assert/strict';import {readFileSync,writeFileSync} from 'node:fs';import net from 'node:net';
+// Seatbelt refuses with EPERM/EACCES. Linux bubblewrap hides unmounted paths (ENOENT) and mounts allowed trees read-only (EROFS).
+const deniedFs=${JSON.stringify(process.platform==='linux'?['EPERM','EACCES','ENOENT','EROFS']:['EPERM','EACCES'])};
 try{
- assert.throws(()=>readFileSync(${JSON.stringify(outside)}),e=>['EPERM','EACCES'].includes(e.code));
- assert.throws(()=>readFileSync(${JSON.stringify(join(cwd,'.env'))}),e=>['EPERM','EACCES'].includes(e.code));
- assert.throws(()=>writeFileSync(${JSON.stringify(join(cwd,'forbidden-write'))},'x'),e=>['EPERM','EACCES'].includes(e.code));
+ assert.throws(()=>readFileSync(${JSON.stringify(outside)}),e=>deniedFs.includes(e.code));
+ assert.throws(()=>readFileSync(${JSON.stringify(join(cwd,'.env'))}),e=>deniedFs.includes(e.code));
+ assert.throws(()=>writeFileSync(${JSON.stringify(join(cwd,'forbidden-write'))},'x'),e=>deniedFs.includes(e.code));
  for(const name of ['CODEX_APP_TOOLS_PIPE_PATH','CODEX_THREAD_ID','CODEX_SESSION_ID','CODEX_API_KEY','OPENAI_API_KEY','AWS_ACCESS_KEY_ID','GOOGLE_APPLICATION_CREDENTIALS'])assert.equal(process.env[name],undefined);
  await new Promise((done,reject)=>{const socket=net.connect(${address.port},'127.0.0.1');socket.once('connect',()=>{socket.destroy();reject(new Error('NETWORK_ALLOWED'));});socket.once('error',e=>['EPERM','EACCES'].includes(e.code)?done():reject(e));socket.setTimeout(1500,()=>{socket.destroy();reject(new Error('NETWORK_NOT_CONFIRMED'));});});
  process.stdout.write(JSON.stringify({ok:true,data:{directory:{entries:[{name:'boundaries-passed',path:'boundaries-passed',kind:'blocked',size:0,identity:'',reason:'PROBE_ONLY'}],truncated:false},git:{available:false,branch:null,head:null,changes:[]}}}));

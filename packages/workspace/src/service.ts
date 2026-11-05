@@ -5,6 +5,7 @@ import {dirname,join} from 'node:path';
 import {LedgerError} from '../../store/src/ledger.ts';
 import {resolveSystemGit} from './platform.ts';
 import {isObject} from '../../codex-adapter/src/rpc.ts';
+import {sandboxStdioFiles,sandboxStdioUsesFiles} from '../../codex-adapter/src/sandbox-stdio.ts';
 import type {ProjectView} from '../../contracts/src/views.ts';
 import type {WorkspaceDirectory,WorkspaceOverview,WorkspacePreview,WorkspaceDiff,WorkspaceGit} from '../../contracts/src/workspace.ts';
 const hash=(value:Buffer|string)=>createHash('sha256').update(value).digest('hex');
@@ -84,18 +85,23 @@ export class WorkspaceService {
    this.workspace(project.id);const rootStamp=identity(project.directory);scratchRoot=mkdtempSync(join(this.options.stateDirectory,'query-'));
    const home=join(scratchRoot,'home'),scratch=join(scratchRoot,'scratch');mkdirSync(home,{mode:0o700});mkdirSync(scratch,{mode:0o700});
    const managedGit=this.options.managedGit?.(project.id),readRoots=[dirname(dirname(this.options.node)),dirname(dirname(this.options.git)),dirname(this.program),...(managedGit?[managedGit.gitDir,managedGit.commonDir]:[])];if(process.platform==='darwin'&&existsSync('/System/Library/OpenSSL'))readRoots.push(realpathSync('/System/Library/OpenSSL'));
+   // Linux: bubblewrap re-executes the Codex binary as its codex-linux-sandbox helper inside the restricted view.
+   if(process.platform==='linux'&&!this.options.withoutSandboxForTests)readRoots.push(this.options.cli);
    const protectedRoots=new Set(['.codex','.agents','.aws','.ssh','.kube','.local','.npmrc','.netrc','.pypirc','credentials.json','auth.json',...(operation.operation==='overview'||operation.operation==='diff'?[]:['.git'])]);
    for(const name of readdirSync(project.directory)){const lower=name.toLowerCase();if(protectedRoots.has(lower)||lower==='.env'||lower.startsWith('.env.')||/\.(pem|key|p12|pfx)$/.test(lower))protectedRoots.add(name);}
    const config='[permissions.personal-agent-workspace]\nextends=":read-only"\n[permissions.personal-agent-workspace.filesystem]\n":root"="deny"\n":minimal"="read"\n'+readRoots.map(p=>`${JSON.stringify(p)}="read"\n`).join('')+`${JSON.stringify(scratch)}="write"\n`+[...protectedRoots].map(name=>`${JSON.stringify(join(project.directory,name))}="deny"\n`).join('')+'[permissions.personal-agent-workspace.filesystem.":workspace_roots"]\n"."="read"\n[permissions.personal-agent-workspace.network]\nenabled=false\n';
    writeFileSync(join(home,'config.toml'),config,{mode:0o600});
    const args=this.options.withoutSandboxForTests?[this.program]:['sandbox','--include-managed-config','--permission-profile','personal-agent-workspace','-C',project.directory,'--',this.options.node,this.program];
-   const child=spawn(this.options.withoutSandboxForTests?this.options.node:this.options.cli,args,{cwd:project.directory,env:{PATH:process.env.PATH,HOME:home,CODEX_HOME:home,TMPDIR:scratch,LANG:'en_US.UTF-8',TZ:'UTC'},stdio:['pipe','pipe','pipe'],detached:process.platform!=='win32'});
+   const request=JSON.stringify({...operation,directory:project.directory,rootIdentity:rootStamp,git:this.options.git,managedGit});
+   const files=sandboxStdioUsesFiles&&!this.options.withoutSandboxForTests?sandboxStdioFiles(scratchRoot,request):undefined;
+   const child=spawn(this.options.withoutSandboxForTests?this.options.node:this.options.cli,args,{cwd:project.directory,env:{PATH:process.env.PATH,HOME:home,CODEX_HOME:home,TMPDIR:scratch,LANG:'en_US.UTF-8',TZ:'UTC'},stdio:files?files.stdio:['pipe','pipe','pipe'],detached:process.platform!=='win32'});
    let bytes=0,stopped=false;const chunks:Buffer[]=[];const stop=()=>{stopped=true;try{if(child.pid){if(process.platform==='win32')child.kill('SIGKILL');else process.kill(-child.pid,'SIGKILL');}}catch{}};
    const timer=setTimeout(stop,this.options.timeoutMs??12000);signal?.addEventListener('abort',stop,{once:true});if(signal?.aborted)stop();
-   child.stdout.on('data',chunk=>{bytes+=chunk.length;if(bytes>1048576){stop();return;}chunks.push(chunk);});child.stderr.on('data',()=>{});child.stdin.on('error',()=>{});
-   child.stdin.end(JSON.stringify({...operation,directory:project.directory,rootIdentity:rootStamp,git:this.options.git,managedGit}));
+   child.stdout?.on('data',chunk=>{bytes+=chunk.length;if(bytes>1048576){stop();return;}chunks.push(chunk);});child.stderr?.on('data',()=>{});child.stdin?.on('error',()=>{});
+   child.stdin?.end(request);
    let code:number|null;
-   try{code=await new Promise<number|null>(done=>{child.once('error',()=>done(null));child.once('close',done);});}finally{clearTimeout(timer);signal?.removeEventListener('abort',stop);}
+   try{code=await new Promise<number|null>(done=>{child.once('error',()=>done(null));child.once('close',done);});}finally{clearTimeout(timer);signal?.removeEventListener('abort',stop);files?.close();}
+   if(files){const output=files.output(1048576);if(output===null)stopped=true;else chunks.push(output);}
    if(stopped||code===null)return fail('WORKSPACE_READ_INTERRUPTED');
    this.workspace(project.id);if(identity(project.directory)!==rootStamp)return fail('WORKSPACE_IDENTITY_CHANGED');
    let result:unknown;try{result=JSON.parse(Buffer.concat(chunks).toString('utf8'));}catch{return fail('INVALID_WORKSPACE_RESPONSE');}

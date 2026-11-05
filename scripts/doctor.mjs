@@ -103,20 +103,30 @@ try {
     : reason === 'TERMINAL_BINDING_MISSING' ? 'Run `pnpm install --frozen-lockfile` (node-pty compiles on Linux; needs python3, make, g++).' : undefined);
 }
 
-// Same sandbox invocation the code verifier uses, running a no-op Node script.
+// Same sandbox invocation and test runner flags the code verifier uses, on a one-case test file.
 if (codexExecutable && verifierNode) {
   const scratchRoot = mkdtempSync(join(realpathSync(tmpdir()), 'personal-agent-doctor-'));
   try {
     const home = join(scratchRoot, 'home'), scratch = join(scratchRoot, 'scratch'), cwd = join(scratchRoot, 'project');
     for (const d of [home, scratch, cwd]) mkdirSync(d, { mode: 0o700 });
-    writeFileSync(join(cwd, 'probe.mjs'), 'process.exit(0)\n');
-    const readRoots = [dirname(dirname(verifierNode))];
+    writeFileSync(join(cwd, 'probe.test.mjs'), "import {test} from 'node:test';\ntest('sandbox probe', () => {});\n");
+    const reporter = join(root, 'packages/verification/src/reporter.mjs');
+    const readRoots = [dirname(dirname(verifierNode)), dirname(reporter)];
     if (process.platform === 'linux' && existsSync('/etc/ssl')) readRoots.push(realpathSync('/etc/ssl'));
+    // Same as the verifier: bubblewrap re-executes the Codex binary as its codex-linux-sandbox helper.
+    if (process.platform === 'linux') readRoots.push(codexExecutable);
     writeFileSync(join(home, 'config.toml'), '[permissions.personal-agent-verifier]\nextends=":read-only"\n[permissions.personal-agent-verifier.filesystem]\n":root"="deny"\n":minimal"="read"\n'
       + readRoots.map(p => `${JSON.stringify(p)}="read"\n`).join('') + `${JSON.stringify(scratch)}="write"\n[permissions.personal-agent-verifier.filesystem.":workspace_roots"]\n"."="read"\n[permissions.personal-agent-verifier.network]\nenabled=false\n`, { mode: 0o600 });
-    const result = spawnSync(codexExecutable, ['sandbox', '--include-managed-config', '--permission-profile', 'personal-agent-verifier', '-C', cwd, '--', verifierNode, 'probe.mjs'],
-      { cwd, encoding: 'utf8', timeout: 30_000, env: { PATH: process.env.PATH, HOME: home, CODEX_HOME: home, TMPDIR: scratch, LANG: 'C.UTF-8', TZ: 'UTC' } });
-    if (result.status === 0) pass('Codex sandbox', 'verifier profile runs Node inside the Codex sandbox');
+    // Same stdio as the verifier: on Linux the sandboxed process gets files, not Unix sockets.
+    const { sandboxStdioFiles, sandboxStdioUsesFiles } = await import('../packages/codex-adapter/src/sandbox-stdio.ts');
+    const files = sandboxStdioUsesFiles ? sandboxStdioFiles(scratchRoot) : undefined;
+    const spawned = spawnSync(codexExecutable, ['sandbox', '--include-managed-config', '--permission-profile', 'personal-agent-verifier', '-C', cwd, '--', verifierNode, '--test', ...(process.platform === 'linux' ? ['--test-isolation=none'] : []), `--test-reporter=${reporter}`, '--', 'probe.test.mjs'],
+      { cwd, encoding: 'utf8', timeout: 30_000, ...(files ? { stdio: files.stdio } : {}), env: { PATH: process.env.PATH, HOME: home, CODEX_HOME: home, TMPDIR: scratch, LANG: 'C.UTF-8', TZ: 'UTC' } });
+    const result = files ? { ...spawned, stdout: String(files.output(262144) ?? '') } : spawned;
+    files?.close();
+    const reported = (result.stdout ?? '').split('\n').some(line => { try { return JSON.parse(line).type === 'test:pass'; } catch { return false; } });
+    if (result.status === 0 && reported) pass('Codex sandbox', 'verifier profile runs node --test inside the Codex sandbox and reports the case');
+    else if (result.status === 0) fail('Codex sandbox', 'node --test exited 0 but reported no test case', 'The sandbox started but test events were lost (on Linux, piped child stdio is blocked without network; the verifier runs tests in-process).');
     else {
       const output = `${result.stderr ?? ''}\n${result.stdout ?? ''}`;
       const noUserns = /create new namespace|unprivileged user namespaces/i.test(output);

@@ -13,6 +13,7 @@
     "setup:terminal": "node scripts/setup-terminal.mjs",
     "diagnose": "node --disable-warning=ExperimentalWarning scripts/doctor.mjs",
     "baseline:platform": "node --disable-warning=ExperimentalWarning scripts/baseline-platform.mjs",
+    "warm:codex-index": "node --disable-warning=ExperimentalWarning scripts/warm-codex-index.ts",
     "dev": "node scripts/dev.mjs",
     "build": "node scripts/build.mjs",
     "typecheck": "tsc --noEmit",

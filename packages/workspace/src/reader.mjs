@@ -1,5 +1,5 @@
 // Trusted, fixed-purpose process. Never import or execute project JavaScript or Git helpers.
-import {constants,openSync,closeSync,fstatSync,lstatSync,readSync,readFileSync,readdirSync,realpathSync,existsSync} from 'node:fs';
+import {constants,openSync,closeSync,fstatSync,lstatSync,readSync,readFileSync,readdirSync,realpathSync,existsSync,rmSync} from 'node:fs';
 import {execFileSync} from 'node:child_process';
 import {createHash} from 'node:crypto';
 import {join,resolve,relative,sep} from 'node:path';
@@ -51,8 +51,22 @@ function preview(){
  }finally{closeSync(fd);}
 }
 const gitBase=['--no-pager','--no-optional-locks','--no-replace-objects','--literal-pathspecs','-c','core.fsmonitor=false','-c','core.hooksPath=/dev/null','-c','core.attributesFile=/dev/null','-c','core.untrackedCache=false','-c','maintenance.auto=false','-c','gc.auto=0','-c','color.ui=false','-C'];
+// Linux: Codex's no-network seccomp filter rejects the socketpair Node uses for piped child stdio,
+// so git output goes through a private file in the sandbox scratch directory instead.
+let captures=0;
+function runGit(args){
+ const argv=[...gitBase,input.directory,...args],options={env:{PATH:process.env.PATH,HOME:process.env.HOME,TMPDIR:process.env.TMPDIR,LANG:'C',LC_ALL:'C',GIT_CONFIG_NOSYSTEM:'1',GIT_CONFIG_GLOBAL:'/dev/null',GIT_OPTIONAL_LOCKS:'0',GIT_TERMINAL_PROMPT:'0',GIT_ATTR_NOSYSTEM:'1'},timeout:5000,maxBuffer:262144};
+ if(process.platform!=='linux')return execFileSync(input.git,argv,{...options,stdio:['ignore','pipe','ignore']});
+ const file=join(process.env.TMPDIR,`git-output-${process.pid}-${captures++}`);
+ const fd=openSync(file,constants.O_WRONLY|constants.O_CREAT|constants.O_EXCL|constants.O_NOFOLLOW,0o600);
+ try{
+  execFileSync(input.git,argv,{...options,stdio:['ignore',fd,'ignore']});
+  if(fstatSync(fd).size>options.maxBuffer)throw Object.assign(new Error('ENOBUFS'),{code:'ENOBUFS'});
+  return readFileSync(file);
+ }finally{closeSync(fd);rmSync(file,{force:true});}
+}
 function git(args,optional=false){
- try{return execFileSync(input.git,[...gitBase,input.directory,...args],{env:{PATH:process.env.PATH,HOME:process.env.HOME,TMPDIR:process.env.TMPDIR,LANG:'C',LC_ALL:'C',GIT_CONFIG_NOSYSTEM:'1',GIT_CONFIG_GLOBAL:'/dev/null',GIT_OPTIONAL_LOCKS:'0',GIT_TERMINAL_PROMPT:'0',GIT_ATTR_NOSYSTEM:'1'},timeout:5000,maxBuffer:262144,stdio:['ignore','pipe','ignore']});}
+ try{return runGit(args);}
  catch(error){if(optional&&error.status===1)return Buffer.alloc(0);if(error.code==='ENOBUFS')fail('WORKSPACE_DIFF_TOO_LARGE');fail('WORKSPACE_GIT_UNAVAILABLE');}
 }
 function repository(){

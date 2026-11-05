@@ -89,6 +89,8 @@ step "tests (incremental)" node --disable-warning=ExperimentalWarning --test --t
 step "build" "${PNPM[@]}" build
 
 # Real components, no inference.
+# First start of a private Codex state directory indexes all of ~/.codex; finish that before the smokes.
+step "codex state index" node --disable-warning=ExperimentalWarning scripts/warm-codex-index.ts
 step "smoke: connection" "${PNPM[@]}" smoke:connection          # app-server initialize + model/list
 step "smoke: verifier sandbox" "${PNPM[@]}" smoke:verification  # codex sandbox + node --test reporter
 step "smoke: workspace sandbox" "${PNPM[@]}" smoke:workspace    # codex sandbox read-only git/files, network blocked
