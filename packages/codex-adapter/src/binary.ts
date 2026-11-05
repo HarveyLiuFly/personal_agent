@@ -59,7 +59,18 @@ export function resolveCodexNative(
   );
 }
 
-/** Hash first, then run only the reviewed native executable for its version. */
+/** File identity that changes whenever the bytes could have changed (ctime is not settable by users). */
+function fileIdentity(path: string): string {
+  const s = statSync(path, { bigint: true });
+  return [s.dev, s.ino, s.size, s.mtimeNs, s.ctimeNs].join(':');
+}
+/** Verified executables in this process, keyed by path + pin; reused while the file identity is unchanged. */
+const verified = new Map<string, string>();
+
+/**
+ * Hash first, then run only the reviewed native executable for its version. The full check reads
+ * the whole binary (hundreds of MB) and spawns it, so a passed check is reused until the file changes.
+ */
 export function verifyCodexBinary(
   executable: string,
   lock: CodexLock,
@@ -67,6 +78,10 @@ export function verifyCodexBinary(
 ): void {
   const pin = lock.platforms[platform];
   if (!pin) throw new Error('CODEX_PLATFORM_UNREVIEWED');
+  const key = `${executable}\0${pin.executableSha256}\0${lock.cliVersion}`;
+  const before = fileIdentity(executable);
+  if (verified.get(key) === before) return;
+  verified.delete(key);
   const hash = createHash('sha256').update(readFileSync(executable)).digest('hex');
   if (hash !== pin.executableSha256) throw new Error('CODEX_BINARY_MISMATCH');
   const version = execFileSync(executable, ['--version'], {
@@ -76,6 +91,8 @@ export function verifyCodexBinary(
     stdio: ['ignore', 'pipe', 'ignore'],
   }).trim();
   if (version !== lock.cliVersion) throw new Error('CODEX_VERSION_MISMATCH');
+  // Only cache when nothing changed while hashing.
+  if (fileIdentity(executable) === before) verified.set(key, before);
 }
 
 export function verifiedCodex(root: string): {

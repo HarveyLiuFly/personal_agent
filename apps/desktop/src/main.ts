@@ -73,6 +73,8 @@ import { createDesktopWindow } from './desktop-window.ts';
 import { installBackgroundTray } from './tray.ts';
 import { runBackgroundProbe } from './background-probe.ts';
 import { evidenceDir } from './evidence.ts';
+import { AsyncLocalStorage } from 'node:async_hooks';
+import { BackgroundLog } from './background-log.ts';
 
 const directory = dirname(fileURLToPath(import.meta.url));
 const root = resolve(directory, '../..');
@@ -81,7 +83,15 @@ const documentUrl = pathToFileURL(documentPath).href;
 const acceptanceProbe = nativeProbe(root, process.argv);
 let ownerEpoch = 0;
 let active = false;
-let controller: AbortController | undefined;
+/**
+ * Every Host request that may wait on Codex or a worker gets its own AbortController.
+ * Reads run concurrently; `active` only marks exclusive (mutating) commands.
+ */
+const inFlight = new Set<AbortController>();
+const requestSignal = new AsyncLocalStorage<AbortSignal>();
+const currentSignal = (): AbortSignal | undefined => requestSignal.getStore();
+/** Exclusive Host operations (restore) require no command, read or execution in flight. */
+const hostBusy = (): boolean => active || inFlight.size > 0 || Boolean(execution?.busy);
 let quitting = false;
 let window: BrowserWindow | undefined;
 let ledger: ExecutionLedger | undefined;
@@ -325,6 +335,14 @@ function authorized(event: Electron.IpcMainInvokeEvent): void {
 function executable(): string {
   return verifiedCodex(root).executable;
 }
+function finishRequest(request: AbortController): void {
+  inFlight.delete(request);
+  if (quitting || (!keepRunningWithoutWindow && BrowserWindow.getAllWindows().length === 0))
+    app.quit();
+}
+const hostError = (error: unknown): string =>
+  error instanceof RpcFailure || error instanceof LedgerError ? error.code : 'HOST_ERROR';
+/** Exclusive command: mutates workspace/run state, so it waits for no other command or execution. */
 async function historyCommand<T>(
   event: Electron.IpcMainInvokeEvent,
   args: unknown[],
@@ -336,20 +354,36 @@ async function historyCommand<T>(
   if (args.length !== count) return { ok: false, errorCode: 'UNEXPECTED_ARGUMENTS' };
   if (active || execution?.busy) return { ok: false, errorCode: 'RUNTIME_BUSY' };
   active = true;
-  controller = new AbortController();
+  const request = new AbortController();
+  inFlight.add(request);
   try {
-    return { ok: true, value: await operation() };
+    return { ok: true, value: await requestSignal.run(request.signal, operation) };
   } catch (error) {
-    return {
-      ok: false,
-      errorCode:
-        error instanceof RpcFailure || error instanceof LedgerError ? error.code : 'HOST_ERROR',
-    };
+    return { ok: false, errorCode: hostError(error) };
   } finally {
     active = false;
-    controller = undefined;
-    if (quitting || (!keepRunningWithoutWindow && BrowserWindow.getAllWindows().length === 0))
-      app.quit();
+    finishRequest(request);
+  }
+}
+/** Read-only request: never refused because a Run, another read or a command is in progress. */
+async function readCommand<T>(
+  event: Electron.IpcMainInvokeEvent,
+  args: unknown[],
+  count: number,
+  operation: () => Promise<T>,
+): Promise<HostResult<T>> {
+  authorized(event);
+  if (runtimeTransition) return { ok: false, errorCode: 'RUNTIME_RESTARTING' };
+  if (args.length !== count) return { ok: false, errorCode: 'UNEXPECTED_ARGUMENTS' };
+  if (quitting) return { ok: false, errorCode: 'HOST_QUITTING' };
+  const request = new AbortController();
+  inFlight.add(request);
+  try {
+    return { ok: true, value: await requestSignal.run(request.signal, operation) };
+  } catch (error) {
+    return { ok: false, errorCode: hostError(error) };
+  } finally {
+    finishRequest(request);
   }
 }
 async function boot(): Promise<void> {
@@ -604,15 +638,15 @@ async function boot(): Promise<void> {
             },
           });
         return appServer
-          ? appServer.read(operation, controller?.signal)
-          : readConnection(executable(), state, controller?.signal)(operation);
+          ? appServer.read(operation, currentSignal())
+          : readConnection(executable(), state, currentSignal())(operation);
       }
       // Fixed internal integration fixture. No Renderer API selects a process, path, or fixture mode.
       const rpc = new StdioRpcClient({
         executable: resolveExecutable('node'),
         args: [resolve(root, 'tests/fixtures/history-server.ts'), fixtureWorkspace!],
         env: runtimeEnvironment(),
-        signal: controller?.signal,
+        signal: currentSignal(),
       });
       const port: ReadPort = {
         request: async <T>(method: string, params: unknown) => {
@@ -632,41 +666,48 @@ async function boot(): Promise<void> {
     },
     ledger ? (path) => ledger!.registerWorkspace(path) : undefined,
   );
+  let choosingProject = false;
   ipcMain.handle('history:chooseProject', (event, ...args: unknown[]) =>
-    historyCommand(event, args, 0, async () => {
-      if (acceptanceProbe?.kind === 'workspace')
-        return history.registerDirectory(acceptanceProbe.folderDirectory!);
-      if (fixtureWorkspace) return history.registerDirectory(fixtureWorkspace);
-      if (nativeCodeWorkspace) return history.registerDirectory(nativeCodeWorkspace);
-      if (acceptanceProbe?.kind === 'folder') acceptanceProbe.dialogOpened = true;
-      const selection = await dialog.showOpenDialog(window!, {
-        title: '选择项目目录',
-        properties: ['openDirectory'],
-        ...(acceptanceProbe?.folderDirectory
-          ? { defaultPath: acceptanceProbe.folderDirectory }
-          : {}),
-      });
-      if (acceptanceProbe?.kind === 'folder' && !selection.canceled) {
-        if (
-          selection.filePaths.length !== 1 ||
-          realpathSync(selection.filePaths[0]!) !== acceptanceProbe.folderDirectory
-        )
-          throw new LedgerError('NATIVE_FOLDER_SCOPE_MISMATCH');
-        acceptanceProbe.selectionMatched = true;
+    readCommand(event, args, 0, async () => {
+      if (choosingProject) throw new LedgerError('PROJECT_DIALOG_OPEN');
+      choosingProject = true;
+      try {
+        if (acceptanceProbe?.kind === 'workspace')
+          return history.registerDirectory(acceptanceProbe.folderDirectory!);
+        if (fixtureWorkspace) return history.registerDirectory(fixtureWorkspace);
+        if (nativeCodeWorkspace) return history.registerDirectory(nativeCodeWorkspace);
+        if (acceptanceProbe?.kind === 'folder') acceptanceProbe.dialogOpened = true;
+        const selection = await dialog.showOpenDialog(window!, {
+          title: '选择项目目录',
+          properties: ['openDirectory'],
+          ...(acceptanceProbe?.folderDirectory
+            ? { defaultPath: acceptanceProbe.folderDirectory }
+            : {}),
+        });
+        if (acceptanceProbe?.kind === 'folder' && !selection.canceled) {
+          if (
+            selection.filePaths.length !== 1 ||
+            realpathSync(selection.filePaths[0]!) !== acceptanceProbe.folderDirectory
+          )
+            throw new LedgerError('NATIVE_FOLDER_SCOPE_MISMATCH');
+          acceptanceProbe.selectionMatched = true;
+        }
+        return selection.canceled || !selection.filePaths[0]
+          ? null
+          : history.registerDirectory(selection.filePaths[0]);
+      } finally {
+        choosingProject = false;
       }
-      return selection.canceled || !selection.filePaths[0]
-        ? null
-        : history.registerDirectory(selection.filePaths[0]);
     }),
   );
   ipcMain.handle('history:listThreads', (event, ...args: unknown[]) =>
-    historyCommand(event, args, 1, () => history.listThreads(args[0])),
+    readCommand(event, args, 1, () => history.listThreads(args[0])),
   );
   ipcMain.handle('history:listTurns', (event, ...args: unknown[]) =>
-    historyCommand(event, args, 1, () => history.listTurns(args[0])),
+    readCommand(event, args, 1, () => history.listTurns(args[0])),
   );
   ipcMain.handle('history:listItems', (event, ...args: unknown[]) =>
-    historyCommand(event, args, 1, () => history.listItems(args[0])),
+    readCommand(event, args, 1, () => history.listItems(args[0])),
   );
   const projectSkills = ledger
     ? new ProjectSkillCatalog({
@@ -680,9 +721,9 @@ async function boot(): Promise<void> {
       })
     : undefined;
   ipcMain.handle('skills:list', (event, ...args: unknown[]) =>
-    historyCommand(event, args, 1, async () => {
+    readCommand(event, args, 1, async () => {
       if (!projectSkills) throw new LedgerError('PROJECT_SKILLS_UNAVAILABLE');
-      return projectSkills.list(args[0], controller?.signal);
+      return projectSkills.list(args[0], currentSignal());
     }),
   );
   function executionCommand<T>(
@@ -738,8 +779,10 @@ async function boot(): Promise<void> {
     });
     for (const pending of ledger.pendingMemoryCleanup())
       memoryService.restoreCleanup(pending.cleanupId, pending.logical);
+    const backgroundLog = new BackgroundLog(resolve(app.getPath('userData'), 'logs'));
     goalTimer = setInterval(() => {
-      if (!runtimeTransition) void goalService?.tick().catch(() => {});
+      if (!runtimeTransition)
+        void goalService?.tick().catch((error) => backgroundLog.record('goals', error));
     }, 15000);
     goalTimer.unref();
     outboxPump = new OutboxPump(ledger);
@@ -747,22 +790,25 @@ async function boot(): Promise<void> {
       if (runtimeTransition) return;
       try {
         outboxPump?.step();
-      } catch {
-        /* Owner/DB failures never trigger model dispatch. */
+      } catch (error) {
+        // Owner/DB failures never trigger model dispatch; they are recorded, not retried here.
+        backgroundLog.record('outbox', error);
       }
-      void taskService?.stepPlans().catch(() => {});
-      void chatRoutes?.tick().catch(() => {});
+      void taskService?.stepPlans().catch((error) => backgroundLog.record('plans', error));
+      void chatRoutes?.tick().catch((error) => backgroundLog.record('routes', error));
     }, 250);
     outboxTimer.unref();
   }
   if (ledger) {
     scheduleService = new ScheduleService(ledger, execution);
+    const scheduleLog = new BackgroundLog(resolve(app.getPath('userData'), 'logs'));
     scheduleTimer = setInterval(() => {
       if (runtimeTransition) return;
       try {
         scheduleService?.step();
-      } catch {
-        /* Failed admission transactions preserve their cursor; sent runs are never retried here. */
+      } catch (error) {
+        // Failed admission transactions preserve their cursor; sent runs are never retried here.
+        scheduleLog.record('schedules', error);
       }
     }, 1000);
     scheduleTimer.unref();
@@ -955,7 +1001,7 @@ async function boot(): Promise<void> {
       if (!backupService || !restoreService) throw new LedgerError('BACKUPS_UNAVAILABLE');
       const input = args[0] as BackupCommand;
       if (input?.kind === 'prepareRestore') {
-        if (active || execution?.busy) throw new LedgerError('RUNTIME_BUSY');
+        if (hostBusy()) throw new LedgerError('RUNTIME_BUSY');
         const restore = restoreService.prepare(input);
         return {
           ok: true,
@@ -966,7 +1012,7 @@ async function boot(): Promise<void> {
         };
       }
       if (input?.kind === 'activateRestore') {
-        if (active || execution?.busy) throw new LedgerError('RUNTIME_BUSY');
+        if (hostBusy()) throw new LedgerError('RUNTIME_BUSY');
         const checked = restoreService.checkActivation(input),
           result = {
             ...backupService.command({ kind: 'verify', backupId: checked.view.backupId! }),
@@ -1049,9 +1095,9 @@ async function boot(): Promise<void> {
     ['workspace:diff', 'diff'],
   ] as const) {
     ipcMain.handle(channel, (event, ...args: unknown[]) =>
-      historyCommand(event, args, 1, async () => {
+      readCommand(event, args, 1, async () => {
         if (!workspaceReader) throw new LedgerError('WORKSPACE_READER_UNAVAILABLE');
-        return workspaceReader[operation](args[0], controller?.signal);
+        return workspaceReader[operation](args[0], currentSignal());
       }),
     );
   }
@@ -1081,7 +1127,9 @@ async function boot(): Promise<void> {
     'worktrees:use',
   ])
     ipcMain.handle(channel, (event, ...args: unknown[]) =>
-      historyCommand(event, args, 1, async () => {
+      (channel === 'worktrees:list' || channel === 'worktrees:inspect'
+        ? readCommand
+        : historyCommand)(event, args, 1, async () => {
         if (!worktreeService || !ledger) throw new LedgerError('WORKTREES_UNAVAILABLE');
         if (channel === 'worktrees:command')
           return worktreeService.command(args[0] as WorktreeCommand);
@@ -1146,8 +1194,8 @@ async function boot(): Promise<void> {
   const reconciliation = ledger
     ? new HistoryReconciliation(ledger, (read) =>
         appServer
-          ? appServer.read(read, controller?.signal)
-          : readConnection(executable(), state, controller?.signal)(read),
+          ? appServer.read(read, currentSignal())
+          : readConnection(executable(), state, currentSignal())(read),
       )
     : undefined;
   ipcMain.handle('execution:reconcile', (event, ...args: unknown[]) =>
@@ -1224,35 +1272,34 @@ async function boot(): Promise<void> {
     if (args.length !== 1) return { ok: false, errorCode: 'UNEXPECTED_ARGUMENTS' };
     if (active || execution?.busy) return { ok: false, errorCode: 'RUNTIME_BUSY' };
     active = true;
-    controller = new AbortController();
+    const request = new AbortController();
+    inFlight.add(request);
     try {
       if (!execution || !verifier) throw new LedgerError('VERIFICATION_UNAVAILABLE');
       execution.view(args[0]);
       const q = args[0] as { projectId: string; runId: string };
-      await verifier.verify(q.projectId, q.runId, controller.signal);
+      await verifier.verify(q.projectId, q.runId, request.signal);
       return { ok: true, value: review(args[0]) };
     } catch (error) {
       return { ok: false, errorCode: error instanceof LedgerError ? error.code : 'HOST_ERROR' };
     } finally {
       active = false;
-      controller = undefined;
-      if (quitting || (!keepRunningWithoutWindow && BrowserWindow.getAllWindows().length === 0))
-        app.quit();
+      finishRequest(request);
     }
   });
   ipcMain.handle('runtime:inspect', async (event, ...args: unknown[]): Promise<ConnectionInfo> => {
     authorized(event);
     if (runtimeTransition) return { status: 'error', errorCode: 'RUNTIME_RESTARTING' };
     if (args.length) throw new Error('UNEXPECTED_ARGUMENTS');
-    if (active || execution?.busy) return { status: 'error', errorCode: 'RUNTIME_BUSY' };
-    active = true;
-    controller = new AbortController();
+    if (quitting) return { status: 'error', errorCode: 'HOST_QUITTING' };
+    const request = new AbortController();
+    inFlight.add(request);
     try {
       return {
         status: 'connected',
         ...(await (appServer
-          ? appServer.read(inspectCatalog, controller.signal)
-          : inspectConnection(executable(), state, controller.signal))),
+          ? appServer.read(inspectCatalog, request.signal)
+          : inspectConnection(executable(), state, request.signal))),
       };
     } catch (error) {
       return {
@@ -1261,10 +1308,7 @@ async function boot(): Promise<void> {
           error instanceof RpcFailure || error instanceof LedgerError ? error.code : 'HOST_ERROR',
       };
     } finally {
-      active = false;
-      controller = undefined;
-      if (quitting || (!keepRunningWithoutWindow && BrowserWindow.getAllWindows().length === 0))
-        app.quit();
+      finishRequest(request);
     }
   });
   windowsReady = true;
@@ -1977,10 +2021,10 @@ app.on('before-quit', (event) => {
     });
     return;
   }
-  if (active) {
+  if (inFlight.size) {
     event.preventDefault();
     quitting = true;
-    controller?.abort();
+    for (const request of inFlight) request.abort();
   } else if (execution?.busy) {
     event.preventDefault();
     void execution.close().finally(() => app.quit());

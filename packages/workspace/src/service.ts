@@ -83,7 +83,9 @@ export class WorkspaceService {
   private program: string;
   private programHash: string;
   private handles = new Map<string, Handle>();
-  private busy = false;
+  /** Reads run one at a time (one sandboxed process each); later callers wait their turn. */
+  private queue: Promise<unknown> = Promise.resolve();
+  private waiting = 0;
   constructor(workspace: (id: string) => ProjectView, options: WorkspaceReaderOptions) {
     this.workspace = workspace;
     this.options = options;
@@ -321,13 +323,26 @@ export class WorkspaceService {
       empty: !data.text,
     };
   }
-  private async read(
+  private read(
     project: ProjectView,
     operation: Record<string, unknown>,
     signal?: AbortSignal,
   ): Promise<Record<string, unknown>> {
-    if (this.busy) return fail('WORKSPACE_READ_BUSY');
-    this.busy = true;
+    if (this.waiting >= 8) return Promise.reject(new LedgerError('WORKSPACE_READ_BUSY'));
+    this.waiting++;
+    const run = this.queue.then(() => {
+      this.waiting--;
+      if (signal?.aborted) return fail('WORKSPACE_READ_INTERRUPTED');
+      return this.readNow(project, operation, signal);
+    });
+    this.queue = run.catch(() => undefined);
+    return run;
+  }
+  private async readNow(
+    project: ProjectView,
+    operation: Record<string, unknown>,
+    signal?: AbortSignal,
+  ): Promise<Record<string, unknown>> {
     let scratchRoot: string | undefined;
     try {
       if (hash(readFileSync(this.program)) !== this.programHash)
@@ -487,7 +502,6 @@ export class WorkspaceService {
       return result.data;
     } finally {
       if (scratchRoot) rmSync(scratchRoot, { recursive: true, force: true });
-      this.busy = false;
     }
   }
 }

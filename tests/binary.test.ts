@@ -117,3 +117,41 @@ test('configured old/mismatched binaries cannot fall through to a different cand
     }
   });
 });
+
+test('a passed binary check is reused until the file identity changes', () => {
+  if (process.platform === 'win32') return;
+  const root = mkdtempSync(join(tmpdir(), 'personal-agent-binary-cache-'));
+  try {
+    const counter = join(root, 'runs'),
+      native = join(root, 'codex');
+    const script = `#!/bin/sh\necho run >> '${counter}'\necho 'codex-cli cache-fixture'\n`;
+    writeFileSync(native, script, { mode: 0o755 });
+    const lock: CodexLock = {
+      cliVersion: 'codex-cli cache-fixture',
+      sourceCommit: null,
+      generationMode: 'stable',
+      generatedTypes: 1,
+      schemaFingerprint: 'fixture',
+      platforms: {
+        [`${process.platform}-${process.arch}`]: {
+          executableSha256: createHash('sha256').update(script).digest('hex'),
+          source: 'fixture',
+          protocolEvidence: 'fixture',
+        },
+      },
+    };
+    const runs = () => readFileSync(counter, 'utf8').trim().split('\n').length;
+    verifyCodexBinary(native, lock);
+    verifyCodexBinary(native, lock);
+    assert.equal(runs(), 1, 'second check reuses the first result');
+    writeFileSync(native, script, { mode: 0o755 });
+    verifyCodexBinary(native, lock);
+    assert.equal(runs(), 2, 'rewritten file is verified again');
+    writeFileSync(native, script + '# changed\n', { mode: 0o755 });
+    assert.throws(() => verifyCodexBinary(native, lock), /CODEX_BINARY_MISMATCH/);
+    assert.throws(() => verifyCodexBinary(native, lock), /CODEX_BINARY_MISMATCH/);
+    assert.equal(runs(), 2, 'a mismatched binary is never executed');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
