@@ -69,7 +69,7 @@ for await (const line of createInterface({ input: process.stdin })) {
   }
   if (
     database &&
-    ['thread/start', 'thread/resume', 'thread/fork', 'turn/start'].includes(m.method)
+    ['thread/start', 'thread/resume', 'thread/fork', 'turn/start', 'turn/steer'].includes(m.method)
   ) {
     const db = new DatabaseSync(database, { readOnly: true });
     const intent = db
@@ -291,6 +291,23 @@ for await (const line of createInterface({ input: process.stdin })) {
       },
       mode === 'tool-status' ? 2000 : mode === 'slow' ? 800 : 25,
     );
+    continue;
+  }
+  if (m.method === 'turn/steer') {
+    if (mode === 'interrupt-steer-reject') {
+      write({ id: m.id, error: { code: -32600, message: 'no active turn' } });
+      continue;
+    }
+    write({ id: m.id, result: { turnId: m.params.expectedTurnId } });
+    notify('item/completed', {
+      threadId,
+      turnId: m.params.expectedTurnId,
+      item: {
+        id: 'fixture-steer-' + String(m.id).slice(-8),
+        type: 'userMessage',
+        content: m.params.input,
+      },
+    });
     continue;
   }
   if (m.method === 'turn/interrupt' && mode.startsWith('interrupt')) {

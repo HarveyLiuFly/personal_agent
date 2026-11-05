@@ -6,7 +6,11 @@ import type {
   RunView,
   VerificationView,
 } from '../../../packages/contracts/src/views.ts';
-import type { ConversationSummary } from '../../../packages/contracts/src/conversations.ts';
+import type {
+  ConversationChoices,
+  ConversationSummary,
+} from '../../../packages/contracts/src/conversations.ts';
+import { ComposerChoices } from './composer-choices.tsx';
 import { InteractionCard } from './interactions.tsx';
 import { AgentToolPanel } from './tool-panel.tsx';
 import { isToolItem } from './tool-activity.ts';
@@ -71,6 +75,12 @@ export function ConversationPanel({
     [rolling, setRolling] = useState(false),
     [archiving, setArchiving] = useState(false),
     [loadingOlder, setLoadingOlder] = useState(false);
+  // Choices of a new conversation (an open one keeps them in its summary).
+  const [fresh, setFresh] = useState<Required<ConversationChoices>>({
+    permissionMode: 'auto',
+    model: null,
+    effort: null,
+  });
   const [codeEnabled, setCodeEnabled] = useState(false),
     [target, setTarget] = useState(''),
     [paths, setPaths] = useState('');
@@ -153,6 +163,18 @@ export function ConversationPanel({
     };
   }, [project.id, conversationId]);
 
+  useEffect(() => {
+    if (conversationId) return;
+    let stopped = false;
+    void value(window.personalAgent.conversationDefaults({ projectId: project.id }))
+      .then((choices) => {
+        if (!stopped) setFresh(choices);
+      })
+      .catch(() => undefined);
+    return () => {
+      stopped = true;
+    };
+  }, [project.id, conversationId]);
   const turns = mergeTurns(older, recent),
     latest = turns.at(-1),
     latestEnded = Boolean(latest && ended(latest));
@@ -188,16 +210,42 @@ export function ConversationPanel({
 
   const archived = Boolean(summary?.archived),
     runningHere = Boolean(summary?.activeRunId),
+    // While this conversation's turn runs, the composer adds words to it (turn/steer).
+    steering =
+      runningHere &&
+      summary?.attention !== 'unknown' &&
+      Boolean(latest?.turnId) &&
+      activeStates.includes(latest?.status ?? ''),
     notStarted = Boolean(summary && !summary.latestRunId),
     codeReady = !codeEnabled || Boolean(target.trim() && paths.trim()),
     canSend =
       !disabled &&
       !sending &&
-      !runningHere &&
+      (!runningHere || steering) &&
       !notStarted &&
       !archived &&
       Boolean(draft.trim()) &&
       (conversationId ? Boolean(summary?.latestRunId) : codeReady);
+  const choices: Required<ConversationChoices> = summary
+    ? { permissionMode: summary.permissionMode, model: summary.model, effort: summary.effort }
+    : fresh;
+  function choose(change: ConversationChoices) {
+    if (!conversationId) {
+      setFresh((old) => ({ ...old, ...change }));
+      return;
+    }
+    void value(
+      window.personalAgent.updateConversation({ projectId: project.id, conversationId, ...change }),
+    )
+      .then(setSummary)
+      .catch((cause) =>
+        setError(
+          cause instanceof Error && /CODE_TASK_PERMISSION_FIXED/.test(cause.message)
+            ? '带测试合同的代码对话只能使用“自动”。'
+            : '暂时无法更改，请稍后再试。',
+        ),
+      );
+  }
 
   async function send() {
     if (!canSend) return;
@@ -206,6 +254,22 @@ export function ConversationPanel({
     key.current ??= crypto.randomUUID();
     const text = draft;
     try {
+      if (steering && summary?.activeRunId) {
+        await value(
+          window.personalAgent.steerRun({
+            projectId: project.id,
+            runId: summary.activeRunId,
+            text,
+            submissionKey: key.current,
+          }),
+        );
+        if (!alive.current) return;
+        setDraft('');
+        key.current = undefined;
+        setUncertain(false);
+        atEnd.current = true;
+        return;
+      }
       const run = await value(
         conversationId
           ? window.personalAgent.continueRun({
@@ -219,6 +283,13 @@ export function ConversationPanel({
               text,
               submissionKey: key.current,
               ...(fork ? { fork: { runId: fork.runId } } : {}),
+              ...(codeEnabled && !fork
+                ? {}
+                : {
+                    permissionMode: fork ? 'readOnly' : fresh.permissionMode,
+                    model: fresh.model,
+                    effort: fresh.effort,
+                  }),
               ...(codeEnabled && !fork
                 ? {
                     code: {
@@ -241,7 +312,14 @@ export function ConversationPanel({
       if (!conversationId) onCreated?.(run.taskId);
     } catch (cause) {
       if (!alive.current) return;
-      const failure = sendFailure(cause instanceof Error ? cause.message : '');
+      const code = cause instanceof Error ? cause.message : '';
+      if (steering && /STEER_REJECTED|RUN_NOT_STEERABLE/.test(code)) {
+        // The turn just ended: nothing was added; the words stay for the next turn.
+        setError('这一轮刚刚结束，追加的内容没有发出，可以直接发送为下一轮。');
+        key.current = undefined;
+        return;
+      }
+      const failure = sendFailure(code);
       setError(failure.message);
       setUncertain(failure.retry);
       // A known refusal sent nothing; an unconfirmed one keeps its key so a retry cannot repeat it.
@@ -698,31 +776,58 @@ export function ConversationPanel({
             }
           }}
           placeholder={
-            runningHere
-              ? '正在运行，可以先写下一条…'
-              : conversationId
-                ? '继续这个对话…'
-                : codeEnabled
-                  ? '描述希望完成的修改…'
-                  : '提一个关于这个项目的问题…'
+            steering
+              ? '补充给正在进行的这一轮…'
+              : runningHere
+                ? '正在运行，可以先写下一条…'
+                : conversationId
+                  ? '继续这个对话…'
+                  : codeEnabled
+                    ? '描述希望完成的修改…'
+                    : '提一个关于这个项目的问题…'
           }
           rows={3}
         />
         <div className="composer-tools">
-          <span className="muted">
+          <ComposerChoices
+            value={choices}
+            onChange={choose}
+            disabled={disabled || sending || archived}
+            {...(fork && !conversationId
+              ? { lockedPermission: 'readOnly' as const }
+              : codeEnabled && !conversationId
+                ? { lockedPermission: 'auto' as const }
+                : {})}
+          />
+          <span className="muted composer-status">
             {archived
               ? '已归档，取消归档后可以继续'
-              : runningHere
-                ? summary?.attention === 'unknown'
-                  ? '先核对上一轮的结果'
-                  : '这一轮结束后可以继续'
-                : (latest?.mode ?? (codeEnabled ? 'workspaceWrite' : 'readOnly')) ===
-                    'workspaceWrite'
-                  ? '仅修改指定文件'
-                  : '只读访问项目'}
+              : runningHere && summary?.attention === 'unknown'
+                ? '先核对上一轮的结果'
+                : runningHere && !steering
+                  ? '这一轮结束后可以继续'
+                  : ''}
           </span>
+          {runningHere && latest && activeStates.includes(latest.status) && (
+            <button
+              className="stop-button"
+              data-action="composer-stop"
+              disabled={stopping}
+              onClick={() => {
+                setStopping(true);
+                void value(
+                  window.personalAgent.interruptRun({ projectId: project.id, runId: latest.runId }),
+                ).catch(() => {
+                  setStopping(false);
+                  setError('停止尚未确认，请稍后再看。');
+                });
+              }}
+            >
+              {stopping ? '正在停止…' : '停止'}
+            </button>
+          )}
           <button data-action="send" disabled={!canSend} onClick={() => void send()}>
-            {sending ? '正在发送…' : uncertain ? '再次发送' : '发送 ↑'}
+            {sending ? '正在发送…' : uncertain ? '再次发送' : steering ? '追加 ↑' : '发送 ↑'}
           </button>
         </div>
       </footer>

@@ -718,6 +718,31 @@ label:has(> input[type='checkbox']) {
   font-size: 11px;
   margin-bottom: 6px;
 }
+.composer-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  min-width: 0;
+}
+.composer-choices select {
+  font-size: 11px;
+  padding: 4px 6px;
+  max-width: 220px;
+}
+.composer-status {
+  flex: 1;
+  font-size: 11px;
+  min-width: 0;
+}
+.full-access-confirm {
+  flex-basis: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  font-size: 11px;
+}
 .conversation-actions {
   display: flex;
   gap: 4px;

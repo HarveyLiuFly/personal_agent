@@ -4335,14 +4335,16 @@ export class ExecutionLedger {
   prepare(
     token: RunToken,
     key: string,
-    kind: 'thread_start' | 'thread_resume' | 'turn_start' | 'turn_interrupt',
+    kind: 'thread_start' | 'thread_resume' | 'turn_start' | 'turn_steer' | 'turn_interrupt',
     params: unknown,
     threadId: string | null = null,
     turnId: string | null = null,
   ): Intent {
     if (
       !id(key) ||
-      !['thread_start', 'thread_resume', 'turn_start', 'turn_interrupt'].includes(kind) ||
+      !['thread_start', 'thread_resume', 'turn_start', 'turn_steer', 'turn_interrupt'].includes(
+        kind,
+      ) ||
       (kind !== 'thread_start' && !id(threadId))
     )
       return fail('INVALID_INTENT');
@@ -4380,8 +4382,9 @@ export class ExecutionLedger {
         )
       )
         return fail('THREAD_NOT_BOUND');
+      // A steer or interrupt targets this Run's own accepted turn.
       if (
-        kind === 'turn_interrupt' &&
+        (kind === 'turn_interrupt' || kind === 'turn_steer') &&
         (!id(turnId) ||
           !this.one(
             "SELECT intent_id FROM execution_intents WHERE run_id=? AND kind='turn_start' AND execution_turn_id=? AND state='accepted'",

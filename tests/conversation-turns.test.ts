@@ -486,3 +486,71 @@ test('choices are validated, remembered per project and fixed for code tasks', a
     /CODE_TASK_PERMISSION_FIXED/,
   );
 });
+
+test('words added to a running turn are sent once, and a refused steer leaves the turn running', async (t) => {
+  const f = fixture(t, ['interrupt-ok', 'interrupt-steer-reject']);
+  const run = f.runtime.submit({ projectId: f.project.id, text: 'Long job', submissionKey: 's1' });
+  await until(
+    () => Boolean(f.runtime.view({ projectId: f.project.id, runId: run.runId }).turnId),
+    'TURN_NOT_STARTED',
+  );
+  const steer = {
+    projectId: f.project.id,
+    runId: run.runId,
+    text: 'Also check the tests',
+    submissionKey: 'add-1',
+  };
+  assert.deepEqual(await f.runtime.steer(steer), { state: 'accepted' });
+  // Same key: the same steer, not sent again.
+  assert.deepEqual(await f.runtime.steer(steer), { state: 'accepted' });
+  const steers = f.sent().filter((row) => row.method === 'turn/steer');
+  assert.equal(steers.length, 1);
+  assert.deepEqual(steers[0]!.input, [
+    { type: 'text', text: 'Also check the tests', text_elements: [] },
+  ]);
+  await until(
+    () =>
+      (f.runtime.view({ projectId: f.project.id, runId: run.runId }).snapshot?.items ?? []).some(
+        (item) => item.role === 'user' && item.text.includes('Also check the tests'),
+      ),
+    'STEER_NOT_SHOWN',
+  );
+  await f.runtime.interrupt({ projectId: f.project.id, runId: run.runId });
+  await f.runtime.wait();
+  assert.equal(f.runtime.view({ projectId: f.project.id, runId: run.runId }).status, 'cancelled');
+  await assert.rejects(f.runtime.steer({ ...steer, submissionKey: 'late' }), /RUN_NOT_STEERABLE/);
+  // A steer Codex refuses adds nothing and leaves the turn running.
+  const next = f.runtime.continueRun({
+    projectId: f.project.id,
+    runId: run.runId,
+    text: 'Again',
+    submissionKey: 's2',
+  });
+  await until(
+    () => Boolean(f.runtime.view({ projectId: f.project.id, runId: next.runId }).turnId),
+    'SECOND_TURN_NOT_STARTED',
+  );
+  await assert.rejects(
+    f.runtime.steer({ ...steer, runId: next.runId, submissionKey: 'refused' }),
+    /STEER_REJECTED/,
+  );
+  assert.ok(
+    ['submitting', 'running'].includes(
+      f.runtime.view({ projectId: f.project.id, runId: next.runId }).status,
+    ),
+    'still in progress, not Unknown',
+  );
+  assert.equal(
+    f.read(
+      "SELECT state FROM execution_intents WHERE kind='turn_steer' AND intent_key=?",
+      'steer:refused',
+    )?.state,
+    'rejected',
+  );
+  await assert.rejects(
+    f.runtime.steer({ ...steer, runId: next.runId, submissionKey: 'empty', text: '  ' }),
+    /INVALID_EXECUTION_QUERY/,
+  );
+  await f.runtime.interrupt({ projectId: f.project.id, runId: next.runId });
+  await f.runtime.wait();
+});

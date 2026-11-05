@@ -64,6 +64,7 @@ export const DESKTOP_API_KEYS: readonly string[] = [
   'rolloverRun',
   'security',
   'startTask',
+  'steerRun',
   'submitMainChat',
   'submitMessage',
   'updateConversation',

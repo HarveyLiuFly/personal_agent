@@ -261,6 +261,13 @@ export interface DesktopApi {
   readWorkspaceFile(query: WorkspaceEntryQuery): Promise<HostResult<WorkspacePreview>>;
   getWorkspaceDiff(query: WorkspaceDiffQuery): Promise<HostResult<WorkspaceDiff>>;
   submitMessage(input: SubmitMessage): Promise<HostResult<RunSummary>>;
+  /** Adds words to the running turn of a conversation (never resent if unconfirmed). */
+  steerRun(input: {
+    projectId: string;
+    runId: string;
+    text: string;
+    submissionKey: string;
+  }): Promise<HostResult<{ state: 'accepted' | 'pending' }>>;
   continueRun(input: ContinueMessage): Promise<HostResult<RunSummary>>;
   listRuns(query: { projectId: string }): Promise<HostResult<RunSummary[]>>;
   getRun(query: RunQuery): Promise<HostResult<RunView>>;

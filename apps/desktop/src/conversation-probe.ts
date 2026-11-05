@@ -37,6 +37,16 @@ const script = `(async () => {
   }, 'PROJECT_NOT_OPENED');
   click('[data-action="project-tasks"]');
   await wait(() => panel() && panel().dataset.conversationId === '', 'NEW_CONVERSATION_NOT_SHOWN');
+  // Choices: a new conversation starts in "auto"; full access needs an explicit confirmation.
+  const permission = () => document.querySelector('[data-choice="permission"]');
+  await wait(() => permission() && permission().value === 'auto', 'DEFAULT_NOT_AUTO');
+  permission().value = 'fullAccess';
+  permission().dispatchEvent(new Event('change', { bubbles: true }));
+  await wait(() => document.querySelector('[data-action="confirm-full-access"]'), 'FULL_ACCESS_NOT_CONFIRMED');
+  const confirmShown = permission().value === 'auto';
+  [...document.querySelectorAll('.full-access-confirm button')].find((b) => b.textContent === '取消').click();
+  await wait(() => !document.querySelector('[data-action="confirm-full-access"]'), 'CONFIRM_NOT_CLOSED');
+  const stillAuto = permission().value === 'auto';
   type('First synthetic question <b>bold</b>');
   await sendWhenReady('FIRST_SEND_DISABLED');
   await wait(() => panel().dataset.conversationId, 'CONVERSATION_NOT_OPENED');
@@ -102,6 +112,7 @@ const script = `(async () => {
   const summary = (await window.personalAgent.getConversation({ projectId, conversationId })).value;
   const page = (await window.personalAgent.listConversations({ projectId })).value;
   const runs = (await window.personalAgent.listRuns({ projectId })).value;
+  const catalog = await window.personalAgent.listModels();
   const fork = (await window.personalAgent.getConversation({ projectId, conversationId: forkId })).value;
   return {
     conversationId,
@@ -122,6 +133,8 @@ const script = `(async () => {
     forkArchived: fork.archived,
     sendLockedWhenArchived,
     dotLabel,
+    fullAccessNeedsConfirmation: confirmShown && stillAuto,
+    modelCatalog: catalog.ok ? catalog.value.length : catalog.errorCode,
     markupShownAsText: document.body.textContent.includes('<b>bold</b>'),
     noInjectedMarkup: !document.querySelector('[data-execution-items] b'),
     sandboxed: window.personalAgent.security.sandboxed,
@@ -173,6 +186,9 @@ export async function runConversationProbe(
     result.forkArchived === true &&
     result.sendLockedWhenArchived === true &&
     result.dotLabel === 'Dot' &&
+    result.fullAccessNeedsConfirmation === true &&
+    typeof result.modelCatalog === 'number' &&
+    result.modelCatalog > 0 &&
     result.markupShownAsText === true &&
     result.noInjectedMarkup === true &&
     result.sandboxed === true &&

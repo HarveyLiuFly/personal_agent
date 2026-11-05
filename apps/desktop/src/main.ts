@@ -1098,7 +1098,7 @@ async function boot(): Promise<void> {
     readCommand(event, args, 0, () =>
       appServer
         ? appServer.read((port) => modelCatalog(port), currentSignal())
-        : Promise.reject(new LedgerError('MODEL_CATALOG_UNAVAILABLE')),
+        : readConnection(executable(), state, currentSignal())((port) => modelCatalog(port)),
     ),
   );
   for (const [channel, operation] of [
@@ -1332,6 +1332,12 @@ async function boot(): Promise<void> {
     executionCommand(event, args, 1, () => {
       if (!execution || active) throw new LedgerError('RUNTIME_BUSY');
       return execution.continueRun(args[0]);
+    }),
+  );
+  handle('execution:steer', (event, ...args: unknown[]) =>
+    domainAsync(event, args, () => {
+      if (!execution) throw new LedgerError('EXECUTION_UNAVAILABLE');
+      return execution.steer(args[0]);
     }),
   );
   handle('execution:list', (event, ...args: unknown[]) =>

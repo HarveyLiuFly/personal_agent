@@ -12,6 +12,7 @@ import type { ThreadStartParams } from '../../codex-adapter/src/generated/v2/Thr
 import type { ThreadResumeParams } from '../../codex-adapter/src/generated/v2/ThreadResumeParams.ts';
 import type { ThreadForkParams } from '../../codex-adapter/src/generated/v2/ThreadForkParams.ts';
 import type { TurnStartParams } from '../../codex-adapter/src/generated/v2/TurnStartParams.ts';
+import type { TurnSteerParams } from '../../codex-adapter/src/generated/v2/TurnSteerParams.ts';
 import type { ModelListResponse } from '../../codex-adapter/src/generated/v2/ModelListResponse.ts';
 import type { RunSummary, RunView } from '../../contracts/src/views.ts';
 import { InteractionBroker } from './interactions.ts';
@@ -522,6 +523,56 @@ export class ForegroundExecution {
       session = this.session(run.runId);
     if (!session?.broker) throw new LedgerError('STALE_SERVER_REQUEST');
     session.broker.reply(input.requestId, input);
+  }
+  /**
+   * Adds the user's words to the running turn (`turn/steer`). The intent is written before it is
+   * sent and the submission key makes a retry the same steer; an unconfirmed steer is never resent.
+   */
+  async steer(input: unknown): Promise<{ state: 'accepted' | 'pending' }> {
+    const q = query(input, ['projectId', 'runId', 'text', 'submissionKey']);
+    if (
+      !identity(q.projectId) ||
+      !identity(q.runId) ||
+      !identity(q.submissionKey) ||
+      typeof q.text !== 'string' ||
+      !q.text.trim() ||
+      q.text.length > 32768
+    )
+      throw new LedgerError('INVALID_EXECUTION_QUERY');
+    this.view({ projectId: q.projectId, runId: q.runId });
+    const s = this.session(q.runId);
+    if (!s?.rpc || !s.threadId || !s.turnId || s.turnEnded || s.interrupt)
+      throw new LedgerError('RUN_NOT_STEERABLE');
+    const params: TurnSteerParams = {
+      threadId: s.threadId,
+      expectedTurnId: s.turnId,
+      clientUserMessageId: q.submissionKey,
+      input: [{ type: 'text', text: q.text, text_elements: [] }],
+    };
+    const intent = this.store.prepare(
+      s.token,
+      `steer:${q.submissionKey}`,
+      'turn_steer',
+      params,
+      s.threadId,
+      s.turnId,
+    );
+    if (intent.state === 'accepted') return { state: 'accepted' };
+    if (intent.state !== 'prepared') return { state: 'pending' };
+    const rpcId = this.store.sending(s.token, intent.intentId, this.epoch);
+    try {
+      await s.rpc.requestWithId(rpcId, 'turn/steer', params);
+      this.store.accepted(s.token, intent.intentId, { threadId: s.threadId, turnId: s.turnId });
+      return { state: 'accepted' };
+    } catch (error) {
+      // Codex refused it (e.g. the turn just ended): nothing was added. Anything else is unknown.
+      if (error instanceof RpcFailure && /^REMOTE_/.test(error.code)) {
+        this.store.rejected(s.token, intent.intentId);
+        throw new LedgerError('STEER_REJECTED');
+      }
+      this.store.uncertain(s.token, intent.intentId);
+      throw error;
+    }
   }
   async interrupt(input: unknown): Promise<void> {
     const run = this.view(input),

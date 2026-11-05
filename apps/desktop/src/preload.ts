@@ -81,6 +81,7 @@ const api: DesktopApi = Object.freeze<DesktopApi>({
   readWorkspaceFile: (query) => ipcRenderer.invoke('workspace:file', query),
   getWorkspaceDiff: (query) => ipcRenderer.invoke('workspace:diff', query),
   submitMessage: (input) => ipcRenderer.invoke('execution:submit', input),
+  steerRun: (input) => ipcRenderer.invoke('execution:steer', input),
   continueRun: (input) => ipcRenderer.invoke('execution:continue', input),
   listRuns: (query) => ipcRenderer.invoke('execution:list', query),
   getRun: (query) => ipcRenderer.invoke('execution:view', query),
