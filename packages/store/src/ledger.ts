@@ -4637,6 +4637,25 @@ export class ExecutionLedger {
       return this.budget.snapshot();
     });
   }
+  /**
+   * Earliest time background work may become due without any other change: the next active
+   * schedule fire time or the end of a budget period that may release a waiting dispatch.
+   */
+  nextBackgroundDueAt(now = Date.now()): number | null {
+    const schedule = this.one(
+      "SELECT MIN(s.next_fire_at_ms) AS n FROM schedules s JOIN tasks t USING(task_id) WHERE t.dot_id=? AND s.state='active' AND s.next_fire_at_ms IS NOT NULL",
+      this.dotId,
+    )?.n;
+    const budget = this.one(
+      'SELECT MIN(period_end_ms) AS n FROM budget_buckets WHERE dot_id=? AND period_end_ms>?',
+      this.dotId,
+      now,
+    )?.n;
+    const due = [schedule, budget]
+      .filter((value) => value !== null && value !== undefined)
+      .map(Number);
+    return due.length ? Math.min(...due) : null;
+  }
   /** Rows written through this connection so far (all sub-ledgers share it); used for change notices. */
   changeCount(): number {
     return Number(this.#db.prepare('SELECT total_changes() AS n').get()?.n ?? 0);

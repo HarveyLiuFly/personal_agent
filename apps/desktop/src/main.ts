@@ -76,6 +76,8 @@ import { evidenceDir } from './evidence.ts';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { BackgroundLog } from './background-log.ts';
 import { HostEvents } from './host-events.ts';
+import { BackgroundScheduler } from './background-scheduler.ts';
+import type { BackgroundStep } from './background-scheduler.ts';
 
 const directory = dirname(fileURLToPath(import.meta.url));
 const root = resolve(directory, '../..');
@@ -101,6 +103,8 @@ const resourceSampler = new MainResourceSampler();
 let execution: ForegroundExecution | undefined;
 /** Change notices to the Renderer (replaces Renderer polling). */
 let hostEvents: HostEvents | undefined;
+/** Advances outbox, plans, routes and schedules on change or due time (replaces fixed ticks). */
+let backgroundScheduler: BackgroundScheduler | undefined;
 let appServer: AppServerRuntime | undefined,
   appServerStopping = false;
 let chatRoutes: ChatRouteService | undefined,
@@ -115,11 +119,8 @@ let terminalStopping = false;
 let worktreeService: WorktreeService | undefined;
 let worktreeStopping = false;
 let workspaceReader: WorkspaceService | undefined;
-let scheduleService: ScheduleService | undefined,
-  scheduleTimer: ReturnType<typeof setInterval> | undefined;
-let taskService: TaskService | undefined,
-  outboxPump: OutboxPump | undefined,
-  outboxTimer: ReturnType<typeof setInterval> | undefined;
+let scheduleService: ScheduleService | undefined;
+let taskService: TaskService | undefined, outboxPump: OutboxPump | undefined;
 const recoverySmoke = process.argv.includes('--m2-worktree-recovery-smoke');
 const toolsSmoke = process.argv.includes('--m2-tools-smoke');
 const restoreSmoke = process.argv.includes('--m2-restore-smoke'),
@@ -612,6 +613,7 @@ async function boot(): Promise<void> {
         if (window && !window.isDestroyed()) window.webContents.send('pa:event', event);
       },
       () => ledger!.changeCount(),
+      () => backgroundScheduler?.kick(),
     );
     execution = new ForegroundExecution(ledger, {
       onSessionsChanged: (running) => {
@@ -830,37 +832,26 @@ async function boot(): Promise<void> {
     }, 15000);
     goalTimer.unref();
     outboxPump = new OutboxPump(ledger);
-    outboxTimer = setInterval(() => {
-      if (runtimeTransition) return;
-      try {
-        outboxPump?.step();
-      } catch (error) {
-        // Owner/DB failures never trigger model dispatch; they are recorded, not retried here.
-        backgroundLog.record('outbox', error);
-      }
-      void taskService?.stepPlans().catch((error) => backgroundLog.record('plans', error));
-      void chatRoutes
-        ?.tick()
-        .catch((error) => backgroundLog.record('routes', error))
-        .finally(() => hostEvents?.check());
-      hostEvents?.check();
-    }, 250);
-    outboxTimer.unref();
   }
   if (ledger) {
     scheduleService = new ScheduleService(ledger, execution);
-    const scheduleLog = new BackgroundLog(resolve(app.getPath('userData'), 'logs'));
-    scheduleTimer = setInterval(() => {
-      if (runtimeTransition) return;
-      try {
-        scheduleService?.step();
-      } catch (error) {
-        // Failed admission transactions preserve their cursor; sent runs are never retried here.
-        scheduleLog.record('schedules', error);
-      }
-      hostEvents?.check();
-    }, 1000);
-    scheduleTimer.unref();
+    const schedulerLog = new BackgroundLog(resolve(app.getPath('userData'), 'logs'));
+    // Owner/DB failures never trigger model dispatch; failed admissions keep their cursor and
+    // sent Runs are never retried here. Failures are recorded per step.
+    const steps: BackgroundStep[] = [];
+    if (outboxPump) steps.push({ name: 'outbox', run: () => outboxPump!.step() });
+    if (taskService) steps.push({ name: 'plans', run: () => taskService!.stepPlans() });
+    if (chatRoutes) steps.push({ name: 'routes', run: () => chatRoutes!.tick() });
+    steps.push({ name: 'schedules', run: () => scheduleService!.step() });
+    backgroundScheduler = new BackgroundScheduler({
+      steps,
+      changeCount: () => ledger!.changeCount(),
+      nextDueAt: () => ledger!.nextBackgroundDueAt(),
+      enabled: () => !runtimeTransition && !quitting,
+      onError: (step, error) => schedulerLog.record(step, error),
+      afterCycle: () => hostEvents?.check(),
+    });
+    backgroundScheduler.request();
   }
   for (const [channel, method] of [
     ['schedules:command', 'apply'],
@@ -1069,8 +1060,7 @@ async function boot(): Promise<void> {
           };
         runtimeTransition = true;
         clearInterval(goalTimer);
-        clearInterval(scheduleTimer);
-        clearInterval(outboxTimer);
+        backgroundScheduler?.stop();
         await terminalService?.stop();
         await worktreeService?.stop();
         await execution?.close();
@@ -2049,11 +2039,8 @@ app.on('before-quit', (event) => {
   quitting = true;
   clearInterval(goalTimer);
   goalTimer = undefined;
-  clearInterval(outboxTimer);
+  backgroundScheduler?.stop();
   hostEvents?.close();
-  outboxTimer = undefined;
-  clearInterval(scheduleTimer);
-  scheduleTimer = undefined;
   if (terminalService && !terminalStopping) {
     event.preventDefault();
     terminalStopping = true;

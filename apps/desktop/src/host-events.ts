@@ -17,9 +17,16 @@ export class HostEvents {
   private send: (event: HostEvent) => void;
   private changeCount: () => number;
   private delayMs: number;
-  constructor(send: (event: HostEvent) => void, changeCount: () => number, delayMs = 150) {
+  private afterCheck?: () => void;
+  constructor(
+    send: (event: HostEvent) => void,
+    changeCount: () => number,
+    afterCheck?: () => void,
+    delayMs = 150,
+  ) {
     this.send = send;
     this.changeCount = changeCount;
+    this.afterCheck = afterCheck;
     this.delayMs = delayMs;
     this.lastChanges = changeCount();
   }
@@ -31,9 +38,11 @@ export class HostEvents {
     } catch {
       return;
     }
-    if (current === this.lastChanges) return;
-    this.lastChanges = current;
-    this.emit('store');
+    if (current !== this.lastChanges) {
+      this.lastChanges = current;
+      this.emit('store');
+    }
+    this.afterCheck?.();
   }
   emit(topic: HostTopic, projectId?: string): void {
     this.pending.set(`${topic}:${projectId ?? ''}`, { topic, ...(projectId ? { projectId } : {}) });

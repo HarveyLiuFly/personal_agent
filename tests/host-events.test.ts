@@ -11,6 +11,7 @@ test('ledger writes become one coalesced notice; no writes, no notice', async ()
   const events = new HostEvents(
     (event) => sent.push(event),
     () => changes,
+    undefined,
     20,
   );
   events.check();
@@ -50,6 +51,7 @@ test('the Run watch checks only while Runs are active, then stops by itself', as
       reads++;
       return changes;
     },
+    undefined,
     5,
   );
   events.watchWhile(() => active, 10);
