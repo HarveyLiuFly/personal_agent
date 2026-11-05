@@ -1,16 +1,32 @@
-import {test} from 'node:test';
+import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtempSync,readFileSync,realpathSync,rmSync,symlinkSync,writeFileSync,truncateSync,existsSync} from 'node:fs';
-import {join} from 'node:path';
-import {tmpdir} from 'node:os';
-import {DatabaseSync} from 'node:sqlite';
-import {prepareRehearsalDatabase} from '../packages/backup/src/rehearsal-database.ts';
-import type {RehearsalWatermarks} from '../packages/backup/src/rehearsal-database.ts';
+import {
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+  truncateSync,
+  existsSync,
+} from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+import { DatabaseSync } from 'node:sqlite';
+import { prepareRehearsalDatabase } from '../packages/backup/src/rehearsal-database.ts';
+import type { RehearsalWatermarks } from '../packages/backup/src/rehearsal-database.ts';
 
-const schema=readFileSync('docs/design/contracts/schema.sql','utf8');
+const schema = readFileSync('docs/design/contracts/schema.sql', 'utf8');
 /** Real SQLite/FS, explicitly synthetic Run/lease/approval rows. Never starts an Owner, process or model. */
-function fixture(t:{after(fn:()=>void):void}){
-  const root=realpathSync(mkdtempSync(join(tmpdir(),'personal-agent-rehearsal-db-'))),file=join(root,'candidate.db'),db=new DatabaseSync(file);t.after(()=>{db.close();rmSync(root,{recursive:true,force:true});});db.exec(schema);
+function fixture(t: { after(fn: () => void): void }) {
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'personal-agent-rehearsal-db-'))),
+    file = join(root, 'candidate.db'),
+    db = new DatabaseSync(file);
+  t.after(() => {
+    db.close();
+    rmSync(root, { recursive: true, force: true });
+  });
+  db.exec(schema);
   db.exec(`
     INSERT INTO profiles VALUES ('local-profile','Public Fixture',1);
     INSERT INTO runtime_owners VALUES ('local-profile',2,'synthetic-old-owner','main','ready',1);
@@ -63,48 +79,280 @@ function fixture(t:{after(fn:()=>void):void}){
     INSERT INTO artifacts VALUES ('private-artifact','local-dot','task','hash','private.json','published','private',4,1,NULL);
     INSERT INTO artifacts VALUES ('visible-artifact','local-dot','other-task','hash','public.json','published','private',4,1,NULL);
   `);
-  const current:RehearsalWatermarks={profileId:'local-profile',dotId:'local-dot',runtimeEpoch:8,policyEpoch:9,privacyEpoch:10,tombstones:[]};
-  const one=(sql:string)=>{const row=db.prepare(sql).get();assert.ok(row);return{...row};};
-  return{root,file,db,current,one};
+  const current: RehearsalWatermarks = {
+    profileId: 'local-profile',
+    dotId: 'local-dot',
+    runtimeEpoch: 8,
+    policyEpoch: 9,
+    privacyEpoch: 10,
+    tombstones: [],
+  };
+  const one = (sql: string) => {
+    const row = db.prepare(sql).get();
+    assert.ok(row);
+    return { ...row };
+  };
+  return { root, file, db, current, one };
 }
-function dump(db:DatabaseSync){return db.prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name").all().map(row=>[row.name,db.prepare(`SELECT * FROM ${row.name} ORDER BY rowid`).all()]);}
+function dump(db: DatabaseSync) {
+  return db
+    .prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
+    .all()
+    .map((row) => [row.name, db.prepare(`SELECT * FROM ${row.name} ORDER BY rowid`).all()]);
+}
 
-test('rehearsal merges latest and absent-source tombstones, advances barriers and does not mutate input',t=>{
-  const f=fixture(t);f.db.exec("INSERT INTO privacy_tombstones VALUES ('local-dot','shared-source',14,100);");
-  f.current.tombstones=[{sourceRef:'shared-source',privacyEpoch:12,deletedAtMs:200},{sourceRef:'task:task',privacyEpoch:10,deletedAtMs:300},{sourceRef:'source-not-in-backup',privacyEpoch:11,deletedAtMs:400}];
-  const before=structuredClone(f.current),result=prepareRehearsalDatabase(f.file,f.current,'public-rehearsal');
-  assert.deepEqual(f.current,before);assert.deepEqual(result,{runtimeEpoch:9,policyEpoch:10,privacyEpoch:15,tombstones:12,unknownRuns:1,pausedSchedules:2,revokedApprovals:2,retainedLeases:3,quarantinedArtifacts:1});
-  assert.equal(f.one('SELECT state FROM runtime_owners').state,'stopped');assert.equal(f.one('SELECT runtime_epoch FROM runtime_owners').runtime_epoch,9);
-  assert.deepEqual(f.one("SELECT privacy_epoch,deleted_at_ms FROM privacy_tombstones WHERE source_ref='shared-source'"),{privacy_epoch:14,deleted_at_ms:200});
-  assert.equal(f.one("SELECT state FROM artifacts WHERE artifact_id='private-artifact'").state,'deleted');assert.equal(f.one("SELECT state FROM artifacts WHERE artifact_id='visible-artifact'").state,'deleting');
-  assert.equal(f.one("SELECT title FROM tasks WHERE task_id='task'").title,'已遗忘任务');assert.equal(f.one("SELECT count(*) AS n FROM privacy_tombstones WHERE source_ref IN ('artifact:private-artifact','thread:binding')").n,2);assert.equal(f.one('SELECT count(*) AS n FROM recovery_quarantine').n,1);assert.equal(f.one('SELECT rehearsal_id FROM recovery_quarantine').rehearsal_id,'public-rehearsal');assert.equal(f.db.prepare('PRAGMA foreign_key_check').all().length,0);
+test('rehearsal merges latest and absent-source tombstones, advances barriers and does not mutate input', (t) => {
+  const f = fixture(t);
+  f.db.exec("INSERT INTO privacy_tombstones VALUES ('local-dot','shared-source',14,100);");
+  f.current.tombstones = [
+    { sourceRef: 'shared-source', privacyEpoch: 12, deletedAtMs: 200 },
+    { sourceRef: 'task:task', privacyEpoch: 10, deletedAtMs: 300 },
+    { sourceRef: 'source-not-in-backup', privacyEpoch: 11, deletedAtMs: 400 },
+  ];
+  const before = structuredClone(f.current),
+    result = prepareRehearsalDatabase(f.file, f.current, 'public-rehearsal');
+  assert.deepEqual(f.current, before);
+  assert.deepEqual(result, {
+    runtimeEpoch: 9,
+    policyEpoch: 10,
+    privacyEpoch: 15,
+    tombstones: 12,
+    unknownRuns: 1,
+    pausedSchedules: 2,
+    revokedApprovals: 2,
+    retainedLeases: 3,
+    quarantinedArtifacts: 1,
+  });
+  assert.equal(f.one('SELECT state FROM runtime_owners').state, 'stopped');
+  assert.equal(f.one('SELECT runtime_epoch FROM runtime_owners').runtime_epoch, 9);
+  assert.deepEqual(
+    f.one(
+      "SELECT privacy_epoch,deleted_at_ms FROM privacy_tombstones WHERE source_ref='shared-source'",
+    ),
+    { privacy_epoch: 14, deleted_at_ms: 200 },
+  );
+  assert.equal(
+    f.one("SELECT state FROM artifacts WHERE artifact_id='private-artifact'").state,
+    'deleted',
+  );
+  assert.equal(
+    f.one("SELECT state FROM artifacts WHERE artifact_id='visible-artifact'").state,
+    'deleting',
+  );
+  assert.equal(f.one("SELECT title FROM tasks WHERE task_id='task'").title, '已遗忘任务');
+  assert.equal(
+    f.one(
+      "SELECT count(*) AS n FROM privacy_tombstones WHERE source_ref IN ('artifact:private-artifact','thread:binding')",
+    ).n,
+    2,
+  );
+  assert.equal(f.one('SELECT count(*) AS n FROM recovery_quarantine').n, 1);
+  assert.equal(
+    f.one('SELECT rehearsal_id FROM recovery_quarantine').rehearsal_id,
+    'public-rehearsal',
+  );
+  assert.equal(f.db.prepare('PRAGMA foreign_key_check').all().length, 0);
 });
-test('uncertain operations and all original leases/PIDs remain evidence, with increased Task and Workspace fences',t=>{
-  const f=fixture(t),leases=['workspace_write_leases','project_operation_leases','workspace_terminal_leases'].map(name=>f.db.prepare('SELECT * FROM '+name).all());
-  prepareRehearsalDatabase(f.file,f.current,'retained-evidence');
-  assert.deepEqual(['workspace_write_leases','project_operation_leases','workspace_terminal_leases'].map(name=>f.db.prepare('SELECT * FROM '+name).all()),leases);
-  assert.equal(f.one('SELECT status FROM task_runs').status,'outcome_unknown');assert.equal(f.one("SELECT status FROM tasks WHERE task_id='task'").status,'outcome_unknown');assert.equal(f.one("SELECT dispatch_blocked FROM tasks WHERE task_id='other-task'").dispatch_blocked,1);assert.equal(f.one("SELECT status FROM tasks WHERE task_id='other-task'").status,'paused');assert.equal(f.one("SELECT write_fence FROM tasks WHERE task_id='task'").write_fence,4);assert.equal(f.one('SELECT write_fence FROM workspaces').write_fence,6);
-  assert.deepEqual(f.one('SELECT state,supervisor_pid FROM worktree_operations'),{state:'outcome_unknown',supervisor_pid:987650001});assert.deepEqual(f.one('SELECT state,supervisor_pid,pty_pid,last_input_sequence FROM terminal_sessions'),{state:'outcome_unknown',supervisor_pid:987650002,pty_pid:987650003,last_input_sequence:1});assert.equal(f.one('SELECT state FROM terminal_inputs').state,'outcome_unknown');assert.equal(f.one('SELECT state FROM budget_reservations').state,'held_unknown');assert.equal(f.one('SELECT reserved_units FROM budget_buckets').reserved_units,10);assert.equal(f.one('SELECT baseline_known FROM thread_usage').baseline_known,0);
+test('uncertain operations and all original leases/PIDs remain evidence, with increased Task and Workspace fences', (t) => {
+  const f = fixture(t),
+    leases = [
+      'workspace_write_leases',
+      'project_operation_leases',
+      'workspace_terminal_leases',
+    ].map((name) => f.db.prepare('SELECT * FROM ' + name).all());
+  prepareRehearsalDatabase(f.file, f.current, 'retained-evidence');
+  assert.deepEqual(
+    ['workspace_write_leases', 'project_operation_leases', 'workspace_terminal_leases'].map(
+      (name) => f.db.prepare('SELECT * FROM ' + name).all(),
+    ),
+    leases,
+  );
+  assert.equal(f.one('SELECT status FROM task_runs').status, 'outcome_unknown');
+  assert.equal(f.one("SELECT status FROM tasks WHERE task_id='task'").status, 'outcome_unknown');
+  assert.equal(
+    f.one("SELECT dispatch_blocked FROM tasks WHERE task_id='other-task'").dispatch_blocked,
+    1,
+  );
+  assert.equal(f.one("SELECT status FROM tasks WHERE task_id='other-task'").status, 'paused');
+  assert.equal(f.one("SELECT write_fence FROM tasks WHERE task_id='task'").write_fence, 4);
+  assert.equal(f.one('SELECT write_fence FROM workspaces').write_fence, 6);
+  assert.deepEqual(f.one('SELECT state,supervisor_pid FROM worktree_operations'), {
+    state: 'outcome_unknown',
+    supervisor_pid: 987650001,
+  });
+  assert.deepEqual(
+    f.one('SELECT state,supervisor_pid,pty_pid,last_input_sequence FROM terminal_sessions'),
+    {
+      state: 'outcome_unknown',
+      supervisor_pid: 987650002,
+      pty_pid: 987650003,
+      last_input_sequence: 1,
+    },
+  );
+  assert.equal(f.one('SELECT state FROM terminal_inputs').state, 'outcome_unknown');
+  assert.equal(f.one('SELECT state FROM budget_reservations').state, 'held_unknown');
+  assert.equal(f.one('SELECT reserved_units FROM budget_buckets').reserved_units, 10);
+  assert.equal(f.one('SELECT baseline_known FROM thread_usage').baseline_known, 0);
 });
-test('old grants, schedules, deliveries and queued effects cannot become dispatchable',t=>{
-  const f=fixture(t);prepareRehearsalDatabase(f.file,f.current,'no-replay');
-  assert.deepEqual(f.one('SELECT state,uses_remaining FROM approval_receipts'),{state:'revoked',uses_remaining:0});assert.equal(f.one('SELECT state FROM mandates').state,'revoked');assert.equal(f.one("SELECT status FROM actions WHERE action_id='approved-action'").status,'rejected');assert.equal(f.one("SELECT status FROM actions WHERE action_id='dispatched-action'").status,'outcome_unknown');assert.equal(f.one("SELECT status FROM actions WHERE action_id='reserved-action'").status,'outcome_unknown');
-  assert.equal(f.one("SELECT state FROM execution_intents WHERE intent_id='prepared'").state,'rejected');assert.equal(f.one("SELECT state FROM execution_intents WHERE intent_id='sending'").state,'outcome_unknown');assert.equal(f.one("SELECT state FROM execution_intents WHERE intent_id='accepted'").state,'accepted');assert.equal(f.one("SELECT state FROM runtime_requests WHERE request_id='pending-request'").state,'cancelled');assert.equal(f.one("SELECT state FROM runtime_requests WHERE request_id='responding-request'").state,'outcome_unknown');assert.equal(f.one('SELECT state FROM pending_interactions').state,'cancelled');
-  assert.equal(f.one('SELECT enabled FROM sources').enabled,0);assert.equal(f.one('SELECT state FROM subscriptions').state,'paused');assert.deepEqual(f.one("SELECT state,version,next_fire_at_ms FROM schedules WHERE schedule_id='schedule'"),{state:'paused',version:2,next_fire_at_ms:null});assert.equal(f.one('SELECT state FROM schedule_occurrences').state,'cancelled');assert.equal(f.one('SELECT state FROM trigger_deliveries').state,'ignored');assert.equal(f.one('SELECT state FROM outbox_events').state,'dead_letter');assert.equal(f.one("SELECT state FROM operations WHERE operation_id='queued-op'").state,'cancelled');assert.equal(f.one("SELECT state FROM operations WHERE operation_id='worktree-op'").state,'outcome_unknown');assert.equal(f.one('SELECT state FROM thread_bindings').state,'invalidated');assert.deepEqual(f.one('SELECT state,control_owner,control_epoch FROM computer_sessions'),{state:'revoking',control_owner:'none',control_epoch:3});assert.equal(f.one('SELECT status FROM goals').status,'paused');
+test('old grants, schedules, deliveries and queued effects cannot become dispatchable', (t) => {
+  const f = fixture(t);
+  prepareRehearsalDatabase(f.file, f.current, 'no-replay');
+  assert.deepEqual(f.one('SELECT state,uses_remaining FROM approval_receipts'), {
+    state: 'revoked',
+    uses_remaining: 0,
+  });
+  assert.equal(f.one('SELECT state FROM mandates').state, 'revoked');
+  assert.equal(
+    f.one("SELECT status FROM actions WHERE action_id='approved-action'").status,
+    'rejected',
+  );
+  assert.equal(
+    f.one("SELECT status FROM actions WHERE action_id='dispatched-action'").status,
+    'outcome_unknown',
+  );
+  assert.equal(
+    f.one("SELECT status FROM actions WHERE action_id='reserved-action'").status,
+    'outcome_unknown',
+  );
+  assert.equal(
+    f.one("SELECT state FROM execution_intents WHERE intent_id='prepared'").state,
+    'rejected',
+  );
+  assert.equal(
+    f.one("SELECT state FROM execution_intents WHERE intent_id='sending'").state,
+    'outcome_unknown',
+  );
+  assert.equal(
+    f.one("SELECT state FROM execution_intents WHERE intent_id='accepted'").state,
+    'accepted',
+  );
+  assert.equal(
+    f.one("SELECT state FROM runtime_requests WHERE request_id='pending-request'").state,
+    'cancelled',
+  );
+  assert.equal(
+    f.one("SELECT state FROM runtime_requests WHERE request_id='responding-request'").state,
+    'outcome_unknown',
+  );
+  assert.equal(f.one('SELECT state FROM pending_interactions').state, 'cancelled');
+  assert.equal(f.one('SELECT enabled FROM sources').enabled, 0);
+  assert.equal(f.one('SELECT state FROM subscriptions').state, 'paused');
+  assert.deepEqual(
+    f.one("SELECT state,version,next_fire_at_ms FROM schedules WHERE schedule_id='schedule'"),
+    { state: 'paused', version: 2, next_fire_at_ms: null },
+  );
+  assert.equal(f.one('SELECT state FROM schedule_occurrences').state, 'cancelled');
+  assert.equal(f.one('SELECT state FROM trigger_deliveries').state, 'ignored');
+  assert.equal(f.one('SELECT state FROM outbox_events').state, 'dead_letter');
+  assert.equal(
+    f.one("SELECT state FROM operations WHERE operation_id='queued-op'").state,
+    'cancelled',
+  );
+  assert.equal(
+    f.one("SELECT state FROM operations WHERE operation_id='worktree-op'").state,
+    'outcome_unknown',
+  );
+  assert.equal(f.one('SELECT state FROM thread_bindings').state, 'invalidated');
+  assert.deepEqual(f.one('SELECT state,control_owner,control_epoch FROM computer_sessions'), {
+    state: 'revoking',
+    control_owner: 'none',
+    control_epoch: 3,
+  });
+  assert.equal(f.one('SELECT status FROM goals').status, 'paused');
 });
-test('any transactional failure rolls back watermarks, merged tombstones, all state and quarantine marker',t=>{
-  const f=fixture(t);f.current.tombstones=[{sourceRef:'new-deletion',privacyEpoch:12,deletedAtMs:123}];f.db.exec("CREATE TRIGGER controlled_rehearsal_failure BEFORE UPDATE ON mandates BEGIN SELECT RAISE(ABORT,'CONTROLLED_REHEARSAL_FAILURE'); END;");const before=dump(f.db);assert.throws(()=>prepareRehearsalDatabase(f.file,f.current,'must-rollback'),/REHEARSAL_DATABASE_PREPARATION_FAILED/);assert.deepEqual(dump(f.db),before);assert.equal(f.db.prepare("SELECT name FROM sqlite_master WHERE name='recovery_quarantine'").get(),undefined);assert.equal(f.db.prepare('PRAGMA foreign_key_check').all().length,0);
+test('any transactional failure rolls back watermarks, merged tombstones, all state and quarantine marker', (t) => {
+  const f = fixture(t);
+  f.current.tombstones = [{ sourceRef: 'new-deletion', privacyEpoch: 12, deletedAtMs: 123 }];
+  f.db.exec(
+    "CREATE TRIGGER controlled_rehearsal_failure BEFORE UPDATE ON mandates BEGIN SELECT RAISE(ABORT,'CONTROLLED_REHEARSAL_FAILURE'); END;",
+  );
+  const before = dump(f.db);
+  assert.throws(
+    () => prepareRehearsalDatabase(f.file, f.current, 'must-rollback'),
+    /REHEARSAL_DATABASE_PREPARATION_FAILED/,
+  );
+  assert.deepEqual(dump(f.db), before);
+  assert.equal(
+    f.db.prepare("SELECT name FROM sqlite_master WHERE name='recovery_quarantine'").get(),
+    undefined,
+  );
+  assert.equal(f.db.prepare('PRAGMA foreign_key_check').all().length, 0);
 });
-test('unknown corrupt state is rejected conservatively without changing it or leaving a marker',t=>{
-  const f=fixture(t);f.db.exec("PRAGMA ignore_check_constraints=ON;UPDATE task_runs SET status='future-unrecognized';PRAGMA ignore_check_constraints=OFF;");assert.throws(()=>prepareRehearsalDatabase(f.file,f.current,'unknown-schema-state'),/INVALID_REHEARSAL_DATABASE/);assert.equal(f.one('SELECT status FROM task_runs').status,'future-unrecognized');assert.equal(f.one('SELECT runtime_epoch FROM runtime_owners').runtime_epoch,2);assert.equal(f.db.prepare("SELECT name FROM sqlite_master WHERE name='recovery_quarantine'").get(),undefined);
+test('unknown corrupt state is rejected conservatively without changing it or leaving a marker', (t) => {
+  const f = fixture(t);
+  f.db.exec(
+    "PRAGMA ignore_check_constraints=ON;UPDATE task_runs SET status='future-unrecognized';PRAGMA ignore_check_constraints=OFF;",
+  );
+  assert.throws(
+    () => prepareRehearsalDatabase(f.file, f.current, 'unknown-schema-state'),
+    /INVALID_REHEARSAL_DATABASE/,
+  );
+  assert.equal(f.one('SELECT status FROM task_runs').status, 'future-unrecognized');
+  assert.equal(f.one('SELECT runtime_epoch FROM runtime_owners').runtime_epoch, 2);
+  assert.equal(
+    f.db.prepare("SELECT name FROM sqlite_master WHERE name='recovery_quarantine'").get(),
+    undefined,
+  );
 });
-test('terminal historical Run results are retained and a quarantine cannot be prepared a second time',t=>{
-  const f=fixture(t);f.db.exec("UPDATE task_runs SET status='completed';UPDATE tasks SET status='completed' WHERE task_id='task';");const first=prepareRehearsalDatabase(f.file,f.current,'one-preparation');assert.equal(first.unknownRuns,0);assert.equal(f.one('SELECT status FROM task_runs').status,'completed');assert.equal(f.one("SELECT status FROM tasks WHERE task_id='task'").status,'completed');const before=dump(f.db);assert.throws(()=>prepareRehearsalDatabase(f.file,f.current,'second-preparation'),/REHEARSAL_ALREADY_QUARANTINED/);assert.deepEqual(dump(f.db),before);
+test('terminal historical Run results are retained and a quarantine cannot be prepared a second time', (t) => {
+  const f = fixture(t);
+  f.db.exec(
+    "UPDATE task_runs SET status='completed';UPDATE tasks SET status='completed' WHERE task_id='task';",
+  );
+  const first = prepareRehearsalDatabase(f.file, f.current, 'one-preparation');
+  assert.equal(first.unknownRuns, 0);
+  assert.equal(f.one('SELECT status FROM task_runs').status, 'completed');
+  assert.equal(f.one("SELECT status FROM tasks WHERE task_id='task'").status, 'completed');
+  const before = dump(f.db);
+  assert.throws(
+    () => prepareRehearsalDatabase(f.file, f.current, 'second-preparation'),
+    /REHEARSAL_ALREADY_QUARANTINED/,
+  );
+  assert.deepEqual(dump(f.db), before);
 });
-test('wrong Profile/Dot, unsupported revision and nonfinite or exhausted watermarks are rejected',t=>{
-  const f=fixture(t),before=dump(f.db);for(const current of [{...f.current,profileId:'foreign'},{...f.current,dotId:'foreign'},{...f.current,runtimeEpoch:Infinity},{...f.current,privacyEpoch:Number.MAX_SAFE_INTEGER},{...f.current,tombstones:[{sourceRef:'new',privacyEpoch:-1,deletedAtMs:1}]}])assert.throws(()=>prepareRehearsalDatabase(f.file,current,'refused'));assert.deepEqual(dump(f.db),before);
-  f.db.exec("INSERT INTO profiles VALUES ('other-profile','Foreign',1);");assert.throws(()=>prepareRehearsalDatabase(f.file,f.current,'wrong-scope'),/REHEARSAL_SCOPE_MISMATCH/);f.db.exec("DELETE FROM profiles WHERE profile_id='other-profile';UPDATE schema_metadata SET schema_revision=99;");assert.throws(()=>prepareRehearsalDatabase(f.file,f.current,'wrong-revision'),/REHEARSAL_SCHEMA_UNSUPPORTED/);assert.equal(f.db.prepare("SELECT name FROM sqlite_master WHERE name='recovery_quarantine'").get(),undefined);
+test('wrong Profile/Dot, unsupported revision and nonfinite or exhausted watermarks are rejected', (t) => {
+  const f = fixture(t),
+    before = dump(f.db);
+  for (const current of [
+    { ...f.current, profileId: 'foreign' },
+    { ...f.current, dotId: 'foreign' },
+    { ...f.current, runtimeEpoch: Infinity },
+    { ...f.current, privacyEpoch: Number.MAX_SAFE_INTEGER },
+    { ...f.current, tombstones: [{ sourceRef: 'new', privacyEpoch: -1, deletedAtMs: 1 }] },
+  ])
+    assert.throws(() => prepareRehearsalDatabase(f.file, current, 'refused'));
+  assert.deepEqual(dump(f.db), before);
+  f.db.exec("INSERT INTO profiles VALUES ('other-profile','Foreign',1);");
+  assert.throws(
+    () => prepareRehearsalDatabase(f.file, f.current, 'wrong-scope'),
+    /REHEARSAL_SCOPE_MISMATCH/,
+  );
+  f.db.exec(
+    "DELETE FROM profiles WHERE profile_id='other-profile';UPDATE schema_metadata SET schema_revision=99;",
+  );
+  assert.throws(
+    () => prepareRehearsalDatabase(f.file, f.current, 'wrong-revision'),
+    /REHEARSAL_SCHEMA_UNSUPPORTED/,
+  );
+  assert.equal(
+    f.db.prepare("SELECT name FROM sqlite_master WHERE name='recovery_quarantine'").get(),
+    undefined,
+  );
 });
-test('missing, linked and oversized candidate files are rejected before a new database can be created',t=>{
-  const f=fixture(t),missing=join(f.root,'missing.db');assert.throws(()=>prepareRehearsalDatabase(missing,f.current,'missing'));assert.equal(existsSync(missing),false);const link=join(f.root,'link.db');symlinkSync(f.file,link);assert.throws(()=>prepareRehearsalDatabase(link,f.current,'link'));const large=join(f.root,'large.db');writeFileSync(large,'public');truncateSync(large,128*1024*1024+1);assert.throws(()=>prepareRehearsalDatabase(large,f.current,'large'),/INVALID_REHEARSAL_DATABASE/);assert.equal(f.one('SELECT runtime_epoch FROM runtime_owners').runtime_epoch,2);
+test('missing, linked and oversized candidate files are rejected before a new database can be created', (t) => {
+  const f = fixture(t),
+    missing = join(f.root, 'missing.db');
+  assert.throws(() => prepareRehearsalDatabase(missing, f.current, 'missing'));
+  assert.equal(existsSync(missing), false);
+  const link = join(f.root, 'link.db');
+  symlinkSync(f.file, link);
+  assert.throws(() => prepareRehearsalDatabase(link, f.current, 'link'));
+  const large = join(f.root, 'large.db');
+  writeFileSync(large, 'public');
+  truncateSync(large, 128 * 1024 * 1024 + 1);
+  assert.throws(
+    () => prepareRehearsalDatabase(large, f.current, 'large'),
+    /INVALID_REHEARSAL_DATABASE/,
+  );
+  assert.equal(f.one('SELECT runtime_epoch FROM runtime_owners').runtime_epoch, 2);
 });

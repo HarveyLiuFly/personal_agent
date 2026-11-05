@@ -1,10 +1,202 @@
 import React from 'react';
-import type {GoalPlanTask} from '../../../packages/contracts/src/goals.ts';
-interface Props{value:string;disabled:boolean;onChange:(value:string)=>void}
+import type { GoalPlanTask } from '../../../packages/contracts/src/goals.ts';
+interface Props {
+  value: string;
+  disabled: boolean;
+  onChange: (value: string) => void;
+}
 /** Editing is inert. The parent validates and previews the exact JSON before Host CAS. */
-export function GoalPlanEditor({value,disabled,onChange}:Props){
- let nodes:GoalPlanTask[]=[];try{const parsed=JSON.parse(value);if(Array.isArray(parsed)&&parsed.every(n=>n&&typeof n.key==='string'&&typeof n.text==='string'&&Array.isArray(n.dependsOn)))nodes=parsed;}catch{/* Advanced editor can temporarily contain invalid input. */}
- const change=(next:GoalPlanTask[])=>onChange(JSON.stringify(next,null,2));
- const update=(index:number,fields:Partial<GoalPlanTask>)=>change(nodes.map((n,i)=>i===index?{...n,...fields}:n));
- return <div className="plan-builder" data-goal-plan-builder>{nodes.map((node,index)=><article className="plan-node" key={node.key}><div className="page-heading"><strong>任务 {index+1}</strong><button type="button" className="text-button" aria-label={'移除任务 '+(index+1)} disabled={disabled||nodes.length===1} onClick={()=>change(nodes.filter(n=>n.key!==node.key).map(n=>({...n,dependsOn:n.dependsOn.filter(key=>key!==node.key)})))}>移除</button></div><label>任务内容<textarea aria-label={'任务 '+(index+1)+' 内容'} value={node.text} maxLength={32768} disabled={disabled} onChange={e=>update(index,{text:e.target.value})} rows={2}/></label><div className="form-grid"><label>执行方式<select aria-label={'任务 '+(index+1)+' 执行方式'} disabled={disabled} value={node.dispatch??'queue_only'} onChange={e=>update(index,{dispatch:e.target.value as 'queue_only'|'execute_once'})}><option value="queue_only">保存待办，由我开始</option><option value="execute_once">计划生效后执行一次</option></select></label><label>任务类型<select aria-label={'任务 '+(index+1)+' 类型'} disabled={disabled} value={node.code?'code':'read'} onChange={e=>{const next={...node};if(e.target.value==='code')next.code={profile:'node-test',target:'',allowedPaths:[]};else delete next.code;change(nodes.map((n,i)=>i===index?next:n));}}><option value="read">只读任务</option><option value="code">修改代码</option></select></label></div>{node.dispatch==='execute_once'&&<p className="notice">确认此计划后，这项任务会在条件满足时实际调用模型并使用预算。</p>}{node.code&&<div className="form-grid"><label>验证测试文件<input aria-label={'任务 '+(index+1)+' 测试文件'} disabled={disabled} value={node.code.target} onChange={e=>update(index,{code:{...node.code!,target:e.target.value}})} placeholder="test/math.test.mjs"/></label><label>允许修改的文件<input aria-label={'任务 '+(index+1)+' 允许文件'} disabled={disabled} value={node.code.allowedPaths.join(', ')} onChange={e=>update(index,{code:{...node.code!,allowedPaths:e.target.value.split(',').map(v=>v.trim()).filter(Boolean)}})} placeholder="src/math.mjs"/></label></div>}{nodes.length>1&&<details className="technical"><summary>前置任务{node.dependsOn.length?' · '+node.dependsOn.length+' 项':''}</summary>{nodes.filter(n=>n.key!==node.key).map(other=><label className="checkbox-label" key={other.key}><input type="checkbox" disabled={disabled} checked={node.dependsOn.includes(other.key)} onChange={e=>update(index,{dependsOn:e.target.checked?[...node.dependsOn,other.key]:node.dependsOn.filter(k=>k!==other.key)})}/>{other.text||'任务 '+(nodes.indexOf(other)+1)}</label>)}</details>}</article>)}<button type="button" className="secondary" disabled={disabled||nodes.length>=20} onClick={()=>change([...nodes,{key:'task_'+crypto.randomUUID().slice(0,8),text:'',dependsOn:[],dispatch:'queue_only'}])}>＋ 添加计划任务</button>{!nodes.length&&<p className="notice">请修正高级编辑中的格式，或重新打开计划。</p>}<details className="technical"><summary>高级配置</summary><label>任务计划 JSON<textarea data-goal-plan-json aria-label="任务计划 JSON" disabled={disabled} rows={10} value={value} onChange={e=>onChange(e.target.value)}/></label></details></div>;
+export function GoalPlanEditor({ value, disabled, onChange }: Props) {
+  let nodes: GoalPlanTask[] = [];
+  try {
+    const parsed = JSON.parse(value);
+    if (
+      Array.isArray(parsed) &&
+      parsed.every(
+        (n) =>
+          n &&
+          typeof n.key === 'string' &&
+          typeof n.text === 'string' &&
+          Array.isArray(n.dependsOn),
+      )
+    )
+      nodes = parsed;
+  } catch {
+    /* Advanced editor can temporarily contain invalid input. */
+  }
+  const change = (next: GoalPlanTask[]) => onChange(JSON.stringify(next, null, 2));
+  const update = (index: number, fields: Partial<GoalPlanTask>) =>
+    change(nodes.map((n, i) => (i === index ? { ...n, ...fields } : n)));
+  return (
+    <div className="plan-builder" data-goal-plan-builder>
+      {nodes.map((node, index) => (
+        <article className="plan-node" key={node.key}>
+          <div className="page-heading">
+            <strong>任务 {index + 1}</strong>
+            <button
+              type="button"
+              className="text-button"
+              aria-label={'移除任务 ' + (index + 1)}
+              disabled={disabled || nodes.length === 1}
+              onClick={() =>
+                change(
+                  nodes
+                    .filter((n) => n.key !== node.key)
+                    .map((n) => ({
+                      ...n,
+                      dependsOn: n.dependsOn.filter((key) => key !== node.key),
+                    })),
+                )
+              }
+            >
+              移除
+            </button>
+          </div>
+          <label>
+            任务内容
+            <textarea
+              aria-label={'任务 ' + (index + 1) + ' 内容'}
+              value={node.text}
+              maxLength={32768}
+              disabled={disabled}
+              onChange={(e) => update(index, { text: e.target.value })}
+              rows={2}
+            />
+          </label>
+          <div className="form-grid">
+            <label>
+              执行方式
+              <select
+                aria-label={'任务 ' + (index + 1) + ' 执行方式'}
+                disabled={disabled}
+                value={node.dispatch ?? 'queue_only'}
+                onChange={(e) =>
+                  update(index, { dispatch: e.target.value as 'queue_only' | 'execute_once' })
+                }
+              >
+                <option value="queue_only">保存待办，由我开始</option>
+                <option value="execute_once">计划生效后执行一次</option>
+              </select>
+            </label>
+            <label>
+              任务类型
+              <select
+                aria-label={'任务 ' + (index + 1) + ' 类型'}
+                disabled={disabled}
+                value={node.code ? 'code' : 'read'}
+                onChange={(e) => {
+                  const next = { ...node };
+                  if (e.target.value === 'code')
+                    next.code = { profile: 'node-test', target: '', allowedPaths: [] };
+                  else delete next.code;
+                  change(nodes.map((n, i) => (i === index ? next : n)));
+                }}
+              >
+                <option value="read">只读任务</option>
+                <option value="code">修改代码</option>
+              </select>
+            </label>
+          </div>
+          {node.dispatch === 'execute_once' && (
+            <p className="notice">确认此计划后，这项任务会在条件满足时实际调用模型并使用预算。</p>
+          )}
+          {node.code && (
+            <div className="form-grid">
+              <label>
+                验证测试文件
+                <input
+                  aria-label={'任务 ' + (index + 1) + ' 测试文件'}
+                  disabled={disabled}
+                  value={node.code.target}
+                  onChange={(e) =>
+                    update(index, { code: { ...node.code!, target: e.target.value } })
+                  }
+                  placeholder="test/math.test.mjs"
+                />
+              </label>
+              <label>
+                允许修改的文件
+                <input
+                  aria-label={'任务 ' + (index + 1) + ' 允许文件'}
+                  disabled={disabled}
+                  value={node.code.allowedPaths.join(', ')}
+                  onChange={(e) =>
+                    update(index, {
+                      code: {
+                        ...node.code!,
+                        allowedPaths: e.target.value
+                          .split(',')
+                          .map((v) => v.trim())
+                          .filter(Boolean),
+                      },
+                    })
+                  }
+                  placeholder="src/math.mjs"
+                />
+              </label>
+            </div>
+          )}
+          {nodes.length > 1 && (
+            <details className="technical">
+              <summary>
+                前置任务{node.dependsOn.length ? ' · ' + node.dependsOn.length + ' 项' : ''}
+              </summary>
+              {nodes
+                .filter((n) => n.key !== node.key)
+                .map((other) => (
+                  <label className="checkbox-label" key={other.key}>
+                    <input
+                      type="checkbox"
+                      disabled={disabled}
+                      checked={node.dependsOn.includes(other.key)}
+                      onChange={(e) =>
+                        update(index, {
+                          dependsOn: e.target.checked
+                            ? [...node.dependsOn, other.key]
+                            : node.dependsOn.filter((k) => k !== other.key),
+                        })
+                      }
+                    />
+                    {other.text || '任务 ' + (nodes.indexOf(other) + 1)}
+                  </label>
+                ))}
+            </details>
+          )}
+        </article>
+      ))}
+      <button
+        type="button"
+        className="secondary"
+        disabled={disabled || nodes.length >= 20}
+        onClick={() =>
+          change([
+            ...nodes,
+            {
+              key: 'task_' + crypto.randomUUID().slice(0, 8),
+              text: '',
+              dependsOn: [],
+              dispatch: 'queue_only',
+            },
+          ])
+        }
+      >
+        ＋ 添加计划任务
+      </button>
+      {!nodes.length && <p className="notice">请修正高级编辑中的格式，或重新打开计划。</p>}
+      <details className="technical">
+        <summary>高级配置</summary>
+        <label>
+          任务计划 JSON
+          <textarea
+            data-goal-plan-json
+            aria-label="任务计划 JSON"
+            disabled={disabled}
+            rows={10}
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+          />
+        </label>
+      </details>
+    </div>
+  );
 }

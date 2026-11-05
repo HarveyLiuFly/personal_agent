@@ -1,49 +1,512 @@
-import React,{useEffect,useRef,useState} from 'react';
-import type {ProjectView,HostResult} from '../../../packages/contracts/src/views.ts';
-import type {TaskSummary,TaskCommand,ActivityPage} from '../../../packages/contracts/src/tasks.ts';
-import type {ResourceBudget} from '../../../packages/contracts/src/budget.ts';
-import {TaskPlans} from './task-plans.tsx';
-import {ScheduleManager} from './schedule-manager.tsx';
-import {ResourceView} from './resource-view.tsx';
-const labels:Record<string,string>={created:'待排队',queued:'已排队',running:'执行中',waiting_input:'等待补充',waiting_approval:'等待批准',waiting_trigger:'等待触发',paused:'已暂停',needs_review:'待审查',completed:'已验证完成',failed:'执行失败',cancelled:'已取消',outcome_unknown:'结果待核对'};
-const events:Record<string,string>={task_created:'已创建任务',operation_applied:'命令已处理',operation_stop_requested:'已请求停止',operation_outcome_unknown:'停止结果待核对',run_claimed:'已领取执行',run_continued:'已续接执行',run_finished:'执行已结束',native_policy_verified:'运行权限已核对',intent_sending:'执行请求已发送',intent_accepted:'执行请求已确认',history_reconciled:'已核对执行结果',verification_recorded:'已记录独立验证'};
-async function value<T>(request:Promise<HostResult<T>>){const r=await request;if(!r.ok)throw new Error(r.errorCode);return r.value;}
-function message(code:string){if(code==='WORKSPACE_TERMINAL_ACTIVE')return'请先关闭本项目的用户终端，再创建或启动任务。';if(code==='SCHEDULE_VERSION_CONFLICT')return'计划已变化，请查看当前版本后重试。';if(['INVALID_CRON_EXPRESSION','INVALID_CRON_SPEC'].includes(code))return'请填写五段数字 Cron；当前不支持秒、宏或同时限制日期和星期。';if(code==='INVALID_SCHEDULE_TIMEZONE')return'请填写有效的 IANA 时区，例如 Asia/Shanghai。';if(['INVALID_SCHEDULE_TIME','INVALID_ONCE_DEADLINE','SCHEDULE_HAS_NO_VALID_OCCURRENCE'].includes(code))return'请核对未来计划时间与补发期限；一次性期限必须在计划之后且不超过一天。';if(code==='TASK_NOT_SCHEDULABLE')return'请选择当前可用的排队任务；恢复计划需要任务仍在等待触发。';if(code==='TASK_VERSION_CONFLICT')return'任务已变化，请查看最新状态后重试。';if(code==='RUNTIME_BUSY')return'当前执行尚未结束或待核对，请先处理执行记录。';if(code==='TASK_AUTHORIZATION_CHANGED')return'任务的授权或隐私范围已变化，请重新创建任务。';if(code==='TASK_INPUT_UNAVAILABLE')return'旧任务没有可复用的输入，请明确填写内容并创建新任务。';if(code==='TOKEN_BUDGET_EXHAUSTED')return'本机 Token 预算不足，未确认用量仍保留预留，请查看预算状态。';if(code==='COST_ESTIMATE_UNAVAILABLE')return'费用估算不可用，相关费用预算暂不接受派发。';return'操作尚未确认，请查看任务状态后再操作。';}
-export function TaskManager({project,canCode,onBusyChange,onStarted,standalone=false,section='tasks',onTask}:{project:ProjectView;canCode:boolean;onBusyChange:(busy:boolean)=>void;onStarted:(runId:string)=>void;standalone?:boolean;section?:'tasks'|'schedule';onTask?:(taskId:string)=>void}){
- const [tasks,setTasks]=useState<TaskSummary[]>([]),[activity,setActivity]=useState<ActivityPage>({items:[],nextCursor:null,delivery:{pending:0,claimed:0,deadLetter:0}}),[cursor,setCursor]=useState(0);
- const [text,setText]=useState(''),[code,setCode]=useState(false),[target,setTarget]=useState(''),[paths,setPaths]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState<string>();
- const [editing,setEditing]=useState<{task:TaskSummary;title:string}>();const alive=useRef(true),pending=useRef(false),createKey=useRef<string|undefined>(undefined);
- const [budget,setBudget]=useState<ResourceBudget>(),[resourcesStale,setResourcesStale]=useState(false);
- useEffect(()=>{let stopped=false,timer:ReturnType<typeof setTimeout>;alive.current=true;
-  const poll=async()=>{try{try{const nextBudget=await value(window.personalAgent.resourceBudget());if(!stopped){setBudget(nextBudget);setResourcesStale(false);}}catch{if(!stopped)setResourcesStale(true);}const rows=await value(window.personalAgent.listTasks({projectId:project.id})),feed=await value(window.personalAgent.listTaskActivity({projectId:project.id,cursor}));if(!stopped){setTasks(rows);setActivity(feed);}}catch{if(!stopped)setError('无法更新任务队列，请稍后刷新。');}finally{if(!stopped)timer=setTimeout(()=>void poll(),500);}};
-  void poll();return()=>{stopped=true;clearTimeout(timer);};
- },[project.id,cursor]);
- useEffect(()=>()=>{alive.current=false;onBusyChange(false);},[project.id]);
- async function perform(work:()=>Promise<void>){if(pending.current)return;pending.current=true;setBusy(true);setError(undefined);onBusyChange(true);try{await work();}catch(e){if(alive.current)setError(message(e instanceof Error?e.message:''));}finally{pending.current=false;if(alive.current){setBusy(false);onBusyChange(false);}}}
- const command=(task:TaskSummary,kind:'pause'|'cancel'|'resume')=>perform(async()=>{await value(window.personalAgent.applyTaskCommand({projectId:project.id,taskId:task.taskId,expectedVersion:task.version,commandKey:crypto.randomUUID(),kind}));});
- const create=()=>perform(async()=>{createKey.current??=crypto.randomUUID();const input:TaskCommand={projectId:project.id,commandKey:createKey.current,kind:'create',text,...(code?{code:{profile:'node-test',target:target.trim(),allowedPaths:paths.split(/[\n,]/).map(x=>x.trim()).filter(Boolean)}}:{})};await value(window.personalAgent.applyTaskCommand(input));if(alive.current){setText('');createKey.current=undefined;}});
- const running=tasks.some(t=>t.activeRunId!==null),queued=tasks.filter(t=>t.status==='queued').length;
- return <details className={"task-manager"+(standalone?" standalone":"")} open={standalone||undefined} data-task-manager><summary>任务队列与活动 <span className="badge">排队 {queued}</span></summary><div className="task-manager-content">
-  {error&&<div className="notice error" role="alert">{error}</div>}
-  {budget&&<details className="technical resource-details"><summary>预算与资源</summary><div className="budget-summary" data-resource-budget><strong>本机共享 Token 预算 · UTC 日周期</strong><p>剩余 {budget.availableTokens.toLocaleString()} / {budget.limitTokens.toLocaleString()} · 上游报告 {budget.reportedTokens.toLocaleString()} · 当前预留 {budget.reservedTokens.toLocaleString()}</p><small>未确认预留 {budget.unknownHeldTokens.toLocaleString()}（含历史周期） · 执行占用 {budget.activeRuns} / {budget.maxConcurrentRuns}。仅统计预算启用后的派发；美元费用未知，套餐额度以服务商为准。</small></div></details>}
-  {budget&&<details className="technical"><summary>查看资源占用</summary><ResourceView budget={budget} stale={resourcesStale}/></details>}
-  {!budget&&resourcesStale&&<p className="notice">资源查询失败，暂未获得预算与占用信息。</p>}
-  {section==='tasks'&&<form className="queue-create" onSubmit={e=>{e.preventDefault();void create();}}><label>加入队列<textarea data-queue-draft aria-label="排队任务内容" value={text} maxLength={32768} disabled={busy} onChange={e=>{setText(e.target.value);createKey.current=undefined;}} placeholder="先保存任务，点击开始后才执行。" rows={2}/></label>
-   {canCode&&<label className="queue-code"><input type="checkbox" data-queue-code-profile checked={code} disabled={busy} onChange={e=>{setCode(e.target.checked);createKey.current=undefined;}}/>代码任务 · 固定 Node 测试</label>}
-   {code&&<div className="code-options"><label>测试入口<input value={target} disabled={busy} onChange={e=>{setTarget(e.target.value);createKey.current=undefined;}}/></label><label>允许修改的文件<input value={paths} disabled={busy} onChange={e=>{setPaths(e.target.value);createKey.current=undefined;}} placeholder="逗号分隔"/></label></div>}
-   <button data-action="queue-create" disabled={busy||!text.trim()||code&&(!target.trim()||!paths.trim())}>保存到队列</button>
-  </form>}
-  {section==='schedule'&&<ScheduleManager standalone key={'schedule:'+project.id} projectId={project.id} tasks={tasks} busy={busy} perform={perform} onOpenRun={onStarted}/>}
-  {section==='tasks'&&<details className="technical"><summary>批量管理</summary><TaskPlans key={project.id} projectId={project.id} tasks={tasks} busy={busy} perform={perform}/></details>}
-  {section==='tasks'&&<div className="task-manager-grid"><section aria-label="任务队列"><p className="history-note">显示最近更新的 100 项任务；只有“开始”会派发执行。</p>{tasks.map(task=><article className="queue-task" data-queued-task={task.taskId} data-queued-status={task.status} key={task.taskId}><strong>{task.title}</strong>{onTask&&<button className="text-button" onClick={()=>onTask(task.taskId)}>打开任务 →</button>}<span className="badge">{labels[task.status]}</span>
-   <div className="queue-actions">{task.status==='queued'&&!task.blocked&&<button data-task-action="start" disabled={busy||running||!budget||budget.activeRuns>0||budget.availableTokens<budget.reservationPerRun} onClick={()=>void perform(async()=>{const run=await value(window.personalAgent.startTask({projectId:project.id,taskId:task.taskId,expectedVersion:task.version,submissionKey:crypto.randomUUID()}));if(alive.current)onStarted(run.runId);})}>开始</button>}
-    {['queued','running','waiting_input','waiting_approval','waiting_trigger'].includes(task.status)&&!task.blocked&&<button data-task-action="pause" disabled={busy} onClick={()=>void command(task,'pause')}>暂停</button>}
-    {['paused','failed','waiting_trigger'].includes(task.status)&&<button data-task-action="resume" disabled={busy||task.activeRunId!==null} onClick={()=>void command(task,'resume')}>恢复排队</button>}
-    {!['completed','cancelled','outcome_unknown'].includes(task.status)&&!task.activeRunId&&<button data-task-action="rename" disabled={busy} onClick={()=>setEditing({task,title:task.title})}>改名</button>}
-    {!['completed','cancelled','outcome_unknown'].includes(task.status)&&(!task.blocked||task.status==='paused')&&<button data-task-action="cancel" disabled={busy} onClick={()=>void command(task,'cancel')}>取消</button>}
-   </div>{task.status==='outcome_unknown'&&<small>请在执行记录中核对，系统不会自动重发。</small>}
-   {editing?.task.taskId===task.taskId&&<form onSubmit={e=>{e.preventDefault();const current=editing;void perform(async()=>{await value(window.personalAgent.applyTaskCommand({projectId:project.id,commandKey:crypto.randomUUID(),kind:'rename',taskId:current.task.taskId,expectedVersion:current.task.version,title:current.title}));if(alive.current)setEditing(undefined);});}}><input aria-label="新任务标题" data-queue-title value={editing.title} maxLength={120} disabled={busy} onChange={e=>setEditing({...editing,title:e.target.value})}/><button data-task-action="save-title" disabled={busy||!editing.title.trim()}>保存名称</button><button type="button" disabled={busy} onClick={()=>setEditing(undefined)}>关闭</button></form>}
-  </article>)}</section>
-  <section aria-label="任务活动"><h3>任务活动</h3>{activity.delivery.deadLetter>0&&<p className="notice">有 {activity.delivery.deadLetter} 条活动记录未能发布，任务结果请查看执行记录。</p>}<ol className="task-activity">{activity.items.map(item=><li data-activity-event={item.eventId} key={item.eventId}><span>{events[item.eventType]??'任务状态更新'}</span><small>{tasks.find(t=>t.taskId===item.taskId)?.title??'已记录的任务'}</small></li>)}</ol><div className="queue-actions">{cursor>0&&<button onClick={()=>setCursor(0)}>返回首批</button>}{activity.nextCursor!==null&&<button onClick={()=>setCursor(activity.nextCursor!)}>后续活动</button>}</div></section></div>}
- </div></details>;
+import React, { useEffect, useRef, useState } from 'react';
+import type { ProjectView, HostResult } from '../../../packages/contracts/src/views.ts';
+import type {
+  TaskSummary,
+  TaskCommand,
+  ActivityPage,
+} from '../../../packages/contracts/src/tasks.ts';
+import type { ResourceBudget } from '../../../packages/contracts/src/budget.ts';
+import { TaskPlans } from './task-plans.tsx';
+import { ScheduleManager } from './schedule-manager.tsx';
+import { ResourceView } from './resource-view.tsx';
+const labels: Record<string, string> = {
+  created: '待排队',
+  queued: '已排队',
+  running: '执行中',
+  waiting_input: '等待补充',
+  waiting_approval: '等待批准',
+  waiting_trigger: '等待触发',
+  paused: '已暂停',
+  needs_review: '待审查',
+  completed: '已验证完成',
+  failed: '执行失败',
+  cancelled: '已取消',
+  outcome_unknown: '结果待核对',
+};
+const events: Record<string, string> = {
+  task_created: '已创建任务',
+  operation_applied: '命令已处理',
+  operation_stop_requested: '已请求停止',
+  operation_outcome_unknown: '停止结果待核对',
+  run_claimed: '已领取执行',
+  run_continued: '已续接执行',
+  run_finished: '执行已结束',
+  native_policy_verified: '运行权限已核对',
+  intent_sending: '执行请求已发送',
+  intent_accepted: '执行请求已确认',
+  history_reconciled: '已核对执行结果',
+  verification_recorded: '已记录独立验证',
+};
+async function value<T>(request: Promise<HostResult<T>>) {
+  const r = await request;
+  if (!r.ok) throw new Error(r.errorCode);
+  return r.value;
+}
+function message(code: string) {
+  if (code === 'WORKSPACE_TERMINAL_ACTIVE') return '请先关闭本项目的用户终端，再创建或启动任务。';
+  if (code === 'SCHEDULE_VERSION_CONFLICT') return '计划已变化，请查看当前版本后重试。';
+  if (['INVALID_CRON_EXPRESSION', 'INVALID_CRON_SPEC'].includes(code))
+    return '请填写五段数字 Cron；当前不支持秒、宏或同时限制日期和星期。';
+  if (code === 'INVALID_SCHEDULE_TIMEZONE') return '请填写有效的 IANA 时区，例如 Asia/Shanghai。';
+  if (
+    ['INVALID_SCHEDULE_TIME', 'INVALID_ONCE_DEADLINE', 'SCHEDULE_HAS_NO_VALID_OCCURRENCE'].includes(
+      code,
+    )
+  )
+    return '请核对未来计划时间与补发期限；一次性期限必须在计划之后且不超过一天。';
+  if (code === 'TASK_NOT_SCHEDULABLE')
+    return '请选择当前可用的排队任务；恢复计划需要任务仍在等待触发。';
+  if (code === 'TASK_VERSION_CONFLICT') return '任务已变化，请查看最新状态后重试。';
+  if (code === 'RUNTIME_BUSY') return '当前执行尚未结束或待核对，请先处理执行记录。';
+  if (code === 'TASK_AUTHORIZATION_CHANGED') return '任务的授权或隐私范围已变化，请重新创建任务。';
+  if (code === 'TASK_INPUT_UNAVAILABLE')
+    return '旧任务没有可复用的输入，请明确填写内容并创建新任务。';
+  if (code === 'TOKEN_BUDGET_EXHAUSTED')
+    return '本机 Token 预算不足，未确认用量仍保留预留，请查看预算状态。';
+  if (code === 'COST_ESTIMATE_UNAVAILABLE') return '费用估算不可用，相关费用预算暂不接受派发。';
+  return '操作尚未确认，请查看任务状态后再操作。';
+}
+export function TaskManager({
+  project,
+  canCode,
+  onBusyChange,
+  onStarted,
+  standalone = false,
+  section = 'tasks',
+  onTask,
+}: {
+  project: ProjectView;
+  canCode: boolean;
+  onBusyChange: (busy: boolean) => void;
+  onStarted: (runId: string) => void;
+  standalone?: boolean;
+  section?: 'tasks' | 'schedule';
+  onTask?: (taskId: string) => void;
+}) {
+  const [tasks, setTasks] = useState<TaskSummary[]>([]),
+    [activity, setActivity] = useState<ActivityPage>({
+      items: [],
+      nextCursor: null,
+      delivery: { pending: 0, claimed: 0, deadLetter: 0 },
+    }),
+    [cursor, setCursor] = useState(0);
+  const [text, setText] = useState(''),
+    [code, setCode] = useState(false),
+    [target, setTarget] = useState(''),
+    [paths, setPaths] = useState(''),
+    [busy, setBusy] = useState(false),
+    [error, setError] = useState<string>();
+  const [editing, setEditing] = useState<{ task: TaskSummary; title: string }>();
+  const alive = useRef(true),
+    pending = useRef(false),
+    createKey = useRef<string | undefined>(undefined);
+  const [budget, setBudget] = useState<ResourceBudget>(),
+    [resourcesStale, setResourcesStale] = useState(false);
+  useEffect(() => {
+    let stopped = false,
+      timer: ReturnType<typeof setTimeout>;
+    alive.current = true;
+    const poll = async () => {
+      try {
+        try {
+          const nextBudget = await value(window.personalAgent.resourceBudget());
+          if (!stopped) {
+            setBudget(nextBudget);
+            setResourcesStale(false);
+          }
+        } catch {
+          if (!stopped) setResourcesStale(true);
+        }
+        const rows = await value(window.personalAgent.listTasks({ projectId: project.id })),
+          feed = await value(
+            window.personalAgent.listTaskActivity({ projectId: project.id, cursor }),
+          );
+        if (!stopped) {
+          setTasks(rows);
+          setActivity(feed);
+        }
+      } catch {
+        if (!stopped) setError('无法更新任务队列，请稍后刷新。');
+      } finally {
+        if (!stopped) timer = setTimeout(() => void poll(), 500);
+      }
+    };
+    void poll();
+    return () => {
+      stopped = true;
+      clearTimeout(timer);
+    };
+  }, [project.id, cursor]);
+  useEffect(
+    () => () => {
+      alive.current = false;
+      onBusyChange(false);
+    },
+    [project.id],
+  );
+  async function perform(work: () => Promise<void>) {
+    if (pending.current) return;
+    pending.current = true;
+    setBusy(true);
+    setError(undefined);
+    onBusyChange(true);
+    try {
+      await work();
+    } catch (e) {
+      if (alive.current) setError(message(e instanceof Error ? e.message : ''));
+    } finally {
+      pending.current = false;
+      if (alive.current) {
+        setBusy(false);
+        onBusyChange(false);
+      }
+    }
+  }
+  const command = (task: TaskSummary, kind: 'pause' | 'cancel' | 'resume') =>
+    perform(async () => {
+      await value(
+        window.personalAgent.applyTaskCommand({
+          projectId: project.id,
+          taskId: task.taskId,
+          expectedVersion: task.version,
+          commandKey: crypto.randomUUID(),
+          kind,
+        }),
+      );
+    });
+  const create = () =>
+    perform(async () => {
+      createKey.current ??= crypto.randomUUID();
+      const input: TaskCommand = {
+        projectId: project.id,
+        commandKey: createKey.current,
+        kind: 'create',
+        text,
+        ...(code
+          ? {
+              code: {
+                profile: 'node-test',
+                target: target.trim(),
+                allowedPaths: paths
+                  .split(/[\n,]/)
+                  .map((x) => x.trim())
+                  .filter(Boolean),
+              },
+            }
+          : {}),
+      };
+      await value(window.personalAgent.applyTaskCommand(input));
+      if (alive.current) {
+        setText('');
+        createKey.current = undefined;
+      }
+    });
+  const running = tasks.some((t) => t.activeRunId !== null),
+    queued = tasks.filter((t) => t.status === 'queued').length;
+  return (
+    <details
+      className={'task-manager' + (standalone ? ' standalone' : '')}
+      open={standalone || undefined}
+      data-task-manager
+    >
+      <summary>
+        任务队列与活动 <span className="badge">排队 {queued}</span>
+      </summary>
+      <div className="task-manager-content">
+        {error && (
+          <div className="notice error" role="alert">
+            {error}
+          </div>
+        )}
+        {budget && (
+          <details className="technical resource-details">
+            <summary>预算与资源</summary>
+            <div className="budget-summary" data-resource-budget>
+              <strong>本机共享 Token 预算 · UTC 日周期</strong>
+              <p>
+                剩余 {budget.availableTokens.toLocaleString()} /{' '}
+                {budget.limitTokens.toLocaleString()} · 上游报告{' '}
+                {budget.reportedTokens.toLocaleString()} · 当前预留{' '}
+                {budget.reservedTokens.toLocaleString()}
+              </p>
+              <small>
+                未确认预留 {budget.unknownHeldTokens.toLocaleString()}（含历史周期） · 执行占用{' '}
+                {budget.activeRuns} / {budget.maxConcurrentRuns}
+                。仅统计预算启用后的派发；美元费用未知，套餐额度以服务商为准。
+              </small>
+            </div>
+          </details>
+        )}
+        {budget && (
+          <details className="technical">
+            <summary>查看资源占用</summary>
+            <ResourceView budget={budget} stale={resourcesStale} />
+          </details>
+        )}
+        {!budget && resourcesStale && (
+          <p className="notice">资源查询失败，暂未获得预算与占用信息。</p>
+        )}
+        {section === 'tasks' && (
+          <form
+            className="queue-create"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void create();
+            }}
+          >
+            <label>
+              加入队列
+              <textarea
+                data-queue-draft
+                aria-label="排队任务内容"
+                value={text}
+                maxLength={32768}
+                disabled={busy}
+                onChange={(e) => {
+                  setText(e.target.value);
+                  createKey.current = undefined;
+                }}
+                placeholder="先保存任务，点击开始后才执行。"
+                rows={2}
+              />
+            </label>
+            {canCode && (
+              <label className="queue-code">
+                <input
+                  type="checkbox"
+                  data-queue-code-profile
+                  checked={code}
+                  disabled={busy}
+                  onChange={(e) => {
+                    setCode(e.target.checked);
+                    createKey.current = undefined;
+                  }}
+                />
+                代码任务 · 固定 Node 测试
+              </label>
+            )}
+            {code && (
+              <div className="code-options">
+                <label>
+                  测试入口
+                  <input
+                    value={target}
+                    disabled={busy}
+                    onChange={(e) => {
+                      setTarget(e.target.value);
+                      createKey.current = undefined;
+                    }}
+                  />
+                </label>
+                <label>
+                  允许修改的文件
+                  <input
+                    value={paths}
+                    disabled={busy}
+                    onChange={(e) => {
+                      setPaths(e.target.value);
+                      createKey.current = undefined;
+                    }}
+                    placeholder="逗号分隔"
+                  />
+                </label>
+              </div>
+            )}
+            <button
+              data-action="queue-create"
+              disabled={busy || !text.trim() || (code && (!target.trim() || !paths.trim()))}
+            >
+              保存到队列
+            </button>
+          </form>
+        )}
+        {section === 'schedule' && (
+          <ScheduleManager
+            standalone
+            key={'schedule:' + project.id}
+            projectId={project.id}
+            tasks={tasks}
+            busy={busy}
+            perform={perform}
+            onOpenRun={onStarted}
+          />
+        )}
+        {section === 'tasks' && (
+          <details className="technical">
+            <summary>批量管理</summary>
+            <TaskPlans
+              key={project.id}
+              projectId={project.id}
+              tasks={tasks}
+              busy={busy}
+              perform={perform}
+            />
+          </details>
+        )}
+        {section === 'tasks' && (
+          <div className="task-manager-grid">
+            <section aria-label="任务队列">
+              <p className="history-note">显示最近更新的 100 项任务；只有“开始”会派发执行。</p>
+              {tasks.map((task) => (
+                <article
+                  className="queue-task"
+                  data-queued-task={task.taskId}
+                  data-queued-status={task.status}
+                  key={task.taskId}
+                >
+                  <strong>{task.title}</strong>
+                  {onTask && (
+                    <button className="text-button" onClick={() => onTask(task.taskId)}>
+                      打开任务 →
+                    </button>
+                  )}
+                  <span className="badge">{labels[task.status]}</span>
+                  <div className="queue-actions">
+                    {task.status === 'queued' && !task.blocked && (
+                      <button
+                        data-task-action="start"
+                        disabled={
+                          busy ||
+                          running ||
+                          !budget ||
+                          budget.activeRuns > 0 ||
+                          budget.availableTokens < budget.reservationPerRun
+                        }
+                        onClick={() =>
+                          void perform(async () => {
+                            const run = await value(
+                              window.personalAgent.startTask({
+                                projectId: project.id,
+                                taskId: task.taskId,
+                                expectedVersion: task.version,
+                                submissionKey: crypto.randomUUID(),
+                              }),
+                            );
+                            if (alive.current) onStarted(run.runId);
+                          })
+                        }
+                      >
+                        开始
+                      </button>
+                    )}
+                    {[
+                      'queued',
+                      'running',
+                      'waiting_input',
+                      'waiting_approval',
+                      'waiting_trigger',
+                    ].includes(task.status) &&
+                      !task.blocked && (
+                        <button
+                          data-task-action="pause"
+                          disabled={busy}
+                          onClick={() => void command(task, 'pause')}
+                        >
+                          暂停
+                        </button>
+                      )}
+                    {['paused', 'failed', 'waiting_trigger'].includes(task.status) && (
+                      <button
+                        data-task-action="resume"
+                        disabled={busy || task.activeRunId !== null}
+                        onClick={() => void command(task, 'resume')}
+                      >
+                        恢复排队
+                      </button>
+                    )}
+                    {!['completed', 'cancelled', 'outcome_unknown'].includes(task.status) &&
+                      !task.activeRunId && (
+                        <button
+                          data-task-action="rename"
+                          disabled={busy}
+                          onClick={() => setEditing({ task, title: task.title })}
+                        >
+                          改名
+                        </button>
+                      )}
+                    {!['completed', 'cancelled', 'outcome_unknown'].includes(task.status) &&
+                      (!task.blocked || task.status === 'paused') && (
+                        <button
+                          data-task-action="cancel"
+                          disabled={busy}
+                          onClick={() => void command(task, 'cancel')}
+                        >
+                          取消
+                        </button>
+                      )}
+                  </div>
+                  {task.status === 'outcome_unknown' && (
+                    <small>请在执行记录中核对，系统不会自动重发。</small>
+                  )}
+                  {editing?.task.taskId === task.taskId && (
+                    <form
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        const current = editing;
+                        void perform(async () => {
+                          await value(
+                            window.personalAgent.applyTaskCommand({
+                              projectId: project.id,
+                              commandKey: crypto.randomUUID(),
+                              kind: 'rename',
+                              taskId: current.task.taskId,
+                              expectedVersion: current.task.version,
+                              title: current.title,
+                            }),
+                          );
+                          if (alive.current) setEditing(undefined);
+                        });
+                      }}
+                    >
+                      <input
+                        aria-label="新任务标题"
+                        data-queue-title
+                        value={editing.title}
+                        maxLength={120}
+                        disabled={busy}
+                        onChange={(e) => setEditing({ ...editing, title: e.target.value })}
+                      />
+                      <button
+                        data-task-action="save-title"
+                        disabled={busy || !editing.title.trim()}
+                      >
+                        保存名称
+                      </button>
+                      <button type="button" disabled={busy} onClick={() => setEditing(undefined)}>
+                        关闭
+                      </button>
+                    </form>
+                  )}
+                </article>
+              ))}
+            </section>
+            <section aria-label="任务活动">
+              <h3>任务活动</h3>
+              {activity.delivery.deadLetter > 0 && (
+                <p className="notice">
+                  有 {activity.delivery.deadLetter} 条活动记录未能发布，任务结果请查看执行记录。
+                </p>
+              )}
+              <ol className="task-activity">
+                {activity.items.map((item) => (
+                  <li data-activity-event={item.eventId} key={item.eventId}>
+                    <span>{events[item.eventType] ?? '任务状态更新'}</span>
+                    <small>
+                      {tasks.find((t) => t.taskId === item.taskId)?.title ?? '已记录的任务'}
+                    </small>
+                  </li>
+                ))}
+              </ol>
+              <div className="queue-actions">
+                {cursor > 0 && <button onClick={() => setCursor(0)}>返回首批</button>}
+                {activity.nextCursor !== null && (
+                  <button onClick={() => setCursor(activity.nextCursor!)}>后续活动</button>
+                )}
+              </div>
+            </section>
+          </div>
+        )}
+      </div>
+    </details>
+  );
 }

@@ -1,11 +1,18 @@
-import type {App,BrowserWindow} from 'electron';
-import {writeFileSync} from 'node:fs';
-import {join} from 'node:path';
-import type {ExecutionLedger} from '../../../packages/store/src/ledger.ts';
-import type {ForegroundExecution} from '../../../packages/runtime/src/execution.ts';
+import type { App, BrowserWindow } from 'electron';
+import { writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import type { ExecutionLedger } from '../../../packages/store/src/ledger.ts';
+import type { ForegroundExecution } from '../../../packages/runtime/src/execution.ts';
 /** Owned public fixture; this fixed harness is never exposed as Renderer evaluation capability. */
-export async function runTaskProbe(root:string,app:App,window:BrowserWindow,store:ExecutionLedger,execution:ForegroundExecution,budgetProbe=false){
- const result=await window.webContents.executeJavaScript(`(async()=>{
+export async function runTaskProbe(
+  root: string,
+  app: App,
+  window: BrowserWindow,
+  store: ExecutionLedger,
+  execution: ForegroundExecution,
+  budgetProbe = false,
+) {
+  const result = await window.webContents.executeJavaScript(`(async()=>{
   const wait=async(check)=>{const deadline=Date.now()+25000;while(!await check()){if(Date.now()>deadline)throw new Error('TASK_UI_TIMEOUT');await new Promise(r=>setTimeout(r,50));}};
   const set=async(selector,text)=>{const input=document.querySelector(selector),proto=input.tagName==='TEXTAREA'?HTMLTextAreaElement.prototype:HTMLInputElement.prototype;Object.getOwnPropertyDescriptor(proto,'value').set.call(input,text);input.dispatchEvent(new Event('input',{bubbles:true}));await new Promise(r=>setTimeout(r,50));};
   document.querySelector('[data-action="choose-project"]').click();await wait(()=>document.querySelector('[data-action="open-tasks"]')&&!document.querySelector('[data-action="open-tasks"]').disabled);document.querySelector('[data-action="open-tasks"]').click();await wait(()=>document.querySelector('[data-task-manager]'));document.querySelector('[data-task-manager]').open=true;
@@ -31,7 +38,38 @@ export async function runTaskProbe(root:string,app:App,window:BrowserWindow,stor
   }
   return{noRunsBeforeStart,markupSafe,titleUpdated:final.title==='renamed queued fixture',staleRejected:!stale.ok&&stale.errorCode==='TASK_VERSION_CONFLICT',extraRejected:!extra.ok,pausedConfirmed:paused.status==='paused'&&paused.activeRunId===null,cancelledConfirmed:final.status==='cancelled'&&final.activeRunId===null,sameTask:runs.length===2&&runs.every(r=>r.taskId===taskId),sameThread:runs[0].threadId===runs[1].threadId,newRun:runs[0].runId!==runs[1].runId,activityUnique:feed.items.length>0&&new Set(feed.items.map(e=>e.eventId)).size===feed.items.length,stopActivityShown:feed.items.some(e=>e.eventType==='operation_stop_requested'),deadLetterEmpty:feed.delivery.deadLetter===0,budgetShown:document.querySelector('[data-resource-budget]')!==null,missingUsageHeld:budget.unknownHeldTokens===budget.reservationPerRun*2&&budget.reservedTokens===budget.unknownHeldTokens,noInventedDollars:budget.estimatedUsd===null,activeBudgetReleased:budget.activeRuns===0,...budgetExtra,sandboxed:window.personalAgent.security.sandboxed,isolated:window.personalAgent.security.isolated,hasRequire:typeof require!=='undefined'};
  })()`);
- const passed=Object.entries(result).every(([key,value])=>key==='hasRequire'?value===false:value===true)&&execution.diagnostics.clientThreadStarts===1&&execution.diagnostics.clientThreadResumes===1&&execution.diagnostics.clientTurnStarts===2&&store.outboxStatus().deadLetter===0;
- writeFileSync(join(root,`docs/progress/evidence/${budgetProbe?'M2.2c':'M2.2b'}-desktop.json`),JSON.stringify({status:passed?'passed':'blocked',observedAt:new Date().toISOString(),kind:'real_electron_and_sqlite_task_queue_with_synthetic_stdio',backend:'synthetic_stdio',inferenceRequested:false,folderDialogSelection:'fixed_fixture_substitution',modelTurns:0,syntheticTurnStarts:execution.diagnostics.clientTurnStarts,result},null,2)+'\n');
- writeFileSync(join(root,budgetProbe?'.local/M2-resource-budget-desktop.png':'.local/M2-task-queue-desktop.png'),(await window.webContents.capturePage()).toPNG());app.quit();
+  const passed =
+    Object.entries(result).every(([key, value]) =>
+      key === 'hasRequire' ? value === false : value === true,
+    ) &&
+    execution.diagnostics.clientThreadStarts === 1 &&
+    execution.diagnostics.clientThreadResumes === 1 &&
+    execution.diagnostics.clientTurnStarts === 2 &&
+    store.outboxStatus().deadLetter === 0;
+  writeFileSync(
+    join(root, `docs/progress/evidence/${budgetProbe ? 'M2.2c' : 'M2.2b'}-desktop.json`),
+    JSON.stringify(
+      {
+        status: passed ? 'passed' : 'blocked',
+        observedAt: new Date().toISOString(),
+        kind: 'real_electron_and_sqlite_task_queue_with_synthetic_stdio',
+        backend: 'synthetic_stdio',
+        inferenceRequested: false,
+        folderDialogSelection: 'fixed_fixture_substitution',
+        modelTurns: 0,
+        syntheticTurnStarts: execution.diagnostics.clientTurnStarts,
+        result,
+      },
+      null,
+      2,
+    ) + '\n',
+  );
+  writeFileSync(
+    join(
+      root,
+      budgetProbe ? '.local/M2-resource-budget-desktop.png' : '.local/M2-task-queue-desktop.png',
+    ),
+    (await window.webContents.capturePage()).toPNG(),
+  );
+  app.quit();
 }

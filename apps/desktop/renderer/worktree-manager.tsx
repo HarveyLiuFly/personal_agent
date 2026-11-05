@@ -1,25 +1,343 @@
-import {fileManagerLabel} from './platform.ts';
-import React,{useEffect,useRef,useState} from 'react';
-import type {HostResult,ProjectView} from '../../../packages/contracts/src/views.ts';
-import type {WorktreePage,WorktreeInspection} from '../../../packages/contracts/src/worktrees.ts';
-async function value<T>(p:Promise<HostResult<T>>){const r=await p;if(!r.ok)throw Error(r.errorCode);return r.value;}
-const reason:Record<string,string>={TRACKED_CHANGES:'存在未提交修改',UNTRACKED_FILES:'存在未跟踪文件',IGNORED_FILES:'存在忽略文件',UNMERGED_COMMITS:'存在未合并到主工作区的提交',PENDING_TASKS:'仍有待处理或待审查任务'};
-const state:Record<string,string>={prepared:'准备中',dispatching:'执行中',completed:'已完成',failed:'已停止',outcome_unknown:'结果待核对'};
-export function WorktreeManager({project,disabled,onBusyChange,onSelected,onProjectsChanged}:{project:ProjectView;disabled:boolean;onBusyChange:(busy:boolean)=>void;onSelected:(project:ProjectView)=>void;onProjectsChanged:(projects:ProjectView[])=>void}){
- const [page,setPage]=useState<WorktreePage>(),[name,setName]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState<string>(),[inspection,setInspection]=useState<WorktreeInspection>();const alive=useRef(true),pending=useRef(false);
- async function perform(work:()=>Promise<void>){if(pending.current)return;pending.current=true;setBusy(true);setError(undefined);onBusyChange(true);try{await work();}catch(e){if(alive.current){const code=e instanceof Error?e.message:'HOST_ERROR';setError(code==='WORKSPACE_TERMINAL_ACTIVE'?'请先关闭本项目的用户终端，再操作工作树。':code==='WORKSPACE_BUSY'?'项目正在执行任务或处理工作树，请稍后重试。':/INSPECTION/.test(code)?'检查已过期或目录发生变化，请重新检查。':code==='WORKTREE_REMOVE_UNSAFE'?'目录中仍有需要保留的内容，请重新检查。':`操作未完成（${code}）。`);}}finally{pending.current=false;if(alive.current){setBusy(false);onBusyChange(false);}}}
- async function refresh(){const next=await value(window.personalAgent.listWorktrees({projectId:project.id}));if(alive.current)setPage(next);}
- async function projects(){const next=await value(window.personalAgent.workspaceState());if(alive.current)onProjectsChanged(next.projects);}
- useEffect(()=>{alive.current=true;void perform(refresh);return()=>{alive.current=false;onBusyChange(false);};},[project.id]);
- return <section className="worktree-manager" data-worktree-manager><div className="workspace-heading"><h3>工作树</h3><button disabled={disabled||busy} onClick={()=>void perform(refresh)}>刷新</button></div>
- <p className="history-note">从已提交的 HEAD 创建独立分支；原工作区的未提交修改保留。移除前检查文件和任务，分支及本机恢复目录保留。</p>
- {error&&<p className="notice error" role="alert">{error}</p>}
- {page?.canCreate&&<form onSubmit={e=>{e.preventDefault();void perform(async()=>{const next=await value(window.personalAgent.applyWorktreeCommand({kind:'create',projectId:project.id,commandKey:crypto.randomUUID(),name:name.trim()}));if(alive.current){setPage(next);setName('');}await projects();});}}><label>工作树名称 <input data-worktree-name value={name} maxLength={80} onChange={e=>setName(e.target.value)} disabled={disabled||busy}/></label><button data-action="create-worktree" disabled={disabled||busy||!name.trim()}>创建工作树</button></form>}
- <div>{page?.worktrees.map(w=><article key={w.id} data-worktree-id={w.id}><div><strong>{w.name}</strong><small>{w.branch}</small><small>{w.directory}</small></div><div>
- <button data-action="use-worktree" disabled={disabled||busy||w.state!=='ready'||w.id===project.id} onClick={()=>void perform(async()=>{const selected=await value(window.personalAgent.useWorktree({projectId:project.id,workspaceId:w.id}));if(alive.current)onSelected(selected);})}>{w.id===project.id?'当前工作区':'切换到此工作树'}</button>
- <button data-action="inspect-worktree" disabled={disabled||busy||w.state!=='ready'||w.id===project.id} onClick={()=>void perform(async()=>{const i=await value(window.personalAgent.inspectWorktree({projectId:project.id,workspaceId:w.id}));if(alive.current)setInspection(i);})}>检查能否删除</button>
- </div>{inspection?.workspaceId===w.id&&<div data-worktree-inspection>{inspection.canRemove?<><span>目录干净、无待处理任务，可以删除。</span><button data-action="remove-worktree" disabled={disabled||busy} onClick={()=>void perform(async()=>{const next=await value(window.personalAgent.applyWorktreeCommand({kind:'remove',projectId:project.id,commandKey:crypto.randomUUID(),workspaceId:w.id,expectedVersion:inspection.version,inspectionId:inspection.inspectionId}));if(alive.current){setPage(next);setInspection(undefined);}await projects();})}>移除工作树（保留恢复目录及分支）</button></>:<span>{inspection.reasons.map(r=>reason[r]??r).join('；')}。</span>}</div>}</article>)}</div>
- {Boolean(page?.recoveries.length)&&<details data-worktree-recoveries><summary>保留的恢复目录（{page!.recoveries.length}）</summary><p className="history-note">文件和分支继续保留；此处可定位原数据，或完成中断的 Git 登记清理。不会自动复制、覆盖或清空文件。</p>{page!.recoveries.map(r=><article key={r.recoveryId} data-worktree-recovery-id={r.recoveryId}><div><strong>{r.name}</strong><small>{r.branch}</small><span className="badge">{r.state==='retained'?'目录已保留':r.state==='pending_metadata'?'Git 登记待清理':'目录待核对'}</span></div><div><button data-action="reveal-worktree-recovery" disabled={disabled||busy||!r.canReveal} onClick={()=>void perform(async()=>{setPage(await value(window.personalAgent.applyWorktreeCommand({kind:'revealRecovery',projectId:project.id,recoveryId:r.recoveryId})));})}>在{fileManagerLabel()}中定位</button>{r.repairOperationId&&<button data-action="repair-worktree-removal" disabled={disabled||busy} onClick={()=>void perform(async()=>{setPage(await value(window.personalAgent.applyWorktreeCommand({kind:'repairRemove',projectId:project.id,operationId:r.repairOperationId!,commandKey:crypto.randomUUID()})));await projects();})}>修复移除登记（保留文件）</button>}</div>{r.reasons.length>0&&<small>{r.reasons.map(code=>({RECOVERY_DIRECTORY_UNAVAILABLE:'恢复目录不可用或身份已变化',SOURCE_CHANGED:'来源仓库已变化',ORIGINAL_PATH_PRESENT:'原路径再次出现，已停止清理',GIT_METADATA_CHANGED:'Git 元数据已变化',GIT_WORKTREE_LOCKED:'Git 工作树仍被锁定，请先处理锁定原因',OLD_PROCESS_RUNNING:'旧进程仍未确认停止'}[code]??code)).join('；')}</small>}</article>)}</details>}
- {page?.operations.slice(0,5).map(op=><p key={op.operationId} className="history-note" data-worktree-operation={op.state}>{op.kind==='create'?'创建':op.kind==='repairRemove'?'修复移除登记':'移除'} {op.name} · {state[op.state]} {op.errorCode&&`（${op.errorCode}）`}{op.state==='outcome_unknown'&&<button disabled={disabled||busy} onClick={()=>void perform(async()=>{const next=await value(window.personalAgent.applyWorktreeCommand({kind:'reconcile',projectId:project.id,operationId:op.operationId}));if(alive.current)setPage(next);await projects();})}>核对实际结果</button>}</p>)}
- </section>;
+import { fileManagerLabel } from './platform.ts';
+import React, { useEffect, useRef, useState } from 'react';
+import type { HostResult, ProjectView } from '../../../packages/contracts/src/views.ts';
+import type {
+  WorktreePage,
+  WorktreeInspection,
+} from '../../../packages/contracts/src/worktrees.ts';
+async function value<T>(p: Promise<HostResult<T>>) {
+  const r = await p;
+  if (!r.ok) throw Error(r.errorCode);
+  return r.value;
+}
+const reason: Record<string, string> = {
+  TRACKED_CHANGES: '存在未提交修改',
+  UNTRACKED_FILES: '存在未跟踪文件',
+  IGNORED_FILES: '存在忽略文件',
+  UNMERGED_COMMITS: '存在未合并到主工作区的提交',
+  PENDING_TASKS: '仍有待处理或待审查任务',
+};
+const state: Record<string, string> = {
+  prepared: '准备中',
+  dispatching: '执行中',
+  completed: '已完成',
+  failed: '已停止',
+  outcome_unknown: '结果待核对',
+};
+export function WorktreeManager({
+  project,
+  disabled,
+  onBusyChange,
+  onSelected,
+  onProjectsChanged,
+}: {
+  project: ProjectView;
+  disabled: boolean;
+  onBusyChange: (busy: boolean) => void;
+  onSelected: (project: ProjectView) => void;
+  onProjectsChanged: (projects: ProjectView[]) => void;
+}) {
+  const [page, setPage] = useState<WorktreePage>(),
+    [name, setName] = useState(''),
+    [busy, setBusy] = useState(false),
+    [error, setError] = useState<string>(),
+    [inspection, setInspection] = useState<WorktreeInspection>();
+  const alive = useRef(true),
+    pending = useRef(false);
+  async function perform(work: () => Promise<void>) {
+    if (pending.current) return;
+    pending.current = true;
+    setBusy(true);
+    setError(undefined);
+    onBusyChange(true);
+    try {
+      await work();
+    } catch (e) {
+      if (alive.current) {
+        const code = e instanceof Error ? e.message : 'HOST_ERROR';
+        setError(
+          code === 'WORKSPACE_TERMINAL_ACTIVE'
+            ? '请先关闭本项目的用户终端，再操作工作树。'
+            : code === 'WORKSPACE_BUSY'
+              ? '项目正在执行任务或处理工作树，请稍后重试。'
+              : /INSPECTION/.test(code)
+                ? '检查已过期或目录发生变化，请重新检查。'
+                : code === 'WORKTREE_REMOVE_UNSAFE'
+                  ? '目录中仍有需要保留的内容，请重新检查。'
+                  : `操作未完成（${code}）。`,
+        );
+      }
+    } finally {
+      pending.current = false;
+      if (alive.current) {
+        setBusy(false);
+        onBusyChange(false);
+      }
+    }
+  }
+  async function refresh() {
+    const next = await value(window.personalAgent.listWorktrees({ projectId: project.id }));
+    if (alive.current) setPage(next);
+  }
+  async function projects() {
+    const next = await value(window.personalAgent.workspaceState());
+    if (alive.current) onProjectsChanged(next.projects);
+  }
+  useEffect(() => {
+    alive.current = true;
+    void perform(refresh);
+    return () => {
+      alive.current = false;
+      onBusyChange(false);
+    };
+  }, [project.id]);
+  return (
+    <section className="worktree-manager" data-worktree-manager>
+      <div className="workspace-heading">
+        <h3>工作树</h3>
+        <button disabled={disabled || busy} onClick={() => void perform(refresh)}>
+          刷新
+        </button>
+      </div>
+      <p className="history-note">
+        从已提交的 HEAD
+        创建独立分支；原工作区的未提交修改保留。移除前检查文件和任务，分支及本机恢复目录保留。
+      </p>
+      {error && (
+        <p className="notice error" role="alert">
+          {error}
+        </p>
+      )}
+      {page?.canCreate && (
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            void perform(async () => {
+              const next = await value(
+                window.personalAgent.applyWorktreeCommand({
+                  kind: 'create',
+                  projectId: project.id,
+                  commandKey: crypto.randomUUID(),
+                  name: name.trim(),
+                }),
+              );
+              if (alive.current) {
+                setPage(next);
+                setName('');
+              }
+              await projects();
+            });
+          }}
+        >
+          <label>
+            工作树名称{' '}
+            <input
+              data-worktree-name
+              value={name}
+              maxLength={80}
+              onChange={(e) => setName(e.target.value)}
+              disabled={disabled || busy}
+            />
+          </label>
+          <button data-action="create-worktree" disabled={disabled || busy || !name.trim()}>
+            创建工作树
+          </button>
+        </form>
+      )}
+      <div>
+        {page?.worktrees.map((w) => (
+          <article key={w.id} data-worktree-id={w.id}>
+            <div>
+              <strong>{w.name}</strong>
+              <small>{w.branch}</small>
+              <small>{w.directory}</small>
+            </div>
+            <div>
+              <button
+                data-action="use-worktree"
+                disabled={disabled || busy || w.state !== 'ready' || w.id === project.id}
+                onClick={() =>
+                  void perform(async () => {
+                    const selected = await value(
+                      window.personalAgent.useWorktree({
+                        projectId: project.id,
+                        workspaceId: w.id,
+                      }),
+                    );
+                    if (alive.current) onSelected(selected);
+                  })
+                }
+              >
+                {w.id === project.id ? '当前工作区' : '切换到此工作树'}
+              </button>
+              <button
+                data-action="inspect-worktree"
+                disabled={disabled || busy || w.state !== 'ready' || w.id === project.id}
+                onClick={() =>
+                  void perform(async () => {
+                    const i = await value(
+                      window.personalAgent.inspectWorktree({
+                        projectId: project.id,
+                        workspaceId: w.id,
+                      }),
+                    );
+                    if (alive.current) setInspection(i);
+                  })
+                }
+              >
+                检查能否删除
+              </button>
+            </div>
+            {inspection?.workspaceId === w.id && (
+              <div data-worktree-inspection>
+                {inspection.canRemove ? (
+                  <>
+                    <span>目录干净、无待处理任务，可以删除。</span>
+                    <button
+                      data-action="remove-worktree"
+                      disabled={disabled || busy}
+                      onClick={() =>
+                        void perform(async () => {
+                          const next = await value(
+                            window.personalAgent.applyWorktreeCommand({
+                              kind: 'remove',
+                              projectId: project.id,
+                              commandKey: crypto.randomUUID(),
+                              workspaceId: w.id,
+                              expectedVersion: inspection.version,
+                              inspectionId: inspection.inspectionId,
+                            }),
+                          );
+                          if (alive.current) {
+                            setPage(next);
+                            setInspection(undefined);
+                          }
+                          await projects();
+                        })
+                      }
+                    >
+                      移除工作树（保留恢复目录及分支）
+                    </button>
+                  </>
+                ) : (
+                  <span>{inspection.reasons.map((r) => reason[r] ?? r).join('；')}。</span>
+                )}
+              </div>
+            )}
+          </article>
+        ))}
+      </div>
+      {Boolean(page?.recoveries.length) && (
+        <details data-worktree-recoveries>
+          <summary>保留的恢复目录（{page!.recoveries.length}）</summary>
+          <p className="history-note">
+            文件和分支继续保留；此处可定位原数据，或完成中断的 Git
+            登记清理。不会自动复制、覆盖或清空文件。
+          </p>
+          {page!.recoveries.map((r) => (
+            <article key={r.recoveryId} data-worktree-recovery-id={r.recoveryId}>
+              <div>
+                <strong>{r.name}</strong>
+                <small>{r.branch}</small>
+                <span className="badge">
+                  {r.state === 'retained'
+                    ? '目录已保留'
+                    : r.state === 'pending_metadata'
+                      ? 'Git 登记待清理'
+                      : '目录待核对'}
+                </span>
+              </div>
+              <div>
+                <button
+                  data-action="reveal-worktree-recovery"
+                  disabled={disabled || busy || !r.canReveal}
+                  onClick={() =>
+                    void perform(async () => {
+                      setPage(
+                        await value(
+                          window.personalAgent.applyWorktreeCommand({
+                            kind: 'revealRecovery',
+                            projectId: project.id,
+                            recoveryId: r.recoveryId,
+                          }),
+                        ),
+                      );
+                    })
+                  }
+                >
+                  在{fileManagerLabel()}中定位
+                </button>
+                {r.repairOperationId && (
+                  <button
+                    data-action="repair-worktree-removal"
+                    disabled={disabled || busy}
+                    onClick={() =>
+                      void perform(async () => {
+                        setPage(
+                          await value(
+                            window.personalAgent.applyWorktreeCommand({
+                              kind: 'repairRemove',
+                              projectId: project.id,
+                              operationId: r.repairOperationId!,
+                              commandKey: crypto.randomUUID(),
+                            }),
+                          ),
+                        );
+                        await projects();
+                      })
+                    }
+                  >
+                    修复移除登记（保留文件）
+                  </button>
+                )}
+              </div>
+              {r.reasons.length > 0 && (
+                <small>
+                  {r.reasons
+                    .map(
+                      (code) =>
+                        ({
+                          RECOVERY_DIRECTORY_UNAVAILABLE: '恢复目录不可用或身份已变化',
+                          SOURCE_CHANGED: '来源仓库已变化',
+                          ORIGINAL_PATH_PRESENT: '原路径再次出现，已停止清理',
+                          GIT_METADATA_CHANGED: 'Git 元数据已变化',
+                          GIT_WORKTREE_LOCKED: 'Git 工作树仍被锁定，请先处理锁定原因',
+                          OLD_PROCESS_RUNNING: '旧进程仍未确认停止',
+                        })[code] ?? code,
+                    )
+                    .join('；')}
+                </small>
+              )}
+            </article>
+          ))}
+        </details>
+      )}
+      {page?.operations.slice(0, 5).map((op) => (
+        <p key={op.operationId} className="history-note" data-worktree-operation={op.state}>
+          {op.kind === 'create' ? '创建' : op.kind === 'repairRemove' ? '修复移除登记' : '移除'}{' '}
+          {op.name} · {state[op.state]} {op.errorCode && `（${op.errorCode}）`}
+          {op.state === 'outcome_unknown' && (
+            <button
+              disabled={disabled || busy}
+              onClick={() =>
+                void perform(async () => {
+                  const next = await value(
+                    window.personalAgent.applyWorktreeCommand({
+                      kind: 'reconcile',
+                      projectId: project.id,
+                      operationId: op.operationId,
+                    }),
+                  );
+                  if (alive.current) setPage(next);
+                  await projects();
+                })
+              }
+            >
+              核对实际结果
+            </button>
+          )}
+        </p>
+      ))}
+    </section>
+  );
 }

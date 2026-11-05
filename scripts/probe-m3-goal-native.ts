@@ -1,40 +1,279 @@
-import {createServer} from 'node:http';
-import {createHmac,createHash} from 'node:crypto';
-import {readFileSync,writeFileSync,mkdirSync,mkdtempSync,realpathSync,existsSync} from 'node:fs';
-import {resolve,join} from 'node:path';
-import {ExecutionLedger} from '../packages/store/src/ledger.ts';
-import {ForegroundExecution} from '../packages/runtime/src/execution.ts';
-import {AuthenticatedSourcePoller} from '../packages/runtime/src/source-poller.ts';
-import {GoalService} from '../packages/runtime/src/goal-service.ts';
-import {ScheduleService} from '../packages/runtime/src/schedules.ts';
-import {NodeVerification} from '../packages/verification/src/verification.ts';
-import {verifiedCodex} from '../packages/codex-adapter/src/binary.ts';
-import {resolveVerifierNode} from '../packages/codex-adapter/src/launch.ts';
-import {backupFile} from '../packages/backup/src/service.ts';
-import {createCodeFixture} from '../tests/fixtures/code-project.ts';
-const root=resolve('.'),marker=join(root,'.local/M3-native-goal-state.json');mkdirSync(join(root,'.local'),{recursive:true});if(existsSync(marker))throw Error('NATIVE_PROBE_ALREADY_RECORDED_NO_AUTOMATIC_RESEND');
-const state=realpathSync(mkdtempSync(join(root,'.local/m3-native-goal-'))),cwd=join(state,'workspace'),verification=join(state,'verification');mkdirSync(cwd);createCodeFixture(cwd);writeFileSync(marker,JSON.stringify({state})+'\n',{flag:'wx',mode:0o600});
+import { createServer } from 'node:http';
+import { createHmac, createHash } from 'node:crypto';
+import {
+  readFileSync,
+  writeFileSync,
+  mkdirSync,
+  mkdtempSync,
+  realpathSync,
+  existsSync,
+} from 'node:fs';
+import { resolve, join } from 'node:path';
+import { ExecutionLedger } from '../packages/store/src/ledger.ts';
+import { ForegroundExecution } from '../packages/runtime/src/execution.ts';
+import { AuthenticatedSourcePoller } from '../packages/runtime/src/source-poller.ts';
+import { GoalService } from '../packages/runtime/src/goal-service.ts';
+import { ScheduleService } from '../packages/runtime/src/schedules.ts';
+import { NodeVerification } from '../packages/verification/src/verification.ts';
+import { verifiedCodex } from '../packages/codex-adapter/src/binary.ts';
+import { resolveVerifierNode } from '../packages/codex-adapter/src/launch.ts';
+import { backupFile } from '../packages/backup/src/service.ts';
+import { createCodeFixture } from '../tests/fixtures/code-project.ts';
+const root = resolve('.'),
+  marker = join(root, '.local/M3-native-goal-state.json');
+mkdirSync(join(root, '.local'), { recursive: true });
+if (existsSync(marker)) throw Error('NATIVE_PROBE_ALREADY_RECORDED_NO_AUTOMATIC_RESEND');
+const state = realpathSync(mkdtempSync(join(root, '.local/m3-native-goal-'))),
+  cwd = join(state, 'workspace'),
+  verification = join(state, 'verification');
+mkdirSync(cwd);
+createCodeFixture(cwd);
+writeFileSync(marker, JSON.stringify({ state }) + '\n', { flag: 'wx', mode: 0o600 });
 // A controlled authenticated Provider fixture; this is not a third-party account.
-const token='public-m3-provider-fixture-token',sourceId='public-native-source',bindingRef='public-native-binding';let requests=0,events:Array<Record<string,unknown>>=[],notices=0;
-const provider=createServer(async(req,res)=>{let body='';for await(const part of req)body+=part;if(req.headers.authorization!=='Bearer '+token){res.writeHead(401).end();return;}requests++;const input=JSON.parse(body),response=JSON.stringify({sourceId,bindingRef,actorRef:'public-provider',events,cursor:{requests}}),mac=createHmac('sha256',token).update(input.nonce+'\n'+response).digest('hex');res.writeHead(200,{'content-type':'application/json','x-source-signature':mac});res.end(response);});await new Promise<void>(r=>provider.listen(0,'127.0.0.1',r));const address=provider.address();if(!address||typeof address==='string')throw Error('PROVIDER_LISTEN_FAILED');
-const poller=new AuthenticatedSourcePoller({connections:[{sourceId,bindingRef,url:`http://127.0.0.1:${address.port}`,token}],directory:join(state,'source-payloads'),allowLoopbackHttpForTests:true});
-const schema=readFileSync(join(root,'docs/design/contracts/schema.sql'),'utf8');let store=new ExecutionLedger(join(state,'ledger.db'),schema,{verifySource:(id,e)=>poller.verified(id,e),sourcePayload:(ref,sha)=>{try{const text=poller.getPayload(ref);return createHash('sha256').update(text).digest('hex')===sha?text:null;}catch{return null;}},artifactText:(key,sha)=>{try{const file=backupFile(join(verification,'artifacts',key),1024*1024,true);return file.sha256===sha?file.content.toString('utf8'):null;}catch{return null;}}});store.startOwner('m3-native-goal-first',true);const project=store.registerWorkspace(cwd,cwd);
-const cli=verifiedCodex(root).executable,verifier=new NodeVerification(store,{node:resolveVerifierNode(root),cli,reporter:join(root,'packages/verification/src/reporter.mjs'),stateDirectory:verification});
-const execution=new ForegroundExecution(store,{executable:cli,stateDirectory:join(state,'codex-state'),timeoutMs:240000,prepareCode:(t,c,s)=>verifier.prepare(t,c,s),prepareContinuation:(t,r,s)=>verifier.prepareContinuation(t,r,s)});
-let service=new GoalService(store,execution,{sourcePoller:poller,sources:[{sourceId,cursor:()=>store.goalSourceCursor(sourceId)}],send:async()=>{notices++;return{state:'delivered',providerRef:'public-controlled-notification-receipt'};}}),evidence:Record<string,unknown>={status:'blocked',kind:'native_goal_source_code_chain',inferenceRequested:false};
-try{
- store.bindGoalSource({sourceId,bindingRef,allowedActors:['public-provider'],selfActor:'public-self',eventTypes:['changed'],maxAgeMs:60000});
- let goal=(await service.apply({kind:'create',commandKey:'native-goal',projectId:project.id,title:'公开数学修复验收',objective:'修复 sum 并通过全部冻结测试',criteria:['只改 src/math.mjs','Host 独立执行四个冻结测试通过'],budgetTokens:100000,notificationPolicy:{enabled:true,dailyLimit:3,quietStartMinute:0,quietEndMinute:0}})).goal;
- const old=await service.apply({kind:'plan',commandKey:'old-plan',goalId:goal.goalId,expectedVersion:goal.version,expectedPlanVersion:goal.planVersion,tasks:[{key:'old',text:'Obsolete request. Do not execute after revision.',dependsOn:[],dispatch:'execute_once',subscription:{sourceId,threadRef:'old-thread',purpose:'wake',eventTypes:['changed'],expiresAtMs:Date.now()+60000}}]});
- goal=(await service.apply({kind:'revise',commandKey:'revise-before-wake',goalId:goal.goalId,expectedVersion:old.goal.version,objective:'修复 src/math.mjs 的 sum，使数学加法准确。不要修改任何测试或其他文件。',criteria:['Host 四个冻结测试通过','旧计划不能被旧事件重新派工']})).goal;
- const plan=await service.apply({kind:'plan',commandKey:'current-plan',goalId:goal.goalId,expectedVersion:goal.version,expectedPlanVersion:goal.planVersion,tasks:[{key:'repair',text:'Fix the subtraction bug in src/math.mjs: sum(a,b) must return a + b. Edit only src/math.mjs, do not edit tests or any other file. The Host will independently run the frozen tests. Use the file editing tool to make the minimal correction.',code:{profile:'node-test',target:'test/math.test.mjs',allowedPaths:['src/math.mjs']},dependsOn:[],dispatch:'execute_once',subscription:{sourceId,threadRef:'current-thread',purpose:'wake',eventTypes:['changed'],expiresAtMs:Date.now()+180000}}]});goal=plan.goal;
- events=[{id:'old-event',threadRef:'old-thread',eventType:'changed',occurredAtMs:Date.now(),payload:'PUBLIC_OBSOLETE_EVENT'},{id:'current-event',threadRef:'current-thread',eventType:'changed',occurredAtMs:Date.now(),payload:'PUBLIC_REPAIR_WAKE'}];
- const woke=await service.tick();if(woke.goals.delivered.queued!==1||store.goalDispatchCandidates().length!==1)throw Error('GOAL_WAKE_ADMISSION_FAILED');
- evidence.inferenceRequested=true;new ScheduleService(store,execution).step();await execution.wait();const runs=store.runs(project.id);if(runs.length!==1||runs[0]!.taskId!==plan.taskIds[0]||runs[0]!.status!=='completed')throw Error('NATIVE_GOAL_CODE_RUN_FAILED');
- const receipt=await verifier.verify(project.id,runs[0]!.runId);if(receipt.status!=='passed'||receipt.executed!==4||receipt.skipped!==0)throw Error('NATIVE_GOAL_HOST_VERIFICATION_FAILED');
- const completed=await service.apply({kind:'complete',commandKey:'complete-with-host-receipt',goalId:goal.goalId,expectedVersion:goal.version,verificationIds:[receipt.verificationId]});
- await service.tick();await service.tick();if(notices!==1)throw Error('NOTIFICATION_DEDUPE_FAILED');
- const tokens=store.resourceBudget().reportedTokens,manifest=store.contextManifestReceipt(runs[0]!.runId);
- evidence={status:'passed',kind:'native_goal_source_code_chain',inferenceRequested:true,model:execution.diagnostics.selectedModel,sourceProvider:'authenticated_controlled_loopback_http_fixture',notificationProvider:'explicit_controlled_host_receipt_fixture',sourcePolls:requests,oldPlanBlocked:store.routeQuery(project.id,old.taskIds[0]!).blocked,actualModelRuns:runs.length,clientTurnStarts:execution.diagnostics.clientTurnStarts,goalStatus:completed.goal.status,verification:{status:receipt.status,code:receipt.code,discovered:receipt.discovered,executed:receipt.executed,skipped:receipt.skipped,exitCode:receipt.exitCode},notificationSends:notices,reportedTokens:tokens,contextManifestBound:Boolean(manifest),nativePolicyVerified:execution.diagnostics.nativePolicyVerified};
-}catch(error){evidence.code=error instanceof Error?error.message:'HOST_ERROR';evidence.diagnosticCode=execution.diagnostics.failureCode;evidence.clientTurnStarts=execution.diagnostics.clientTurnStarts;}finally{await execution.close();store.close();await new Promise<void>(r=>provider.close(()=>r()));}
-evidence.observedAt=new Date().toISOString();writeFileSync(join(root,'docs/progress/evidence/M3.3a-native-goal.json'),JSON.stringify(evidence,null,2)+'\n');console.log(JSON.stringify(evidence,null,2));if(evidence.status!=='passed')process.exitCode=1;
+const token = 'public-m3-provider-fixture-token',
+  sourceId = 'public-native-source',
+  bindingRef = 'public-native-binding';
+let requests = 0,
+  events: Array<Record<string, unknown>> = [],
+  notices = 0;
+const provider = createServer(async (req, res) => {
+  let body = '';
+  for await (const part of req) body += part;
+  if (req.headers.authorization !== 'Bearer ' + token) {
+    res.writeHead(401).end();
+    return;
+  }
+  requests++;
+  const input = JSON.parse(body),
+    response = JSON.stringify({
+      sourceId,
+      bindingRef,
+      actorRef: 'public-provider',
+      events,
+      cursor: { requests },
+    }),
+    mac = createHmac('sha256', token)
+      .update(input.nonce + '\n' + response)
+      .digest('hex');
+  res.writeHead(200, { 'content-type': 'application/json', 'x-source-signature': mac });
+  res.end(response);
+});
+await new Promise<void>((r) => provider.listen(0, '127.0.0.1', r));
+const address = provider.address();
+if (!address || typeof address === 'string') throw Error('PROVIDER_LISTEN_FAILED');
+const poller = new AuthenticatedSourcePoller({
+  connections: [{ sourceId, bindingRef, url: `http://127.0.0.1:${address.port}`, token }],
+  directory: join(state, 'source-payloads'),
+  allowLoopbackHttpForTests: true,
+});
+const schema = readFileSync(join(root, 'docs/design/contracts/schema.sql'), 'utf8');
+let store = new ExecutionLedger(join(state, 'ledger.db'), schema, {
+  verifySource: (id, e) => poller.verified(id, e),
+  sourcePayload: (ref, sha) => {
+    try {
+      const text = poller.getPayload(ref);
+      return createHash('sha256').update(text).digest('hex') === sha ? text : null;
+    } catch {
+      return null;
+    }
+  },
+  artifactText: (key, sha) => {
+    try {
+      const file = backupFile(join(verification, 'artifacts', key), 1024 * 1024, true);
+      return file.sha256 === sha ? file.content.toString('utf8') : null;
+    } catch {
+      return null;
+    }
+  },
+});
+store.startOwner('m3-native-goal-first', true);
+const project = store.registerWorkspace(cwd, cwd);
+const cli = verifiedCodex(root).executable,
+  verifier = new NodeVerification(store, {
+    node: resolveVerifierNode(root),
+    cli,
+    reporter: join(root, 'packages/verification/src/reporter.mjs'),
+    stateDirectory: verification,
+  });
+const execution = new ForegroundExecution(store, {
+  executable: cli,
+  stateDirectory: join(state, 'codex-state'),
+  timeoutMs: 240000,
+  prepareCode: (t, c, s) => verifier.prepare(t, c, s),
+  prepareContinuation: (t, r, s) => verifier.prepareContinuation(t, r, s),
+});
+let service = new GoalService(store, execution, {
+    sourcePoller: poller,
+    sources: [{ sourceId, cursor: () => store.goalSourceCursor(sourceId) }],
+    send: async () => {
+      notices++;
+      return { state: 'delivered', providerRef: 'public-controlled-notification-receipt' };
+    },
+  }),
+  evidence: Record<string, unknown> = {
+    status: 'blocked',
+    kind: 'native_goal_source_code_chain',
+    inferenceRequested: false,
+  };
+try {
+  store.bindGoalSource({
+    sourceId,
+    bindingRef,
+    allowedActors: ['public-provider'],
+    selfActor: 'public-self',
+    eventTypes: ['changed'],
+    maxAgeMs: 60000,
+  });
+  let goal = (
+    await service.apply({
+      kind: 'create',
+      commandKey: 'native-goal',
+      projectId: project.id,
+      title: '公开数学修复验收',
+      objective: '修复 sum 并通过全部冻结测试',
+      criteria: ['只改 src/math.mjs', 'Host 独立执行四个冻结测试通过'],
+      budgetTokens: 100000,
+      notificationPolicy: { enabled: true, dailyLimit: 3, quietStartMinute: 0, quietEndMinute: 0 },
+    })
+  ).goal;
+  const old = await service.apply({
+    kind: 'plan',
+    commandKey: 'old-plan',
+    goalId: goal.goalId,
+    expectedVersion: goal.version,
+    expectedPlanVersion: goal.planVersion,
+    tasks: [
+      {
+        key: 'old',
+        text: 'Obsolete request. Do not execute after revision.',
+        dependsOn: [],
+        dispatch: 'execute_once',
+        subscription: {
+          sourceId,
+          threadRef: 'old-thread',
+          purpose: 'wake',
+          eventTypes: ['changed'],
+          expiresAtMs: Date.now() + 60000,
+        },
+      },
+    ],
+  });
+  goal = (
+    await service.apply({
+      kind: 'revise',
+      commandKey: 'revise-before-wake',
+      goalId: goal.goalId,
+      expectedVersion: old.goal.version,
+      objective: '修复 src/math.mjs 的 sum，使数学加法准确。不要修改任何测试或其他文件。',
+      criteria: ['Host 四个冻结测试通过', '旧计划不能被旧事件重新派工'],
+    })
+  ).goal;
+  const plan = await service.apply({
+    kind: 'plan',
+    commandKey: 'current-plan',
+    goalId: goal.goalId,
+    expectedVersion: goal.version,
+    expectedPlanVersion: goal.planVersion,
+    tasks: [
+      {
+        key: 'repair',
+        text: 'Fix the subtraction bug in src/math.mjs: sum(a,b) must return a + b. Edit only src/math.mjs, do not edit tests or any other file. The Host will independently run the frozen tests. Use the file editing tool to make the minimal correction.',
+        code: {
+          profile: 'node-test',
+          target: 'test/math.test.mjs',
+          allowedPaths: ['src/math.mjs'],
+        },
+        dependsOn: [],
+        dispatch: 'execute_once',
+        subscription: {
+          sourceId,
+          threadRef: 'current-thread',
+          purpose: 'wake',
+          eventTypes: ['changed'],
+          expiresAtMs: Date.now() + 180000,
+        },
+      },
+    ],
+  });
+  goal = plan.goal;
+  events = [
+    {
+      id: 'old-event',
+      threadRef: 'old-thread',
+      eventType: 'changed',
+      occurredAtMs: Date.now(),
+      payload: 'PUBLIC_OBSOLETE_EVENT',
+    },
+    {
+      id: 'current-event',
+      threadRef: 'current-thread',
+      eventType: 'changed',
+      occurredAtMs: Date.now(),
+      payload: 'PUBLIC_REPAIR_WAKE',
+    },
+  ];
+  const woke = await service.tick();
+  if (woke.goals.delivered.queued !== 1 || store.goalDispatchCandidates().length !== 1)
+    throw Error('GOAL_WAKE_ADMISSION_FAILED');
+  evidence.inferenceRequested = true;
+  new ScheduleService(store, execution).step();
+  await execution.wait();
+  const runs = store.runs(project.id);
+  if (runs.length !== 1 || runs[0]!.taskId !== plan.taskIds[0] || runs[0]!.status !== 'completed')
+    throw Error('NATIVE_GOAL_CODE_RUN_FAILED');
+  const receipt = await verifier.verify(project.id, runs[0]!.runId);
+  if (receipt.status !== 'passed' || receipt.executed !== 4 || receipt.skipped !== 0)
+    throw Error('NATIVE_GOAL_HOST_VERIFICATION_FAILED');
+  const completed = await service.apply({
+    kind: 'complete',
+    commandKey: 'complete-with-host-receipt',
+    goalId: goal.goalId,
+    expectedVersion: goal.version,
+    verificationIds: [receipt.verificationId],
+  });
+  await service.tick();
+  await service.tick();
+  if (notices !== 1) throw Error('NOTIFICATION_DEDUPE_FAILED');
+  const tokens = store.resourceBudget().reportedTokens,
+    manifest = store.contextManifestReceipt(runs[0]!.runId);
+  evidence = {
+    status: 'passed',
+    kind: 'native_goal_source_code_chain',
+    inferenceRequested: true,
+    model: execution.diagnostics.selectedModel,
+    sourceProvider: 'authenticated_controlled_loopback_http_fixture',
+    notificationProvider: 'explicit_controlled_host_receipt_fixture',
+    sourcePolls: requests,
+    oldPlanBlocked: store.routeQuery(project.id, old.taskIds[0]!).blocked,
+    actualModelRuns: runs.length,
+    clientTurnStarts: execution.diagnostics.clientTurnStarts,
+    goalStatus: completed.goal.status,
+    verification: {
+      status: receipt.status,
+      code: receipt.code,
+      discovered: receipt.discovered,
+      executed: receipt.executed,
+      skipped: receipt.skipped,
+      exitCode: receipt.exitCode,
+    },
+    notificationSends: notices,
+    reportedTokens: tokens,
+    contextManifestBound: Boolean(manifest),
+    nativePolicyVerified: execution.diagnostics.nativePolicyVerified,
+  };
+} catch (error) {
+  evidence.code = error instanceof Error ? error.message : 'HOST_ERROR';
+  evidence.diagnosticCode = execution.diagnostics.failureCode;
+  evidence.clientTurnStarts = execution.diagnostics.clientTurnStarts;
+} finally {
+  await execution.close();
+  store.close();
+  await new Promise<void>((r) => provider.close(() => r()));
+}
+evidence.observedAt = new Date().toISOString();
+writeFileSync(
+  join(root, 'docs/progress/evidence/M3.3a-native-goal.json'),
+  JSON.stringify(evidence, null, 2) + '\n',
+);
+console.log(JSON.stringify(evidence, null, 2));
+if (evidence.status !== 'passed') process.exitCode = 1;

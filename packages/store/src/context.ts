@@ -1,116 +1,1017 @@
-import {randomUUID} from 'node:crypto';
-import type {DatabaseSync,SQLInputValue} from 'node:sqlite';
-import {buildTaskContext,buildEpisode,buildCheckpoint,contextDigest,ContextError} from '../../runtime/src/context.ts';
-import type {ContextSource,ContextRole,ContextMode,ContextCounter,ContextVersion,ContextFreshness,TaskContextBundle,EpisodeBundle,TaskCheckpointBundle,HostVerificationReceipt} from '../../runtime/src/context.ts';
-type Row=Record<string,string|number|null>;
+import { randomUUID } from 'node:crypto';
+import type { DatabaseSync, SQLInputValue } from 'node:sqlite';
+import {
+  buildTaskContext,
+  buildEpisode,
+  buildCheckpoint,
+  contextDigest,
+  ContextError,
+} from '../../runtime/src/context.ts';
+import type {
+  ContextSource,
+  ContextRole,
+  ContextMode,
+  ContextCounter,
+  ContextVersion,
+  ContextFreshness,
+  TaskContextBundle,
+  EpisodeBundle,
+  TaskCheckpointBundle,
+  HostVerificationReceipt,
+} from '../../runtime/src/context.ts';
+type Row = Record<string, string | number | null>;
 export interface ContextHost {
- owner:()=>void;tx:<T>(work:()=>T)=>T;
- source:(ref:string,taskId:string)=>ContextSource|null;
- workspaceRevision:(workspaceId:string)=>string;counter:ContextCounter;
+  owner: () => void;
+  tx: <T>(work: () => T) => T;
+  source: (ref: string, taskId: string) => ContextSource | null;
+  workspaceRevision: (workspaceId: string) => string;
+  counter: ContextCounter;
 }
-export interface BuildBundleOptions {role:ContextRole;mode:ContextMode;sourceRefs:string[];maximumInputUnits:number;framingReserveUnits?:number;capabilities:Record<string,boolean>;checkpointId?:string}
-export interface SaveEpisodeInput {conversationId:string;title:string;segments:Array<{messageId:string;start:number;end:number}>;episodeId?:string;expectedVersion?:number}
-export interface StoredEpisode {episodeId:string;taskId:string;version:number;bundle:EpisodeBundle}
-export interface SaveCheckpointInput {goal:string;constraints:string[];completionCriteria:string[];pendingSteps:string[];sourceRefs:string[];verificationIds:string[]}
-export interface RolloverAdmissionInput {role:ContextRole;mode:ContextMode;sourceRefs:string[];checkpointId:string}
-export interface AdmittedCheckpointBundle extends TaskCheckpointBundle {rolloverAdmission:{kind:'host_rollover_admission';fromCheckpointId:string;fromCheckpointHash:string;fromTaskVersion:number;toTaskVersion:number;runId:string;role:ContextRole;mode:ContextMode;generation:number;frozenTaskHash:string}}
-export interface RolloverAdmission {runId:string;checkpointId:string;bundle:AdmittedCheckpointBundle;sourceRefs:string[];generation:number;invalidatedBindingId:string|null}
-const key=(v:unknown):v is string=>typeof v==='string'&&v.length>0&&v.length<=200&&!/[\x00-\x1f\x7f]/.test(v);
-const refs=(v:unknown):v is string[]=>Array.isArray(v)&&v.length<=200&&v.every(key)&&new Set(v).size===v.length;
-const hash=(v:unknown)=>contextDigest(JSON.stringify(v));
+export interface BuildBundleOptions {
+  role: ContextRole;
+  mode: ContextMode;
+  sourceRefs: string[];
+  maximumInputUnits: number;
+  framingReserveUnits?: number;
+  capabilities: Record<string, boolean>;
+  checkpointId?: string;
+}
+export interface SaveEpisodeInput {
+  conversationId: string;
+  title: string;
+  segments: Array<{ messageId: string; start: number; end: number }>;
+  episodeId?: string;
+  expectedVersion?: number;
+}
+export interface StoredEpisode {
+  episodeId: string;
+  taskId: string;
+  version: number;
+  bundle: EpisodeBundle;
+}
+export interface SaveCheckpointInput {
+  goal: string;
+  constraints: string[];
+  completionCriteria: string[];
+  pendingSteps: string[];
+  sourceRefs: string[];
+  verificationIds: string[];
+}
+export interface RolloverAdmissionInput {
+  role: ContextRole;
+  mode: ContextMode;
+  sourceRefs: string[];
+  checkpointId: string;
+}
+export interface AdmittedCheckpointBundle extends TaskCheckpointBundle {
+  rolloverAdmission: {
+    kind: 'host_rollover_admission';
+    fromCheckpointId: string;
+    fromCheckpointHash: string;
+    fromTaskVersion: number;
+    toTaskVersion: number;
+    runId: string;
+    role: ContextRole;
+    mode: ContextMode;
+    generation: number;
+    frozenTaskHash: string;
+  };
+}
+export interface RolloverAdmission {
+  runId: string;
+  checkpointId: string;
+  bundle: AdmittedCheckpointBundle;
+  sourceRefs: string[];
+  generation: number;
+  invalidatedBindingId: string | null;
+}
+const key = (v: unknown): v is string =>
+  typeof v === 'string' && v.length > 0 && v.length <= 200 && !/[\x00-\x1f\x7f]/.test(v);
+const refs = (v: unknown): v is string[] =>
+  Array.isArray(v) && v.length <= 200 && v.every(key) && new Set(v).size === v.length;
+const hash = (v: unknown) => contextDigest(JSON.stringify(v));
 /** Private collaborator of the single ExecutionLedger. Never construct it with a Renderer-selected DB or source provider. */
 export class ContextLedger {
- private db:DatabaseSync;private dotId:string;private fail:(code:string)=>never;private host:ContextHost;private built=new WeakSet<TaskContextBundle>();
- constructor(db:DatabaseSync,dotId:string,fail:(code:string)=>never,host:ContextHost){this.db=db;this.dotId=dotId;this.fail=fail;this.host=host;}
- private one(sql:string,...args:SQLInputValue[]):Row|undefined{return this.db.prepare(sql).get(...args) as Row|undefined;}
- private all(sql:string,...args:SQLInputValue[]):Row[]{return this.db.prepare(sql).all(...args) as Row[];}
- private run(sql:string,...args:SQLInputValue[]){return this.db.prepare(sql).run(...args);}
- private atomic<T>(body:()=>T):T{return this.host.tx(()=>{this.host.owner();try{return body();}catch(error){if(error instanceof ContextError)return this.fail(error.code);if(error instanceof SyntaxError)return this.fail('CONTEXT_DATA_INVALID');throw error;}});}
- private alive(ref:string):void{if(this.one('SELECT source_ref FROM privacy_tombstones WHERE dot_id=? AND source_ref=?',this.dotId,ref))this.fail('CONTEXT_SOURCE_DELETED');}
- private task(taskId:string):Row {
-  if(!key(taskId))return this.fail('INVALID_CONTEXT_TASK');const row=this.one('SELECT t.*,d.policy_epoch,d.privacy_epoch,g.plan_version AS goal_plan_version,g.dot_id AS goal_dot FROM tasks t JOIN dots d USING(dot_id) LEFT JOIN goals g USING(goal_id) WHERE t.task_id=? AND t.dot_id=?',taskId,this.dotId)??this.fail('CONTEXT_TASK_NOT_FOUND');this.alive('task:'+taskId);this.alive(taskId);if(row.goal_id&&row.goal_dot!==this.dotId)this.fail('CONTEXT_GOAL_SCOPE');return row;
- }
- private version(taskId:string):ContextVersion {const task=this.task(taskId);if(typeof task.workspace_id!=='string')return this.fail('CONTEXT_WORKSPACE_REQUIRED');return{dotId:this.dotId,taskId,taskVersion:Number(task.version),goalPlanVersion:task.goal_id?Number(task.goal_plan_version):null,policyEpoch:Number(task.policy_epoch),privacyEpoch:Number(task.privacy_epoch),workspaceRevision:this.host.workspaceRevision(task.workspace_id)};}
- private source(ref:string,taskId:string):ContextSource {if(!key(ref))return this.fail('INVALID_CONTEXT_SOURCE_REF');this.alive(ref);let source:ContextSource|null;try{source=this.host.source(ref,taskId);}catch{return this.fail('CONTEXT_SOURCE_UNAVAILABLE');}if(!source||source.ref!==ref||source.dotId!==this.dotId||source.deleted||source.contentHash!==contextDigest(source.content)||(source.validUntilMs!==undefined&&source.validUntilMs<=Date.now()))return this.fail('CONTEXT_SOURCE_UNAVAILABLE');if(source.domain==='task'&&source.taskId!==taskId||source.taskId!==undefined&&source.taskId!==taskId&&!(source.domain==='coding'&&source.sensitivity==='public'))return this.fail('CONTEXT_SOURCE_SCOPE');return source;}
- private readSources(taskId:string,sourceRefs:string[]):ContextSource[]{if(!refs(sourceRefs)||!sourceRefs.length)return this.fail('INVALID_CONTEXT_SOURCE_REFS');return sourceRefs.map(ref=>this.source(ref,taskId));}
- private freshness(version:ContextVersion,sources:ContextSource[]):ContextFreshness{return{...version,sourceRevisions:Object.fromEntries(sources.map(s=>[s.ref,{revision:s.revision,visible:true,deleted:false}]))};}
- private unchanged(version:ContextVersion,sources:Array<{ref:string;revision:string;contentHash:string}>):void {if(JSON.stringify(this.version(version.taskId))!==JSON.stringify(version))this.fail('CONTEXT_VERSION_CHANGED');for(const before of sources){const after=this.source(before.ref,version.taskId);if(after.revision!==before.revision||after.contentHash!==before.contentHash)this.fail('CONTEXT_SOURCE_CHANGED');}}
- private edge(source:{ref:string;revision:string},derived:string,privacyEpoch:number){this.run('INSERT OR IGNORE INTO derivation_edges VALUES (?,?,?,?,?)',this.dotId,source.ref,derived,source.revision,privacyEpoch);}
- buildBundle(taskId:string,options:BuildBundleOptions):TaskContextBundle {return this.atomic(()=>{
-  if(!options||typeof options!=='object')return this.fail('INVALID_CONTEXT_OPTIONS');const version=this.version(taskId),sources=this.readSources(taskId,options.sourceRefs),checkpoint=options.checkpointId?this.loadCheckpointInternal(taskId,options.checkpointId):undefined;
-  const bundle=buildTaskContext({...version,role:options.role,mode:options.mode,sources,capabilities:options.capabilities,maximumInputUnits:options.maximumInputUnits,framingReserveUnits:options.framingReserveUnits??256,nowMs:Date.now(),...(checkpoint?{checkpointHash:checkpoint.contentHash}:{})},this.freshness(version,sources),{counter:this.host.counter});
-  this.unchanged(version,bundle.selectedSources);this.built.add(bundle);return bundle;
- });}
- /** Must be the same Host-built object, not a serialized model/Renderer proposal. All RPCs remain outside this class. */
- bindManifest(runId:string,bundle:TaskContextBundle):string{return this.atomic(()=>{
-  if(!key(runId)||!bundle||!this.built.has(bundle))return this.fail('CONTEXT_BUNDLE_NOT_BUILT');const row=this.one('SELECT r.*,t.write_fence,o.runtime_epoch AS owner_epoch FROM task_runs r JOIN tasks t USING(task_id) JOIN dots d ON d.dot_id=r.dot_id JOIN runtime_owners o USING(profile_id) WHERE r.run_id=? AND r.dot_id=?',runId,this.dotId)??this.fail('CONTEXT_RUN_NOT_FOUND');
-  const manifest=bundle.manifest,version:ContextVersion={dotId:this.dotId,taskId:manifest.taskId,taskVersion:manifest.taskVersion,goalPlanVersion:manifest.goalPlanVersion,policyEpoch:manifest.policyEpoch,privacyEpoch:manifest.privacyEpoch,workspaceRevision:manifest.workspaceRevision};this.unchanged(version,bundle.selectedSources);
-  if(row.task_id!==manifest.taskId||row.task_snapshot_version!==manifest.taskVersion||(row.goal_plan_version??null)!==manifest.goalPlanVersion||row.runtime_epoch!==row.owner_epoch||row.task_fence!==row.write_fence||row.policy_epoch!==manifest.policyEpoch||row.privacy_epoch!==manifest.privacyEpoch||!['preparing','submitting'].includes(String(row.status))||hash([bundle.developerInstructions,bundle.userContext])!==manifest.contentHash)this.fail('CONTEXT_RUN_CHANGED');
-  if(this.one('SELECT intent_id FROM execution_intents WHERE run_id=?',runId))this.fail('CONTEXT_RPC_ALREADY_PREPARED');const prior=this.one('SELECT * FROM prompt_manifests WHERE run_id=?',runId),id=prior?String(prior.manifest_id):randomUUID(),previous=prior?JSON.parse(String(prior.module_hashes_json)):{};
-  if(previous.contextManifest&&JSON.stringify(previous.contextManifest)!==JSON.stringify(manifest))this.fail('CONTEXT_MANIFEST_CONFLICT');
-  const modules=JSON.stringify({...previous,context:manifest.contentHash,contextManifest:manifest});
-  if(prior)this.run('UPDATE prompt_manifests SET role=?,mode=?,module_hashes_json=?,tool_snapshot_hash=?,policy_epoch=?,privacy_epoch=?,context_refs_json=? WHERE manifest_id=?',manifest.role,manifest.mode,modules,manifest.toolSnapshotHash,manifest.policyEpoch,manifest.privacyEpoch,JSON.stringify(manifest.contextRefs),id);
-  else this.run('INSERT INTO prompt_manifests VALUES (?,?,?,?,?,?,?,?,?,NULL)',id,runId,manifest.role,manifest.mode,modules,manifest.toolSnapshotHash,manifest.policyEpoch,manifest.privacyEpoch,JSON.stringify(manifest.contextRefs));
-  for(const source of manifest.contextRefs)this.edge(source,'manifest:'+id,manifest.privacyEpoch);return id;
- });}
- private loadManifestInternal(runId:string):TaskContextBundle['manifest'] {const row=this.one('SELECT p.* FROM prompt_manifests p JOIN task_runs r USING(run_id) WHERE r.run_id=? AND r.dot_id=?',runId,this.dotId)??this.fail('CONTEXT_MANIFEST_NOT_FOUND');this.alive('manifest:'+row.manifest_id);const value=JSON.parse(String(row.module_hashes_json)).contextManifest as TaskContextBundle['manifest']|undefined;if(!value||!key(value.taskId)||!Array.isArray(value.contextRefs))return this.fail('CONTEXT_MANIFEST_INVALID');this.alive('task:'+value.taskId);const current=this.version(value.taskId);if(current.policyEpoch!==value.policyEpoch||current.privacyEpoch!==value.privacyEpoch)this.fail('CONTEXT_MANIFEST_STALE');for(const source of value.contextRefs){const now=this.source(source.ref,value.taskId);if(now.revision!==source.revision||now.contentHash!==source.contentHash)this.fail('CONTEXT_SOURCE_CHANGED');}return value;}
- loadManifest(runId:string):TaskContextBundle['manifest'] {return this.atomic(()=>this.loadManifestInternal(runId));}
- /** Host must call immediately before each RPC admission; this does not itself authorize an effect. */
- assertRunFresh(runId:string):void {this.atomic(()=>{const manifest=this.loadManifestInternal(runId),version=this.version(manifest.taskId);this.unchanged(version,manifest.contextRefs);if(manifest.taskVersion!==version.taskVersion||manifest.goalPlanVersion!==version.goalPlanVersion||manifest.workspaceRevision!==version.workspaceRevision)this.fail('CONTEXT_MANIFEST_STALE');const run=this.one('SELECT r.*,t.write_fence,o.runtime_epoch AS owner_epoch FROM task_runs r JOIN tasks t USING(task_id) JOIN dots d ON d.dot_id=r.dot_id JOIN runtime_owners o USING(profile_id) WHERE r.run_id=? AND r.dot_id=?',runId,this.dotId)??this.fail('CONTEXT_RUN_NOT_FOUND');if(run.task_id!==manifest.taskId||run.task_snapshot_version!==version.taskVersion||(run.goal_plan_version??null)!==version.goalPlanVersion||run.runtime_epoch!==run.owner_epoch||run.task_fence!==run.write_fence||run.policy_epoch!==version.policyEpoch||run.privacy_epoch!==version.privacyEpoch)this.fail('CONTEXT_RUN_CHANGED');});}
- saveEpisode(taskId:string,input:SaveEpisodeInput):StoredEpisode{return this.atomic(()=>{
-  const version=this.version(taskId);if(!input||!key(input.conversationId)||!Array.isArray(input.segments)||input.segments.length<1||input.segments.length>20||(input.episodeId!==undefined&&!key(input.episodeId)))return this.fail('INVALID_EPISODE_INPUT');
-  if(!this.one('SELECT conversation_id FROM conversations WHERE conversation_id=? AND dot_id=?',input.conversationId,this.dotId))this.fail('EPISODE_CONVERSATION_SCOPE');const ids=[...new Set(input.segments.map(s=>s.messageId))];if(!refs(ids))this.fail('INVALID_EPISODE_SOURCE');
-  for(const id of ids)if(!this.one('SELECT message_id FROM messages WHERE message_id=? AND conversation_id=? AND dot_id=? AND deleted_at_ms IS NULL',id,input.conversationId,this.dotId))this.fail('EPISODE_MESSAGE_SCOPE');const sources=this.readSources(taskId,ids.map(id=>'message:'+id));
-  const bundle=buildEpisode({dotId:this.dotId,conversationId:input.conversationId,title:input.title,privacyEpoch:version.privacyEpoch,sources,segments:input.segments.map(s=>({ref:'message:'+s.messageId,revision:sources.find(v=>v.ref==='message:'+s.messageId)!.revision,start:s.start,end:s.end}))},this.freshness(version,sources));this.unchanged(version,bundle.sourceRefs);
-  const episodeId=input.episodeId??randomUUID(),prior=this.one('SELECT e.*,c.dot_id FROM episodes e JOIN conversations c USING(conversation_id) WHERE episode_id=?',episodeId);if(prior&&(prior.dot_id!==this.dotId||prior.conversation_id!==input.conversationId||prior.version!==input.expectedVersion))this.fail('EPISODE_VERSION_CONFLICT');if(prior&&!this.one('SELECT derived_ref FROM derivation_edges WHERE dot_id=? AND source_ref=? AND derived_ref=?',this.dotId,'task:'+taskId,'episode:'+episodeId))this.fail('EPISODE_TASK_SCOPE');this.alive('episode:'+episodeId);const revision=Number(prior?.version??0)+1,payload=JSON.stringify({format:'extractive-episode-v1',taskId,bundle});
-  if(prior){this.run('UPDATE episodes SET title=?,summary=?,version=?,privacy_epoch=?,dirty=0,source_digest=? WHERE episode_id=?',bundle.title,payload,revision,bundle.privacyEpoch,bundle.sourceDigest,episodeId);this.run('DELETE FROM episode_message_links WHERE episode_id=?',episodeId);this.run('DELETE FROM derivation_edges WHERE dot_id=? AND derived_ref=?',this.dotId,'episode:'+episodeId);}
-  else this.run('INSERT INTO episodes VALUES (?,?,?,?,?,?,0,?)',episodeId,input.conversationId,bundle.title,payload,revision,bundle.privacyEpoch,bundle.sourceDigest);
-  for(const messageId of ids)this.run('INSERT INTO episode_message_links VALUES (?,?)',episodeId,messageId);for(const source of bundle.sourceRefs)this.edge(source,'episode:'+episodeId,version.privacyEpoch);this.edge({ref:'task:'+taskId,revision:String(version.taskVersion)},'episode:'+episodeId,version.privacyEpoch);return{episodeId,taskId,version:revision,bundle};
- });}
- loadEpisode(taskId:string,episodeId:string):StoredEpisode{return this.atomic(()=>{
-  const version=this.version(taskId);if(!key(episodeId))return this.fail('INVALID_EPISODE_ID');this.alive('episode:'+episodeId);const row=this.one('SELECT e.*,c.dot_id FROM episodes e JOIN conversations c USING(conversation_id) WHERE e.episode_id=?',episodeId);if(!row||row.dot_id!==this.dotId||row.dirty!==0||row.privacy_epoch!==version.privacyEpoch)return this.fail('EPISODE_UNAVAILABLE');const payload=JSON.parse(String(row.summary));if(payload.format!=='extractive-episode-v1'||payload.taskId!==taskId||!payload.bundle||payload.bundle.sourceDigest!==row.source_digest||hash(payload.bundle.sourceRefs)!==row.source_digest)this.fail('EPISODE_INVALID');const bundle=payload.bundle as EpisodeBundle;this.unchanged(version,bundle.sourceRefs);return{episodeId,taskId,version:Number(row.version),bundle};
- });}
- saveCheckpoint(runId:string,input:SaveCheckpointInput):{checkpointId:string;bundle:TaskCheckpointBundle}{return this.atomic(()=>{
-  if(!key(runId)||!input||!refs(input.sourceRefs)||!refs(input.verificationIds))return this.fail('INVALID_CHECKPOINT_INPUT');const run=this.one('SELECT * FROM task_runs WHERE run_id=? AND dot_id=?',runId,this.dotId)??this.fail('CONTEXT_RUN_NOT_FOUND'),taskId=String(run.task_id),version=this.version(taskId),sources=this.readSources(taskId,input.sourceRefs),receipts:HostVerificationReceipt[]=[];
-  for(const verificationId of input.verificationIds){const receipt=this.one('SELECT v.*,a.*,r.task_id AS run_task FROM verification_results v JOIN artifacts a ON a.artifact_id=v.evidence_ref JOIN task_runs r ON r.run_id=v.run_id WHERE v.verification_id=? AND a.dot_id=?',verificationId,this.dotId);if(!receipt||receipt.run_task!==taskId||receipt.task_id!==taskId||receipt.state!=='published'||!['passed','failed'].includes(String(receipt.status)))this.fail('CHECKPOINT_RECEIPT_NOT_PUBLISHED');if(!Number.isSafeInteger(receipt!.executed_count)||Number(receipt!.executed_count)<0||!Number.isSafeInteger(receipt!.skipped_count)||Number(receipt!.skipped_count)<0||!Number.isSafeInteger(receipt!.discovered_count)||Number(receipt!.discovered_count)<Number(receipt!.executed_count)+Number(receipt!.skipped_count))this.fail('CHECKPOINT_RECEIPT_UNVERIFIED');const ref='artifact:'+receipt!.artifact_id,source=sources.find(s=>s.ref===ref);if(!source||source.kind!=='receipt'||source.trust!=='host_verified'||source.contentHash!==receipt!.content_sha256)this.fail('CHECKPOINT_RECEIPT_HASH_MISMATCH');receipts.push({kind:'verification_receipt',issuer:'host',artifactId:String(receipt!.artifact_id),runId:String(receipt!.run_id),taskId,state:'published',contentHash:String(receipt!.content_sha256),sourceRef:ref,sourceRevision:source!.revision,status:receipt!.status as 'passed'|'failed',executed:Number(receipt!.executed_count),skipped:Number(receipt!.skipped_count),exitCode:sourceReceiptExitCode(source!,receipt!),observedAtMs:Number(receipt!.observed_at_ms)});}
-  const bundle=buildCheckpoint({...version,goal:input.goal,constraints:input.constraints,completionCriteria:input.completionCriteria,pendingSteps:input.pendingSteps,sources,sourceRefs:input.sourceRefs,receipts},this.freshness(version,sources));this.unchanged(version,bundle.sourceRefs);const checkpointId='context:'+hash([runId,bundle.contentHash]),prior=this.one('SELECT content_sha256 FROM task_checkpoints WHERE checkpoint_id=?',checkpointId);if(prior&&prior.content_sha256!==bundle.contentHash)this.fail('CHECKPOINT_CONTENT_CONFLICT');if(!prior)this.run('INSERT INTO task_checkpoints VALUES (?,?,?,?,?,?,?)',checkpointId,taskId,runId,version.taskVersion,version.privacyEpoch,JSON.stringify(bundle),bundle.contentHash);for(const source of bundle.sourceRefs)this.edge(source,'checkpoint:'+checkpointId,version.privacyEpoch);return{checkpointId,bundle};
- });}
- private loadCheckpointInternal(taskId:string,checkpointId:string):TaskCheckpointBundle {
-  if(!key(checkpointId))return this.fail('INVALID_CHECKPOINT_ID');this.alive('checkpoint:'+checkpointId);const version=this.version(taskId),row=this.one('SELECT c.* FROM task_checkpoints c JOIN tasks t USING(task_id) WHERE c.checkpoint_id=? AND c.task_id=? AND t.dot_id=?',checkpointId,taskId,this.dotId)??this.fail('CHECKPOINT_NOT_FOUND'),bundle=JSON.parse(String(row.summary_json)) as TaskCheckpointBundle;if(!bundle||typeof bundle!=='object')return this.fail('CHECKPOINT_CONTENT_CHANGED');const{contentHash,...payload}=bundle;
-  if(row.task_version!==bundle.taskVersion||row.privacy_epoch!==bundle.privacyEpoch||bundle.format!==1||bundle.businessCompletionClaimed!==false||contentHash!==row.content_sha256||hash(payload)!==contentHash||!Array.isArray(bundle.sourceRefs))this.fail('CHECKPOINT_CONTENT_CHANGED');const frozen:ContextVersion={dotId:bundle.dotId,taskId:bundle.taskId,taskVersion:bundle.taskVersion,goalPlanVersion:bundle.goalPlanVersion,policyEpoch:bundle.policyEpoch,privacyEpoch:bundle.privacyEpoch,workspaceRevision:bundle.workspaceRevision};if(JSON.stringify(frozen)!==JSON.stringify(version))this.fail('CHECKPOINT_VERSION_CHANGED');this.unchanged(version,bundle.sourceRefs);return bundle;
- }
- loadCheckpoint(taskId:string,checkpointId:string):TaskCheckpointBundle{return this.atomic(()=>this.loadCheckpointInternal(taskId,checkpointId));}
- /** Retires only a proven-idle binding; a real provider Thread and generation are published by the Gateway later. */
- private rolloverInternal(taskId:string,input:RolloverAdmissionInput):{action:'new_thread';generation:number;invalidatedBindingId:string|null}{
-  const checkpoint=this.loadCheckpointInternal(taskId,input.checkpointId),version=this.version(taskId);this.readSources(taskId,input.sourceRefs);if(checkpoint.sourceRefs.some(ref=>!input.sourceRefs.includes(ref.ref)))this.fail('ROLLOVER_CHECKPOINT_SOURCE_MISSING');
-  const pending=[this.one("SELECT run_id FROM task_runs WHERE task_id=? AND status NOT IN ('completed','failed','cancelled')",taskId),this.one("SELECT i.intent_id FROM execution_intents i JOIN task_runs r USING(run_id) WHERE r.task_id=? AND i.state IN ('prepared','sending','outcome_unknown')",taskId),this.one("SELECT action_id FROM actions WHERE task_id=? AND status NOT IN ('succeeded','failed','rejected','cancelled')",taskId),this.one('SELECT l.run_id FROM workspace_write_leases l JOIN task_runs r USING(run_id) WHERE r.task_id=?',taskId),this.one("SELECT q.request_id FROM runtime_requests q JOIN task_runs r USING(run_id) WHERE r.task_id=? AND q.state IN ('pending','responding','outcome_unknown')",taskId)];if(pending.some(Boolean))this.fail('ROLLOVER_UNRESOLVED_EFFECT');
-  if(!['coding','plan','research','dot-orchestrator','dot-chat','goal-reviewer','memory-extractor','memory-consolidator'].includes(input.role)||!['read-only','execution','review','checkpoint-resume','human-takeover-resume'].includes(input.mode))this.fail('INVALID_THREAD_CONTEXT');const old=this.one("SELECT * FROM thread_bindings WHERE task_id=? AND state='active'",taskId),maximum=Number(this.one('SELECT coalesce(max(generation),0) AS n FROM thread_bindings WHERE task_id=?',taskId)!.n);if(maximum+1>=Number.MAX_SAFE_INTEGER)this.fail('ROLLOVER_GENERATION_OVERFLOW');if(old)this.run("UPDATE thread_bindings SET state='invalidated',rollover_reason='validated_context_rollover' WHERE binding_id=?",old.binding_id!);this.unchanged(version,checkpoint.sourceRefs);return{action:'new_thread',generation:maximum+1,invalidatedBindingId:old?String(old.binding_id):null};
- }
- rollover(taskId:string,input:RolloverAdmissionInput):{action:'new_thread';generation:number;invalidatedBindingId:string|null}{return this.atomic(()=>this.rolloverInternal(taskId,input));}
- /** Only a synchronous trusted Host claim may cross the version boundary. Ordinary checkpoint loads remain exact-version. */
- admitRollover(taskId:string,input:RolloverAdmissionInput,claim:()=>{runId:string}):RolloverAdmission{return this.atomic(()=>{
-  if(!input||typeof input!=='object'||typeof claim!=='function'||claim.constructor.name==='AsyncFunction')return this.fail('INVALID_ROLLOVER_ADMISSION');
-  const original=this.loadCheckpointInternal(taskId,input.checkpointId),beforeVersion=this.version(taskId),beforeTask=this.task(taskId),oldRef='checkpoint:'+input.checkpointId,oldRow=this.one('SELECT * FROM task_checkpoints WHERE checkpoint_id=?',input.checkpointId)!;
-  const immutableTask=(row:Row)=>Object.fromEntries(Object.entries(row).filter(([name])=>!['status','version','write_fence','last_event_sequence','updated_at_ms'].includes(name)));
-  const frozenTaskHash=hash(immutableTask(beforeTask)),goalBefore=beforeTask.goal_id?this.one('SELECT * FROM goals WHERE goal_id=? AND dot_id=?',beforeTask.goal_id,this.dotId):null,workspaceBefore=this.one('SELECT * FROM workspaces WHERE workspace_id=? AND dot_id=?',beforeTask.workspace_id!,this.dotId)??this.fail('CONTEXT_WORKSPACE_REQUIRED'),beforeSources=this.readSources(taskId,input.sourceRefs),runIds=this.all('SELECT run_id FROM task_runs WHERE task_id=? AND dot_id=?',taskId,this.dotId).map(row=>String(row.run_id));
-  if(!beforeSources.some(source=>source.ref==='task:'+taskId)||beforeTask.dispatch_blocked!==0||Number(beforeTask.version)+1>=Number.MAX_SAFE_INTEGER||Number(beforeTask.write_fence)+1>=Number.MAX_SAFE_INTEGER)return this.fail('ROLLOVER_ADMISSION_TASK_CHANGED');
-  const retired=this.rolloverInternal(taskId,input),admitted=claim();this.host.owner();
-  if(!admitted||typeof admitted!=='object'||!key(admitted.runId)||runIds.includes(admitted.runId)||Object.hasOwn(admitted,'then'))return this.fail('ROLLOVER_ADMISSION_RUN_INVALID');
-  const afterTask=this.task(taskId),nextVersion=this.version(taskId),run=this.one('SELECT r.*,o.runtime_epoch AS owner_epoch,o.instance_id AS owner_id FROM task_runs r JOIN dots d ON d.dot_id=r.dot_id JOIN runtime_owners o USING(profile_id) WHERE r.run_id=? AND r.dot_id=?',admitted.runId,this.dotId)??this.fail('ROLLOVER_ADMISSION_RUN_INVALID');
-  if(afterTask.status!=='running'||afterTask.version!==Number(beforeTask.version)+1||afterTask.write_fence!==Number(beforeTask.write_fence)+1||hash(immutableTask(afterTask))!==frozenTaskHash||nextVersion.goalPlanVersion!==beforeVersion.goalPlanVersion||nextVersion.policyEpoch!==beforeVersion.policyEpoch||nextVersion.privacyEpoch!==beforeVersion.privacyEpoch||nextVersion.workspaceRevision!==beforeVersion.workspaceRevision||hash(afterTask.goal_id?this.one('SELECT * FROM goals WHERE goal_id=? AND dot_id=?',afterTask.goal_id,this.dotId):null)!==hash(goalBefore))return this.fail('ROLLOVER_ADMISSION_TASK_CHANGED');
-  if(run.task_id!==taskId||run.status!=='preparing'||run.task_snapshot_version!==nextVersion.taskVersion||run.task_fence!==afterTask.write_fence||run.runtime_epoch!==run.owner_epoch||run.worker_id!==run.owner_id||run.policy_epoch!==nextVersion.policyEpoch||run.privacy_epoch!==nextVersion.privacyEpoch||(run.goal_plan_version??null)!==nextVersion.goalPlanVersion||Number(run.lease_until_ms)<=Date.now()||this.one('SELECT intent_id FROM execution_intents WHERE run_id=?',run.run_id!))return this.fail('ROLLOVER_ADMISSION_RUN_INVALID');
-  if(this.one("SELECT binding_id FROM thread_bindings WHERE task_id=? AND state='active'",taskId)||hash(this.one('SELECT * FROM task_checkpoints WHERE checkpoint_id=?',input.checkpointId))!==hash(oldRow))return this.fail('ROLLOVER_ADMISSION_PROVENANCE_CHANGED');
-  const workspaceAfter=this.one('SELECT * FROM workspaces WHERE workspace_id=? AND dot_id=?',afterTask.workspace_id!,this.dotId)??this.fail('ROLLOVER_ADMISSION_WORKSPACE_CHANGED'),immutableWorkspace=(row:Row)=>Object.fromEntries(Object.entries(row).filter(([name])=>!['state','write_fence'].includes(name))),writable=JSON.parse(String(afterTask.constraints_json)).mode==='workspaceWrite',lease=this.one('SELECT * FROM workspace_write_leases WHERE run_id=?',run.run_id!);
-  if(hash(immutableWorkspace(workspaceAfter))!==hash(immutableWorkspace(workspaceBefore))||workspaceBefore.state!=='ready'||(writable?(workspaceAfter.state!=='busy'||workspaceAfter.write_fence!==Number(workspaceBefore.write_fence)+1||!lease||lease.workspace_id!==afterTask.workspace_id||lease.workspace_fence!==workspaceAfter.write_fence||Number(lease.lease_until_ms)<=Date.now()):(workspaceAfter.state!==workspaceBefore.state||workspaceAfter.write_fence!==workspaceBefore.write_fence||Boolean(lease))))return this.fail('ROLLOVER_ADMISSION_WORKSPACE_CHANGED');
-  const afterSources:ContextSource[]=[];
-  for(const before of beforeSources){if(before.ref===oldRef)continue;const after=this.source(before.ref,taskId);
-   if(before.ref==='task:'+taskId){const envelope=(source:ContextSource)=>{const{content,revision,contentHash,...metadata}=source;return metadata;},stableContent=(content:string)=>{const parsed=JSON.parse(content);if(!parsed||typeof parsed!=='object'||Array.isArray(parsed))return this.fail('ROLLOVER_ADMISSION_SOURCE_CHANGED');const{status,...rest}=parsed;return rest;};if(hash(envelope(before))!==hash(envelope(after))||hash(stableContent(before.content))!==hash(stableContent(after.content)))return this.fail('ROLLOVER_ADMISSION_SOURCE_CHANGED');}
-   else if(hash(before)!==hash(after))return this.fail('ROLLOVER_ADMISSION_SOURCE_CHANGED');afterSources.push(after);
+  private db: DatabaseSync;
+  private dotId: string;
+  private fail: (code: string) => never;
+  private host: ContextHost;
+  private built = new WeakSet<TaskContextBundle>();
+  constructor(db: DatabaseSync, dotId: string, fail: (code: string) => never, host: ContextHost) {
+    this.db = db;
+    this.dotId = dotId;
+    this.fail = fail;
+    this.host = host;
   }
-  const sourceRefs=original.sourceRefs.map(source=>source.ref),base=buildCheckpoint({...nextVersion,goal:original.goal,constraints:original.constraints,completionCriteria:original.completionCriteria,pendingSteps:original.pendingSteps,sources:afterSources,sourceRefs,receipts:original.confirmedReceipts},this.freshness(nextVersion,afterSources)),{contentHash:baseHash,...basePayload}=base;
-  const rolloverAdmission:AdmittedCheckpointBundle['rolloverAdmission']={kind:'host_rollover_admission',fromCheckpointId:input.checkpointId,fromCheckpointHash:original.contentHash,fromTaskVersion:beforeVersion.taskVersion,toTaskVersion:nextVersion.taskVersion,runId:admitted.runId,role:input.role,mode:input.mode,generation:retired.generation,frozenTaskHash},payload={...basePayload,rolloverAdmission},bundle:AdmittedCheckpointBundle={...payload,contentHash:hash(payload)},checkpointId='context:rollover:'+hash([admitted.runId,bundle.contentHash]),nextRefs=[...new Set([...input.sourceRefs.filter(ref=>ref!==oldRef),'checkpoint:'+checkpointId])];
-  if(nextRefs.length>200||JSON.stringify(bundle).length>65536)return this.fail('ROLLOVER_ADMISSION_TOO_LARGE');this.unchanged(nextVersion,afterSources);this.run('INSERT INTO task_checkpoints VALUES (?,?,?,?,?,?,?)',checkpointId,taskId,admitted.runId,nextVersion.taskVersion,nextVersion.privacyEpoch,JSON.stringify(bundle),bundle.contentHash);for(const source of bundle.sourceRefs)this.edge(source,'checkpoint:'+checkpointId,nextVersion.privacyEpoch);this.edge({ref:oldRef,revision:original.contentHash},'checkpoint:'+checkpointId,nextVersion.privacyEpoch);
-  return{runId:admitted.runId,checkpointId,bundle,sourceRefs:nextRefs,generation:retired.generation,invalidatedBindingId:retired.invalidatedBindingId};
- });}
+  private one(sql: string, ...args: SQLInputValue[]): Row | undefined {
+    return this.db.prepare(sql).get(...args) as Row | undefined;
+  }
+  private all(sql: string, ...args: SQLInputValue[]): Row[] {
+    return this.db.prepare(sql).all(...args) as Row[];
+  }
+  private run(sql: string, ...args: SQLInputValue[]) {
+    return this.db.prepare(sql).run(...args);
+  }
+  private atomic<T>(body: () => T): T {
+    return this.host.tx(() => {
+      this.host.owner();
+      try {
+        return body();
+      } catch (error) {
+        if (error instanceof ContextError) return this.fail(error.code);
+        if (error instanceof SyntaxError) return this.fail('CONTEXT_DATA_INVALID');
+        throw error;
+      }
+    });
+  }
+  private alive(ref: string): void {
+    if (
+      this.one(
+        'SELECT source_ref FROM privacy_tombstones WHERE dot_id=? AND source_ref=?',
+        this.dotId,
+        ref,
+      )
+    )
+      this.fail('CONTEXT_SOURCE_DELETED');
+  }
+  private task(taskId: string): Row {
+    if (!key(taskId)) return this.fail('INVALID_CONTEXT_TASK');
+    const row =
+      this.one(
+        'SELECT t.*,d.policy_epoch,d.privacy_epoch,g.plan_version AS goal_plan_version,g.dot_id AS goal_dot FROM tasks t JOIN dots d USING(dot_id) LEFT JOIN goals g USING(goal_id) WHERE t.task_id=? AND t.dot_id=?',
+        taskId,
+        this.dotId,
+      ) ?? this.fail('CONTEXT_TASK_NOT_FOUND');
+    this.alive('task:' + taskId);
+    this.alive(taskId);
+    if (row.goal_id && row.goal_dot !== this.dotId) this.fail('CONTEXT_GOAL_SCOPE');
+    return row;
+  }
+  private version(taskId: string): ContextVersion {
+    const task = this.task(taskId);
+    if (typeof task.workspace_id !== 'string') return this.fail('CONTEXT_WORKSPACE_REQUIRED');
+    return {
+      dotId: this.dotId,
+      taskId,
+      taskVersion: Number(task.version),
+      goalPlanVersion: task.goal_id ? Number(task.goal_plan_version) : null,
+      policyEpoch: Number(task.policy_epoch),
+      privacyEpoch: Number(task.privacy_epoch),
+      workspaceRevision: this.host.workspaceRevision(task.workspace_id),
+    };
+  }
+  private source(ref: string, taskId: string): ContextSource {
+    if (!key(ref)) return this.fail('INVALID_CONTEXT_SOURCE_REF');
+    this.alive(ref);
+    let source: ContextSource | null;
+    try {
+      source = this.host.source(ref, taskId);
+    } catch {
+      return this.fail('CONTEXT_SOURCE_UNAVAILABLE');
+    }
+    if (
+      !source ||
+      source.ref !== ref ||
+      source.dotId !== this.dotId ||
+      source.deleted ||
+      source.contentHash !== contextDigest(source.content) ||
+      (source.validUntilMs !== undefined && source.validUntilMs <= Date.now())
+    )
+      return this.fail('CONTEXT_SOURCE_UNAVAILABLE');
+    if (
+      (source.domain === 'task' && source.taskId !== taskId) ||
+      (source.taskId !== undefined &&
+        source.taskId !== taskId &&
+        !(source.domain === 'coding' && source.sensitivity === 'public'))
+    )
+      return this.fail('CONTEXT_SOURCE_SCOPE');
+    return source;
+  }
+  private readSources(taskId: string, sourceRefs: string[]): ContextSource[] {
+    if (!refs(sourceRefs) || !sourceRefs.length) return this.fail('INVALID_CONTEXT_SOURCE_REFS');
+    return sourceRefs.map((ref) => this.source(ref, taskId));
+  }
+  private freshness(version: ContextVersion, sources: ContextSource[]): ContextFreshness {
+    return {
+      ...version,
+      sourceRevisions: Object.fromEntries(
+        sources.map((s) => [s.ref, { revision: s.revision, visible: true, deleted: false }]),
+      ),
+    };
+  }
+  private unchanged(
+    version: ContextVersion,
+    sources: Array<{ ref: string; revision: string; contentHash: string }>,
+  ): void {
+    if (JSON.stringify(this.version(version.taskId)) !== JSON.stringify(version))
+      this.fail('CONTEXT_VERSION_CHANGED');
+    for (const before of sources) {
+      const after = this.source(before.ref, version.taskId);
+      if (after.revision !== before.revision || after.contentHash !== before.contentHash)
+        this.fail('CONTEXT_SOURCE_CHANGED');
+    }
+  }
+  private edge(source: { ref: string; revision: string }, derived: string, privacyEpoch: number) {
+    this.run(
+      'INSERT OR IGNORE INTO derivation_edges VALUES (?,?,?,?,?)',
+      this.dotId,
+      source.ref,
+      derived,
+      source.revision,
+      privacyEpoch,
+    );
+  }
+  buildBundle(taskId: string, options: BuildBundleOptions): TaskContextBundle {
+    return this.atomic(() => {
+      if (!options || typeof options !== 'object') return this.fail('INVALID_CONTEXT_OPTIONS');
+      const version = this.version(taskId),
+        sources = this.readSources(taskId, options.sourceRefs),
+        checkpoint = options.checkpointId
+          ? this.loadCheckpointInternal(taskId, options.checkpointId)
+          : undefined;
+      const bundle = buildTaskContext(
+        {
+          ...version,
+          role: options.role,
+          mode: options.mode,
+          sources,
+          capabilities: options.capabilities,
+          maximumInputUnits: options.maximumInputUnits,
+          framingReserveUnits: options.framingReserveUnits ?? 256,
+          nowMs: Date.now(),
+          ...(checkpoint ? { checkpointHash: checkpoint.contentHash } : {}),
+        },
+        this.freshness(version, sources),
+        { counter: this.host.counter },
+      );
+      this.unchanged(version, bundle.selectedSources);
+      this.built.add(bundle);
+      return bundle;
+    });
+  }
+  /** Must be the same Host-built object, not a serialized model/Renderer proposal. All RPCs remain outside this class. */
+  bindManifest(runId: string, bundle: TaskContextBundle): string {
+    return this.atomic(() => {
+      if (!key(runId) || !bundle || !this.built.has(bundle))
+        return this.fail('CONTEXT_BUNDLE_NOT_BUILT');
+      const row =
+        this.one(
+          'SELECT r.*,t.write_fence,o.runtime_epoch AS owner_epoch FROM task_runs r JOIN tasks t USING(task_id) JOIN dots d ON d.dot_id=r.dot_id JOIN runtime_owners o USING(profile_id) WHERE r.run_id=? AND r.dot_id=?',
+          runId,
+          this.dotId,
+        ) ?? this.fail('CONTEXT_RUN_NOT_FOUND');
+      const manifest = bundle.manifest,
+        version: ContextVersion = {
+          dotId: this.dotId,
+          taskId: manifest.taskId,
+          taskVersion: manifest.taskVersion,
+          goalPlanVersion: manifest.goalPlanVersion,
+          policyEpoch: manifest.policyEpoch,
+          privacyEpoch: manifest.privacyEpoch,
+          workspaceRevision: manifest.workspaceRevision,
+        };
+      this.unchanged(version, bundle.selectedSources);
+      if (
+        row.task_id !== manifest.taskId ||
+        row.task_snapshot_version !== manifest.taskVersion ||
+        (row.goal_plan_version ?? null) !== manifest.goalPlanVersion ||
+        row.runtime_epoch !== row.owner_epoch ||
+        row.task_fence !== row.write_fence ||
+        row.policy_epoch !== manifest.policyEpoch ||
+        row.privacy_epoch !== manifest.privacyEpoch ||
+        !['preparing', 'submitting'].includes(String(row.status)) ||
+        hash([bundle.developerInstructions, bundle.userContext]) !== manifest.contentHash
+      )
+        this.fail('CONTEXT_RUN_CHANGED');
+      if (this.one('SELECT intent_id FROM execution_intents WHERE run_id=?', runId))
+        this.fail('CONTEXT_RPC_ALREADY_PREPARED');
+      const prior = this.one('SELECT * FROM prompt_manifests WHERE run_id=?', runId),
+        id = prior ? String(prior.manifest_id) : randomUUID(),
+        previous = prior ? JSON.parse(String(prior.module_hashes_json)) : {};
+      if (
+        previous.contextManifest &&
+        JSON.stringify(previous.contextManifest) !== JSON.stringify(manifest)
+      )
+        this.fail('CONTEXT_MANIFEST_CONFLICT');
+      const modules = JSON.stringify({
+        ...previous,
+        context: manifest.contentHash,
+        contextManifest: manifest,
+      });
+      if (prior)
+        this.run(
+          'UPDATE prompt_manifests SET role=?,mode=?,module_hashes_json=?,tool_snapshot_hash=?,policy_epoch=?,privacy_epoch=?,context_refs_json=? WHERE manifest_id=?',
+          manifest.role,
+          manifest.mode,
+          modules,
+          manifest.toolSnapshotHash,
+          manifest.policyEpoch,
+          manifest.privacyEpoch,
+          JSON.stringify(manifest.contextRefs),
+          id,
+        );
+      else
+        this.run(
+          'INSERT INTO prompt_manifests VALUES (?,?,?,?,?,?,?,?,?,NULL)',
+          id,
+          runId,
+          manifest.role,
+          manifest.mode,
+          modules,
+          manifest.toolSnapshotHash,
+          manifest.policyEpoch,
+          manifest.privacyEpoch,
+          JSON.stringify(manifest.contextRefs),
+        );
+      for (const source of manifest.contextRefs)
+        this.edge(source, 'manifest:' + id, manifest.privacyEpoch);
+      return id;
+    });
+  }
+  private loadManifestInternal(runId: string): TaskContextBundle['manifest'] {
+    const row =
+      this.one(
+        'SELECT p.* FROM prompt_manifests p JOIN task_runs r USING(run_id) WHERE r.run_id=? AND r.dot_id=?',
+        runId,
+        this.dotId,
+      ) ?? this.fail('CONTEXT_MANIFEST_NOT_FOUND');
+    this.alive('manifest:' + row.manifest_id);
+    const value = JSON.parse(String(row.module_hashes_json)).contextManifest as
+      TaskContextBundle['manifest'] | undefined;
+    if (!value || !key(value.taskId) || !Array.isArray(value.contextRefs))
+      return this.fail('CONTEXT_MANIFEST_INVALID');
+    this.alive('task:' + value.taskId);
+    const current = this.version(value.taskId);
+    if (current.policyEpoch !== value.policyEpoch || current.privacyEpoch !== value.privacyEpoch)
+      this.fail('CONTEXT_MANIFEST_STALE');
+    for (const source of value.contextRefs) {
+      const now = this.source(source.ref, value.taskId);
+      if (now.revision !== source.revision || now.contentHash !== source.contentHash)
+        this.fail('CONTEXT_SOURCE_CHANGED');
+    }
+    return value;
+  }
+  loadManifest(runId: string): TaskContextBundle['manifest'] {
+    return this.atomic(() => this.loadManifestInternal(runId));
+  }
+  /** Host must call immediately before each RPC admission; this does not itself authorize an effect. */
+  assertRunFresh(runId: string): void {
+    this.atomic(() => {
+      const manifest = this.loadManifestInternal(runId),
+        version = this.version(manifest.taskId);
+      this.unchanged(version, manifest.contextRefs);
+      if (
+        manifest.taskVersion !== version.taskVersion ||
+        manifest.goalPlanVersion !== version.goalPlanVersion ||
+        manifest.workspaceRevision !== version.workspaceRevision
+      )
+        this.fail('CONTEXT_MANIFEST_STALE');
+      const run =
+        this.one(
+          'SELECT r.*,t.write_fence,o.runtime_epoch AS owner_epoch FROM task_runs r JOIN tasks t USING(task_id) JOIN dots d ON d.dot_id=r.dot_id JOIN runtime_owners o USING(profile_id) WHERE r.run_id=? AND r.dot_id=?',
+          runId,
+          this.dotId,
+        ) ?? this.fail('CONTEXT_RUN_NOT_FOUND');
+      if (
+        run.task_id !== manifest.taskId ||
+        run.task_snapshot_version !== version.taskVersion ||
+        (run.goal_plan_version ?? null) !== version.goalPlanVersion ||
+        run.runtime_epoch !== run.owner_epoch ||
+        run.task_fence !== run.write_fence ||
+        run.policy_epoch !== version.policyEpoch ||
+        run.privacy_epoch !== version.privacyEpoch
+      )
+        this.fail('CONTEXT_RUN_CHANGED');
+    });
+  }
+  saveEpisode(taskId: string, input: SaveEpisodeInput): StoredEpisode {
+    return this.atomic(() => {
+      const version = this.version(taskId);
+      if (
+        !input ||
+        !key(input.conversationId) ||
+        !Array.isArray(input.segments) ||
+        input.segments.length < 1 ||
+        input.segments.length > 20 ||
+        (input.episodeId !== undefined && !key(input.episodeId))
+      )
+        return this.fail('INVALID_EPISODE_INPUT');
+      if (
+        !this.one(
+          'SELECT conversation_id FROM conversations WHERE conversation_id=? AND dot_id=?',
+          input.conversationId,
+          this.dotId,
+        )
+      )
+        this.fail('EPISODE_CONVERSATION_SCOPE');
+      const ids = [...new Set(input.segments.map((s) => s.messageId))];
+      if (!refs(ids)) this.fail('INVALID_EPISODE_SOURCE');
+      for (const id of ids)
+        if (
+          !this.one(
+            'SELECT message_id FROM messages WHERE message_id=? AND conversation_id=? AND dot_id=? AND deleted_at_ms IS NULL',
+            id,
+            input.conversationId,
+            this.dotId,
+          )
+        )
+          this.fail('EPISODE_MESSAGE_SCOPE');
+      const sources = this.readSources(
+        taskId,
+        ids.map((id) => 'message:' + id),
+      );
+      const bundle = buildEpisode(
+        {
+          dotId: this.dotId,
+          conversationId: input.conversationId,
+          title: input.title,
+          privacyEpoch: version.privacyEpoch,
+          sources,
+          segments: input.segments.map((s) => ({
+            ref: 'message:' + s.messageId,
+            revision: sources.find((v) => v.ref === 'message:' + s.messageId)!.revision,
+            start: s.start,
+            end: s.end,
+          })),
+        },
+        this.freshness(version, sources),
+      );
+      this.unchanged(version, bundle.sourceRefs);
+      const episodeId = input.episodeId ?? randomUUID(),
+        prior = this.one(
+          'SELECT e.*,c.dot_id FROM episodes e JOIN conversations c USING(conversation_id) WHERE episode_id=?',
+          episodeId,
+        );
+      if (
+        prior &&
+        (prior.dot_id !== this.dotId ||
+          prior.conversation_id !== input.conversationId ||
+          prior.version !== input.expectedVersion)
+      )
+        this.fail('EPISODE_VERSION_CONFLICT');
+      if (
+        prior &&
+        !this.one(
+          'SELECT derived_ref FROM derivation_edges WHERE dot_id=? AND source_ref=? AND derived_ref=?',
+          this.dotId,
+          'task:' + taskId,
+          'episode:' + episodeId,
+        )
+      )
+        this.fail('EPISODE_TASK_SCOPE');
+      this.alive('episode:' + episodeId);
+      const revision = Number(prior?.version ?? 0) + 1,
+        payload = JSON.stringify({ format: 'extractive-episode-v1', taskId, bundle });
+      if (prior) {
+        this.run(
+          'UPDATE episodes SET title=?,summary=?,version=?,privacy_epoch=?,dirty=0,source_digest=? WHERE episode_id=?',
+          bundle.title,
+          payload,
+          revision,
+          bundle.privacyEpoch,
+          bundle.sourceDigest,
+          episodeId,
+        );
+        this.run('DELETE FROM episode_message_links WHERE episode_id=?', episodeId);
+        this.run(
+          'DELETE FROM derivation_edges WHERE dot_id=? AND derived_ref=?',
+          this.dotId,
+          'episode:' + episodeId,
+        );
+      } else
+        this.run(
+          'INSERT INTO episodes VALUES (?,?,?,?,?,?,0,?)',
+          episodeId,
+          input.conversationId,
+          bundle.title,
+          payload,
+          revision,
+          bundle.privacyEpoch,
+          bundle.sourceDigest,
+        );
+      for (const messageId of ids)
+        this.run('INSERT INTO episode_message_links VALUES (?,?)', episodeId, messageId);
+      for (const source of bundle.sourceRefs)
+        this.edge(source, 'episode:' + episodeId, version.privacyEpoch);
+      this.edge(
+        { ref: 'task:' + taskId, revision: String(version.taskVersion) },
+        'episode:' + episodeId,
+        version.privacyEpoch,
+      );
+      return { episodeId, taskId, version: revision, bundle };
+    });
+  }
+  loadEpisode(taskId: string, episodeId: string): StoredEpisode {
+    return this.atomic(() => {
+      const version = this.version(taskId);
+      if (!key(episodeId)) return this.fail('INVALID_EPISODE_ID');
+      this.alive('episode:' + episodeId);
+      const row = this.one(
+        'SELECT e.*,c.dot_id FROM episodes e JOIN conversations c USING(conversation_id) WHERE e.episode_id=?',
+        episodeId,
+      );
+      if (
+        !row ||
+        row.dot_id !== this.dotId ||
+        row.dirty !== 0 ||
+        row.privacy_epoch !== version.privacyEpoch
+      )
+        return this.fail('EPISODE_UNAVAILABLE');
+      const payload = JSON.parse(String(row.summary));
+      if (
+        payload.format !== 'extractive-episode-v1' ||
+        payload.taskId !== taskId ||
+        !payload.bundle ||
+        payload.bundle.sourceDigest !== row.source_digest ||
+        hash(payload.bundle.sourceRefs) !== row.source_digest
+      )
+        this.fail('EPISODE_INVALID');
+      const bundle = payload.bundle as EpisodeBundle;
+      this.unchanged(version, bundle.sourceRefs);
+      return { episodeId, taskId, version: Number(row.version), bundle };
+    });
+  }
+  saveCheckpoint(
+    runId: string,
+    input: SaveCheckpointInput,
+  ): { checkpointId: string; bundle: TaskCheckpointBundle } {
+    return this.atomic(() => {
+      if (!key(runId) || !input || !refs(input.sourceRefs) || !refs(input.verificationIds))
+        return this.fail('INVALID_CHECKPOINT_INPUT');
+      const run =
+          this.one('SELECT * FROM task_runs WHERE run_id=? AND dot_id=?', runId, this.dotId) ??
+          this.fail('CONTEXT_RUN_NOT_FOUND'),
+        taskId = String(run.task_id),
+        version = this.version(taskId),
+        sources = this.readSources(taskId, input.sourceRefs),
+        receipts: HostVerificationReceipt[] = [];
+      for (const verificationId of input.verificationIds) {
+        const receipt = this.one(
+          'SELECT v.*,a.*,r.task_id AS run_task FROM verification_results v JOIN artifacts a ON a.artifact_id=v.evidence_ref JOIN task_runs r ON r.run_id=v.run_id WHERE v.verification_id=? AND a.dot_id=?',
+          verificationId,
+          this.dotId,
+        );
+        if (
+          !receipt ||
+          receipt.run_task !== taskId ||
+          receipt.task_id !== taskId ||
+          receipt.state !== 'published' ||
+          !['passed', 'failed'].includes(String(receipt.status))
+        )
+          this.fail('CHECKPOINT_RECEIPT_NOT_PUBLISHED');
+        if (
+          !Number.isSafeInteger(receipt!.executed_count) ||
+          Number(receipt!.executed_count) < 0 ||
+          !Number.isSafeInteger(receipt!.skipped_count) ||
+          Number(receipt!.skipped_count) < 0 ||
+          !Number.isSafeInteger(receipt!.discovered_count) ||
+          Number(receipt!.discovered_count) <
+            Number(receipt!.executed_count) + Number(receipt!.skipped_count)
+        )
+          this.fail('CHECKPOINT_RECEIPT_UNVERIFIED');
+        const ref = 'artifact:' + receipt!.artifact_id,
+          source = sources.find((s) => s.ref === ref);
+        if (
+          !source ||
+          source.kind !== 'receipt' ||
+          source.trust !== 'host_verified' ||
+          source.contentHash !== receipt!.content_sha256
+        )
+          this.fail('CHECKPOINT_RECEIPT_HASH_MISMATCH');
+        receipts.push({
+          kind: 'verification_receipt',
+          issuer: 'host',
+          artifactId: String(receipt!.artifact_id),
+          runId: String(receipt!.run_id),
+          taskId,
+          state: 'published',
+          contentHash: String(receipt!.content_sha256),
+          sourceRef: ref,
+          sourceRevision: source!.revision,
+          status: receipt!.status as 'passed' | 'failed',
+          executed: Number(receipt!.executed_count),
+          skipped: Number(receipt!.skipped_count),
+          exitCode: sourceReceiptExitCode(source!, receipt!),
+          observedAtMs: Number(receipt!.observed_at_ms),
+        });
+      }
+      const bundle = buildCheckpoint(
+        {
+          ...version,
+          goal: input.goal,
+          constraints: input.constraints,
+          completionCriteria: input.completionCriteria,
+          pendingSteps: input.pendingSteps,
+          sources,
+          sourceRefs: input.sourceRefs,
+          receipts,
+        },
+        this.freshness(version, sources),
+      );
+      this.unchanged(version, bundle.sourceRefs);
+      const checkpointId = 'context:' + hash([runId, bundle.contentHash]),
+        prior = this.one(
+          'SELECT content_sha256 FROM task_checkpoints WHERE checkpoint_id=?',
+          checkpointId,
+        );
+      if (prior && prior.content_sha256 !== bundle.contentHash)
+        this.fail('CHECKPOINT_CONTENT_CONFLICT');
+      if (!prior)
+        this.run(
+          'INSERT INTO task_checkpoints VALUES (?,?,?,?,?,?,?)',
+          checkpointId,
+          taskId,
+          runId,
+          version.taskVersion,
+          version.privacyEpoch,
+          JSON.stringify(bundle),
+          bundle.contentHash,
+        );
+      for (const source of bundle.sourceRefs)
+        this.edge(source, 'checkpoint:' + checkpointId, version.privacyEpoch);
+      return { checkpointId, bundle };
+    });
+  }
+  private loadCheckpointInternal(taskId: string, checkpointId: string): TaskCheckpointBundle {
+    if (!key(checkpointId)) return this.fail('INVALID_CHECKPOINT_ID');
+    this.alive('checkpoint:' + checkpointId);
+    const version = this.version(taskId),
+      row =
+        this.one(
+          'SELECT c.* FROM task_checkpoints c JOIN tasks t USING(task_id) WHERE c.checkpoint_id=? AND c.task_id=? AND t.dot_id=?',
+          checkpointId,
+          taskId,
+          this.dotId,
+        ) ?? this.fail('CHECKPOINT_NOT_FOUND'),
+      bundle = JSON.parse(String(row.summary_json)) as TaskCheckpointBundle;
+    if (!bundle || typeof bundle !== 'object') return this.fail('CHECKPOINT_CONTENT_CHANGED');
+    const { contentHash, ...payload } = bundle;
+    if (
+      row.task_version !== bundle.taskVersion ||
+      row.privacy_epoch !== bundle.privacyEpoch ||
+      bundle.format !== 1 ||
+      bundle.businessCompletionClaimed !== false ||
+      contentHash !== row.content_sha256 ||
+      hash(payload) !== contentHash ||
+      !Array.isArray(bundle.sourceRefs)
+    )
+      this.fail('CHECKPOINT_CONTENT_CHANGED');
+    const frozen: ContextVersion = {
+      dotId: bundle.dotId,
+      taskId: bundle.taskId,
+      taskVersion: bundle.taskVersion,
+      goalPlanVersion: bundle.goalPlanVersion,
+      policyEpoch: bundle.policyEpoch,
+      privacyEpoch: bundle.privacyEpoch,
+      workspaceRevision: bundle.workspaceRevision,
+    };
+    if (JSON.stringify(frozen) !== JSON.stringify(version)) this.fail('CHECKPOINT_VERSION_CHANGED');
+    this.unchanged(version, bundle.sourceRefs);
+    return bundle;
+  }
+  loadCheckpoint(taskId: string, checkpointId: string): TaskCheckpointBundle {
+    return this.atomic(() => this.loadCheckpointInternal(taskId, checkpointId));
+  }
+  /** Retires only a proven-idle binding; a real provider Thread and generation are published by the Gateway later. */
+  private rolloverInternal(
+    taskId: string,
+    input: RolloverAdmissionInput,
+  ): { action: 'new_thread'; generation: number; invalidatedBindingId: string | null } {
+    const checkpoint = this.loadCheckpointInternal(taskId, input.checkpointId),
+      version = this.version(taskId);
+    this.readSources(taskId, input.sourceRefs);
+    if (checkpoint.sourceRefs.some((ref) => !input.sourceRefs.includes(ref.ref)))
+      this.fail('ROLLOVER_CHECKPOINT_SOURCE_MISSING');
+    const pending = [
+      this.one(
+        "SELECT run_id FROM task_runs WHERE task_id=? AND status NOT IN ('completed','failed','cancelled')",
+        taskId,
+      ),
+      this.one(
+        "SELECT i.intent_id FROM execution_intents i JOIN task_runs r USING(run_id) WHERE r.task_id=? AND i.state IN ('prepared','sending','outcome_unknown')",
+        taskId,
+      ),
+      this.one(
+        "SELECT action_id FROM actions WHERE task_id=? AND status NOT IN ('succeeded','failed','rejected','cancelled')",
+        taskId,
+      ),
+      this.one(
+        'SELECT l.run_id FROM workspace_write_leases l JOIN task_runs r USING(run_id) WHERE r.task_id=?',
+        taskId,
+      ),
+      this.one(
+        "SELECT q.request_id FROM runtime_requests q JOIN task_runs r USING(run_id) WHERE r.task_id=? AND q.state IN ('pending','responding','outcome_unknown')",
+        taskId,
+      ),
+    ];
+    if (pending.some(Boolean)) this.fail('ROLLOVER_UNRESOLVED_EFFECT');
+    if (
+      ![
+        'coding',
+        'plan',
+        'research',
+        'dot-orchestrator',
+        'dot-chat',
+        'goal-reviewer',
+        'memory-extractor',
+        'memory-consolidator',
+      ].includes(input.role) ||
+      !['read-only', 'execution', 'review', 'checkpoint-resume', 'human-takeover-resume'].includes(
+        input.mode,
+      )
+    )
+      this.fail('INVALID_THREAD_CONTEXT');
+    const old = this.one(
+        "SELECT * FROM thread_bindings WHERE task_id=? AND state='active'",
+        taskId,
+      ),
+      maximum = Number(
+        this.one(
+          'SELECT coalesce(max(generation),0) AS n FROM thread_bindings WHERE task_id=?',
+          taskId,
+        )!.n,
+      );
+    if (maximum + 1 >= Number.MAX_SAFE_INTEGER) this.fail('ROLLOVER_GENERATION_OVERFLOW');
+    if (old)
+      this.run(
+        "UPDATE thread_bindings SET state='invalidated',rollover_reason='validated_context_rollover' WHERE binding_id=?",
+        old.binding_id!,
+      );
+    this.unchanged(version, checkpoint.sourceRefs);
+    return {
+      action: 'new_thread',
+      generation: maximum + 1,
+      invalidatedBindingId: old ? String(old.binding_id) : null,
+    };
+  }
+  rollover(
+    taskId: string,
+    input: RolloverAdmissionInput,
+  ): { action: 'new_thread'; generation: number; invalidatedBindingId: string | null } {
+    return this.atomic(() => this.rolloverInternal(taskId, input));
+  }
+  /** Only a synchronous trusted Host claim may cross the version boundary. Ordinary checkpoint loads remain exact-version. */
+  admitRollover(
+    taskId: string,
+    input: RolloverAdmissionInput,
+    claim: () => { runId: string },
+  ): RolloverAdmission {
+    return this.atomic(() => {
+      if (
+        !input ||
+        typeof input !== 'object' ||
+        typeof claim !== 'function' ||
+        claim.constructor.name === 'AsyncFunction'
+      )
+        return this.fail('INVALID_ROLLOVER_ADMISSION');
+      const original = this.loadCheckpointInternal(taskId, input.checkpointId),
+        beforeVersion = this.version(taskId),
+        beforeTask = this.task(taskId),
+        oldRef = 'checkpoint:' + input.checkpointId,
+        oldRow = this.one(
+          'SELECT * FROM task_checkpoints WHERE checkpoint_id=?',
+          input.checkpointId,
+        )!;
+      const immutableTask = (row: Row) =>
+        Object.fromEntries(
+          Object.entries(row).filter(
+            ([name]) =>
+              ![
+                'status',
+                'version',
+                'write_fence',
+                'last_event_sequence',
+                'updated_at_ms',
+              ].includes(name),
+          ),
+        );
+      const frozenTaskHash = hash(immutableTask(beforeTask)),
+        goalBefore = beforeTask.goal_id
+          ? this.one(
+              'SELECT * FROM goals WHERE goal_id=? AND dot_id=?',
+              beforeTask.goal_id,
+              this.dotId,
+            )
+          : null,
+        workspaceBefore =
+          this.one(
+            'SELECT * FROM workspaces WHERE workspace_id=? AND dot_id=?',
+            beforeTask.workspace_id!,
+            this.dotId,
+          ) ?? this.fail('CONTEXT_WORKSPACE_REQUIRED'),
+        beforeSources = this.readSources(taskId, input.sourceRefs),
+        runIds = this.all(
+          'SELECT run_id FROM task_runs WHERE task_id=? AND dot_id=?',
+          taskId,
+          this.dotId,
+        ).map((row) => String(row.run_id));
+      if (
+        !beforeSources.some((source) => source.ref === 'task:' + taskId) ||
+        beforeTask.dispatch_blocked !== 0 ||
+        Number(beforeTask.version) + 1 >= Number.MAX_SAFE_INTEGER ||
+        Number(beforeTask.write_fence) + 1 >= Number.MAX_SAFE_INTEGER
+      )
+        return this.fail('ROLLOVER_ADMISSION_TASK_CHANGED');
+      const retired = this.rolloverInternal(taskId, input),
+        admitted = claim();
+      this.host.owner();
+      if (
+        !admitted ||
+        typeof admitted !== 'object' ||
+        !key(admitted.runId) ||
+        runIds.includes(admitted.runId) ||
+        Object.hasOwn(admitted, 'then')
+      )
+        return this.fail('ROLLOVER_ADMISSION_RUN_INVALID');
+      const afterTask = this.task(taskId),
+        nextVersion = this.version(taskId),
+        run =
+          this.one(
+            'SELECT r.*,o.runtime_epoch AS owner_epoch,o.instance_id AS owner_id FROM task_runs r JOIN dots d ON d.dot_id=r.dot_id JOIN runtime_owners o USING(profile_id) WHERE r.run_id=? AND r.dot_id=?',
+            admitted.runId,
+            this.dotId,
+          ) ?? this.fail('ROLLOVER_ADMISSION_RUN_INVALID');
+      if (
+        afterTask.status !== 'running' ||
+        afterTask.version !== Number(beforeTask.version) + 1 ||
+        afterTask.write_fence !== Number(beforeTask.write_fence) + 1 ||
+        hash(immutableTask(afterTask)) !== frozenTaskHash ||
+        nextVersion.goalPlanVersion !== beforeVersion.goalPlanVersion ||
+        nextVersion.policyEpoch !== beforeVersion.policyEpoch ||
+        nextVersion.privacyEpoch !== beforeVersion.privacyEpoch ||
+        nextVersion.workspaceRevision !== beforeVersion.workspaceRevision ||
+        hash(
+          afterTask.goal_id
+            ? this.one(
+                'SELECT * FROM goals WHERE goal_id=? AND dot_id=?',
+                afterTask.goal_id,
+                this.dotId,
+              )
+            : null,
+        ) !== hash(goalBefore)
+      )
+        return this.fail('ROLLOVER_ADMISSION_TASK_CHANGED');
+      if (
+        run.task_id !== taskId ||
+        run.status !== 'preparing' ||
+        run.task_snapshot_version !== nextVersion.taskVersion ||
+        run.task_fence !== afterTask.write_fence ||
+        run.runtime_epoch !== run.owner_epoch ||
+        run.worker_id !== run.owner_id ||
+        run.policy_epoch !== nextVersion.policyEpoch ||
+        run.privacy_epoch !== nextVersion.privacyEpoch ||
+        (run.goal_plan_version ?? null) !== nextVersion.goalPlanVersion ||
+        Number(run.lease_until_ms) <= Date.now() ||
+        this.one('SELECT intent_id FROM execution_intents WHERE run_id=?', run.run_id!)
+      )
+        return this.fail('ROLLOVER_ADMISSION_RUN_INVALID');
+      if (
+        this.one(
+          "SELECT binding_id FROM thread_bindings WHERE task_id=? AND state='active'",
+          taskId,
+        ) ||
+        hash(
+          this.one('SELECT * FROM task_checkpoints WHERE checkpoint_id=?', input.checkpointId),
+        ) !== hash(oldRow)
+      )
+        return this.fail('ROLLOVER_ADMISSION_PROVENANCE_CHANGED');
+      const workspaceAfter =
+          this.one(
+            'SELECT * FROM workspaces WHERE workspace_id=? AND dot_id=?',
+            afterTask.workspace_id!,
+            this.dotId,
+          ) ?? this.fail('ROLLOVER_ADMISSION_WORKSPACE_CHANGED'),
+        immutableWorkspace = (row: Row) =>
+          Object.fromEntries(
+            Object.entries(row).filter(([name]) => !['state', 'write_fence'].includes(name)),
+          ),
+        writable = JSON.parse(String(afterTask.constraints_json)).mode === 'workspaceWrite',
+        lease = this.one('SELECT * FROM workspace_write_leases WHERE run_id=?', run.run_id!);
+      if (
+        hash(immutableWorkspace(workspaceAfter)) !== hash(immutableWorkspace(workspaceBefore)) ||
+        workspaceBefore.state !== 'ready' ||
+        (writable
+          ? workspaceAfter.state !== 'busy' ||
+            workspaceAfter.write_fence !== Number(workspaceBefore.write_fence) + 1 ||
+            !lease ||
+            lease.workspace_id !== afterTask.workspace_id ||
+            lease.workspace_fence !== workspaceAfter.write_fence ||
+            Number(lease.lease_until_ms) <= Date.now()
+          : workspaceAfter.state !== workspaceBefore.state ||
+            workspaceAfter.write_fence !== workspaceBefore.write_fence ||
+            Boolean(lease))
+      )
+        return this.fail('ROLLOVER_ADMISSION_WORKSPACE_CHANGED');
+      const afterSources: ContextSource[] = [];
+      for (const before of beforeSources) {
+        if (before.ref === oldRef) continue;
+        const after = this.source(before.ref, taskId);
+        if (before.ref === 'task:' + taskId) {
+          const envelope = (source: ContextSource) => {
+              const { content, revision, contentHash, ...metadata } = source;
+              return metadata;
+            },
+            stableContent = (content: string) => {
+              const parsed = JSON.parse(content);
+              if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed))
+                return this.fail('ROLLOVER_ADMISSION_SOURCE_CHANGED');
+              const { status, ...rest } = parsed;
+              return rest;
+            };
+          if (
+            hash(envelope(before)) !== hash(envelope(after)) ||
+            hash(stableContent(before.content)) !== hash(stableContent(after.content))
+          )
+            return this.fail('ROLLOVER_ADMISSION_SOURCE_CHANGED');
+        } else if (hash(before) !== hash(after))
+          return this.fail('ROLLOVER_ADMISSION_SOURCE_CHANGED');
+        afterSources.push(after);
+      }
+      const sourceRefs = original.sourceRefs.map((source) => source.ref),
+        base = buildCheckpoint(
+          {
+            ...nextVersion,
+            goal: original.goal,
+            constraints: original.constraints,
+            completionCriteria: original.completionCriteria,
+            pendingSteps: original.pendingSteps,
+            sources: afterSources,
+            sourceRefs,
+            receipts: original.confirmedReceipts,
+          },
+          this.freshness(nextVersion, afterSources),
+        ),
+        { contentHash: baseHash, ...basePayload } = base;
+      const rolloverAdmission: AdmittedCheckpointBundle['rolloverAdmission'] = {
+          kind: 'host_rollover_admission',
+          fromCheckpointId: input.checkpointId,
+          fromCheckpointHash: original.contentHash,
+          fromTaskVersion: beforeVersion.taskVersion,
+          toTaskVersion: nextVersion.taskVersion,
+          runId: admitted.runId,
+          role: input.role,
+          mode: input.mode,
+          generation: retired.generation,
+          frozenTaskHash,
+        },
+        payload = { ...basePayload, rolloverAdmission },
+        bundle: AdmittedCheckpointBundle = { ...payload, contentHash: hash(payload) },
+        checkpointId = 'context:rollover:' + hash([admitted.runId, bundle.contentHash]),
+        nextRefs = [
+          ...new Set([
+            ...input.sourceRefs.filter((ref) => ref !== oldRef),
+            'checkpoint:' + checkpointId,
+          ]),
+        ];
+      if (nextRefs.length > 200 || JSON.stringify(bundle).length > 65536)
+        return this.fail('ROLLOVER_ADMISSION_TOO_LARGE');
+      this.unchanged(nextVersion, afterSources);
+      this.run(
+        'INSERT INTO task_checkpoints VALUES (?,?,?,?,?,?,?)',
+        checkpointId,
+        taskId,
+        admitted.runId,
+        nextVersion.taskVersion,
+        nextVersion.privacyEpoch,
+        JSON.stringify(bundle),
+        bundle.contentHash,
+      );
+      for (const source of bundle.sourceRefs)
+        this.edge(source, 'checkpoint:' + checkpointId, nextVersion.privacyEpoch);
+      this.edge(
+        { ref: oldRef, revision: original.contentHash },
+        'checkpoint:' + checkpointId,
+        nextVersion.privacyEpoch,
+      );
+      return {
+        runId: admitted.runId,
+        checkpointId,
+        bundle,
+        sourceRefs: nextRefs,
+        generation: retired.generation,
+        invalidatedBindingId: retired.invalidatedBindingId,
+      };
+    });
+  }
 }
-function sourceReceiptExitCode(source:ContextSource,record:Row):number {try{const value=JSON.parse(source.content);if(!value||!Number.isSafeInteger(value.exitCode)||value.verificationId!==record.verification_id||value.runId!==record.run_id||value.specId!==record.spec_id||value.status!==record.status||value.executed!==record.executed_count||value.skipped!==record.skipped_count||value.discovered!==record.discovered_count||value.status==='passed'&&value.code!=='VERIFIED')return Number.NaN;return value.exitCode;}catch{return Number.NaN;}}
+function sourceReceiptExitCode(source: ContextSource, record: Row): number {
+  try {
+    const value = JSON.parse(source.content);
+    if (
+      !value ||
+      !Number.isSafeInteger(value.exitCode) ||
+      value.verificationId !== record.verification_id ||
+      value.runId !== record.run_id ||
+      value.specId !== record.spec_id ||
+      value.status !== record.status ||
+      value.executed !== record.executed_count ||
+      value.skipped !== record.skipped_count ||
+      value.discovered !== record.discovered_count ||
+      (value.status === 'passed' && value.code !== 'VERIFIED')
+    )
+      return Number.NaN;
+    return value.exitCode;
+  } catch {
+    return Number.NaN;
+  }
+}

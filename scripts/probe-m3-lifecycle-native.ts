@@ -1,77 +1,815 @@
-import {createServer} from 'node:http';
-import {createHash,createHmac} from 'node:crypto';
-import {execFile} from 'node:child_process';
-import {existsSync,mkdirSync,mkdtempSync,readFileSync,realpathSync,writeFileSync} from 'node:fs';
-import {join,resolve} from 'node:path';
-import {DatabaseSync} from 'node:sqlite';
-import {ExecutionLedger} from '../packages/store/src/ledger.ts';
-import {ForegroundExecution} from '../packages/runtime/src/execution.ts';
-import {AuthenticatedSourcePoller} from '../packages/runtime/src/source-poller.ts';
-import {GoalService} from '../packages/runtime/src/goal-service.ts';
-import {ScheduleService} from '../packages/runtime/src/schedules.ts';
-import {NodeVerification} from '../packages/verification/src/verification.ts';
-import {verifiedCodex} from '../packages/codex-adapter/src/binary.ts';
-import {resolveVerifierNode} from '../packages/codex-adapter/src/launch.ts';
-import {backupFile} from '../packages/backup/src/service.ts';
-import {createCodeFixture} from '../tests/fixtures/code-project.ts';
+import { createServer } from 'node:http';
+import { createHash, createHmac } from 'node:crypto';
+import { execFile } from 'node:child_process';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  writeFileSync,
+} from 'node:fs';
+import { join, resolve } from 'node:path';
+import { DatabaseSync } from 'node:sqlite';
+import { ExecutionLedger } from '../packages/store/src/ledger.ts';
+import { ForegroundExecution } from '../packages/runtime/src/execution.ts';
+import { AuthenticatedSourcePoller } from '../packages/runtime/src/source-poller.ts';
+import { GoalService } from '../packages/runtime/src/goal-service.ts';
+import { ScheduleService } from '../packages/runtime/src/schedules.ts';
+import { NodeVerification } from '../packages/verification/src/verification.ts';
+import { verifiedCodex } from '../packages/codex-adapter/src/binary.ts';
+import { resolveVerifierNode } from '../packages/codex-adapter/src/launch.ts';
+import { backupFile } from '../packages/backup/src/service.ts';
+import { createCodeFixture } from '../tests/fixtures/code-project.ts';
 
-const root=resolve('.'),schema=readFileSync(join(root,'docs/design/contracts/schema.sql'),'utf8'),script=resolve('scripts/probe-m3-lifecycle-native.ts'),sourceId='public-lifecycle-source',bindingRef='public-lifecycle-binding',token='PUBLIC_NATIVE_LIFECYCLE_PROVIDER_TOKEN',markerPath=join(root,'.local/M3-native-lifecycle-state.json');
-type Config={state:string;cwd:string;projectId:string;goalId:string;firstTaskId:string;firstRunId:string;secondTaskId:string;verificationId:string;provider:string;parentPid:number};
-const code=(error:unknown)=>{const value=error&&typeof error==='object'&&'code'in error?String(error.code):error instanceof Error?error.message:'';return/^[A-Z][A-Z0-9_]{0,99}$/.test(value)?value:'HOST_ERROR';};
-const stamp=(stage:string,extra:Record<string,unknown>={})=>{const value=JSON.parse(readFileSync(markerPath,'utf8'));writeFileSync(markerPath,JSON.stringify({...value,stage,...extra})+'\n',{mode:0o600});};
-const child=(args:string[])=>new Promise<void>((done,reject)=>{execFile(process.execPath,['--disable-warning=ExperimentalWarning',script,...args],{cwd:root,timeout:300000,maxBuffer:1024*1024},error=>error?reject(Error('LIFECYCLE_CHILD_FAILED')):done());});
-const hash=(value:string|Buffer)=>createHash('sha256').update(value).digest('hex');
-function components(config:Config){
- const poller=new AuthenticatedSourcePoller({connections:[{sourceId,bindingRef,url:config.provider+'/poll',token}],directory:join(config.state,'source-payloads'),allowLoopbackHttpForTests:true}),verification=join(config.state,'verification');
- const store=new ExecutionLedger(join(config.state,'ledger.db'),schema,{verifySource:(id,envelope)=>poller.verified(id,envelope),sourcePayload:(ref,sha)=>{try{const text=poller.getPayload(ref);return hash(text)===sha?text:null;}catch{return null;}},artifactText:(key,sha)=>{try{const file=backupFile(join(verification,'artifacts',key),1024*1024,true);return file.sha256===sha?file.content.toString('utf8'):null;}catch{return null;}}});store.startOwner('native-lifecycle-'+process.pid,true);
- const cli=verifiedCodex(root).executable,verifier=new NodeVerification(store,{node:resolveVerifierNode(root),cli,reporter:join(root,'packages/verification/src/reporter.mjs'),stateDirectory:verification}),execution=new ForegroundExecution(store,{executable:cli,stateDirectory:join(config.state,'codex-state'),timeoutMs:240000,interruptTimeoutMs:10000,prepareCode:(t,c,s)=>verifier.prepare(t,c,s),prepareContinuation:(t,r,s)=>verifier.prepareContinuation(t,r,s)});
- const service=new GoalService(store,execution,{sourcePoller:poller,sources:[{sourceId,cursor:()=>store.goalSourceCursor(sourceId)}],send:async(claim,signal)=>{const response=await fetch(config.provider+'/notify',{method:'POST',headers:{authorization:'Bearer '+token,'content-type':'application/json'},body:JSON.stringify(claim),signal});if(response.status!==200)throw Error('NOTIFICATION_PROVIDER_REJECTED');return await response.json() as {state:'delivered';providerRef:string};}}),pump=new ScheduleService(store,execution);
- return{store,poller,execution,verifier,service,pump};
+const root = resolve('.'),
+  schema = readFileSync(join(root, 'docs/design/contracts/schema.sql'), 'utf8'),
+  script = resolve('scripts/probe-m3-lifecycle-native.ts'),
+  sourceId = 'public-lifecycle-source',
+  bindingRef = 'public-lifecycle-binding',
+  token = 'PUBLIC_NATIVE_LIFECYCLE_PROVIDER_TOKEN',
+  markerPath = join(root, '.local/M3-native-lifecycle-state.json');
+type Config = {
+  state: string;
+  cwd: string;
+  projectId: string;
+  goalId: string;
+  firstTaskId: string;
+  firstRunId: string;
+  secondTaskId: string;
+  verificationId: string;
+  provider: string;
+  parentPid: number;
+};
+const code = (error: unknown) => {
+  const value =
+    error && typeof error === 'object' && 'code' in error
+      ? String(error.code)
+      : error instanceof Error
+        ? error.message
+        : '';
+  return /^[A-Z][A-Z0-9_]{0,99}$/.test(value) ? value : 'HOST_ERROR';
+};
+const stamp = (stage: string, extra: Record<string, unknown> = {}) => {
+  const value = JSON.parse(readFileSync(markerPath, 'utf8'));
+  writeFileSync(markerPath, JSON.stringify({ ...value, stage, ...extra }) + '\n', { mode: 0o600 });
+};
+const child = (args: string[]) =>
+  new Promise<void>((done, reject) => {
+    execFile(
+      process.execPath,
+      ['--disable-warning=ExperimentalWarning', script, ...args],
+      { cwd: root, timeout: 300000, maxBuffer: 1024 * 1024 },
+      (error) => (error ? reject(Error('LIFECYCLE_CHILD_FAILED')) : done()),
+    );
+  });
+const hash = (value: string | Buffer) => createHash('sha256').update(value).digest('hex');
+function components(config: Config) {
+  const poller = new AuthenticatedSourcePoller({
+      connections: [{ sourceId, bindingRef, url: config.provider + '/poll', token }],
+      directory: join(config.state, 'source-payloads'),
+      allowLoopbackHttpForTests: true,
+    }),
+    verification = join(config.state, 'verification');
+  const store = new ExecutionLedger(join(config.state, 'ledger.db'), schema, {
+    verifySource: (id, envelope) => poller.verified(id, envelope),
+    sourcePayload: (ref, sha) => {
+      try {
+        const text = poller.getPayload(ref);
+        return hash(text) === sha ? text : null;
+      } catch {
+        return null;
+      }
+    },
+    artifactText: (key, sha) => {
+      try {
+        const file = backupFile(join(verification, 'artifacts', key), 1024 * 1024, true);
+        return file.sha256 === sha ? file.content.toString('utf8') : null;
+      } catch {
+        return null;
+      }
+    },
+  });
+  store.startOwner('native-lifecycle-' + process.pid, true);
+  const cli = verifiedCodex(root).executable,
+    verifier = new NodeVerification(store, {
+      node: resolveVerifierNode(root),
+      cli,
+      reporter: join(root, 'packages/verification/src/reporter.mjs'),
+      stateDirectory: verification,
+    }),
+    execution = new ForegroundExecution(store, {
+      executable: cli,
+      stateDirectory: join(config.state, 'codex-state'),
+      timeoutMs: 240000,
+      interruptTimeoutMs: 10000,
+      prepareCode: (t, c, s) => verifier.prepare(t, c, s),
+      prepareContinuation: (t, r, s) => verifier.prepareContinuation(t, r, s),
+    });
+  const service = new GoalService(store, execution, {
+      sourcePoller: poller,
+      sources: [{ sourceId, cursor: () => store.goalSourceCursor(sourceId) }],
+      send: async (claim, signal) => {
+        const response = await fetch(config.provider + '/notify', {
+          method: 'POST',
+          headers: { authorization: 'Bearer ' + token, 'content-type': 'application/json' },
+          body: JSON.stringify(claim),
+          signal,
+        });
+        if (response.status !== 200) throw Error('NOTIFICATION_PROVIDER_REJECTED');
+        return (await response.json()) as { state: 'delivered'; providerRef: string };
+      },
+    }),
+    pump = new ScheduleService(store, execution);
+  return { store, poller, execution, verifier, service, pump };
 }
-function inspect(config:Config){
- const db=new DatabaseSync(join(config.state,'ledger.db'),{readOnly:true});try{
-  const goal=db.prepare('SELECT status FROM goals WHERE goal_id=?').get(config.goalId),runs=db.prepare('SELECT run_id,status,task_id FROM task_runs ORDER BY started_at_ms,rowid').all(),owner=db.prepare('SELECT state FROM runtime_owners').get();if(goal?.status!=='paused'||runs.length!==2||runs[0]!.run_id!==config.firstRunId||runs[0]!.task_id!==config.firstTaskId||runs[0]!.status!=='completed'||runs[1]!.task_id!==config.secondTaskId||!['cancelled','outcome_unknown'].includes(String(runs[1]!.status))||owner?.state!=='stopped')throw Error('COLD_INSPECTION_STATE_MISMATCH');
-  const verification=db.prepare('SELECT v.status,v.executed_count,v.skipped_count,a.relative_storage_key,a.content_sha256 FROM verification_results v JOIN artifacts a ON a.artifact_id=v.evidence_ref WHERE v.verification_id=?').get(config.verificationId);if(!verification||verification.status!=='passed'||verification.executed_count!==4||verification.skipped_count!==0)throw Error('COLD_INSPECTION_VERIFICATION_MISMATCH');const bytes=readFileSync(join(config.state,'verification/artifacts',String(verification.relative_storage_key))),receipt=JSON.parse(bytes.toString('utf8'));if(hash(bytes)!==verification.content_sha256||receipt.code!=='VERIFIED'||receipt.status!=='passed'||receipt.executed!==4||receipt.exitCode!==0)throw Error('COLD_INSPECTION_ARTIFACT_HASH_MISMATCH');
-  const turns=Number(db.prepare("SELECT count(*) AS n FROM execution_intents WHERE kind='turn_start'").get()!.n),starts=Number(db.prepare("SELECT count(*) AS n FROM execution_intents WHERE kind='thread_start'").get()!.n),interrupts=db.prepare("SELECT i.* FROM execution_intents i WHERE kind='turn_interrupt'").all(),interrupt=interrupts[0],unknownStop=interrupt?.state==='outcome_unknown',sdkStopAcknowledged=interrupt?.state==='accepted',executorClosed=Boolean(db.prepare("SELECT event_id FROM task_events WHERE run_id=? AND event_type='executor_closed'").get(runs[1]!.run_id!)),heldReservations=Number(db.prepare("SELECT count(*) AS n FROM budget_reservations WHERE run_id=? AND state='held_unknown' AND units>0 AND actual_units IS NULL").get(runs[1]!.run_id!)!.n);if(turns!==2||starts!==2||interrupts.length!==1||!interrupt?.rpc_request_id||!interrupt.connection_epoch||!['accepted','outcome_unknown'].includes(String(interrupt.state))||!executorClosed||unknownStop&&(runs[1]!.status!=='outcome_unknown'||heldReservations<2)||Number(db.prepare("SELECT count(*) AS n FROM subscriptions WHERE state='active'").get()!.n)!==0||Number(db.prepare("SELECT count(*) AS n FROM mandates WHERE state='active'").get()!.n)!==0)throw Error('COLD_INSPECTION_DISPATCH_REPLAY');
-  const notifications=db.prepare("SELECT state,result_ref FROM operations WHERE kind='GOAL_NOTIFICATION'").all();if(notifications.length!==1||notifications[0]!.state!=='completed'||!JSON.parse(String(notifications[0]!.result_ref)).providerRef)throw Error('COLD_INSPECTION_NOTIFICATION_MISMATCH');
-  return{goalStatus:goal.status,runs:2,runStatuses:runs.map(run=>run.status),threadStarts:starts,turnStarts:turns,interruptAttempted:true,interruptIntentState:String(interrupt.state),SDKStopAcknowledged:sdkStopAcknowledged,ActualProcessClosed:executorClosed,secondRunOutcome:unknownStop?'unknown':runs[1]!.status,activeSubscriptions:0,activeMandates:0,notificationOperations:1,verification:{status:'passed',code:'VERIFIED',executed:4,skipped:0,artifactHashMatched:true},usage:runs.map(run=>{const usage=db.prepare('SELECT baseline_tokens,latest_total_tokens,invalid_count FROM run_usage WHERE run_id=?').get(run.run_id!)!,held=Number(db.prepare("SELECT coalesce(max(units),0) AS n FROM budget_reservations WHERE run_id=? AND state='held_unknown'").get(run.run_id!)!.n);return{reportedTokens:typeof usage.baseline_tokens==='number'&&typeof usage.latest_total_tokens==='number'&&usage.invalid_count===0?usage.latest_total_tokens-usage.baseline_tokens:null,unknownHeldTokens:held};})};
- }finally{db.close();}
+function inspect(config: Config) {
+  const db = new DatabaseSync(join(config.state, 'ledger.db'), { readOnly: true });
+  try {
+    const goal = db.prepare('SELECT status FROM goals WHERE goal_id=?').get(config.goalId),
+      runs = db
+        .prepare('SELECT run_id,status,task_id FROM task_runs ORDER BY started_at_ms,rowid')
+        .all(),
+      owner = db.prepare('SELECT state FROM runtime_owners').get();
+    if (
+      goal?.status !== 'paused' ||
+      runs.length !== 2 ||
+      runs[0]!.run_id !== config.firstRunId ||
+      runs[0]!.task_id !== config.firstTaskId ||
+      runs[0]!.status !== 'completed' ||
+      runs[1]!.task_id !== config.secondTaskId ||
+      !['cancelled', 'outcome_unknown'].includes(String(runs[1]!.status)) ||
+      owner?.state !== 'stopped'
+    )
+      throw Error('COLD_INSPECTION_STATE_MISMATCH');
+    const verification = db
+      .prepare(
+        'SELECT v.status,v.executed_count,v.skipped_count,a.relative_storage_key,a.content_sha256 FROM verification_results v JOIN artifacts a ON a.artifact_id=v.evidence_ref WHERE v.verification_id=?',
+      )
+      .get(config.verificationId);
+    if (
+      !verification ||
+      verification.status !== 'passed' ||
+      verification.executed_count !== 4 ||
+      verification.skipped_count !== 0
+    )
+      throw Error('COLD_INSPECTION_VERIFICATION_MISMATCH');
+    const bytes = readFileSync(
+        join(config.state, 'verification/artifacts', String(verification.relative_storage_key)),
+      ),
+      receipt = JSON.parse(bytes.toString('utf8'));
+    if (
+      hash(bytes) !== verification.content_sha256 ||
+      receipt.code !== 'VERIFIED' ||
+      receipt.status !== 'passed' ||
+      receipt.executed !== 4 ||
+      receipt.exitCode !== 0
+    )
+      throw Error('COLD_INSPECTION_ARTIFACT_HASH_MISMATCH');
+    const turns = Number(
+        db.prepare("SELECT count(*) AS n FROM execution_intents WHERE kind='turn_start'").get()!.n,
+      ),
+      starts = Number(
+        db.prepare("SELECT count(*) AS n FROM execution_intents WHERE kind='thread_start'").get()!
+          .n,
+      ),
+      interrupts = db
+        .prepare("SELECT i.* FROM execution_intents i WHERE kind='turn_interrupt'")
+        .all(),
+      interrupt = interrupts[0],
+      unknownStop = interrupt?.state === 'outcome_unknown',
+      sdkStopAcknowledged = interrupt?.state === 'accepted',
+      executorClosed = Boolean(
+        db
+          .prepare(
+            "SELECT event_id FROM task_events WHERE run_id=? AND event_type='executor_closed'",
+          )
+          .get(runs[1]!.run_id!),
+      ),
+      heldReservations = Number(
+        db
+          .prepare(
+            "SELECT count(*) AS n FROM budget_reservations WHERE run_id=? AND state='held_unknown' AND units>0 AND actual_units IS NULL",
+          )
+          .get(runs[1]!.run_id!)!.n,
+      );
+    if (
+      turns !== 2 ||
+      starts !== 2 ||
+      interrupts.length !== 1 ||
+      !interrupt?.rpc_request_id ||
+      !interrupt.connection_epoch ||
+      !['accepted', 'outcome_unknown'].includes(String(interrupt.state)) ||
+      !executorClosed ||
+      (unknownStop && (runs[1]!.status !== 'outcome_unknown' || heldReservations < 2)) ||
+      Number(
+        db.prepare("SELECT count(*) AS n FROM subscriptions WHERE state='active'").get()!.n,
+      ) !== 0 ||
+      Number(db.prepare("SELECT count(*) AS n FROM mandates WHERE state='active'").get()!.n) !== 0
+    )
+      throw Error('COLD_INSPECTION_DISPATCH_REPLAY');
+    const notifications = db
+      .prepare("SELECT state,result_ref FROM operations WHERE kind='GOAL_NOTIFICATION'")
+      .all();
+    if (
+      notifications.length !== 1 ||
+      notifications[0]!.state !== 'completed' ||
+      !JSON.parse(String(notifications[0]!.result_ref)).providerRef
+    )
+      throw Error('COLD_INSPECTION_NOTIFICATION_MISMATCH');
+    return {
+      goalStatus: goal.status,
+      runs: 2,
+      runStatuses: runs.map((run) => run.status),
+      threadStarts: starts,
+      turnStarts: turns,
+      interruptAttempted: true,
+      interruptIntentState: String(interrupt.state),
+      SDKStopAcknowledged: sdkStopAcknowledged,
+      ActualProcessClosed: executorClosed,
+      secondRunOutcome: unknownStop ? 'unknown' : runs[1]!.status,
+      activeSubscriptions: 0,
+      activeMandates: 0,
+      notificationOperations: 1,
+      verification: {
+        status: 'passed',
+        code: 'VERIFIED',
+        executed: 4,
+        skipped: 0,
+        artifactHashMatched: true,
+      },
+      usage: runs.map((run) => {
+        const usage = db
+            .prepare(
+              'SELECT baseline_tokens,latest_total_tokens,invalid_count FROM run_usage WHERE run_id=?',
+            )
+            .get(run.run_id!)!,
+          held = Number(
+            db
+              .prepare(
+                "SELECT coalesce(max(units),0) AS n FROM budget_reservations WHERE run_id=? AND state='held_unknown'",
+              )
+              .get(run.run_id!)!.n,
+          );
+        return {
+          reportedTokens:
+            typeof usage.baseline_tokens === 'number' &&
+            typeof usage.latest_total_tokens === 'number' &&
+            usage.invalid_count === 0
+              ? usage.latest_total_tokens - usage.baseline_tokens
+              : null,
+          unknownHeldTokens: held,
+        };
+      }),
+    };
+  } finally {
+    db.close();
+  }
 }
-async function resumed(config:Config){
- if(JSON.parse(readFileSync(markerPath,'utf8')).stage!=='waiting_cold_child'||process.pid===config.parentPid)throw Error('LIFECYCLE_CHILD_REPLAY_REFUSED');stamp('cold_child_entered',{childPid:process.pid});const f=components(config);let result:Record<string,unknown>={status:'blocked',newPid:true},phase='old-source-after-cold-start';
- try{
-  if(f.store.runs(config.projectId).length!==1||f.store.listGoals()[0]?.goalId!==config.goalId)throw Error('COLD_OWNER_GOAL_IDENTITY_MISMATCH');const beforeEpoch=f.store.recoveryWatermarks().runtimeEpoch;
-  const old=await f.service.tick();f.pump.step();if(old.goals.delivered.queued!==0||f.store.runs(config.projectId).length!==1)throw Error('OLD_EVENT_DISPATCHED_AFTER_REVISION');phase='new-source-wake';if((await f.service.tick()).goals.delivered.queued!==1||f.store.goalDispatchCandidates().length!==1)throw Error('COLD_SOURCE_WAKE_FAILED');stamp('second_native_may_send',{secondRequestMayHaveBeenSent:true});f.pump.step();const second=f.store.runs(config.projectId).find(run=>run.taskId===config.secondTaskId);if(!second)throw Error('COLD_AUTOMATIC_RUN_NOT_ADMITTED');
-  phase='wait-second-native-accepted';let current=f.store.runForHost(second.runId);const deadline=Date.now()+120000;while(!current.turnId){if(Date.now()>deadline||['completed','failed','cancelled','outcome_unknown'].includes(current.status))throw Error('SECOND_NATIVE_NOT_ACTIVE_AT_STOP');await new Promise(resolve=>setTimeout(resolve,5));current=f.store.runForHost(second.runId);}if(current.status!=='running'||!f.execution.diagnostics.nativePolicyVerified)throw Error('SECOND_NATIVE_NOT_RUNNING_AT_STOP');
-  const goal=f.store.listGoals().find(goal=>goal.goalId===config.goalId)!;phase='actual-native-goal-pause';await f.service.apply({kind:'pause',commandKey:'pause-while-second-native-running',goalId:config.goalId,expectedVersion:goal.version});await f.execution.wait();const stopped=f.store.runForHost(second.runId);if(!['cancelled','outcome_unknown'].includes(stopped.status)||f.execution.busy||!f.store.executorClosureRecorded(second.runId))throw Error('NATIVE_EXECUTOR_STOP_UNCONFIRMED');
-  const stoppedCount=f.store.runs(config.projectId).length;await f.service.tick();f.pump.step();await f.service.tick();f.pump.step();if(f.store.runs(config.projectId).length!==stoppedCount||stoppedCount!==2||f.store.goalDispatchCandidates().length!==0)throw Error('STOPPED_GOAL_REDISPATCHED');
-  result={status:'passed',newPid:process.pid!==config.parentPid,newOwnerEpoch:beforeEpoch,oldEventQueued:old.goals.delivered.queued,secondNativePolicyVerified:f.execution.diagnostics.nativePolicyVerified,secondModel:f.execution.diagnostics.selectedModel,stoppedWhileStatus:current.status,stopRunStatus:stopped.status,executorClosed:true,clientTurnStarts:f.execution.diagnostics.clientTurnStarts,postStopRunCount:stoppedCount};stamp('cold_child_complete',{status:'passed'});
- }catch(error){result={...result,phase,code:code(error)};stamp('blocked',{phase,code:code(error)});}finally{await f.execution.close();f.store.close();}
- writeFileSync(join(config.state,'child-result.json'),JSON.stringify(result)+'\n',{mode:0o600});if(result.status!=='passed')throw Error('LIFECYCLE_CHILD_ASSERTION_FAILED');
+async function resumed(config: Config) {
+  if (
+    JSON.parse(readFileSync(markerPath, 'utf8')).stage !== 'waiting_cold_child' ||
+    process.pid === config.parentPid
+  )
+    throw Error('LIFECYCLE_CHILD_REPLAY_REFUSED');
+  stamp('cold_child_entered', { childPid: process.pid });
+  const f = components(config);
+  let result: Record<string, unknown> = { status: 'blocked', newPid: true },
+    phase = 'old-source-after-cold-start';
+  try {
+    if (
+      f.store.runs(config.projectId).length !== 1 ||
+      f.store.listGoals()[0]?.goalId !== config.goalId
+    )
+      throw Error('COLD_OWNER_GOAL_IDENTITY_MISMATCH');
+    const beforeEpoch = f.store.recoveryWatermarks().runtimeEpoch;
+    const old = await f.service.tick();
+    f.pump.step();
+    if (old.goals.delivered.queued !== 0 || f.store.runs(config.projectId).length !== 1)
+      throw Error('OLD_EVENT_DISPATCHED_AFTER_REVISION');
+    phase = 'new-source-wake';
+    if (
+      (await f.service.tick()).goals.delivered.queued !== 1 ||
+      f.store.goalDispatchCandidates().length !== 1
+    )
+      throw Error('COLD_SOURCE_WAKE_FAILED');
+    stamp('second_native_may_send', { secondRequestMayHaveBeenSent: true });
+    f.pump.step();
+    const second = f.store.runs(config.projectId).find((run) => run.taskId === config.secondTaskId);
+    if (!second) throw Error('COLD_AUTOMATIC_RUN_NOT_ADMITTED');
+    phase = 'wait-second-native-accepted';
+    let current = f.store.runForHost(second.runId);
+    const deadline = Date.now() + 120000;
+    while (!current.turnId) {
+      if (
+        Date.now() > deadline ||
+        ['completed', 'failed', 'cancelled', 'outcome_unknown'].includes(current.status)
+      )
+        throw Error('SECOND_NATIVE_NOT_ACTIVE_AT_STOP');
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      current = f.store.runForHost(second.runId);
+    }
+    if (current.status !== 'running' || !f.execution.diagnostics.nativePolicyVerified)
+      throw Error('SECOND_NATIVE_NOT_RUNNING_AT_STOP');
+    const goal = f.store.listGoals().find((goal) => goal.goalId === config.goalId)!;
+    phase = 'actual-native-goal-pause';
+    await f.service.apply({
+      kind: 'pause',
+      commandKey: 'pause-while-second-native-running',
+      goalId: config.goalId,
+      expectedVersion: goal.version,
+    });
+    await f.execution.wait();
+    const stopped = f.store.runForHost(second.runId);
+    if (
+      !['cancelled', 'outcome_unknown'].includes(stopped.status) ||
+      f.execution.busy ||
+      !f.store.executorClosureRecorded(second.runId)
+    )
+      throw Error('NATIVE_EXECUTOR_STOP_UNCONFIRMED');
+    const stoppedCount = f.store.runs(config.projectId).length;
+    await f.service.tick();
+    f.pump.step();
+    await f.service.tick();
+    f.pump.step();
+    if (
+      f.store.runs(config.projectId).length !== stoppedCount ||
+      stoppedCount !== 2 ||
+      f.store.goalDispatchCandidates().length !== 0
+    )
+      throw Error('STOPPED_GOAL_REDISPATCHED');
+    result = {
+      status: 'passed',
+      newPid: process.pid !== config.parentPid,
+      newOwnerEpoch: beforeEpoch,
+      oldEventQueued: old.goals.delivered.queued,
+      secondNativePolicyVerified: f.execution.diagnostics.nativePolicyVerified,
+      secondModel: f.execution.diagnostics.selectedModel,
+      stoppedWhileStatus: current.status,
+      stopRunStatus: stopped.status,
+      executorClosed: true,
+      clientTurnStarts: f.execution.diagnostics.clientTurnStarts,
+      postStopRunCount: stoppedCount,
+    };
+    stamp('cold_child_complete', { status: 'passed' });
+  } catch (error) {
+    result = { ...result, phase, code: code(error) };
+    stamp('blocked', { phase, code: code(error) });
+  } finally {
+    await f.execution.close();
+    f.store.close();
+  }
+  writeFileSync(join(config.state, 'child-result.json'), JSON.stringify(result) + '\n', {
+    mode: 0o600,
+  });
+  if (result.status !== 'passed') throw Error('LIFECYCLE_CHILD_ASSERTION_FAILED');
 }
-async function main(){
- mkdirSync(join(root,'.local'),{recursive:true});if(existsSync(markerPath))throw Error('NATIVE_PROBE_ALREADY_RECORDED_NO_AUTOMATIC_RESEND');const state=realpathSync(mkdtempSync(join(root,'.local/m3-native-lifecycle-'))),cwd=join(state,'workspace');mkdirSync(cwd);createCodeFixture(cwd);writeFileSync(markerPath,JSON.stringify({state,stage:'prepared',firstRequestMayHaveBeenSent:false,secondRequestMayHaveBeenSent:false,parentPid:process.pid})+'\n',{flag:'wx',mode:0o600});
- const now=Date.now(),initial={id:'initial-code-wake',threadRef:'initial-thread',eventType:'changed',occurredAtMs:now,payload:'PUBLIC_INITIAL_CODE_WAKE'},next={id:'cold-next-wake',threadRef:'next-thread',eventType:'changed',occurredAtMs:now,payload:'PUBLIC_COLD_NEXT_WAKE'},after={id:'after-stop-wake',threadRef:'next-thread',eventType:'changed',occurredAtMs:now,payload:'PUBLIC_AFTER_STOP_WAKE'};let providerPhase=0,polls=0;const notificationKeys:string[]=[],notificationEffects=new Set<string>();
- const server=createServer((request,response)=>{const chunks:Buffer[]=[];request.on('data',chunk=>chunks.push(Buffer.from(chunk)));request.on('end',()=>{if(request.headers.authorization!=='Bearer '+token){response.writeHead(401).end();return;}const input=JSON.parse(Buffer.concat(chunks).toString('utf8'));if(request.url==='/notify'){notificationKeys.push(input.dispatchKey);notificationEffects.add(input.dispatchKey);response.writeHead(200,{'content-type':'application/json'});response.end(JSON.stringify({state:'delivered',providerRef:'public-http-receipt:'+input.operationId}));return;}if(request.url!=='/poll'||input.sourceId!==sourceId||input.bindingRef!==bindingRef||input.nonce!==request.headers['x-source-nonce']){response.writeHead(400).end();return;}polls++;const stage=providerPhase,events=stage<=1?[initial]:stage===2?[next]:[next,after],bytes=Buffer.from(JSON.stringify({sourceId,bindingRef,actorRef:'public-provider',events,cursor:{stage,after:events.at(-1)!.id}}));if(providerPhase===1)providerPhase=2;else if(providerPhase===2)providerPhase=3;response.writeHead(200,{'content-type':'application/json','x-source-signature':createHmac('sha256',token).update(input.nonce+'\n').update(bytes).digest('hex')});response.end(bytes);});});
- await new Promise<void>((done,reject)=>{server.once('error',reject);server.listen(0,'127.0.0.1',done);});const address=server.address();if(!address||typeof address==='string')throw Error('PROVIDER_LISTEN_FAILED');const config:Config={state,cwd,provider:'http://127.0.0.1:'+address.port,projectId:'',goalId:'',firstTaskId:'',firstRunId:'',secondTaskId:'',verificationId:'',parentPid:process.pid},f=components(config);let closed=false,phase='create-real-code-goal',evidence:Record<string,unknown>={status:'blocked',kind:'same_native_goal_cold_process_source_and_stop',sourceProvider:'authenticated_self_owned_loopback_http',syntheticData:'public_code_fixture_and_signed_source_events',notificationProvider:'actual_self_owned_http_receipt',automaticResends:0};
- try{
-  const project=f.store.registerWorkspace(cwd,cwd);config.projectId=project.id;f.store.bindGoalSource({sourceId,bindingRef,allowedActors:['public-provider'],selfActor:'public-host',eventTypes:['changed'],maxAgeMs:600000});const goal=(await f.service.apply({kind:'create',commandKey:'native-lifecycle-goal',projectId:project.id,title:'公开Goal跨进程生命周期',objective:'修复sum，通过四个Host独立测试，再按修订后的新计划等待并接受停止',criteria:['Host四个固定case VERIFIED','真正新Owner恢复相同Goal并停止后续运行'],budgetTokens:200000,notificationPolicy:{enabled:true,dailyLimit:3,quietStartMinute:0,quietEndMinute:0}})).goal;config.goalId=goal.goalId;
-  const plan=await f.service.apply({kind:'plan',commandKey:'first-code-plan',goalId:goal.goalId,expectedVersion:goal.version,expectedPlanVersion:goal.planVersion,tasks:[{key:'repair',text:'Fix the subtraction bug in src/math.mjs: sum(a,b) must return a + b. Edit only src/math.mjs. Do not edit tests or other files, use Git or network, create files, or request escalation. The Host independently runs the frozen tests. Make the minimal edit with the file editing tool.',code:{profile:'node-test',target:'test/math.test.mjs',allowedPaths:['src/math.mjs']},dependsOn:[],dispatch:'execute_once',subscription:{sourceId,threadRef:'initial-thread',purpose:'wake',eventTypes:['changed'],expiresAtMs:Date.now()+600000}}]});config.firstTaskId=plan.taskIds[0]!;phase='first-native-code';await f.service.tick();if(f.store.goalDispatchCandidates().length!==1)throw Error('FIRST_GOAL_WAKE_NOT_AUTHORIZED');stamp('first_native_may_send',{firstRequestMayHaveBeenSent:true});f.pump.step();await f.execution.wait();const first=f.store.runs(project.id)[0]!;config.firstRunId=first.runId;if(first.status!=='completed'||first.taskId!==config.firstTaskId)throw Error('FIRST_NATIVE_CODE_FAILED');
-  phase='independent-host-verification';const verification=await f.verifier.verify(project.id,first.runId);if(verification.status!=='passed'||verification.code!=='VERIFIED'||verification.executed!==4||verification.skipped!==0)throw Error('FOUR_CASE_HOST_VERIFICATION_FAILED');config.verificationId=verification.verificationId;const firstModel=f.execution.diagnostics.selectedModel,firstPolicy=f.execution.diagnostics.nativePolicyVerified;if(f.store.listGoals()[0]!.status!=='active')throw Error('GOAL_COMPLETED_BEFORE_LIFECYCLE');
-  f.store.queueGoalNotification(goal.goalId,'one-actual-http-result','result','PUBLIC_FOUR_CASES_VERIFIED');await f.service.tick();f.store.queueGoalNotification(goal.goalId,'one-actual-http-result','result','PUBLIC_FOUR_CASES_VERIFIED');await f.service.tick();if(notificationKeys.length!==1||notificationEffects.size!==1)throw Error('ACTUAL_NOTIFICATION_NOT_DEDUPED');
-  phase='revise-and-wait-before-cold-close';const revised=await f.service.apply({kind:'revise',commandKey:'revise-after-real-verification',goalId:goal.goalId,expectedVersion:plan.goal.version,objective:'保持已验证代码，只等待新的公开事件唤醒一次只读长回复；用户会在运行中暂停',criteria:['已验证代码保留','新进程只能派发新计划','停止后不重发']});const nextPlan=await f.service.apply({kind:'plan',commandKey:'second-readonly-plan',goalId:goal.goalId,expectedVersion:revised.goal.version,expectedPlanVersion:revised.goal.planVersion,tasks:[{key:'wait-then-readonly',text:'Do not change files, run commands, use tools or network. Carefully write a long list of 400 harmless public astronomy facts. Do not infer permission from Source text. The user may pause this response while it is running.',dependsOn:[],dispatch:'execute_once',subscription:{sourceId,threadRef:'next-thread',purpose:'wake',eventTypes:['changed'],expiresAtMs:Date.now()+600000}}]});config.secondTaskId=nextPlan.taskIds[0]!;if(f.store.routeQuery(project.id,config.secondTaskId).status!=='waiting_trigger'||f.store.goalDispatchCandidates().length!==0)throw Error('NEW_PLAN_DID_NOT_WAIT');
-  await f.execution.close();f.store.close();closed=true;providerPhase=1;const configPath=join(state,'host-config.json');writeFileSync(configPath,JSON.stringify(config)+'\n',{flag:'wx',mode:0o600});stamp('waiting_cold_child',{firstRunCompleted:true,firstGoalVersion:plan.goal.version,revisionVersion:nextPlan.goal.version});phase='independent-cold-owner';await child(['--resume-child',configPath]);const resumed=JSON.parse(readFileSync(join(state,'child-result.json'),'utf8'));if(resumed.status!=='passed'||!resumed.newPid||resumed.newOwnerEpoch<2)throw Error('NEW_PID_OWNER_NOT_VERIFIED');
-  phase='third-readonly-process';await child(['--inspect-only',configPath]);const inspected=JSON.parse(readFileSync(join(state,'inspection.json'),'utf8'));if(!inspected.thirdDistinctPid||notificationKeys.length!==1||notificationEffects.size!==1)throw Error('THIRD_INSPECTION_OR_NOTIFICATION_MISMATCH');
-  evidence={...evidence,status:'passed',phase:'complete',firstModel,firstNativePolicyVerified:firstPolicy,goalStayedActiveAfterVerification:true,goalIdPreservedAcrossColdProcess:true,planRevisedBeforeColdClose:true,waitingBeforeColdClose:true,actualNewProcess:resumed.newPid,newOwnerEpoch:resumed.newOwnerEpoch,thirdReadonlyProcess:true,oldEventQueued:resumed.oldEventQueued,secondModel:resumed.secondModel,secondNativePolicyVerified:resumed.secondNativePolicyVerified,pausedWhileRunStatus:resumed.stoppedWhileStatus,actualExecutorClosed:resumed.executorClosed,sourcePolls:polls,notificationHttpRequests:notificationKeys.length,notificationEffects:notificationEffects.size,...inspected.result,actualModelRequests:2};stamp('complete',{status:'passed'});
- }catch(error){evidence={...evidence,phase,code:code(error),firstDiagnosticCode:f.execution.diagnostics.failureCode||undefined};stamp('blocked',{phase,code:code(error)});}finally{if(!closed){await f.execution.close();f.store.close();}server.closeAllConnections();await new Promise<void>(done=>server.close(()=>done()));}
- evidence.observedAt=new Date().toISOString();writeFileSync(join(root,'docs/progress/evidence/M3.4-native-lifecycle.json'),JSON.stringify(evidence,null,2)+'\n');console.log(JSON.stringify(evidence,null,2));if(evidence.status!=='passed')process.exitCode=1;
+async function main() {
+  mkdirSync(join(root, '.local'), { recursive: true });
+  if (existsSync(markerPath)) throw Error('NATIVE_PROBE_ALREADY_RECORDED_NO_AUTOMATIC_RESEND');
+  const state = realpathSync(mkdtempSync(join(root, '.local/m3-native-lifecycle-'))),
+    cwd = join(state, 'workspace');
+  mkdirSync(cwd);
+  createCodeFixture(cwd);
+  writeFileSync(
+    markerPath,
+    JSON.stringify({
+      state,
+      stage: 'prepared',
+      firstRequestMayHaveBeenSent: false,
+      secondRequestMayHaveBeenSent: false,
+      parentPid: process.pid,
+    }) + '\n',
+    { flag: 'wx', mode: 0o600 },
+  );
+  const now = Date.now(),
+    initial = {
+      id: 'initial-code-wake',
+      threadRef: 'initial-thread',
+      eventType: 'changed',
+      occurredAtMs: now,
+      payload: 'PUBLIC_INITIAL_CODE_WAKE',
+    },
+    next = {
+      id: 'cold-next-wake',
+      threadRef: 'next-thread',
+      eventType: 'changed',
+      occurredAtMs: now,
+      payload: 'PUBLIC_COLD_NEXT_WAKE',
+    },
+    after = {
+      id: 'after-stop-wake',
+      threadRef: 'next-thread',
+      eventType: 'changed',
+      occurredAtMs: now,
+      payload: 'PUBLIC_AFTER_STOP_WAKE',
+    };
+  let providerPhase = 0,
+    polls = 0;
+  const notificationKeys: string[] = [],
+    notificationEffects = new Set<string>();
+  const server = createServer((request, response) => {
+    const chunks: Buffer[] = [];
+    request.on('data', (chunk) => chunks.push(Buffer.from(chunk)));
+    request.on('end', () => {
+      if (request.headers.authorization !== 'Bearer ' + token) {
+        response.writeHead(401).end();
+        return;
+      }
+      const input = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+      if (request.url === '/notify') {
+        notificationKeys.push(input.dispatchKey);
+        notificationEffects.add(input.dispatchKey);
+        response.writeHead(200, { 'content-type': 'application/json' });
+        response.end(
+          JSON.stringify({
+            state: 'delivered',
+            providerRef: 'public-http-receipt:' + input.operationId,
+          }),
+        );
+        return;
+      }
+      if (
+        request.url !== '/poll' ||
+        input.sourceId !== sourceId ||
+        input.bindingRef !== bindingRef ||
+        input.nonce !== request.headers['x-source-nonce']
+      ) {
+        response.writeHead(400).end();
+        return;
+      }
+      polls++;
+      const stage = providerPhase,
+        events = stage <= 1 ? [initial] : stage === 2 ? [next] : [next, after],
+        bytes = Buffer.from(
+          JSON.stringify({
+            sourceId,
+            bindingRef,
+            actorRef: 'public-provider',
+            events,
+            cursor: { stage, after: events.at(-1)!.id },
+          }),
+        );
+      if (providerPhase === 1) providerPhase = 2;
+      else if (providerPhase === 2) providerPhase = 3;
+      response.writeHead(200, {
+        'content-type': 'application/json',
+        'x-source-signature': createHmac('sha256', token)
+          .update(input.nonce + '\n')
+          .update(bytes)
+          .digest('hex'),
+      });
+      response.end(bytes);
+    });
+  });
+  await new Promise<void>((done, reject) => {
+    server.once('error', reject);
+    server.listen(0, '127.0.0.1', done);
+  });
+  const address = server.address();
+  if (!address || typeof address === 'string') throw Error('PROVIDER_LISTEN_FAILED');
+  const config: Config = {
+      state,
+      cwd,
+      provider: 'http://127.0.0.1:' + address.port,
+      projectId: '',
+      goalId: '',
+      firstTaskId: '',
+      firstRunId: '',
+      secondTaskId: '',
+      verificationId: '',
+      parentPid: process.pid,
+    },
+    f = components(config);
+  let closed = false,
+    phase = 'create-real-code-goal',
+    evidence: Record<string, unknown> = {
+      status: 'blocked',
+      kind: 'same_native_goal_cold_process_source_and_stop',
+      sourceProvider: 'authenticated_self_owned_loopback_http',
+      syntheticData: 'public_code_fixture_and_signed_source_events',
+      notificationProvider: 'actual_self_owned_http_receipt',
+      automaticResends: 0,
+    };
+  try {
+    const project = f.store.registerWorkspace(cwd, cwd);
+    config.projectId = project.id;
+    f.store.bindGoalSource({
+      sourceId,
+      bindingRef,
+      allowedActors: ['public-provider'],
+      selfActor: 'public-host',
+      eventTypes: ['changed'],
+      maxAgeMs: 600000,
+    });
+    const goal = (
+      await f.service.apply({
+        kind: 'create',
+        commandKey: 'native-lifecycle-goal',
+        projectId: project.id,
+        title: '公开Goal跨进程生命周期',
+        objective: '修复sum，通过四个Host独立测试，再按修订后的新计划等待并接受停止',
+        criteria: ['Host四个固定case VERIFIED', '真正新Owner恢复相同Goal并停止后续运行'],
+        budgetTokens: 200000,
+        notificationPolicy: {
+          enabled: true,
+          dailyLimit: 3,
+          quietStartMinute: 0,
+          quietEndMinute: 0,
+        },
+      })
+    ).goal;
+    config.goalId = goal.goalId;
+    const plan = await f.service.apply({
+      kind: 'plan',
+      commandKey: 'first-code-plan',
+      goalId: goal.goalId,
+      expectedVersion: goal.version,
+      expectedPlanVersion: goal.planVersion,
+      tasks: [
+        {
+          key: 'repair',
+          text: 'Fix the subtraction bug in src/math.mjs: sum(a,b) must return a + b. Edit only src/math.mjs. Do not edit tests or other files, use Git or network, create files, or request escalation. The Host independently runs the frozen tests. Make the minimal edit with the file editing tool.',
+          code: {
+            profile: 'node-test',
+            target: 'test/math.test.mjs',
+            allowedPaths: ['src/math.mjs'],
+          },
+          dependsOn: [],
+          dispatch: 'execute_once',
+          subscription: {
+            sourceId,
+            threadRef: 'initial-thread',
+            purpose: 'wake',
+            eventTypes: ['changed'],
+            expiresAtMs: Date.now() + 600000,
+          },
+        },
+      ],
+    });
+    config.firstTaskId = plan.taskIds[0]!;
+    phase = 'first-native-code';
+    await f.service.tick();
+    if (f.store.goalDispatchCandidates().length !== 1)
+      throw Error('FIRST_GOAL_WAKE_NOT_AUTHORIZED');
+    stamp('first_native_may_send', { firstRequestMayHaveBeenSent: true });
+    f.pump.step();
+    await f.execution.wait();
+    const first = f.store.runs(project.id)[0]!;
+    config.firstRunId = first.runId;
+    if (first.status !== 'completed' || first.taskId !== config.firstTaskId)
+      throw Error('FIRST_NATIVE_CODE_FAILED');
+    phase = 'independent-host-verification';
+    const verification = await f.verifier.verify(project.id, first.runId);
+    if (
+      verification.status !== 'passed' ||
+      verification.code !== 'VERIFIED' ||
+      verification.executed !== 4 ||
+      verification.skipped !== 0
+    )
+      throw Error('FOUR_CASE_HOST_VERIFICATION_FAILED');
+    config.verificationId = verification.verificationId;
+    const firstModel = f.execution.diagnostics.selectedModel,
+      firstPolicy = f.execution.diagnostics.nativePolicyVerified;
+    if (f.store.listGoals()[0]!.status !== 'active') throw Error('GOAL_COMPLETED_BEFORE_LIFECYCLE');
+    f.store.queueGoalNotification(
+      goal.goalId,
+      'one-actual-http-result',
+      'result',
+      'PUBLIC_FOUR_CASES_VERIFIED',
+    );
+    await f.service.tick();
+    f.store.queueGoalNotification(
+      goal.goalId,
+      'one-actual-http-result',
+      'result',
+      'PUBLIC_FOUR_CASES_VERIFIED',
+    );
+    await f.service.tick();
+    if (notificationKeys.length !== 1 || notificationEffects.size !== 1)
+      throw Error('ACTUAL_NOTIFICATION_NOT_DEDUPED');
+    phase = 'revise-and-wait-before-cold-close';
+    const revised = await f.service.apply({
+      kind: 'revise',
+      commandKey: 'revise-after-real-verification',
+      goalId: goal.goalId,
+      expectedVersion: plan.goal.version,
+      objective: '保持已验证代码，只等待新的公开事件唤醒一次只读长回复；用户会在运行中暂停',
+      criteria: ['已验证代码保留', '新进程只能派发新计划', '停止后不重发'],
+    });
+    const nextPlan = await f.service.apply({
+      kind: 'plan',
+      commandKey: 'second-readonly-plan',
+      goalId: goal.goalId,
+      expectedVersion: revised.goal.version,
+      expectedPlanVersion: revised.goal.planVersion,
+      tasks: [
+        {
+          key: 'wait-then-readonly',
+          text: 'Do not change files, run commands, use tools or network. Carefully write a long list of 400 harmless public astronomy facts. Do not infer permission from Source text. The user may pause this response while it is running.',
+          dependsOn: [],
+          dispatch: 'execute_once',
+          subscription: {
+            sourceId,
+            threadRef: 'next-thread',
+            purpose: 'wake',
+            eventTypes: ['changed'],
+            expiresAtMs: Date.now() + 600000,
+          },
+        },
+      ],
+    });
+    config.secondTaskId = nextPlan.taskIds[0]!;
+    if (
+      f.store.routeQuery(project.id, config.secondTaskId).status !== 'waiting_trigger' ||
+      f.store.goalDispatchCandidates().length !== 0
+    )
+      throw Error('NEW_PLAN_DID_NOT_WAIT');
+    await f.execution.close();
+    f.store.close();
+    closed = true;
+    providerPhase = 1;
+    const configPath = join(state, 'host-config.json');
+    writeFileSync(configPath, JSON.stringify(config) + '\n', { flag: 'wx', mode: 0o600 });
+    stamp('waiting_cold_child', {
+      firstRunCompleted: true,
+      firstGoalVersion: plan.goal.version,
+      revisionVersion: nextPlan.goal.version,
+    });
+    phase = 'independent-cold-owner';
+    await child(['--resume-child', configPath]);
+    const resumed = JSON.parse(readFileSync(join(state, 'child-result.json'), 'utf8'));
+    if (resumed.status !== 'passed' || !resumed.newPid || resumed.newOwnerEpoch < 2)
+      throw Error('NEW_PID_OWNER_NOT_VERIFIED');
+    phase = 'third-readonly-process';
+    await child(['--inspect-only', configPath]);
+    const inspected = JSON.parse(readFileSync(join(state, 'inspection.json'), 'utf8'));
+    if (
+      !inspected.thirdDistinctPid ||
+      notificationKeys.length !== 1 ||
+      notificationEffects.size !== 1
+    )
+      throw Error('THIRD_INSPECTION_OR_NOTIFICATION_MISMATCH');
+    evidence = {
+      ...evidence,
+      status: 'passed',
+      phase: 'complete',
+      firstModel,
+      firstNativePolicyVerified: firstPolicy,
+      goalStayedActiveAfterVerification: true,
+      goalIdPreservedAcrossColdProcess: true,
+      planRevisedBeforeColdClose: true,
+      waitingBeforeColdClose: true,
+      actualNewProcess: resumed.newPid,
+      newOwnerEpoch: resumed.newOwnerEpoch,
+      thirdReadonlyProcess: true,
+      oldEventQueued: resumed.oldEventQueued,
+      secondModel: resumed.secondModel,
+      secondNativePolicyVerified: resumed.secondNativePolicyVerified,
+      pausedWhileRunStatus: resumed.stoppedWhileStatus,
+      actualExecutorClosed: resumed.executorClosed,
+      sourcePolls: polls,
+      notificationHttpRequests: notificationKeys.length,
+      notificationEffects: notificationEffects.size,
+      ...inspected.result,
+      actualModelRequests: 2,
+    };
+    stamp('complete', { status: 'passed' });
+  } catch (error) {
+    evidence = {
+      ...evidence,
+      phase,
+      code: code(error),
+      firstDiagnosticCode: f.execution.diagnostics.failureCode || undefined,
+    };
+    stamp('blocked', { phase, code: code(error) });
+  } finally {
+    if (!closed) {
+      await f.execution.close();
+      f.store.close();
+    }
+    server.closeAllConnections();
+    await new Promise<void>((done) => server.close(() => done()));
+  }
+  evidence.observedAt = new Date().toISOString();
+  writeFileSync(
+    join(root, 'docs/progress/evidence/M3.4-native-lifecycle.json'),
+    JSON.stringify(evidence, null, 2) + '\n',
+  );
+  console.log(JSON.stringify(evidence, null, 2));
+  if (evidence.status !== 'passed') process.exitCode = 1;
 }
-async function finalizeReadonly(){
- const marker=JSON.parse(readFileSync(markerPath,'utf8'));if(!['blocked','readonly_finalized'].includes(marker.stage)||typeof marker.state!=='string')throw Error('LIFECYCLE_READONLY_FINALIZATION_REFUSED');const configPath=join(marker.state,'host-config.json'),config=JSON.parse(readFileSync(configPath,'utf8')) as Config,resumed=JSON.parse(readFileSync(join(config.state,'child-result.json'),'utf8'));if(resumed.status!=='passed'||resumed.postStopRunCount!==2||resumed.stopRunStatus!=='outcome_unknown')throw Error('LIFECYCLE_STOP_FACTS_NOT_PROVEN');
- const evidencePath=join(root,'docs/progress/evidence/M3.4-native-lifecycle.json'),archive=join(root,'docs/progress/evidence/M3.4-native-lifecycle-first-inspection.json');if(!existsSync(archive))writeFileSync(archive,readFileSync(evidencePath),{flag:'wx'});await child(['--inspect-only',configPath]);const inspection=JSON.parse(readFileSync(join(config.state,'inspection.json'),'utf8'));if(!inspection.thirdDistinctPid||inspection.result.secondRunOutcome!=='unknown'||inspection.result.SDKStopAcknowledged!==false||inspection.result.ActualProcessClosed!==true)throw Error('READONLY_NATIVE_STOP_RECHECK_FAILED');
- const db=new DatabaseSync(join(config.state,'ledger.db'),{readOnly:true});let firstNativePolicyVerified:boolean,firstModelHashMatchesChildModel:boolean;try{firstNativePolicyVerified=Boolean(db.prepare("SELECT event_id FROM task_events WHERE run_id=? AND event_type='native_policy_verified'").get(config.firstRunId));const modules=JSON.parse(String(db.prepare('SELECT module_hashes_json FROM prompt_manifests WHERE run_id=?').get(config.firstRunId)!.module_hashes_json));firstModelHashMatchesChildModel=modules.model===hash(JSON.stringify(resumed.secondModel));}finally{db.close();}if(!firstNativePolicyVerified||!firstModelHashMatchesChildModel)throw Error('FIRST_NATIVE_MODEL_PROVENANCE_MISMATCH');
- const evidence={status:'passed',kind:'same_native_goal_cold_process_source_and_stop',phase:'readonly_finalized',sourceProvider:'authenticated_self_owned_loopback_http',syntheticData:'public_code_fixture_and_signed_source_events',notificationProvider:'actual_self_owned_http_receipt',notificationHttpRequestsBeforeColdClose:1,providerCountBasis:'asserted_by_original_parent_before_cold_close',automaticResends:0,firstModel:resumed.secondModel,firstModelHashVerified:true,firstNativePolicyVerified,goalStayedActiveAfterVerification:true,goalIdPreservedAcrossColdProcess:true,planRevisedBeforeColdClose:true,waitingBeforeColdClose:true,actualNewProcess:resumed.newPid,newOwnerEpoch:resumed.newOwnerEpoch,thirdReadonlyProcess:inspection.thirdDistinctPid,oldEventQueued:resumed.oldEventQueued,secondModel:resumed.secondModel,secondNativePolicyVerified:resumed.secondNativePolicyVerified,pausedWhileRunStatus:resumed.stoppedWhileStatus,postStopRunCount:resumed.postStopRunCount,postStopNewRuns:0,secondRunBusinessSuccess:false,...inspection.result,actualModelRequests:2,inspectionCorrections:['Unknown interrupt is accepted only with actual executor closure, Goal/Mandate revocation and preserved held budgets.','Reservation reads use units; per-Run maximum avoids counting the global and Goal quota twice.'],observedAt:new Date().toISOString()};writeFileSync(evidencePath,JSON.stringify(evidence,null,2)+'\n');stamp('readonly_finalized',{status:'passed',modelRequestsNotRepeated:true});console.log(JSON.stringify(evidence,null,2));
+async function finalizeReadonly() {
+  const marker = JSON.parse(readFileSync(markerPath, 'utf8'));
+  if (!['blocked', 'readonly_finalized'].includes(marker.stage) || typeof marker.state !== 'string')
+    throw Error('LIFECYCLE_READONLY_FINALIZATION_REFUSED');
+  const configPath = join(marker.state, 'host-config.json'),
+    config = JSON.parse(readFileSync(configPath, 'utf8')) as Config,
+    resumed = JSON.parse(readFileSync(join(config.state, 'child-result.json'), 'utf8'));
+  if (
+    resumed.status !== 'passed' ||
+    resumed.postStopRunCount !== 2 ||
+    resumed.stopRunStatus !== 'outcome_unknown'
+  )
+    throw Error('LIFECYCLE_STOP_FACTS_NOT_PROVEN');
+  const evidencePath = join(root, 'docs/progress/evidence/M3.4-native-lifecycle.json'),
+    archive = join(root, 'docs/progress/evidence/M3.4-native-lifecycle-first-inspection.json');
+  if (!existsSync(archive)) writeFileSync(archive, readFileSync(evidencePath), { flag: 'wx' });
+  await child(['--inspect-only', configPath]);
+  const inspection = JSON.parse(readFileSync(join(config.state, 'inspection.json'), 'utf8'));
+  if (
+    !inspection.thirdDistinctPid ||
+    inspection.result.secondRunOutcome !== 'unknown' ||
+    inspection.result.SDKStopAcknowledged !== false ||
+    inspection.result.ActualProcessClosed !== true
+  )
+    throw Error('READONLY_NATIVE_STOP_RECHECK_FAILED');
+  const db = new DatabaseSync(join(config.state, 'ledger.db'), { readOnly: true });
+  let firstNativePolicyVerified: boolean, firstModelHashMatchesChildModel: boolean;
+  try {
+    firstNativePolicyVerified = Boolean(
+      db
+        .prepare(
+          "SELECT event_id FROM task_events WHERE run_id=? AND event_type='native_policy_verified'",
+        )
+        .get(config.firstRunId),
+    );
+    const modules = JSON.parse(
+      String(
+        db
+          .prepare('SELECT module_hashes_json FROM prompt_manifests WHERE run_id=?')
+          .get(config.firstRunId)!.module_hashes_json,
+      ),
+    );
+    firstModelHashMatchesChildModel = modules.model === hash(JSON.stringify(resumed.secondModel));
+  } finally {
+    db.close();
+  }
+  if (!firstNativePolicyVerified || !firstModelHashMatchesChildModel)
+    throw Error('FIRST_NATIVE_MODEL_PROVENANCE_MISMATCH');
+  const evidence = {
+    status: 'passed',
+    kind: 'same_native_goal_cold_process_source_and_stop',
+    phase: 'readonly_finalized',
+    sourceProvider: 'authenticated_self_owned_loopback_http',
+    syntheticData: 'public_code_fixture_and_signed_source_events',
+    notificationProvider: 'actual_self_owned_http_receipt',
+    notificationHttpRequestsBeforeColdClose: 1,
+    providerCountBasis: 'asserted_by_original_parent_before_cold_close',
+    automaticResends: 0,
+    firstModel: resumed.secondModel,
+    firstModelHashVerified: true,
+    firstNativePolicyVerified,
+    goalStayedActiveAfterVerification: true,
+    goalIdPreservedAcrossColdProcess: true,
+    planRevisedBeforeColdClose: true,
+    waitingBeforeColdClose: true,
+    actualNewProcess: resumed.newPid,
+    newOwnerEpoch: resumed.newOwnerEpoch,
+    thirdReadonlyProcess: inspection.thirdDistinctPid,
+    oldEventQueued: resumed.oldEventQueued,
+    secondModel: resumed.secondModel,
+    secondNativePolicyVerified: resumed.secondNativePolicyVerified,
+    pausedWhileRunStatus: resumed.stoppedWhileStatus,
+    postStopRunCount: resumed.postStopRunCount,
+    postStopNewRuns: 0,
+    secondRunBusinessSuccess: false,
+    ...inspection.result,
+    actualModelRequests: 2,
+    inspectionCorrections: [
+      'Unknown interrupt is accepted only with actual executor closure, Goal/Mandate revocation and preserved held budgets.',
+      'Reservation reads use units; per-Run maximum avoids counting the global and Goal quota twice.',
+    ],
+    observedAt: new Date().toISOString(),
+  };
+  writeFileSync(evidencePath, JSON.stringify(evidence, null, 2) + '\n');
+  stamp('readonly_finalized', { status: 'passed', modelRequestsNotRepeated: true });
+  console.log(JSON.stringify(evidence, null, 2));
 }
-const args=process.argv.slice(2);if(args.length===0)await main();else if(args.length===1&&args[0]==='--finalize-readonly')await finalizeReadonly();else if(args.length===2&&['--resume-child','--inspect-only'].includes(args[0]!)){
- try{const config=JSON.parse(readFileSync(args[1]!,'utf8')) as Config;if(args[0]==='--resume-child')await resumed(config);else{const childReport=JSON.parse(readFileSync(join(config.state,'child-result.json'),'utf8')),marker=JSON.parse(readFileSync(markerPath,'utf8'));if(childReport.status!=='passed'||process.pid===config.parentPid||process.pid===marker.childPid)throw Error('THIRD_DISTINCT_PID_REQUIRED');writeFileSync(join(config.state,'inspection.json'),JSON.stringify({thirdDistinctPid:true,result:inspect(config)})+'\n',{mode:0o600});}}catch(error){console.error(JSON.stringify({status:'blocked',code:code(error)}));process.exitCode=1;}
-}else throw Error('INVALID_NATIVE_LIFECYCLE_ARGUMENTS');
+const args = process.argv.slice(2);
+if (args.length === 0) await main();
+else if (args.length === 1 && args[0] === '--finalize-readonly') await finalizeReadonly();
+else if (args.length === 2 && ['--resume-child', '--inspect-only'].includes(args[0]!)) {
+  try {
+    const config = JSON.parse(readFileSync(args[1]!, 'utf8')) as Config;
+    if (args[0] === '--resume-child') await resumed(config);
+    else {
+      const childReport = JSON.parse(readFileSync(join(config.state, 'child-result.json'), 'utf8')),
+        marker = JSON.parse(readFileSync(markerPath, 'utf8'));
+      if (
+        childReport.status !== 'passed' ||
+        process.pid === config.parentPid ||
+        process.pid === marker.childPid
+      )
+        throw Error('THIRD_DISTINCT_PID_REQUIRED');
+      writeFileSync(
+        join(config.state, 'inspection.json'),
+        JSON.stringify({ thirdDistinctPid: true, result: inspect(config) }) + '\n',
+        { mode: 0o600 },
+      );
+    }
+  } catch (error) {
+    console.error(JSON.stringify({ status: 'blocked', code: code(error) }));
+    process.exitCode = 1;
+  }
+} else throw Error('INVALID_NATIVE_LIFECYCLE_ARGUMENTS');

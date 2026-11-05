@@ -30,7 +30,16 @@ export function sandboxStdioFiles(directory: string, input?: string): SandboxStd
   const stdout = openSync(outputPath, constants.O_WRONLY | exclusive, 0o600);
   return {
     stdio: [stdin, stdout, 'ignore'],
-    output(limit) { return lstatSync(outputPath).size > limit ? null : readFileSync(outputPath); },
-    close() { for (const fd of [stdin, stdout]) if (typeof fd === 'number') { try { closeSync(fd); } catch {} } },
+    output(limit) {
+      return lstatSync(outputPath).size > limit ? null : readFileSync(outputPath);
+    },
+    close() {
+      for (const fd of [stdin, stdout])
+        if (typeof fd === 'number') {
+          try {
+            closeSync(fd);
+          } catch {}
+        }
+    },
   };
 }

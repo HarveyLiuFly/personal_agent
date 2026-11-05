@@ -1,18 +1,213 @@
-import {test} from 'node:test';
+import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import {chmodSync,existsSync,linkSync,mkdirSync,mkdtempSync,readFileSync,realpathSync,rmSync,symlinkSync,writeFileSync} from 'node:fs';
-import {join} from 'node:path';
-import {tmpdir} from 'node:os';
-import {loadSourceConfiguration,SOURCE_CONFIG_MAX_BYTES,SourceConfigError} from '../packages/runtime/src/source-config.ts';
-const token='SYNTHETIC_PUBLIC_TOKEN_02c66d0a';
-const binding={sourceId:'public-source',bindingRef:'public-binding',allowedActors:['public-user'],selfActor:'public-agent',eventTypes:['message'],maxAgeMs:60000};
-const config=()=>({format:1,sources:[{binding:structuredClone(binding),connection:{url:'https://source.example.test/updates',token}}]});
-function fixture(t:{after(fn:()=>void):void}){const root=realpathSync(mkdtempSync(join(tmpdir(),'personal-agent-source-config-'))),file=join(root,'source-connections.json');t.after(()=>rmSync(root,{recursive:true,force:true}));return{root,file,write(value:unknown=config()){writeFileSync(file,JSON.stringify(value),{mode:0o600});chmodSync(file,0o600);}};}
-function refused(work:()=>unknown){assert.throws(work,(error:unknown)=>{assert.ok(error instanceof SourceConfigError);assert.match(error.code,/^SOURCE_CONFIG_(INVALID|UNSAFE|CHANGED)$/);assert.equal(error.message,error.code);assert.equal(JSON.stringify(error).includes(token),false);assert.equal(String(error.stack).includes(token),false);return true;});}
-test('missing Host fixed config returns an empty catalog without creating any file or discovering accounts',t=>{const f=fixture(t);assert.deepEqual(loadSourceConfiguration(f.file),{bindings:[],connections:[]});assert.equal(existsSync(f.file),false);assert.deepEqual(loadSourceConfiguration(join(f.root,'not-created','config.json')),{bindings:[],connections:[]});});
-test('private regular 0600 Host config derives connection identity from the public binding without leaking credentials to its catalog',t=>{const f=fixture(t);f.write();const before=readFileSync(f.file),result=loadSourceConfiguration(f.file);assert.deepEqual(result.bindings,[binding]);assert.deepEqual(result.connections,[{sourceId:binding.sourceId,bindingRef:binding.bindingRef,url:'https://source.example.test/updates',token}]);assert.equal(JSON.stringify(result.bindings).includes(token),false);assert.deepEqual(readFileSync(f.file),before);});
-test('world/group modes, special permission bits, symlinks, hardlinks, directories and noncanonical paths are refused',t=>{const f=fixture(t);f.write();for(const mode of [0o644,0o640,0o400,0o1600]){chmodSync(f.file,mode);refused(()=>loadSourceConfiguration(f.file));}chmodSync(f.file,0o600);const soft=join(f.root,'soft.json');symlinkSync(f.file,soft);refused(()=>loadSourceConfiguration(soft));const hard=join(f.root,'hard.json');linkSync(f.file,hard);refused(()=>loadSourceConfiguration(f.file));refused(()=>loadSourceConfiguration(f.root));refused(()=>loadSourceConfiguration('source-connections.json'));refused(()=>loadSourceConfiguration(f.root+'/./source-connections.json'));refused(()=>loadSourceConfiguration(f.file+'\0'));});
-test('symlinked parent directories are refused even when the final regular file itself is private',t=>{const f=fixture(t),real=join(f.root,'real'),alias=join(f.root,'alias');mkdirSync(real);writeFileSync(join(real,'config.json'),JSON.stringify(config()),{mode:0o600});symlinkSync(real,alias);refused(()=>loadSourceConfiguration(join(alias,'config.json')));});
-test('bounded strict UTF8 JSON and complete exact schema are checked without echoing private values',t=>{const f=fixture(t);for(const value of [{},null,{format:2,sources:[]},{...config(),token},{format:1,sources:config().sources.map(s=>({...s,extra:token}))},{format:1,sources:config().sources.map(s=>({...s,connection:{...s.connection,sourceId:'other'}}))}]){f.write(value);refused(()=>loadSourceConfiguration(f.file));}writeFileSync(f.file,'{"secret":"'+token);refused(()=>loadSourceConfiguration(f.file));writeFileSync(f.file,Buffer.from([0xff,0xfe]));refused(()=>loadSourceConfiguration(f.file));writeFileSync(f.file,Buffer.alloc(SOURCE_CONFIG_MAX_BYTES+1,32));refused(()=>loadSourceConfiguration(f.file));writeFileSync(f.file,'');refused(()=>loadSourceConfiguration(f.file));});
-test('HTTPS, separate bounded bearer token and no userinfo/fragment or secret copied into public binding are required',t=>{const f=fixture(t);for(const url of ['http://source.example.test/','file:///private/secret','https://user:pass@source.example.test/','https://source.example.test/#secret','not-a-url','https://source.example.test/\n']){const value=config();value.sources[0]!.connection.url=url;f.write(value);refused(()=>loadSourceConfiguration(f.file));}for(const secret of ['short','contains a forbidden space',token+'\r\nheader:value','x'.repeat(4097)]){const value=config();value.sources[0]!.connection.token=secret;f.write(value);refused(()=>loadSourceConfiguration(f.file));}const value=config();value.sources[0]!.binding.sourceId=token;f.write(value);refused(()=>loadSourceConfiguration(f.file));});
-test('Source IDs are unique, bindings have bounded validated scopes, and secrets cannot cross into another binding',t=>{const f=fixture(t);let value=config();value.sources.push(structuredClone(value.sources[0]!));f.write(value);refused(()=>loadSourceConfiguration(f.file));for(const patch of [{allowedActors:[]},{allowedActors:['actor','actor']},{eventTypes:[]},{maxAgeMs:0},{maxAgeMs:86400001},{sourceId:'bad\nsource'}]){value=config();Object.assign(value.sources[0]!.binding,patch);f.write(value);refused(()=>loadSourceConfiguration(f.file));}value=config();const second=structuredClone(value.sources[0]!);second.binding.sourceId='source-two';second.binding.bindingRef=token;second.connection.token='OTHER_SYNTHETIC_PUBLIC_TOKEN';value.sources.push(second);f.write(value);refused(()=>loadSourceConfiguration(f.file));const many={format:1,sources:Array.from({length:101},(_,i)=>{const s=config().sources[0]!;s.binding.sourceId='source-'+i;return s;})};f.write(many);refused(()=>loadSourceConfiguration(f.file));});
+import {
+  chmodSync,
+  existsSync,
+  linkSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+import {
+  loadSourceConfiguration,
+  SOURCE_CONFIG_MAX_BYTES,
+  SourceConfigError,
+} from '../packages/runtime/src/source-config.ts';
+const token = 'SYNTHETIC_PUBLIC_TOKEN_02c66d0a';
+const binding = {
+  sourceId: 'public-source',
+  bindingRef: 'public-binding',
+  allowedActors: ['public-user'],
+  selfActor: 'public-agent',
+  eventTypes: ['message'],
+  maxAgeMs: 60000,
+};
+const config = () => ({
+  format: 1,
+  sources: [
+    {
+      binding: structuredClone(binding),
+      connection: { url: 'https://source.example.test/updates', token },
+    },
+  ],
+});
+function fixture(t: { after(fn: () => void): void }) {
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'personal-agent-source-config-'))),
+    file = join(root, 'source-connections.json');
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  return {
+    root,
+    file,
+    write(value: unknown = config()) {
+      writeFileSync(file, JSON.stringify(value), { mode: 0o600 });
+      chmodSync(file, 0o600);
+    },
+  };
+}
+function refused(work: () => unknown) {
+  assert.throws(work, (error: unknown) => {
+    assert.ok(error instanceof SourceConfigError);
+    assert.match(error.code, /^SOURCE_CONFIG_(INVALID|UNSAFE|CHANGED)$/);
+    assert.equal(error.message, error.code);
+    assert.equal(JSON.stringify(error).includes(token), false);
+    assert.equal(String(error.stack).includes(token), false);
+    return true;
+  });
+}
+test('missing Host fixed config returns an empty catalog without creating any file or discovering accounts', (t) => {
+  const f = fixture(t);
+  assert.deepEqual(loadSourceConfiguration(f.file), { bindings: [], connections: [] });
+  assert.equal(existsSync(f.file), false);
+  assert.deepEqual(loadSourceConfiguration(join(f.root, 'not-created', 'config.json')), {
+    bindings: [],
+    connections: [],
+  });
+});
+test('private regular 0600 Host config derives connection identity from the public binding without leaking credentials to its catalog', (t) => {
+  const f = fixture(t);
+  f.write();
+  const before = readFileSync(f.file),
+    result = loadSourceConfiguration(f.file);
+  assert.deepEqual(result.bindings, [binding]);
+  assert.deepEqual(result.connections, [
+    {
+      sourceId: binding.sourceId,
+      bindingRef: binding.bindingRef,
+      url: 'https://source.example.test/updates',
+      token,
+    },
+  ]);
+  assert.equal(JSON.stringify(result.bindings).includes(token), false);
+  assert.deepEqual(readFileSync(f.file), before);
+});
+test('world/group modes, special permission bits, symlinks, hardlinks, directories and noncanonical paths are refused', (t) => {
+  const f = fixture(t);
+  f.write();
+  for (const mode of [0o644, 0o640, 0o400, 0o1600]) {
+    chmodSync(f.file, mode);
+    refused(() => loadSourceConfiguration(f.file));
+  }
+  chmodSync(f.file, 0o600);
+  const soft = join(f.root, 'soft.json');
+  symlinkSync(f.file, soft);
+  refused(() => loadSourceConfiguration(soft));
+  const hard = join(f.root, 'hard.json');
+  linkSync(f.file, hard);
+  refused(() => loadSourceConfiguration(f.file));
+  refused(() => loadSourceConfiguration(f.root));
+  refused(() => loadSourceConfiguration('source-connections.json'));
+  refused(() => loadSourceConfiguration(f.root + '/./source-connections.json'));
+  refused(() => loadSourceConfiguration(f.file + '\0'));
+});
+test('symlinked parent directories are refused even when the final regular file itself is private', (t) => {
+  const f = fixture(t),
+    real = join(f.root, 'real'),
+    alias = join(f.root, 'alias');
+  mkdirSync(real);
+  writeFileSync(join(real, 'config.json'), JSON.stringify(config()), { mode: 0o600 });
+  symlinkSync(real, alias);
+  refused(() => loadSourceConfiguration(join(alias, 'config.json')));
+});
+test('bounded strict UTF8 JSON and complete exact schema are checked without echoing private values', (t) => {
+  const f = fixture(t);
+  for (const value of [
+    {},
+    null,
+    { format: 2, sources: [] },
+    { ...config(), token },
+    { format: 1, sources: config().sources.map((s) => ({ ...s, extra: token })) },
+    {
+      format: 1,
+      sources: config().sources.map((s) => ({
+        ...s,
+        connection: { ...s.connection, sourceId: 'other' },
+      })),
+    },
+  ]) {
+    f.write(value);
+    refused(() => loadSourceConfiguration(f.file));
+  }
+  writeFileSync(f.file, '{"secret":"' + token);
+  refused(() => loadSourceConfiguration(f.file));
+  writeFileSync(f.file, Buffer.from([0xff, 0xfe]));
+  refused(() => loadSourceConfiguration(f.file));
+  writeFileSync(f.file, Buffer.alloc(SOURCE_CONFIG_MAX_BYTES + 1, 32));
+  refused(() => loadSourceConfiguration(f.file));
+  writeFileSync(f.file, '');
+  refused(() => loadSourceConfiguration(f.file));
+});
+test('HTTPS, separate bounded bearer token and no userinfo/fragment or secret copied into public binding are required', (t) => {
+  const f = fixture(t);
+  for (const url of [
+    'http://source.example.test/',
+    'file:///private/secret',
+    'https://user:pass@source.example.test/',
+    'https://source.example.test/#secret',
+    'not-a-url',
+    'https://source.example.test/\n',
+  ]) {
+    const value = config();
+    value.sources[0]!.connection.url = url;
+    f.write(value);
+    refused(() => loadSourceConfiguration(f.file));
+  }
+  for (const secret of [
+    'short',
+    'contains a forbidden space',
+    token + '\r\nheader:value',
+    'x'.repeat(4097),
+  ]) {
+    const value = config();
+    value.sources[0]!.connection.token = secret;
+    f.write(value);
+    refused(() => loadSourceConfiguration(f.file));
+  }
+  const value = config();
+  value.sources[0]!.binding.sourceId = token;
+  f.write(value);
+  refused(() => loadSourceConfiguration(f.file));
+});
+test('Source IDs are unique, bindings have bounded validated scopes, and secrets cannot cross into another binding', (t) => {
+  const f = fixture(t);
+  let value = config();
+  value.sources.push(structuredClone(value.sources[0]!));
+  f.write(value);
+  refused(() => loadSourceConfiguration(f.file));
+  for (const patch of [
+    { allowedActors: [] },
+    { allowedActors: ['actor', 'actor'] },
+    { eventTypes: [] },
+    { maxAgeMs: 0 },
+    { maxAgeMs: 86400001 },
+    { sourceId: 'bad\nsource' },
+  ]) {
+    value = config();
+    Object.assign(value.sources[0]!.binding, patch);
+    f.write(value);
+    refused(() => loadSourceConfiguration(f.file));
+  }
+  value = config();
+  const second = structuredClone(value.sources[0]!);
+  second.binding.sourceId = 'source-two';
+  second.binding.bindingRef = token;
+  second.connection.token = 'OTHER_SYNTHETIC_PUBLIC_TOKEN';
+  value.sources.push(second);
+  f.write(value);
+  refused(() => loadSourceConfiguration(f.file));
+  const many = {
+    format: 1,
+    sources: Array.from({ length: 101 }, (_, i) => {
+      const s = config().sources[0]!;
+      s.binding.sourceId = 'source-' + i;
+      return s;
+    }),
+  };
+  f.write(many);
+  refused(() => loadSourceConfiguration(f.file));
+});

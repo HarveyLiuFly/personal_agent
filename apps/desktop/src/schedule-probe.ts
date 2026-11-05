@@ -1,10 +1,16 @@
-import type {App,BrowserWindow} from 'electron';
-import {writeFileSync} from 'node:fs';
-import {join} from 'node:path';
-import type {ForegroundExecution} from '../../../packages/runtime/src/execution.ts';
+import type { App, BrowserWindow } from 'electron';
+import { writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import type { ForegroundExecution } from '../../../packages/runtime/src/execution.ts';
 /** Public owned fixture using actual wall-clock due time; no Renderer clock injection. */
-export async function runScheduleProbe(root:string,app:App,window:BrowserWindow,execution:ForegroundExecution,automaticProbe=false){
- const result=await window.webContents.executeJavaScript(`(async()=>{
+export async function runScheduleProbe(
+  root: string,
+  app: App,
+  window: BrowserWindow,
+  execution: ForegroundExecution,
+  automaticProbe = false,
+) {
+  const result = await window.webContents.executeJavaScript(`(async()=>{
   const wait=async(check)=>{const deadline=Date.now()+20000;while(!await check()){if(Date.now()>deadline)throw new Error('SCHEDULE_UI_TIMEOUT');await new Promise(r=>setTimeout(r,40));}};
   const call=async(p)=>{const r=await p;if(!r.ok)throw new Error(r.errorCode);return r.value;};
   const set=async(selector,text)=>{const input=document.querySelector(selector),proto=input.tagName==='SELECT'?HTMLSelectElement.prototype:input.tagName==='TEXTAREA'?HTMLTextAreaElement.prototype:HTMLInputElement.prototype;Object.getOwnPropertyDescriptor(proto,'value').set.call(input,text);input.dispatchEvent(new Event(input.tagName==='SELECT'?'change':'input',{bubbles:true}));await new Promise(r=>setTimeout(r,50));};
@@ -34,10 +40,57 @@ export async function runScheduleProbe(root:string,app:App,window:BrowserWindow,
   }
   return{armedWithoutRun,pausedConfirmed:paused.state==='paused'&&paused.version===2,replacedVersion:final.version===4,realDueQueued:occurrences.length===1&&occurrences[0].version===4&&occurrences[0].deliveryState==='acknowledged',notEarly:occurrences[0].scheduledAtMs<=Date.now(),staleRejected:!stale.ok&&stale.errorCode==='SCHEDULE_VERSION_CONFLICT',clockInjectionRejected:!extra.ok,cronCreated:cron.config.expression==='* * * * *'&&cron.config.timezone==='UTC',cronCancelled:document.querySelector('[data-schedule-id="'+cron.scheduleId+'"] [data-schedule-action="resume"]')===null,expectedRunCount:(await call(window.personalAgent.listRuns({projectId}))).length===(${automaticProbe}?1:0),...automaticResults,sandboxed:window.personalAgent.security.sandboxed,isolated:window.personalAgent.security.isolated,hasRequire:typeof require!=='undefined'};
  })()`);
- const passed=Object.entries(result).every(([k,v])=>k==='hasRequire'?v===false:v===true)&&execution.diagnostics.clientTurnStarts===(automaticProbe?1:0);
- writeFileSync(join(root,automaticProbe?'docs/progress/evidence/M2.3d-desktop.json':'docs/progress/evidence/M2.3c-desktop.json'),JSON.stringify({status:passed?'passed':'blocked',observedAt:new Date().toISOString(),kind:'real_electron_sqlite_and_wall_clock_scheduler',backend:automaticProbe?'synthetic_stdio':'synthetic_stdio_not_called',folderDialogSelection:'fixed_fixture_substitution',clockInjection:false,automaticModelDispatch:automaticProbe,inferenceRequested:false,modelTurns:0,syntheticTurnStarts:execution.diagnostics.clientTurnStarts,result},null,2)+'\n');
- await window.webContents.executeJavaScript(`(async()=>{document.querySelector('[data-schedule-manager] form').scrollIntoView({block:'start'});await new Promise(r=>setTimeout(r,100));})()`);
- writeFileSync(join(root,automaticProbe?'.local/M2-scheduled-execution-form-desktop.png':'.local/M2-scheduler-form-desktop.png'),(await window.webContents.capturePage()).toPNG());
- await window.webContents.executeJavaScript(`(async()=>{document.querySelector("${automaticProbe?'[data-schedule-dispatch=dispatched]':'[data-schedule-occurrences]'}").scrollIntoView({block:'${automaticProbe?'start':'end'}'});await new Promise(r=>setTimeout(r,100));})()`);
- writeFileSync(join(root,automaticProbe?'.local/M2-scheduled-execution-desktop.png':'.local/M2-scheduler-desktop.png'),(await window.webContents.capturePage()).toPNG());app.quit();
+  const passed =
+    Object.entries(result).every(([k, v]) => (k === 'hasRequire' ? v === false : v === true)) &&
+    execution.diagnostics.clientTurnStarts === (automaticProbe ? 1 : 0);
+  writeFileSync(
+    join(
+      root,
+      automaticProbe
+        ? 'docs/progress/evidence/M2.3d-desktop.json'
+        : 'docs/progress/evidence/M2.3c-desktop.json',
+    ),
+    JSON.stringify(
+      {
+        status: passed ? 'passed' : 'blocked',
+        observedAt: new Date().toISOString(),
+        kind: 'real_electron_sqlite_and_wall_clock_scheduler',
+        backend: automaticProbe ? 'synthetic_stdio' : 'synthetic_stdio_not_called',
+        folderDialogSelection: 'fixed_fixture_substitution',
+        clockInjection: false,
+        automaticModelDispatch: automaticProbe,
+        inferenceRequested: false,
+        modelTurns: 0,
+        syntheticTurnStarts: execution.diagnostics.clientTurnStarts,
+        result,
+      },
+      null,
+      2,
+    ) + '\n',
+  );
+  await window.webContents.executeJavaScript(
+    `(async()=>{document.querySelector('[data-schedule-manager] form').scrollIntoView({block:'start'});await new Promise(r=>setTimeout(r,100));})()`,
+  );
+  writeFileSync(
+    join(
+      root,
+      automaticProbe
+        ? '.local/M2-scheduled-execution-form-desktop.png'
+        : '.local/M2-scheduler-form-desktop.png',
+    ),
+    (await window.webContents.capturePage()).toPNG(),
+  );
+  await window.webContents.executeJavaScript(
+    `(async()=>{document.querySelector("${automaticProbe ? '[data-schedule-dispatch=dispatched]' : '[data-schedule-occurrences]'}").scrollIntoView({block:'${automaticProbe ? 'start' : 'end'}'});await new Promise(r=>setTimeout(r,100));})()`,
+  );
+  writeFileSync(
+    join(
+      root,
+      automaticProbe
+        ? '.local/M2-scheduled-execution-desktop.png'
+        : '.local/M2-scheduler-desktop.png',
+    ),
+    (await window.webContents.capturePage()).toPNG(),
+  );
+  app.quit();
 }

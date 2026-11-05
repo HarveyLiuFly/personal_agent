@@ -1,39 +1,390 @@
-import {test} from 'node:test';
+import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
-import {DatabaseSync} from 'node:sqlite';
-import {DomainContextSources} from '../packages/store/src/context-sources.ts';
-import type {DomainContextSourceHost} from '../packages/store/src/context-sources.ts';
-import {buildEpisode,buildCheckpoint,contextDigest} from '../packages/runtime/src/context.ts';
-function fixture(t:{after(fn:()=>void):void}){
- const db=new DatabaseSync(':memory:');db.exec(readFileSync('docs/design/contracts/schema.sql','utf8'));db.exec(`PRAGMA foreign_keys=ON;
+import { readFileSync } from 'node:fs';
+import { DatabaseSync } from 'node:sqlite';
+import { DomainContextSources } from '../packages/store/src/context-sources.ts';
+import type { DomainContextSourceHost } from '../packages/store/src/context-sources.ts';
+import { buildEpisode, buildCheckpoint, contextDigest } from '../packages/runtime/src/context.ts';
+function fixture(t: { after(fn: () => void): void }) {
+  const db = new DatabaseSync(':memory:');
+  db.exec(readFileSync('docs/design/contracts/schema.sql', 'utf8'));
+  db.exec(`PRAGMA foreign_keys=ON;
  INSERT INTO profiles VALUES ('p','Public',0);INSERT INTO dots VALUES ('dot','p','Public',1,1);INSERT INTO projects VALUES ('project','dot','/public','Public');INSERT INTO workspaces VALUES ('workspace','project','dot','/public','main','ready',0);
  INSERT INTO goals(goal_id,dot_id,title,objective,status) VALUES ('goal','dot','Goal','Public objective','active'),('other-goal','dot','Other','Other objective','active');
  INSERT INTO tasks(task_id,dot_id,goal_id,workspace_id,title,constraints_json,status,version,created_at_ms,updated_at_ms) VALUES ('task','dot','goal','workspace','Task','{"text":"PUBLIC_REQUEST"}','running',3,0,0),('other','dot',NULL,'workspace','Other','{"text":"OTHER"}','running',1,0,0);
  INSERT INTO conversations VALUES ('conversation','dot');`);
- db.prepare("INSERT INTO messages VALUES ('message','conversation','dot','user',?,?,'decided',0,NULL)").run('PUBLIC_MESSAGE',contextDigest('PUBLIC_MESSAGE'));db.exec("INSERT INTO message_task_links VALUES ('message','task','dot','primary')");
- const artifacts=new Map<string,string>();let visible=true,workspace='rev1';const host:DomainContextSourceHost={messageVisible:()=>visible,workspace:()=>workspace,artifactText:(key,hash)=>{const content=artifacts.get(key);return content&&contextDigest(content)===hash?content:null;}};
- const sources=new DomainContextSources(db,'dot',code=>{throw Error(code);},host);
- const run=()=>db.exec("INSERT INTO task_runs(run_id,task_id,dot_id,idempotency_key,executor_kind,status,task_snapshot_version,task_fence,runtime_epoch,policy_epoch,privacy_epoch,worker_id,lease_until_ms,started_at_ms,goal_plan_version) VALUES ('run','task','dot','key','codex','completed',3,1,1,1,1,'test',1,0,1)");
- const receipt=()=>{run();db.exec("INSERT INTO verification_specs VALUES ('spec','task',1,NULL,'[]','[]','{}','hash')");const content='PUBLIC_HOST_RECEIPT',hash=contextDigest(content);artifacts.set('receipt.json',content);db.prepare("INSERT INTO artifacts VALUES ('artifact','dot','task',?,'receipt.json','published','private',1,?,NULL)").run(hash,content.length);db.exec("INSERT INTO verification_results VALUES ('verification','run','spec','passed',1,1,0,'artifact',0)");};
- t.after(()=>db.close());return{db,sources,host,artifacts,run,receipt,visible(value:boolean){visible=value;},workspace(value:string){workspace=value;}};
+  db.prepare(
+    "INSERT INTO messages VALUES ('message','conversation','dot','user',?,?,'decided',0,NULL)",
+  ).run('PUBLIC_MESSAGE', contextDigest('PUBLIC_MESSAGE'));
+  db.exec("INSERT INTO message_task_links VALUES ('message','task','dot','primary')");
+  const artifacts = new Map<string, string>();
+  let visible = true,
+    workspace = 'rev1';
+  const host: DomainContextSourceHost = {
+    messageVisible: () => visible,
+    workspace: () => workspace,
+    artifactText: (key, hash) => {
+      const content = artifacts.get(key);
+      return content && contextDigest(content) === hash ? content : null;
+    },
+  };
+  const sources = new DomainContextSources(
+    db,
+    'dot',
+    (code) => {
+      throw Error(code);
+    },
+    host,
+  );
+  const run = () =>
+    db.exec(
+      "INSERT INTO task_runs(run_id,task_id,dot_id,idempotency_key,executor_kind,status,task_snapshot_version,task_fence,runtime_epoch,policy_epoch,privacy_epoch,worker_id,lease_until_ms,started_at_ms,goal_plan_version) VALUES ('run','task','dot','key','codex','completed',3,1,1,1,1,'test',1,0,1)",
+    );
+  const receipt = () => {
+    run();
+    db.exec("INSERT INTO verification_specs VALUES ('spec','task',1,NULL,'[]','[]','{}','hash')");
+    const content = 'PUBLIC_HOST_RECEIPT',
+      hash = contextDigest(content);
+    artifacts.set('receipt.json', content);
+    db.prepare(
+      "INSERT INTO artifacts VALUES ('artifact','dot','task',?,'receipt.json','published','private',1,?,NULL)",
+    ).run(hash, content.length);
+    db.exec(
+      "INSERT INTO verification_results VALUES ('verification','run','spec','passed',1,1,0,'artifact',0)",
+    );
+  };
+  t.after(() => db.close());
+  return {
+    db,
+    sources,
+    host,
+    artifacts,
+    run,
+    receipt,
+    visible(value: boolean) {
+      visible = value;
+    },
+    workspace(value: string) {
+      workspace = value;
+    },
+  };
 }
-test('domain resolver reads real Task/message/Goal provenance without writes and requires Task links',t=>{const f=fixture(t),before=f.db.prepare('SELECT total_changes() AS n').get()!.n;const task=f.sources.resolve('task:task','task')!;assert.equal(task.required,true);assert.equal(task.kind,'request');assert.match(task.content,/PUBLIC_REQUEST/);assert.equal(task.trust,'host_verified');assert.equal(task.contentHash,contextDigest(task.content));assert.equal(f.sources.resolve('message:message','task')!.trust,'explicit_user');assert.equal(f.sources.resolve('message:message','other'),null);assert.equal(f.sources.resolve('task:other','task'),null);assert.equal(f.sources.resolve('goal:goal','task')!.required,true);assert.equal(f.sources.resolve('goal:other-goal','task'),null);assert.equal(f.db.prepare('SELECT total_changes() AS n').get()!.n,before);assert.equal(f.sources.resolve('file:private','task'),null);assert.throws(()=>f.sources.resolve('/private/secret','task'),/INVALID_CONTEXT_SOURCE_REF/);});
-test('source visibility, canonical/bare tombstones, missing Tasks and revisions are checked',t=>{const f=fixture(t),before=f.sources.resolve('task:task','task')!.revision;f.db.exec("UPDATE tasks SET version=4 WHERE task_id='task'");assert.notEqual(f.sources.resolve('task:task','task')!.revision,before);f.visible(false);assert.equal(f.sources.resolve('message:message','task'),null);f.visible(true);f.db.exec("INSERT INTO privacy_tombstones VALUES ('dot','message',2,0)");assert.equal(f.sources.resolve('message:message','task'),null);assert.equal(f.sources.resolve('task:task','missing'),null);f.db.exec("INSERT INTO privacy_tombstones VALUES ('dot','task:task',2,0)");assert.equal(f.sources.resolve('goal:goal','task'),null);});
-test('Artifact receipt requires published same-Task verification and trusted hash-checked bytes',t=>{const f=fixture(t);f.receipt();assert.equal(f.sources.resolve('artifact:artifact','task')!.kind,'receipt');assert.equal(f.sources.resolve('artifact:artifact','other'),null);f.artifacts.set('receipt.json','TAMPERED');assert.equal(f.sources.resolve('artifact:artifact','task'),null);f.artifacts.set('receipt.json','PUBLIC_HOST_RECEIPT');f.db.exec("UPDATE artifacts SET state='staging'");assert.equal(f.sources.resolve('artifact:artifact','task'),null);f.db.exec("UPDATE artifacts SET state='published',relative_storage_key='../private'");assert.equal(f.sources.resolve('artifact:artifact','task'),null);});
-test('Memory callbacks retain trust and JSON source revision while absence or promoted trust refuses retrieval',t=>{const f=fixture(t);assert.equal(f.sources.resolve('claim:claim','task'),null);f.host.memoryClaim=()=>({factKey:'personal:publicKey',factText:'PUBLIC_FACT',trust:'agent_inference',version:1,privacyEpoch:1,evidence:[],domain:'personal',sensitivity:'private'});assert.equal(f.sources.resolve('claim:claim','task')!.trust,'agent_inference');assert.equal(f.sources.resolve('claim:claim','task')!.domain,'personal');f.host.memoryClaim=()=>({factKey:'personal:key',factText:'fact',trust:'host_verified',version:1,privacyEpoch:1,evidence:[],domain:'personal',sensitivity:'private'});assert.equal(f.sources.resolve('claim:claim','task'),null);f.host.memoryEntry=()=>({content:'PUBLIC_ENTRY',sourceRef:'message:message',sourceRevision:'{"kind":"user_message","revision":"hash"}',trust:'untrusted_external',privacyEpoch:1,sensitivity:'sensitive'});assert.equal(f.sources.resolve('entry:entry','task')!.sensitivity,'secret');f.db.exec("INSERT INTO privacy_tombstones VALUES ('dot','message:message',2,0)");assert.equal(f.sources.resolve('entry:entry','task'),null);});
-test('extractive Episode requires current linked source hashes and actual quoted bytes',t=>{const f=fixture(t),source=f.sources.resolve('message:message','task')!,bundle=buildEpisode({dotId:'dot',conversationId:'conversation',title:'Public',privacyEpoch:1,sources:[source],segments:[{ref:source.ref,revision:source.revision,start:0,end:6}]},{privacyEpoch:1,sourceRevisions:{[source.ref]:{revision:source.revision,visible:true}}});const put=()=>f.db.prepare("INSERT OR REPLACE INTO episodes VALUES ('episode','conversation','Public',?,1,1,0,?)").run(JSON.stringify({format:'extractive-episode-v1',taskId:'task',bundle}),bundle.sourceDigest);put();assert.equal(f.sources.resolve('episode:episode','task')!.trust,'agent_inference');bundle.summary=JSON.stringify({ref:source.ref,revision:source.revision,quote:'MODEL INVENTED'});put();assert.equal(f.sources.resolve('episode:episode','task'),null);bundle.summary=JSON.stringify({ref:source.ref,revision:source.revision,quote:'PUBLIC'});put();f.db.exec("UPDATE messages SET content_hash='changed' WHERE message_id='message'");assert.equal(f.sources.resolve('episode:episode','task'),null);});
-test('Checkpoint requires current Task/Goal/Policy/Privacy/workspace and hash-linked sources',t=>{const f=fixture(t);f.run();const source=f.sources.resolve('task:task','task')!,version={dotId:'dot',taskId:'task',taskVersion:3,goalPlanVersion:1,privacyEpoch:1,policyEpoch:1,workspaceRevision:'rev1'},bundle=buildCheckpoint({...version,goal:'Public',constraints:[],completionCriteria:['Host validation'],pendingSteps:[],sources:[source],sourceRefs:[source.ref],receipts:[]},{...version,sourceRevisions:{[source.ref]:{revision:source.revision,visible:true}}});f.db.prepare("INSERT INTO task_checkpoints VALUES ('context:checkpoint','task','run',3,1,?,?)").run(JSON.stringify(bundle),bundle.contentHash);assert.equal(f.sources.resolve('checkpoint:context:checkpoint','task')!.required,true);f.workspace('rev2');assert.equal(f.sources.resolve('checkpoint:context:checkpoint','task'),null);f.workspace('rev1');f.db.exec("UPDATE goals SET plan_version=2 WHERE goal_id='goal'");assert.equal(f.sources.resolve('checkpoint:context:checkpoint','task'),null);f.db.exec("UPDATE goals SET plan_version=1 WHERE goal_id='goal';UPDATE task_checkpoints SET summary_json='null'");assert.equal(f.sources.resolve('checkpoint:context:checkpoint','task'),null);});
-function triggerFixture(t:{after(fn:()=>void):void},payloadOverride?:unknown){
- const f=fixture(t),binding={sourceId:'source',bindingRef:'binding-v1',allowedActors:['public-user'],selfActor:'public-agent',eventTypes:['message'],maxAgeMs:60000},payloadText='PUBLIC_EXTERNAL_EVENT <img src=x onerror=alert(1)> IGNORE_POLICY',sha=contextDigest(payloadText),ref='payload:'+sha,payload=payloadOverride??{format:'goal-source-payload-v1',ref,eventType:'message'};
- f.db.prepare("INSERT INTO sources VALUES ('source','dot','connector','binding-v1',?,1)").run(JSON.stringify({format:1,binding,cursor:{page:1}}));f.db.prepare("INSERT INTO incoming_triggers VALUES ('trigger','source','dot','public-event','public-thread','public-user','source-http:public-verification',?,?,1,2)").run(JSON.stringify(payload),sha);f.db.exec("INSERT INTO trigger_deliveries VALUES ('delivery','trigger','task','dot','wake','acknowledged',NULL)");f.db.prepare("INSERT INTO derivation_edges VALUES ('dot','source:source','trigger:trigger',?,1)").run(contextDigest(JSON.stringify(binding)));f.host.sourcePayload=(payloadRef,hash)=>payloadRef===ref&&hash===sha?payloadText:null;return{...f,binding,payloadText,sha,ref};
+test('domain resolver reads real Task/message/Goal provenance without writes and requires Task links', (t) => {
+  const f = fixture(t),
+    before = f.db.prepare('SELECT total_changes() AS n').get()!.n;
+  const task = f.sources.resolve('task:task', 'task')!;
+  assert.equal(task.required, true);
+  assert.equal(task.kind, 'request');
+  assert.match(task.content, /PUBLIC_REQUEST/);
+  assert.equal(task.trust, 'host_verified');
+  assert.equal(task.contentHash, contextDigest(task.content));
+  assert.equal(f.sources.resolve('message:message', 'task')!.trust, 'explicit_user');
+  assert.equal(f.sources.resolve('message:message', 'other'), null);
+  assert.equal(f.sources.resolve('task:other', 'task'), null);
+  assert.equal(f.sources.resolve('goal:goal', 'task')!.required, true);
+  assert.equal(f.sources.resolve('goal:other-goal', 'task'), null);
+  assert.equal(f.db.prepare('SELECT total_changes() AS n').get()!.n, before);
+  assert.equal(f.sources.resolve('file:private', 'task'), null);
+  assert.throws(() => f.sources.resolve('/private/secret', 'task'), /INVALID_CONTEXT_SOURCE_REF/);
+});
+test('source visibility, canonical/bare tombstones, missing Tasks and revisions are checked', (t) => {
+  const f = fixture(t),
+    before = f.sources.resolve('task:task', 'task')!.revision;
+  f.db.exec("UPDATE tasks SET version=4 WHERE task_id='task'");
+  assert.notEqual(f.sources.resolve('task:task', 'task')!.revision, before);
+  f.visible(false);
+  assert.equal(f.sources.resolve('message:message', 'task'), null);
+  f.visible(true);
+  f.db.exec("INSERT INTO privacy_tombstones VALUES ('dot','message',2,0)");
+  assert.equal(f.sources.resolve('message:message', 'task'), null);
+  assert.equal(f.sources.resolve('task:task', 'missing'), null);
+  f.db.exec("INSERT INTO privacy_tombstones VALUES ('dot','task:task',2,0)");
+  assert.equal(f.sources.resolve('goal:goal', 'task'), null);
+});
+test('Artifact receipt requires published same-Task verification and trusted hash-checked bytes', (t) => {
+  const f = fixture(t);
+  f.receipt();
+  assert.equal(f.sources.resolve('artifact:artifact', 'task')!.kind, 'receipt');
+  assert.equal(f.sources.resolve('artifact:artifact', 'other'), null);
+  f.artifacts.set('receipt.json', 'TAMPERED');
+  assert.equal(f.sources.resolve('artifact:artifact', 'task'), null);
+  f.artifacts.set('receipt.json', 'PUBLIC_HOST_RECEIPT');
+  f.db.exec("UPDATE artifacts SET state='staging'");
+  assert.equal(f.sources.resolve('artifact:artifact', 'task'), null);
+  f.db.exec("UPDATE artifacts SET state='published',relative_storage_key='../private'");
+  assert.equal(f.sources.resolve('artifact:artifact', 'task'), null);
+});
+test('Memory callbacks retain trust and JSON source revision while absence or promoted trust refuses retrieval', (t) => {
+  const f = fixture(t);
+  assert.equal(f.sources.resolve('claim:claim', 'task'), null);
+  f.host.memoryClaim = () => ({
+    factKey: 'personal:publicKey',
+    factText: 'PUBLIC_FACT',
+    trust: 'agent_inference',
+    version: 1,
+    privacyEpoch: 1,
+    evidence: [],
+    domain: 'personal',
+    sensitivity: 'private',
+  });
+  assert.equal(f.sources.resolve('claim:claim', 'task')!.trust, 'agent_inference');
+  assert.equal(f.sources.resolve('claim:claim', 'task')!.domain, 'personal');
+  f.host.memoryClaim = () => ({
+    factKey: 'personal:key',
+    factText: 'fact',
+    trust: 'host_verified',
+    version: 1,
+    privacyEpoch: 1,
+    evidence: [],
+    domain: 'personal',
+    sensitivity: 'private',
+  });
+  assert.equal(f.sources.resolve('claim:claim', 'task'), null);
+  f.host.memoryEntry = () => ({
+    content: 'PUBLIC_ENTRY',
+    sourceRef: 'message:message',
+    sourceRevision: '{"kind":"user_message","revision":"hash"}',
+    trust: 'untrusted_external',
+    privacyEpoch: 1,
+    sensitivity: 'sensitive',
+  });
+  assert.equal(f.sources.resolve('entry:entry', 'task')!.sensitivity, 'secret');
+  f.db.exec("INSERT INTO privacy_tombstones VALUES ('dot','message:message',2,0)");
+  assert.equal(f.sources.resolve('entry:entry', 'task'), null);
+});
+test('extractive Episode requires current linked source hashes and actual quoted bytes', (t) => {
+  const f = fixture(t),
+    source = f.sources.resolve('message:message', 'task')!,
+    bundle = buildEpisode(
+      {
+        dotId: 'dot',
+        conversationId: 'conversation',
+        title: 'Public',
+        privacyEpoch: 1,
+        sources: [source],
+        segments: [{ ref: source.ref, revision: source.revision, start: 0, end: 6 }],
+      },
+      {
+        privacyEpoch: 1,
+        sourceRevisions: { [source.ref]: { revision: source.revision, visible: true } },
+      },
+    );
+  const put = () =>
+    f.db
+      .prepare(
+        "INSERT OR REPLACE INTO episodes VALUES ('episode','conversation','Public',?,1,1,0,?)",
+      )
+      .run(
+        JSON.stringify({ format: 'extractive-episode-v1', taskId: 'task', bundle }),
+        bundle.sourceDigest,
+      );
+  put();
+  assert.equal(f.sources.resolve('episode:episode', 'task')!.trust, 'agent_inference');
+  bundle.summary = JSON.stringify({
+    ref: source.ref,
+    revision: source.revision,
+    quote: 'MODEL INVENTED',
+  });
+  put();
+  assert.equal(f.sources.resolve('episode:episode', 'task'), null);
+  bundle.summary = JSON.stringify({ ref: source.ref, revision: source.revision, quote: 'PUBLIC' });
+  put();
+  f.db.exec("UPDATE messages SET content_hash='changed' WHERE message_id='message'");
+  assert.equal(f.sources.resolve('episode:episode', 'task'), null);
+});
+test('Checkpoint requires current Task/Goal/Policy/Privacy/workspace and hash-linked sources', (t) => {
+  const f = fixture(t);
+  f.run();
+  const source = f.sources.resolve('task:task', 'task')!,
+    version = {
+      dotId: 'dot',
+      taskId: 'task',
+      taskVersion: 3,
+      goalPlanVersion: 1,
+      privacyEpoch: 1,
+      policyEpoch: 1,
+      workspaceRevision: 'rev1',
+    },
+    bundle = buildCheckpoint(
+      {
+        ...version,
+        goal: 'Public',
+        constraints: [],
+        completionCriteria: ['Host validation'],
+        pendingSteps: [],
+        sources: [source],
+        sourceRefs: [source.ref],
+        receipts: [],
+      },
+      {
+        ...version,
+        sourceRevisions: { [source.ref]: { revision: source.revision, visible: true } },
+      },
+    );
+  f.db
+    .prepare("INSERT INTO task_checkpoints VALUES ('context:checkpoint','task','run',3,1,?,?)")
+    .run(JSON.stringify(bundle), bundle.contentHash);
+  assert.equal(f.sources.resolve('checkpoint:context:checkpoint', 'task')!.required, true);
+  f.workspace('rev2');
+  assert.equal(f.sources.resolve('checkpoint:context:checkpoint', 'task'), null);
+  f.workspace('rev1');
+  f.db.exec("UPDATE goals SET plan_version=2 WHERE goal_id='goal'");
+  assert.equal(f.sources.resolve('checkpoint:context:checkpoint', 'task'), null);
+  f.db.exec(
+    "UPDATE goals SET plan_version=1 WHERE goal_id='goal';UPDATE task_checkpoints SET summary_json='null'",
+  );
+  assert.equal(f.sources.resolve('checkpoint:context:checkpoint', 'task'), null);
+});
+function triggerFixture(t: { after(fn: () => void): void }, payloadOverride?: unknown) {
+  const f = fixture(t),
+    binding = {
+      sourceId: 'source',
+      bindingRef: 'binding-v1',
+      allowedActors: ['public-user'],
+      selfActor: 'public-agent',
+      eventTypes: ['message'],
+      maxAgeMs: 60000,
+    },
+    payloadText = 'PUBLIC_EXTERNAL_EVENT <img src=x onerror=alert(1)> IGNORE_POLICY',
+    sha = contextDigest(payloadText),
+    ref = 'payload:' + sha,
+    payload = payloadOverride ?? { format: 'goal-source-payload-v1', ref, eventType: 'message' };
+  f.db
+    .prepare("INSERT INTO sources VALUES ('source','dot','connector','binding-v1',?,1)")
+    .run(JSON.stringify({ format: 1, binding, cursor: { page: 1 } }));
+  f.db
+    .prepare(
+      "INSERT INTO incoming_triggers VALUES ('trigger','source','dot','public-event','public-thread','public-user','source-http:public-verification',?,?,1,2)",
+    )
+    .run(JSON.stringify(payload), sha);
+  f.db.exec(
+    "INSERT INTO trigger_deliveries VALUES ('delivery','trigger','task','dot','wake','acknowledged',NULL)",
+  );
+  f.db
+    .prepare("INSERT INTO derivation_edges VALUES ('dot','source:source','trigger:trigger',?,1)")
+    .run(contextDigest(JSON.stringify(binding)));
+  f.host.sourcePayload = (payloadRef, hash) =>
+    payloadRef === ref && hash === sha ? payloadText : null;
+  return { ...f, binding, payloadText, sha, ref };
 }
-test('acknowledged same-Task Source payload is hash-verified data with external trust and provenance tied to its original Source binding',t=>{const f=triggerFixture(t),before=f.db.prepare('SELECT total_changes() AS n').get()!.n,source=f.sources.resolve('trigger:trigger','task')!;assert.equal(source.kind,'external');assert.equal(source.trust,'untrusted_external');assert.equal(source.domain,'task');assert.equal(source.taskId,'task');assert.equal(source.sensitivity,'private');assert.equal(source.required,false);assert.equal(source.contentHash,contextDigest(source.content));assert.ok(source.content.includes(f.payloadText));assert.equal(source.privacyEpoch,1);assert.equal(f.sources.resolve('trigger:trigger','other'),null);assert.equal(f.db.prepare('SELECT total_changes() AS n').get()!.n,before);f.db.prepare("UPDATE sources SET cursor_json=? WHERE source_id='source'").run(JSON.stringify({format:1,binding:f.binding,cursor:{page:2}}));assert.deepEqual(f.sources.resolve('trigger:trigger','task'),source);});
-test('pending, actionable or disabled Source deliveries never grant context access; Source binding changes invalidate old Event provenance',t=>{const f=triggerFixture(t);f.db.exec("UPDATE trigger_deliveries SET state='pending'");assert.equal(f.sources.resolve('trigger:trigger','task'),null);f.db.exec("UPDATE trigger_deliveries SET state='acknowledged',delivery_kind='actionable'");assert.equal(f.sources.resolve('trigger:trigger','task'),null);f.db.exec("UPDATE trigger_deliveries SET delivery_kind='context';UPDATE sources SET enabled=0");assert.equal(f.sources.resolve('trigger:trigger','task'),null);f.db.exec("UPDATE sources SET enabled=1,identity_binding_ref='binding-v2'");assert.equal(f.sources.resolve('trigger:trigger','task'),null);f.db.exec("UPDATE sources SET identity_binding_ref='binding-v1'");f.db.prepare("UPDATE sources SET cursor_json=? WHERE source_id='source'").run(JSON.stringify({format:1,binding:{...f.binding,maxAgeMs:30000},cursor:null}));assert.equal(f.sources.resolve('trigger:trigger','task'),null);});
-test('missing Host payload, mismatched actual bytes, opaque ref/hash mismatch and raw payload paths are refused',t=>{const f=triggerFixture(t);f.host.sourcePayload=undefined;assert.equal(f.sources.resolve('trigger:trigger','task'),null);f.host.sourcePayload=()=> 'CHANGED_BYTES';assert.equal(f.sources.resolve('trigger:trigger','task'),null);for(const payload of [{format:'goal-source-payload-v1',ref:'/private/secret',eventType:'message'},{format:'goal-source-payload-v1',ref:'payload:'+'0'.repeat(64),eventType:'message'},{format:'goal-source-payload-v1',ref:'payload:'+'0'.repeat(64),eventType:'message',token:'must-not-be-accepted'}]){const other=triggerFixture(t,payload);assert.equal(other.sources.resolve('trigger:trigger','task'),null);}});
-test('trigger, Source and opaque-payload tombstones and missing original binding revision all reject Source context',t=>{for(const ref of ['trigger:trigger','source:source','source']){const f=triggerFixture(t);f.db.prepare("INSERT INTO privacy_tombstones VALUES ('dot',?,2,0)").run(ref);assert.equal(f.sources.resolve('trigger:trigger','task'),null);}const f=triggerFixture(t);f.db.prepare("INSERT INTO privacy_tombstones VALUES ('dot',?,2,0)").run(f.ref);assert.equal(f.sources.resolve('trigger:trigger','task'),null);f.db.exec('DELETE FROM privacy_tombstones;DELETE FROM derivation_edges');assert.equal(f.sources.resolve('trigger:trigger','task'),null);});
-test('Claim sources preserve the real fact domain, strict Task scope, evidence sensitivity and original trust',t=>{
- const f=fixture(t);type Claim=NonNullable<ReturnType<NonNullable<DomainContextSourceHost['memoryClaim']>>>;let claim:Claim={factKey:'personal:preference',factText:'PUBLIC_FACT',trust:'agent_inference',version:1,privacyEpoch:1,evidence:[],domain:'personal',sensitivity:'private'};f.host.memoryClaim=()=>claim;const personal=f.sources.resolve('claim:claim','task')!;assert.equal(personal.domain,'personal');assert.equal(personal.taskId,undefined);assert.equal(personal.trust,'agent_inference');assert.equal(personal.sensitivity,'private');claim={...claim,sensitivity:'sensitive'};const sensitive=f.sources.resolve('claim:claim','task')!;assert.equal(sensitive.sensitivity,'secret');assert.notEqual(sensitive.revision,personal.revision);
- claim={...claim,factKey:'task:task:limit',domain:'task',taskId:'task',sensitivity:'private'};assert.equal(f.sources.resolve('claim:claim','task')!.domain,'task');assert.equal(f.sources.resolve('claim:claim','task')!.taskId,'task');assert.equal(f.sources.resolve('claim:claim','other'),null);claim={...claim,domain:'personal'};assert.equal(f.sources.resolve('claim:claim','task'),null);
- claim={...claim,factKey:'coding:lesson',domain:'coding',taskId:undefined,sensitivity:'private',trust:'untrusted_external'};assert.equal(f.sources.resolve('claim:claim','task'),null);claim={...claim,sensitivity:'public'};const coding=f.sources.resolve('claim:claim','task')!;assert.equal(coding.domain,'coding');assert.equal(coding.sensitivity,'public');assert.equal(coding.taskId,undefined);assert.equal(coding.trust,'untrusted_external');claim={...claim,trust:'host_verified'};assert.equal(f.sources.resolve('claim:claim','task'),null);
+test('acknowledged same-Task Source payload is hash-verified data with external trust and provenance tied to its original Source binding', (t) => {
+  const f = triggerFixture(t),
+    before = f.db.prepare('SELECT total_changes() AS n').get()!.n,
+    source = f.sources.resolve('trigger:trigger', 'task')!;
+  assert.equal(source.kind, 'external');
+  assert.equal(source.trust, 'untrusted_external');
+  assert.equal(source.domain, 'task');
+  assert.equal(source.taskId, 'task');
+  assert.equal(source.sensitivity, 'private');
+  assert.equal(source.required, false);
+  assert.equal(source.contentHash, contextDigest(source.content));
+  assert.ok(source.content.includes(f.payloadText));
+  assert.equal(source.privacyEpoch, 1);
+  assert.equal(f.sources.resolve('trigger:trigger', 'other'), null);
+  assert.equal(f.db.prepare('SELECT total_changes() AS n').get()!.n, before);
+  f.db
+    .prepare("UPDATE sources SET cursor_json=? WHERE source_id='source'")
+    .run(JSON.stringify({ format: 1, binding: f.binding, cursor: { page: 2 } }));
+  assert.deepEqual(f.sources.resolve('trigger:trigger', 'task'), source);
+});
+test('pending, actionable or disabled Source deliveries never grant context access; Source binding changes invalidate old Event provenance', (t) => {
+  const f = triggerFixture(t);
+  f.db.exec("UPDATE trigger_deliveries SET state='pending'");
+  assert.equal(f.sources.resolve('trigger:trigger', 'task'), null);
+  f.db.exec("UPDATE trigger_deliveries SET state='acknowledged',delivery_kind='actionable'");
+  assert.equal(f.sources.resolve('trigger:trigger', 'task'), null);
+  f.db.exec("UPDATE trigger_deliveries SET delivery_kind='context';UPDATE sources SET enabled=0");
+  assert.equal(f.sources.resolve('trigger:trigger', 'task'), null);
+  f.db.exec("UPDATE sources SET enabled=1,identity_binding_ref='binding-v2'");
+  assert.equal(f.sources.resolve('trigger:trigger', 'task'), null);
+  f.db.exec("UPDATE sources SET identity_binding_ref='binding-v1'");
+  f.db
+    .prepare("UPDATE sources SET cursor_json=? WHERE source_id='source'")
+    .run(JSON.stringify({ format: 1, binding: { ...f.binding, maxAgeMs: 30000 }, cursor: null }));
+  assert.equal(f.sources.resolve('trigger:trigger', 'task'), null);
+});
+test('missing Host payload, mismatched actual bytes, opaque ref/hash mismatch and raw payload paths are refused', (t) => {
+  const f = triggerFixture(t);
+  f.host.sourcePayload = undefined;
+  assert.equal(f.sources.resolve('trigger:trigger', 'task'), null);
+  f.host.sourcePayload = () => 'CHANGED_BYTES';
+  assert.equal(f.sources.resolve('trigger:trigger', 'task'), null);
+  for (const payload of [
+    { format: 'goal-source-payload-v1', ref: '/private/secret', eventType: 'message' },
+    { format: 'goal-source-payload-v1', ref: 'payload:' + '0'.repeat(64), eventType: 'message' },
+    {
+      format: 'goal-source-payload-v1',
+      ref: 'payload:' + '0'.repeat(64),
+      eventType: 'message',
+      token: 'must-not-be-accepted',
+    },
+  ]) {
+    const other = triggerFixture(t, payload);
+    assert.equal(other.sources.resolve('trigger:trigger', 'task'), null);
+  }
+});
+test('trigger, Source and opaque-payload tombstones and missing original binding revision all reject Source context', (t) => {
+  for (const ref of ['trigger:trigger', 'source:source', 'source']) {
+    const f = triggerFixture(t);
+    f.db.prepare("INSERT INTO privacy_tombstones VALUES ('dot',?,2,0)").run(ref);
+    assert.equal(f.sources.resolve('trigger:trigger', 'task'), null);
+  }
+  const f = triggerFixture(t);
+  f.db.prepare("INSERT INTO privacy_tombstones VALUES ('dot',?,2,0)").run(f.ref);
+  assert.equal(f.sources.resolve('trigger:trigger', 'task'), null);
+  f.db.exec('DELETE FROM privacy_tombstones;DELETE FROM derivation_edges');
+  assert.equal(f.sources.resolve('trigger:trigger', 'task'), null);
+});
+test('Claim sources preserve the real fact domain, strict Task scope, evidence sensitivity and original trust', (t) => {
+  const f = fixture(t);
+  type Claim = NonNullable<ReturnType<NonNullable<DomainContextSourceHost['memoryClaim']>>>;
+  let claim: Claim = {
+    factKey: 'personal:preference',
+    factText: 'PUBLIC_FACT',
+    trust: 'agent_inference',
+    version: 1,
+    privacyEpoch: 1,
+    evidence: [],
+    domain: 'personal',
+    sensitivity: 'private',
+  };
+  f.host.memoryClaim = () => claim;
+  const personal = f.sources.resolve('claim:claim', 'task')!;
+  assert.equal(personal.domain, 'personal');
+  assert.equal(personal.taskId, undefined);
+  assert.equal(personal.trust, 'agent_inference');
+  assert.equal(personal.sensitivity, 'private');
+  claim = { ...claim, sensitivity: 'sensitive' };
+  const sensitive = f.sources.resolve('claim:claim', 'task')!;
+  assert.equal(sensitive.sensitivity, 'secret');
+  assert.notEqual(sensitive.revision, personal.revision);
+  claim = {
+    ...claim,
+    factKey: 'task:task:limit',
+    domain: 'task',
+    taskId: 'task',
+    sensitivity: 'private',
+  };
+  assert.equal(f.sources.resolve('claim:claim', 'task')!.domain, 'task');
+  assert.equal(f.sources.resolve('claim:claim', 'task')!.taskId, 'task');
+  assert.equal(f.sources.resolve('claim:claim', 'other'), null);
+  claim = { ...claim, domain: 'personal' };
+  assert.equal(f.sources.resolve('claim:claim', 'task'), null);
+  claim = {
+    ...claim,
+    factKey: 'coding:lesson',
+    domain: 'coding',
+    taskId: undefined,
+    sensitivity: 'private',
+    trust: 'untrusted_external',
+  };
+  assert.equal(f.sources.resolve('claim:claim', 'task'), null);
+  claim = { ...claim, sensitivity: 'public' };
+  const coding = f.sources.resolve('claim:claim', 'task')!;
+  assert.equal(coding.domain, 'coding');
+  assert.equal(coding.sensitivity, 'public');
+  assert.equal(coding.taskId, undefined);
+  assert.equal(coding.trust, 'untrusted_external');
+  claim = { ...claim, trust: 'host_verified' };
+  assert.equal(f.sources.resolve('claim:claim', 'task'), null);
 });

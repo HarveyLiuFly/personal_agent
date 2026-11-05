@@ -1,144 +1,1707 @@
-import {GoalPlanEditor} from './goal-plan-editor.tsx';
-import {clearDrafts} from './drafts.ts';
-import React,{useEffect,useRef,useState} from 'react';
-import type {HostResult,ProjectView} from '../../../packages/contracts/src/views.ts';
-import type {GoalCommand,GoalView,GoalPlanTask,GoalNotificationView,GoalSourceEventView} from '../../../packages/contracts/src/goals.ts';
-import type {TaskSummary} from '../../../packages/contracts/src/tasks.ts';
-import type {MainChatEntry,MainChatInput} from '../../../packages/contracts/src/chat.ts';
-import type {MemoryClaimView} from '../../../packages/store/src/memory.ts';
-import type {MemoryForgetReceipt} from '../../../packages/runtime/src/memory-service.ts';
+import { GoalPlanEditor } from './goal-plan-editor.tsx';
+import { clearDrafts } from './drafts.ts';
+import React, { useEffect, useRef, useState } from 'react';
+import type { HostResult, ProjectView } from '../../../packages/contracts/src/views.ts';
+import type {
+  GoalCommand,
+  GoalView,
+  GoalPlanTask,
+  GoalNotificationView,
+  GoalSourceEventView,
+} from '../../../packages/contracts/src/goals.ts';
+import type { TaskSummary } from '../../../packages/contracts/src/tasks.ts';
+import type { MainChatEntry, MainChatInput } from '../../../packages/contracts/src/chat.ts';
+import type { MemoryClaimView } from '../../../packages/store/src/memory.ts';
+import type { MemoryForgetReceipt } from '../../../packages/runtime/src/memory-service.ts';
 
-type SourceCatalog=Array<{sourceId:string;bindingRef:string;enabled:boolean;eventTypes:string[]}>;
-type MemoryDomain='personal'|'task'|'coding';
-interface MemoryRevision {claimId:string;version:number;factKey:string;privacyEpoch:number;policyEpoch:number;sourceMessageIds:string[]}
-const rememberCommand=(message:MainChatEntry)=>{if(message.truncated)return undefined;const match=/^\/remember\s+([^\s=]+)\s*=\s*([\s\S]+)$/.exec(message.text.trim());return match?{factKey:match[1]!,value:match[2]!.trim()}:undefined;};
-const names:Record<string,string>={active:'启用中',paused:'已暂停',completed:'已完成',cancelled:'已取消',queued:'已排队',running:'执行中',waiting_trigger:'等待触发',waiting_input:'等待输入',waiting_approval:'等待确认',needs_review:'待审查',outcome_unknown:'结果待核对',failed:'失败',created:'待处理',pending:'等待投递',sending:'投递中',delivered:'已送达',unknown:'投递结果待核对'};
-const trustNames:Record<string,string>={explicit_user:'用户明确确认',verified_connector:'受信来源记录',agent_inference:'推断，未确认',untrusted_external:'外部内容，未确认'};
-async function value<T>(work:Promise<HostResult<T>>):Promise<T>{const result=await work;if(!result.ok)throw Error(result.errorCode);return result.value;}
-const object=(value:unknown):value is Record<string,unknown>=>value!==null&&typeof value==='object'&&!Array.isArray(value);
-const identifier=(value:unknown):value is string=>typeof value==='string'&&/^[A-Za-z0-9][A-Za-z0-9._:-]{0,199}$/.test(value);
-const equalFields=(value:Record<string,unknown>,fields:string[])=>Object.keys(value).length===fields.length&&fields.every(key=>Object.hasOwn(value,key));
-const lines=(text:string)=>text.split('\n').map(s=>s.trim()).filter(Boolean);
-const examplePlan=JSON.stringify([{key:'research',text:'查阅资料并整理待核对的问题。',dependsOn:[]},{key:'review',text:'核对上一任务的来源并整理结论。',dependsOn:['research']}],null,2);
+type SourceCatalog = Array<{
+  sourceId: string;
+  bindingRef: string;
+  enabled: boolean;
+  eventTypes: string[];
+}>;
+type MemoryDomain = 'personal' | 'task' | 'coding';
+interface MemoryRevision {
+  claimId: string;
+  version: number;
+  factKey: string;
+  privacyEpoch: number;
+  policyEpoch: number;
+  sourceMessageIds: string[];
+}
+const rememberCommand = (message: MainChatEntry) => {
+  if (message.truncated) return undefined;
+  const match = /^\/remember\s+([^\s=]+)\s*=\s*([\s\S]+)$/.exec(message.text.trim());
+  return match ? { factKey: match[1]!, value: match[2]!.trim() } : undefined;
+};
+const names: Record<string, string> = {
+  active: '启用中',
+  paused: '已暂停',
+  completed: '已完成',
+  cancelled: '已取消',
+  queued: '已排队',
+  running: '执行中',
+  waiting_trigger: '等待触发',
+  waiting_input: '等待输入',
+  waiting_approval: '等待确认',
+  needs_review: '待审查',
+  outcome_unknown: '结果待核对',
+  failed: '失败',
+  created: '待处理',
+  pending: '等待投递',
+  sending: '投递中',
+  delivered: '已送达',
+  unknown: '投递结果待核对',
+};
+const trustNames: Record<string, string> = {
+  explicit_user: '用户明确确认',
+  verified_connector: '受信来源记录',
+  agent_inference: '推断，未确认',
+  untrusted_external: '外部内容，未确认',
+};
+async function value<T>(work: Promise<HostResult<T>>): Promise<T> {
+  const result = await work;
+  if (!result.ok) throw Error(result.errorCode);
+  return result.value;
+}
+const object = (value: unknown): value is Record<string, unknown> =>
+  value !== null && typeof value === 'object' && !Array.isArray(value);
+const identifier = (value: unknown): value is string =>
+  typeof value === 'string' && /^[A-Za-z0-9][A-Za-z0-9._:-]{0,199}$/.test(value);
+const equalFields = (value: Record<string, unknown>, fields: string[]) =>
+  Object.keys(value).length === fields.length && fields.every((key) => Object.hasOwn(value, key));
+const lines = (text: string) =>
+  text
+    .split('\n')
+    .map((s) => s.trim())
+    .filter(Boolean);
+const examplePlan = JSON.stringify(
+  [
+    { key: 'research', text: '查阅资料并整理待核对的问题。', dependsOn: [] },
+    { key: 'review', text: '核对上一任务的来源并整理结论。', dependsOn: ['research'] },
+  ],
+  null,
+  2,
+);
 /** UI validation narrows the public plan editor; Host independently validates all commands. */
-function parsePlan(text:string,sources:SourceCatalog):GoalPlanTask[]{
- if(text.length>65536)throw Error('INVALID_PLAN');const input:unknown=JSON.parse(text);
- if(!Array.isArray(input)||input.length<1||input.length>20)throw Error('INVALID_PLAN');
- const keys=new Set<string>(),nodes:GoalPlanTask[]=[];
- for(const raw of input){
-  if(!object(raw)||!equalFields(raw,['key','text','dependsOn',...(Object.hasOwn(raw,'subscription')?['subscription']:[]),...(Object.hasOwn(raw,'code')?['code']:[]),...(Object.hasOwn(raw,'dispatch')?['dispatch']:[])])||!identifier(raw.key)||keys.has(raw.key)||typeof raw.text!=='string'||!raw.text.trim()||raw.text.length>32768||raw.text.includes('\0')||!Array.isArray(raw.dependsOn)||raw.dependsOn.length>20||!raw.dependsOn.every(identifier)||new Set(raw.dependsOn).size!==raw.dependsOn.length)throw Error('INVALID_PLAN');
-  keys.add(raw.key);const node:GoalPlanTask={key:raw.key,text:raw.text,dependsOn:raw.dependsOn as string[]};
-  if(Object.hasOwn(raw,'dispatch')){if(!['queue_only','execute_once'].includes(String(raw.dispatch)))throw Error('INVALID_PLAN');node.dispatch=raw.dispatch as 'queue_only'|'execute_once';}
-  if(Object.hasOwn(raw,'code')){const code=raw.code,path=(value:unknown):value is string=>typeof value==='string'&&value.length>0&&value.length<=200&&!value.startsWith('/')&&!value.includes('\\')&&!value.split('/').some(part=>!part||part==='.'||part==='..')&&!/[\x00-\x1f]/.test(value);if(!object(code)||!equalFields(code,['profile','target','allowedPaths'])||code.profile!=='node-test'||!path(code.target)||!Array.isArray(code.allowedPaths)||code.allowedPaths.length<1||code.allowedPaths.length>20||!code.allowedPaths.every(path))throw Error('INVALID_CODE_PLAN');node.code={profile:'node-test',target:code.target,allowedPaths:code.allowedPaths};}
-  if(Object.hasOwn(raw,'subscription')){
-   const s=raw.subscription;if(!object(s)||!equalFields(s,['sourceId','threadRef','purpose','eventTypes','expiresAtMs'])||!identifier(s.sourceId)||!identifier(s.threadRef)||!['context_only','wake','actionable'].includes(String(s.purpose))||!Array.isArray(s.eventTypes)||s.eventTypes.length<1||s.eventTypes.length>20||!s.eventTypes.every(identifier)||!Number.isSafeInteger(s.expiresAtMs)||Number(s.expiresAtMs)<=Date.now()||Number(s.expiresAtMs)>Date.now()+30*86400000)throw Error('INVALID_SUBSCRIPTION');
-   const source=sources.find(row=>row.sourceId===s.sourceId&&row.enabled);if(!source||s.eventTypes.some(type=>!source.eventTypes.includes(type)))throw Error('INVALID_SUBSCRIPTION');
-   node.subscription={sourceId:s.sourceId,threadRef:s.threadRef,purpose:s.purpose as 'context_only'|'wake'|'actionable',eventTypes:s.eventTypes as string[],expiresAtMs:Number(s.expiresAtMs)};
+function parsePlan(text: string, sources: SourceCatalog): GoalPlanTask[] {
+  if (text.length > 65536) throw Error('INVALID_PLAN');
+  const input: unknown = JSON.parse(text);
+  if (!Array.isArray(input) || input.length < 1 || input.length > 20) throw Error('INVALID_PLAN');
+  const keys = new Set<string>(),
+    nodes: GoalPlanTask[] = [];
+  for (const raw of input) {
+    if (
+      !object(raw) ||
+      !equalFields(raw, [
+        'key',
+        'text',
+        'dependsOn',
+        ...(Object.hasOwn(raw, 'subscription') ? ['subscription'] : []),
+        ...(Object.hasOwn(raw, 'code') ? ['code'] : []),
+        ...(Object.hasOwn(raw, 'dispatch') ? ['dispatch'] : []),
+      ]) ||
+      !identifier(raw.key) ||
+      keys.has(raw.key) ||
+      typeof raw.text !== 'string' ||
+      !raw.text.trim() ||
+      raw.text.length > 32768 ||
+      raw.text.includes('\0') ||
+      !Array.isArray(raw.dependsOn) ||
+      raw.dependsOn.length > 20 ||
+      !raw.dependsOn.every(identifier) ||
+      new Set(raw.dependsOn).size !== raw.dependsOn.length
+    )
+      throw Error('INVALID_PLAN');
+    keys.add(raw.key);
+    const node: GoalPlanTask = {
+      key: raw.key,
+      text: raw.text,
+      dependsOn: raw.dependsOn as string[],
+    };
+    if (Object.hasOwn(raw, 'dispatch')) {
+      if (!['queue_only', 'execute_once'].includes(String(raw.dispatch)))
+        throw Error('INVALID_PLAN');
+      node.dispatch = raw.dispatch as 'queue_only' | 'execute_once';
+    }
+    if (Object.hasOwn(raw, 'code')) {
+      const code = raw.code,
+        path = (value: unknown): value is string =>
+          typeof value === 'string' &&
+          value.length > 0 &&
+          value.length <= 200 &&
+          !value.startsWith('/') &&
+          !value.includes('\\') &&
+          !value.split('/').some((part) => !part || part === '.' || part === '..') &&
+          !/[\x00-\x1f]/.test(value);
+      if (
+        !object(code) ||
+        !equalFields(code, ['profile', 'target', 'allowedPaths']) ||
+        code.profile !== 'node-test' ||
+        !path(code.target) ||
+        !Array.isArray(code.allowedPaths) ||
+        code.allowedPaths.length < 1 ||
+        code.allowedPaths.length > 20 ||
+        !code.allowedPaths.every(path)
+      )
+        throw Error('INVALID_CODE_PLAN');
+      node.code = { profile: 'node-test', target: code.target, allowedPaths: code.allowedPaths };
+    }
+    if (Object.hasOwn(raw, 'subscription')) {
+      const s = raw.subscription;
+      if (
+        !object(s) ||
+        !equalFields(s, ['sourceId', 'threadRef', 'purpose', 'eventTypes', 'expiresAtMs']) ||
+        !identifier(s.sourceId) ||
+        !identifier(s.threadRef) ||
+        !['context_only', 'wake', 'actionable'].includes(String(s.purpose)) ||
+        !Array.isArray(s.eventTypes) ||
+        s.eventTypes.length < 1 ||
+        s.eventTypes.length > 20 ||
+        !s.eventTypes.every(identifier) ||
+        !Number.isSafeInteger(s.expiresAtMs) ||
+        Number(s.expiresAtMs) <= Date.now() ||
+        Number(s.expiresAtMs) > Date.now() + 30 * 86400000
+      )
+        throw Error('INVALID_SUBSCRIPTION');
+      const source = sources.find((row) => row.sourceId === s.sourceId && row.enabled);
+      if (!source || s.eventTypes.some((type) => !source.eventTypes.includes(type)))
+        throw Error('INVALID_SUBSCRIPTION');
+      node.subscription = {
+        sourceId: s.sourceId,
+        threadRef: s.threadRef,
+        purpose: s.purpose as 'context_only' | 'wake' | 'actionable',
+        eventTypes: s.eventTypes as string[],
+        expiresAtMs: Number(s.expiresAtMs),
+      };
+    }
+    nodes.push(node);
   }
-  nodes.push(node);
- }
- const visiting=new Set<string>(),done=new Set<string>(),byKey=new Map(nodes.map(node=>[node.key,node]));
- const visit=(key:string)=>{if(visiting.has(key)||!byKey.has(key))throw Error('INVALID_PLAN');if(done.has(key))return;visiting.add(key);for(const dep of byKey.get(key)!.dependsOn)visit(dep);visiting.delete(key);done.add(key);};
- for(const node of nodes)visit(node.key);return nodes;
+  const visiting = new Set<string>(),
+    done = new Set<string>(),
+    byKey = new Map(nodes.map((node) => [node.key, node]));
+  const visit = (key: string) => {
+    if (visiting.has(key) || !byKey.has(key)) throw Error('INVALID_PLAN');
+    if (done.has(key)) return;
+    visiting.add(key);
+    for (const dep of byKey.get(key)!.dependsOn) visit(dep);
+    visiting.delete(key);
+    done.add(key);
+  };
+  for (const node of nodes) visit(node.key);
+  return nodes;
 }
-function errorText(error:unknown):string{
- if(error instanceof SyntaxError)return '计划 JSON 无法解析，请检查括号、引号与逗号。';
- const code=error instanceof Error?error.message:'';
- if(/VERSION_CONFLICT|SOURCE_CHANGED|MANIFEST_STALE/.test(code))return '记录版本已经变化，请刷新并根据当前版本重新编辑。';
- if(/INVALID_PLAN|INVALID_SUBSCRIPTION|SyntaxError/.test(code))return '计划格式或订阅范围不正确，请使用示例结构、已登记来源和有效依赖。';
- if(/BUDGET|RESOURCE/.test(code))return '可用预算不足或超出限制，请检查预算后重试。';
- if(/PRIVATE_CODING_MEMORY_REJECTED/.test(code))return '公开编码经验必须明确选择公开级别，并由同键 /remember 原消息明确确认。';
- if(/EXPLICIT_USER_REQUIRED|EVIDENCE_MISMATCH|REVISION_SOURCE_REQUIRED/.test(code))return '请选择新的同键 /remember 确认消息，引用和修订值必须与原文一致。';
- if(/RUNTIME_BUSY/.test(code))return '当前有操作正在执行，请稍后刷新。';
- if(code==='GOAL_VERIFICATION_REQUIRED')return '目标尚未满足完成条件。请使用本目标所有计划任务通过 Host 独立验证后显示的核验记录 ID。';
- return '本次操作的结果尚未核对，请刷新记录。目标命令可使用原操作核对，结果未知时不会自动重发。';
+function errorText(error: unknown): string {
+  if (error instanceof SyntaxError) return '计划 JSON 无法解析，请检查括号、引号与逗号。';
+  const code = error instanceof Error ? error.message : '';
+  if (/VERSION_CONFLICT|SOURCE_CHANGED|MANIFEST_STALE/.test(code))
+    return '记录版本已经变化，请刷新并根据当前版本重新编辑。';
+  if (/INVALID_PLAN|INVALID_SUBSCRIPTION|SyntaxError/.test(code))
+    return '计划格式或订阅范围不正确，请使用示例结构、已登记来源和有效依赖。';
+  if (/BUDGET|RESOURCE/.test(code)) return '可用预算不足或超出限制，请检查预算后重试。';
+  if (/PRIVATE_CODING_MEMORY_REJECTED/.test(code))
+    return '公开编码经验必须明确选择公开级别，并由同键 /remember 原消息明确确认。';
+  if (/EXPLICIT_USER_REQUIRED|EVIDENCE_MISMATCH|REVISION_SOURCE_REQUIRED/.test(code))
+    return '请选择新的同键 /remember 确认消息，引用和修订值必须与原文一致。';
+  if (/RUNTIME_BUSY/.test(code)) return '当前有操作正在执行，请稍后刷新。';
+  if (code === 'GOAL_VERIFICATION_REQUIRED')
+    return '目标尚未满足完成条件。请使用本目标所有计划任务通过 Host 独立验证后显示的核验记录 ID。';
+  return '本次操作的结果尚未核对，请刷新记录。目标命令可使用原操作核对，结果未知时不会自动重发。';
 }
-export function AutonomyDialog({project,onClose,embedded=false,initialTab='goals'}:{project:ProjectView;onClose:()=>void;embedded?:boolean;initialTab?:'goals'|'memory'}){
- const Root:React.ElementType=embedded?'section':'dialog';
- const [createOpen,setCreateOpen]=useState(false),[simpleOpen,setSimpleOpen]=useState(false),[quickName,setQuickName]=useState(''),[quickText,setQuickText]=useState(''),[quickPending,setQuickPending]=useState(false);
- const quickRequest=useRef<{source:MainChatInput;claim:Parameters<typeof window.personalAgent.rememberMessage>[0]}|undefined>(undefined);
- const dialog=useRef<HTMLDialogElement>(null),memoryForm=useRef<HTMLDetailsElement>(null),revisionRef=useRef<MemoryRevision|undefined>(undefined),alive=useRef(true),pending=useRef(false),lastGoals=useRef<GoalView[]>([]),unconfirmed=useRef<GoalCommand|undefined>(undefined);
- const [tab,setTab]=useState<'goals'|'memory'>(initialTab),[busy,setBusy]=useState(false),[error,setError]=useState<string>(),[notice,setNotice]=useState(''),[hasUnconfirmed,setHasUnconfirmed]=useState(false);
- const [goals,setGoals]=useState<GoalView[]>([]),[previous,setPrevious]=useState<GoalView[]>([]),[tasks,setTasks]=useState<TaskSummary[]>([]),[sources,setSources]=useState<SourceCatalog>([]),[selectedId,setSelectedId]=useState(''),[notifications,setNotifications]=useState<GoalNotificationView[]>([]),[sourceEvents,setSourceEvents]=useState<GoalSourceEventView[]>([]);
- const [title,setTitle]=useState(''),[objective,setObjective]=useState(''),[criteria,setCriteria]=useState(''),[budget,setBudget]=useState(100000),[budgetConfirmed,setBudgetConfirmed]=useState(false),[notify,setNotify]=useState(false),[dailyLimit,setDailyLimit]=useState(5),[quietStart,setQuietStart]=useState('22:00'),[quietEnd,setQuietEnd]=useState('08:00');
- const [editing,setEditing]=useState<GoalView>(),[planGoal,setPlanGoal]=useState<GoalView>(),[planDraft,setPlanDraft]=useState(examplePlan),[planPreview,setPlanPreview]=useState<{text:string;tasks:GoalPlanTask[]}>(),[subscriptionsConfirmed,setSubscriptionsConfirmed]=useState(false),[verificationIds,setVerificationIds]=useState('');
- const [memoryDomain,setMemoryDomain]=useState<MemoryDomain>('personal'),[memoryQuery,setMemoryQuery]=useState(''),[memoryTask,setMemoryTask]=useState(''),[claims,setClaims]=useState<MemoryClaimView[]>([]),[epochs,setEpochs]=useState<{privacyEpoch:number;policyEpoch:number;pendingCleanupIds?:string[]}>(),[messages,setMessages]=useState<MainChatEntry[]>([]),[messageId,setMessageId]=useState(''),[factKey,setFactKey]=useState('personal:preference'),[factText,setFactText]=useState(''),[quote,setQuote]=useState(''),[claimTrust,setClaimTrust]=useState<'explicit_user'|'agent_inference'>('agent_inference'),[sensitivity,setSensitivity]=useState<'public'|'private'|'sensitive'>('private'),[forgetRef,setForgetRef]=useState(''),[forgetConfirmed,setForgetConfirmed]=useState(false),[forgetReceipt,setForgetReceipt]=useState<MemoryForgetReceipt>();
- const [memoryRevision,setMemoryRevision]=useState<MemoryRevision>();
- const selected=goals.find(goal=>goal.goalId===selectedId)??goals[0],old=previous.find(goal=>goal.goalId===selected?.goalId),sourceMessage=messages.find(message=>message.messageId===messageId),locked=busy||hasUnconfirmed;
- const memoryMessages=memoryRevision?messages.filter(message=>!memoryRevision.sourceMessageIds.includes(message.messageId)&&rememberCommand(message)?.factKey===memoryRevision.factKey):messages;
- function clearMemoryRevision(){revisionRef.current=undefined;setMemoryRevision(undefined);setMessageId('');setFactKey('personal:preference');setFactText('');setQuote('');setClaimTrust('agent_inference');}
- function reviseMemory(claim:MemoryClaimView){if(!epochs)return;const revision:MemoryRevision={claimId:claim.claimId,version:claim.version,factKey:claim.factKey,privacyEpoch:epochs.privacyEpoch,policyEpoch:epochs.policyEpoch,sourceMessageIds:claim.revisionSourceRefs.filter(ref=>ref.startsWith('message:')).map(ref=>ref.slice('message:'.length))};revisionRef.current=revision;setMemoryRevision(revision);setSimpleOpen(true);setQuickName(claim.factKey.split(':').at(-1)??'');setQuickText('');setMessageId('');setFactKey(claim.factKey);setFactText('');setQuote('');setClaimTrust('explicit_user');setSensitivity('private');setError(undefined);setNotice('请选择新的 /remember 原消息确认修订值。旧版记忆和来源会保留可追溯关系。');if(!embedded&&memoryForm.current)memoryForm.current.open=true;}
- async function checkMemoryRevision(current:{privacyEpoch:number;policyEpoch:number},currentMessages?:MainChatEntry[]):Promise<boolean>{
-  const revision=revisionRef.current;if(!revision)return true;
-  let valid=current.privacyEpoch===revision.privacyEpoch&&current.policyEpoch===revision.policyEpoch;
-  if(valid){const domain=revision.factKey.split(':')[0] as MemoryDomain,rows=await value(window.personalAgent.listMemory({query:revision.factKey,domain,...(domain==='task'?{taskId:revision.factKey.split(':')[1]!}:{})}));valid=rows.some(claim=>claim.claimId===revision.claimId&&claim.version===revision.version&&claim.factKey===revision.factKey);}
-  if(valid&&currentMessages&&messageId)valid=currentMessages.some(message=>message.messageId===messageId&&!revision.sourceMessageIds.includes(message.messageId)&&rememberCommand(message)?.factKey===revision.factKey);
-  if(!valid&&alive.current){clearMemoryRevision();setNotice('记忆版本、隐私版本或来源已变化，旧修订草稿已清空。请重新检索并选择修订对象。');}return valid;
- }
- async function load(){
-  const [nextGoals,nextTasks,nextEpochs,nextSources,chat]=await Promise.all([value(window.personalAgent.listGoals({projectId:project.id})),value(window.personalAgent.listTasks({projectId:project.id})),value(window.personalAgent.memoryState()),value(window.personalAgent.listGoalSources()),value(window.personalAgent.readMainChat({projectId:project.id}))]);
-  if(!alive.current)return;
-  const nextSelected=nextGoals.find(goal=>goal.goalId===selectedId)??nextGoals[0];
-  const nextNotifications=nextSelected?await value(window.personalAgent.listGoalNotifications({goalId:nextSelected.goalId})):[];
-  if(!alive.current)return;await checkMemoryRevision(nextEpochs,chat.messages);if(!alive.current)return;setPrevious(lastGoals.current);lastGoals.current=nextGoals;setGoals(nextGoals);setTasks(nextTasks);setEpochs(nextEpochs);setSources(nextSources);setMessages(chat.messages);setNotifications(nextNotifications);if(tab==='memory'&&(memoryDomain!=='task'||memoryTask)){const rows=await value(window.personalAgent.listMemory({query:memoryQuery,domain:memoryDomain,...(memoryDomain==='task'?{taskId:memoryTask}:{})}));if(alive.current)setClaims(rows);}else setClaims([]);if(messageId&&!chat.messages.some(message=>message.messageId===messageId)){setMessageId('');setFactText('');setQuote('');}
- }
- async function perform(work:()=>Promise<void>){if(pending.current)return;pending.current=true;setBusy(true);setError(undefined);try{await work();}catch(error){if(alive.current)setError(errorText(error));}finally{pending.current=false;if(alive.current)setBusy(false);}}
- async function refresh(){await perform(load);}
- useEffect(()=>{alive.current=true;if(!embedded)dialog.current?.showModal();void refresh();return()=>{alive.current=false;dialog.current?.close();};},[project.id]);
- async function apply(command?:GoalCommand){await perform(async()=>{const target=command??unconfirmed.current;if(!target)return;unconfirmed.current=target;setHasUnconfirmed(true);const result=await window.personalAgent.applyGoalCommand(target);if(!result.ok){unconfirmed.current=undefined;if(alive.current)setHasUnconfirmed(false);throw Error(result.errorCode);}const receipt=result.value;if(!alive.current)return;unconfirmed.current=undefined;setHasUnconfirmed(false);setSelectedId(receipt.goal.goalId);setNotice(`目标${names[receipt.goal.status]??receipt.goal.status}。`);setEditing(undefined);setCreateOpen(false);setPlanGoal(undefined);setPlanPreview(undefined);await load();});}
- function createOrRevise(){
-  const parts=lines(criteria);if(!parts.length||parts.length>20||parts.some(s=>s.length>500)||!objective.trim()||!budgetConfirmed||!Number.isSafeInteger(budget)||budget<1||budget>1000000000){setError('请填写目标与逐条完成标准，并明确确认预算。');return;}
-  if(editing){void apply({kind:'revise',commandKey:crypto.randomUUID(),goalId:editing.goalId,expectedVersion:editing.version,objective,criteria:parts,budgetTokens:budget});return;}
-  const minute=(time:string)=>{const [hour,min]=time.split(':').map(Number);return Number(hour)*60+Number(min);};
-  void apply({kind:'create',commandKey:crypto.randomUUID(),projectId:project.id,title,objective,criteria:parts,budgetTokens:budget,notificationPolicy:{enabled:notify,dailyLimit,quietStartMinute:minute(quietStart),quietEndMinute:minute(quietEnd)}});
- }
- function edit(goal:GoalView){setEditing(goal);setTitle(goal.title);setObjective(goal.objective);setCriteria(goal.criteria.join('\n'));setBudget(goal.budgetTokens??20000);setBudgetConfirmed(false);}
- async function inspectGoal(goal:GoalView){setSelectedId(goal.goalId);await perform(async()=>{const rows=await value(window.personalAgent.listGoalNotifications({goalId:goal.goalId}));if(alive.current)setNotifications(rows);});}
- async function searchMemory(){await perform(async()=>{if(memoryDomain==='task'&&!memoryTask){setError('请先选择任务。');return;}const [rows,current]=await Promise.all([value(window.personalAgent.listMemory({query:memoryQuery,domain:memoryDomain,...(memoryDomain==='task'?{taskId:memoryTask}:{})})),value(window.personalAgent.memoryState())]);await checkMemoryRevision(current);if(alive.current){setClaims(rows);setEpochs(current);}});}
- async function remember(){await perform(async()=>{
-  const revision=revisionRef.current;
-  if(revision){const [current,chat]=await Promise.all([value(window.personalAgent.memoryState()),value(window.personalAgent.readMainChat({projectId:project.id}))]);if(!await checkMemoryRevision(current,chat.messages))return;const selected=chat.messages.find(message=>message.messageId===messageId),command=selected?rememberCommand(selected):undefined;if(!selected||revision.sourceMessageIds.includes(selected.messageId)||command?.factKey!==revision.factKey||command.value!==factText||factText!==quote||claimTrust!=='explicit_user')throw Error('MEMORY_EXPLICIT_USER_REQUIRED');}
-  if(!sourceMessage||!quote.trim()||!sourceMessage.text.includes(quote)||!factText.trim())throw Error('EVIDENCE_MISMATCH');
-  try{const receipt=await value(window.personalAgent.rememberMessage({messageId:sourceMessage.messageId,sensitivity,factKey:revision?.factKey??factKey,factText,quote,trust:revision?'explicit_user':claimTrust,...(revision?{supersedesClaimId:revision.claimId,expectedVersion:revision.version}:{})}));if(alive.current){if(revision)clearMemoryRevision();setNotice(revision?`已保存记忆修订 v${receipt.version}；旧版及其来源仍可追溯。`:'已保存带来源的记忆；推断与用户明确确认会分别标注。');setFactText('');setQuote('');await load();}}
-  catch(error){if(revision&&error instanceof Error&&/CLAIM_VERSION_CONFLICT|SOURCE_CHANGED|SOURCE_REVOKED|SOURCE_UNAVAILABLE|SCOPE_MISMATCH/.test(error.message))clearMemoryRevision();throw error;}
- });}
- async function forget(){if(!epochs||!forgetConfirmed)return;const ref=forgetRef;await perform(async()=>{setForgetReceipt(undefined);try{const result=await value(window.personalAgent.forgetMemory({sourceRefs:[ref],expectedPrivacyEpoch:epochs.privacyEpoch}));if(alive.current){if(revisionRef.current)clearMemoryRevision();setForgetReceipt(result);clearDrafts();setClaims([]);setMemoryQuery('');setFactText('');setQuote('');setForgetConfirmed(false);setNotice('已收到遗忘收据。相关任务、来源与派生记忆可能一并撤销，请查看实际清理结果。');await load();}}catch(error){if(alive.current){if(revisionRef.current)clearMemoryRevision();setClaims([]);setNotice('遗忘结果尚未核对；请刷新隐私版本和检索结果，物理清理状态仍待确认。');}throw error;}});}
- async function saveSimpleMemory(){await perform(async()=>{
-  if(!quickRequest.current){const revision=revisionRef.current,name=quickName.trim(),text=quickText.trim();if(!text||text.length>4000||!name||/[\s:]/.test(name)){setError('请输入记忆名称和内容，名称不要包含空格或冒号。');return;}if(memoryDomain==='task'&&!memoryTask){setError('请选择所属任务。');return;}if(memoryDomain==='coding'&&sensitivity!=='public'){setError('编码经验需要明确选择公开。');return;}
-   const factKey=revision?.factKey??(memoryDomain==='task'?'task:'+memoryTask+':':memoryDomain+':')+name;const chat=await value(window.personalAgent.readMainChat({projectId:project.id}));const messageId=crypto.randomUUID();quickRequest.current={source:{projectId:project.id,messageId,text:'/remember '+factKey+' = '+text,focusRevision:chat.focusRevision},claim:{messageId,factKey,factText:text,quote:text,trust:'explicit_user',sensitivity,...(revision?{supersedesClaimId:revision.claimId,expectedVersion:revision.version}:{})}};
+export function AutonomyDialog({
+  project,
+  onClose,
+  embedded = false,
+  initialTab = 'goals',
+}: {
+  project: ProjectView;
+  onClose: () => void;
+  embedded?: boolean;
+  initialTab?: 'goals' | 'memory';
+}) {
+  const Root: React.ElementType = embedded ? 'section' : 'dialog';
+  const [createOpen, setCreateOpen] = useState(false),
+    [simpleOpen, setSimpleOpen] = useState(false),
+    [quickName, setQuickName] = useState(''),
+    [quickText, setQuickText] = useState(''),
+    [quickPending, setQuickPending] = useState(false);
+  const quickRequest = useRef<
+    | { source: MainChatInput; claim: Parameters<typeof window.personalAgent.rememberMessage>[0] }
+    | undefined
+  >(undefined);
+  const dialog = useRef<HTMLDialogElement>(null),
+    memoryForm = useRef<HTMLDetailsElement>(null),
+    revisionRef = useRef<MemoryRevision | undefined>(undefined),
+    alive = useRef(true),
+    pending = useRef(false),
+    lastGoals = useRef<GoalView[]>([]),
+    unconfirmed = useRef<GoalCommand | undefined>(undefined);
+  const [tab, setTab] = useState<'goals' | 'memory'>(initialTab),
+    [busy, setBusy] = useState(false),
+    [error, setError] = useState<string>(),
+    [notice, setNotice] = useState(''),
+    [hasUnconfirmed, setHasUnconfirmed] = useState(false);
+  const [goals, setGoals] = useState<GoalView[]>([]),
+    [previous, setPrevious] = useState<GoalView[]>([]),
+    [tasks, setTasks] = useState<TaskSummary[]>([]),
+    [sources, setSources] = useState<SourceCatalog>([]),
+    [selectedId, setSelectedId] = useState(''),
+    [notifications, setNotifications] = useState<GoalNotificationView[]>([]),
+    [sourceEvents, setSourceEvents] = useState<GoalSourceEventView[]>([]);
+  const [title, setTitle] = useState(''),
+    [objective, setObjective] = useState(''),
+    [criteria, setCriteria] = useState(''),
+    [budget, setBudget] = useState(100000),
+    [budgetConfirmed, setBudgetConfirmed] = useState(false),
+    [notify, setNotify] = useState(false),
+    [dailyLimit, setDailyLimit] = useState(5),
+    [quietStart, setQuietStart] = useState('22:00'),
+    [quietEnd, setQuietEnd] = useState('08:00');
+  const [editing, setEditing] = useState<GoalView>(),
+    [planGoal, setPlanGoal] = useState<GoalView>(),
+    [planDraft, setPlanDraft] = useState(examplePlan),
+    [planPreview, setPlanPreview] = useState<{ text: string; tasks: GoalPlanTask[] }>(),
+    [subscriptionsConfirmed, setSubscriptionsConfirmed] = useState(false),
+    [verificationIds, setVerificationIds] = useState('');
+  const [memoryDomain, setMemoryDomain] = useState<MemoryDomain>('personal'),
+    [memoryQuery, setMemoryQuery] = useState(''),
+    [memoryTask, setMemoryTask] = useState(''),
+    [claims, setClaims] = useState<MemoryClaimView[]>([]),
+    [epochs, setEpochs] = useState<{
+      privacyEpoch: number;
+      policyEpoch: number;
+      pendingCleanupIds?: string[];
+    }>(),
+    [messages, setMessages] = useState<MainChatEntry[]>([]),
+    [messageId, setMessageId] = useState(''),
+    [factKey, setFactKey] = useState('personal:preference'),
+    [factText, setFactText] = useState(''),
+    [quote, setQuote] = useState(''),
+    [claimTrust, setClaimTrust] = useState<'explicit_user' | 'agent_inference'>('agent_inference'),
+    [sensitivity, setSensitivity] = useState<'public' | 'private' | 'sensitive'>('private'),
+    [forgetRef, setForgetRef] = useState(''),
+    [forgetConfirmed, setForgetConfirmed] = useState(false),
+    [forgetReceipt, setForgetReceipt] = useState<MemoryForgetReceipt>();
+  const [memoryRevision, setMemoryRevision] = useState<MemoryRevision>();
+  const selected = goals.find((goal) => goal.goalId === selectedId) ?? goals[0],
+    old = previous.find((goal) => goal.goalId === selected?.goalId),
+    sourceMessage = messages.find((message) => message.messageId === messageId),
+    locked = busy || hasUnconfirmed;
+  const memoryMessages = memoryRevision
+    ? messages.filter(
+        (message) =>
+          !memoryRevision.sourceMessageIds.includes(message.messageId) &&
+          rememberCommand(message)?.factKey === memoryRevision.factKey,
+      )
+    : messages;
+  function clearMemoryRevision() {
+    revisionRef.current = undefined;
+    setMemoryRevision(undefined);
+    setMessageId('');
+    setFactKey('personal:preference');
+    setFactText('');
+    setQuote('');
+    setClaimTrust('agent_inference');
   }
-  setQuickPending(true);const request=quickRequest.current;await value(window.personalAgent.submitMainChat(request.source));const receipt=await value(window.personalAgent.rememberMessage(request.claim));if(!alive.current)return;quickRequest.current=undefined;setQuickPending(false);clearMemoryRevision();setQuickText('');setQuickName('');setSimpleOpen(false);setNotice('已保存你明确确认的记忆；来源可以随时查看。');await load();setMemoryQuery(request.claim.factKey);setClaims([receipt]);
- });}
- async function completeWithReceipts(goal:GoalView){await perform(async()=>{const runs=await value(window.personalAgent.listRuns({projectId:project.id}));const ids:string[]=[];for(const taskId of goal.taskIds){const candidates=runs.filter(run=>run.taskId===taskId);let found:string|undefined;for(const run of candidates){try{const verified=await value(window.personalAgent.getVerification({projectId:project.id,runId:run.runId}));if(verified.receipt?.status==='passed'){found=verified.receipt.verificationId;break;}}catch{/* A read-only or unavailable Run is not trusted evidence. */}}if(!found)throw Error('GOAL_VERIFICATION_REQUIRED');ids.push(found);}if(!ids.length)throw Error('GOAL_VERIFICATION_REQUIRED');const command:GoalCommand={kind:'complete',goalId:goal.goalId,expectedVersion:goal.version,commandKey:crypto.randomUUID(),verificationIds:ids};unconfirmed.current=command;setHasUnconfirmed(true);const receipt=await value(window.personalAgent.applyGoalCommand(command));unconfirmed.current=undefined;setHasUnconfirmed(false);setSelectedId(receipt.goal.goalId);setNotice('目标已通过独立验证并完成。');await load();});}
- const editStale=editing&&!goals.some(goal=>goal.goalId===editing.goalId&&goal.version===editing.version),planStale=planGoal&&!goals.some(goal=>goal.goalId===planGoal.goalId&&goal.version===planGoal.version&&goal.planVersion===planGoal.planVersion),planSubscriptions=planPreview?.tasks.filter(node=>node.subscription)??[];
- return <Root ref={embedded?undefined:dialog} className={"skills-dialog autonomy-dialog"+(embedded?" embedded-autonomy page-content":"")} aria-label="目标与记忆" onCancel={(event:React.SyntheticEvent)=>{event.preventDefault();onClose();}} data-autonomy-dialog>
-  <div className="skills-dialog-actions"><button data-action="close-autonomy" disabled={busy} onClick={onClose}>返回工作区</button><button className="secondary" disabled={busy} data-action="refresh-autonomy" onClick={()=>void refresh()}>刷新实际记录</button></div>
-  <h2>{embedded?(tab==='goals'?'让长期工作持续推进':'让助手更了解你'):'目标与记忆'}</h2><div className={embedded?"visually-hidden":"queue-actions"}><button aria-pressed={tab==='goals'} onClick={()=>setTab('goals')}>目标</button><button aria-pressed={tab==='memory'} onClick={()=>setTab('memory')}>记忆</button></div>
-  {error&&<p className="notice error" role="alert" data-autonomy-error>{error}</p>}{notice&&<p className="notice" role="status">{notice}</p>}
-  {hasUnconfirmed&&<p className="notice">上次目标命令尚未核对。<button disabled={busy} onClick={()=>void apply()}>用原操作核对结果</button></p>}
-  {tab==='goals'?<section data-goal-manager>
-   <details className="create-goal" open={Boolean(editing)||createOpen} onToggle={e=>setCreateOpen(e.currentTarget.open)}><summary>{editing?'调整目标':'＋ 新建目标'}</summary><form className="queue-create" onSubmit={event=>{event.preventDefault();createOrRevise();}}><h3>{editing?'调整目标':'创建目标'}</h3>
-    <label>标题<input data-goal-title required maxLength={200} value={title} disabled={locked||Boolean(editing)} onChange={event=>setTitle(event.target.value)}/></label>
-    <label>目标<textarea data-goal-objective required rows={3} maxLength={8192} value={objective} disabled={locked} onChange={event=>setObjective(event.target.value)}/></label>
-    <label>完成标准（每行一项）<textarea data-goal-criteria required rows={3} maxLength={10000} value={criteria} disabled={locked} onChange={event=>setCriteria(event.target.value)}/></label>
-    <label>目标 Token 预算<input data-goal-budget type="number" required min={1} max={1000000000} value={budget} disabled={locked} onChange={event=>{setBudget(Number(event.target.value));setBudgetConfirmed(false);}}/></label>
-    <label><input data-goal-budget-confirm type="checkbox" checked={budgetConfirmed} disabled={locked} onChange={event=>setBudgetConfirmed(event.target.checked)}/>我确认此目标的预算上限，执行仍受共享额度和任务状态限制</label>
-    {!editing&&<><label><input data-goal-notify type="checkbox" checked={notify} disabled={locked} onChange={event=>setNotify(event.target.checked)}/>允许此目标发送结果、失败或需输入的通知</label>{notify&&<><label>每天最多<input type="number" min={1} max={20} required value={dailyLimit} disabled={locked} onChange={event=>setDailyLimit(Number(event.target.value))}/></label><label>免打扰开始（UTC）<input type="time" required value={quietStart} disabled={locked} onChange={event=>setQuietStart(event.target.value)}/></label><label>免打扰结束（UTC）<input type="time" required value={quietEnd} disabled={locked} onChange={event=>setQuietEnd(event.target.value)}/></label></>}</>}
-    {editing&&<p>基于目标 v{editing.version} / 计划 v{editing.planVersion}。调整将暂停原计划，需重新确认新的任务计划。</p>}{editStale&&<p role="alert">编辑期间目标已变化，请关闭编辑并重新打开。</p>}
-    <button data-action="save-goal" disabled={locked||!budgetConfirmed||Boolean(editStale)}>{editing?'提交目标调整':'创建目标'}</button>{editing&&<button type="button" disabled={busy} onClick={()=>setEditing(undefined)}>关闭调整</button>}
-   </form></details>
-   <h3>已保存目标</h3>{!goals.length&&<p>尚无目标。</p>}{goals.map(goal=><article className="queue-task" key={goal.goalId} data-goal-id={goal.goalId} data-goal-status={goal.status}><h4>{goal.title}</h4><p>{goal.objective}</p><p>{names[goal.status]} · 预算 {goal.budgetTokens??'未设置'} · 通知{goal.notificationPolicy.enabled?'已允许':'未允许'}</p><ol>{goal.criteria.map((criterion,index)=><li key={index}>{criterion}</li>)}</ol><p>{goal.requiresPlan?'需要确认任务计划':'当前计划已保存'}</p><div className="queue-actions"><button disabled={busy} onClick={()=>void inspectGoal(goal)}>查看任务与通知</button>{['active','paused'].includes(goal.status)&&<><button disabled={locked} onClick={()=>edit(goal)}>调整目标</button><button disabled={locked} onClick={()=>{setPlanGoal(goal);setPlanDraft(JSON.stringify([{key:'task_1',text:'',dependsOn:[],dispatch:'queue_only'}],null,2));setPlanPreview(undefined);setSubscriptionsConfirmed(false);}}>编辑任务计划</button><button disabled={locked} onClick={()=>void apply({kind:goal.status==='active'?'pause':'resume',goalId:goal.goalId,expectedVersion:goal.version,commandKey:crypto.randomUUID()})}>{goal.status==='active'?'暂停目标':'恢复目标'}</button><button disabled={locked} onClick={()=>void apply({kind:'cancel',goalId:goal.goalId,expectedVersion:goal.version,commandKey:crypto.randomUUID()})}>取消目标</button></>}</div></article>)}
-   {selected&&<section data-goal-chain><h3>{selected.title} · 实际任务链</h3><details className="technical"><summary>计划记录</summary><p>目标 v{selected.version} / 计划 v{selected.planVersion}{old&&(old.version!==selected.version||old.planVersion!==selected.planVersion)?`；上次刷新为目标 v${old.version} / 计划 v${old.planVersion}`:''}</p></details>{old&&old.planVersion!==selected.planVersion&&<div data-goal-plan-diff><p>新增任务：{selected.taskIds.filter(id=>!old.taskIds.includes(id)).map(id=>tasks.find(task=>task.taskId===id)?.title??'新任务').join('、')||'无'}</p><p>移出当前计划：{old.taskIds.filter(id=>!selected.taskIds.includes(id)).map(id=>tasks.find(task=>task.taskId===id)?.title??'原任务').join('、')||'无'}</p></div>}<ol>{selected.taskIds.map(id=>{const task=tasks.find(row=>row.taskId===id);return <li key={id} data-goal-task={id}>{task?`${task.title} · ${names[task.status]??task.status}${task.blocked?' · 已阻止新执行':''}`:'此任务当前不可见'}<details className="technical"><summary>任务记录</summary><small>{id}</small></details></li>;})}</ol>{!selected.taskIds.length&&<p>还没有已创建的计划任务。</p>}<h4>通知记录</h4>{notifications.filter(row=>row.goalId===selected.goalId).map(row=><article key={row.operationId} data-goal-notification={row.operationId}><p>{row.summary}</p><p>{names[row.state]??row.state} · {new Date(row.createdAt).toLocaleString()}{row.redacted?' · 内容已脱敏':''}</p></article>)}
-    {selected.status==='active'&&<div className="goal-complete"><button data-action="complete-goal-from-receipts" disabled={locked||!selected.taskIds.length} onClick={()=>void completeWithReceipts(selected)}>核验并完成目标</button><p className="muted">自动查找这个目标的真实验证记录，只有全部任务通过才会完成。</p><details className="technical"><summary>指定核验记录</summary><form onSubmit={event=>{event.preventDefault();void apply({kind:'complete',goalId:selected.goalId,expectedVersion:selected.version,commandKey:crypto.randomUUID(),verificationIds:lines(verificationIds)});}}><label>完成核验记录（每行一个实际 verificationId）<textarea value={verificationIds} disabled={locked} onChange={event=>setVerificationIds(event.target.value)}/></label><button disabled={locked||!lines(verificationIds).length}>提交完成核验</button></form></details></div>}
-   </section>}
-   {planGoal&&<section data-goal-plan-editor><h3>计划提案 · {planGoal.title}</h3><p>确认后将替换当前任务计划。每项工作会按你选择的方式开始；修改代码时需要指定允许文件与验证测试。</p><GoalPlanEditor value={planDraft} disabled={locked} onChange={text=>{setPlanDraft(text);setPlanPreview(undefined);setSubscriptionsConfirmed(false);}}/><button disabled={locked} onClick={()=>{try{setPlanPreview({text:planDraft,tasks:parsePlan(planDraft,sources)});setError(undefined);}catch(error){setError(errorText(error));}}}>预览提案</button>{planPreview&&<><p data-goal-plan-replacement>将原计划的 {planGoal.taskIds.length} 个任务替换为提案中的 {planPreview.tasks.length} 个新任务。</p><ol>{planPreview.tasks.map((node,index)=><li key={node.key}>任务 {index+1}：{node.text}<p>依赖：{node.dependsOn.map(key=>'任务 '+(planPreview.tasks.findIndex(n=>n.key===key)+1)).join('、')||'无'}</p>{node.subscription&&<p>来源 {node.subscription.sourceId} / 线程 {node.subscription.threadRef} · {node.subscription.purpose} · 到期 {new Date(node.subscription.expiresAtMs).toLocaleString()}</p>}</li>)}</ol>{planSubscriptions.length>0&&<label><input data-goal-subscription-confirm type="checkbox" disabled={locked} checked={subscriptionsConfirmed} onChange={event=>setSubscriptionsConfirmed(event.target.checked)}/>我明确允许以上来源、线程、用途和到期范围；wake/actionable 可在规则内恢复任务</label>}<button data-action="apply-goal-plan" disabled={locked||Boolean(planStale)||planPreview.text!==planDraft||(planSubscriptions.length>0&&!subscriptionsConfirmed)} onClick={()=>void apply({kind:'plan',commandKey:crypto.randomUUID(),goalId:planGoal.goalId,expectedVersion:planGoal.version,expectedPlanVersion:planGoal.planVersion,tasks:planPreview.tasks})}>提交已预览计划</button></>}{planStale&&<p role="alert">原目标或计划版本已变化，请重新打开计划编辑。</p>}<button disabled={busy} onClick={()=>setPlanGoal(undefined)}>关闭提案</button></section>}
-   <details data-goal-sources><summary>可订阅的来源</summary><p>订阅只使用已登记的来源 ID、线程引用、事件类型和用途。</p>{sources.length?sources.map(source=><article key={source.sourceId}><p>{source.sourceId} · {source.enabled?'已启用':'已停用'} · {source.eventTypes.join('、')}</p><button disabled={busy} onClick={()=>void perform(async()=>{const events=await value(window.personalAgent.listGoalSourceEvents({sourceId:source.sourceId}));if(alive.current)setSourceEvents(events);})}>查看接收记录</button></article>):<p>尚未登记来源。</p>}<ol>{sourceEvents.map(event=><li key={event.triggerId}>{event.sourceId} · {event.eventType} · {event.threadRef} · {new Date(event.receivedAtMs).toLocaleString()}</li>)}</ol></details>
-  </section>:<section data-memory-manager>{epochs?.pendingCleanupIds?.map(cleanupId=><p className="notice" key={cleanupId}>仍有本地清理待核对。<button disabled={busy} data-action="retry-memory-cleanup" onClick={()=>void perform(async()=>{const receipt=await value(window.personalAgent.retryMemoryCleanup({cleanupId}));if(alive.current){setForgetReceipt(receipt);await load();}})}>继续核对清理</button></p>)}<h3>检索记忆</h3><p>个人记忆、任务记忆与公开编码经验分别检索。推断不等于用户确认。</p><details className="technical"><summary>隐私状态</summary><p data-memory-epochs>隐私版本 {epochs?.privacyEpoch??'待读取'} · 策略版本 {epochs?.policyEpoch??'待读取'}</p></details>
-   <form onSubmit={event=>{event.preventDefault();void searchMemory();}}><label>范围<select data-memory-domain value={memoryDomain} disabled={busy} onChange={event=>{setMemoryDomain(event.target.value as MemoryDomain);setClaims([]);}}><option value="personal">个人记忆</option><option value="task">任务记忆</option><option value="coding">公开编码经验</option></select></label>{memoryDomain==='task'&&<label>任务<select value={memoryTask} disabled={busy} onChange={event=>{setMemoryTask(event.target.value);setClaims([]);}}><option value="">选择任务</option>{tasks.map(task=><option value={task.taskId} key={task.taskId}>{task.title} · {task.taskId.slice(-6)}</option>)}</select></label>}<label>关键词<input data-memory-query value={memoryQuery} maxLength={1000} disabled={busy} onChange={event=>setMemoryQuery(event.target.value)}/></label><button data-action="search-memory" disabled={busy}>检索</button></form>
-   <details className="simple-memory" open={simpleOpen||Boolean(memoryRevision)} onToggle={e=>setSimpleOpen(e.currentTarget.open)}><summary>{memoryRevision?'修改这条记忆':'＋ 添加记忆'}</summary><form className="queue-create" onSubmit={e=>{e.preventDefault();void saveSimpleMemory();}}><label>记忆名称<input aria-label="记忆名称" maxLength={100} value={quickName} disabled={busy||quickPending||Boolean(memoryRevision)} onChange={e=>setQuickName(e.target.value)} placeholder="例如：称呼、回复语言"/></label><label>记忆内容<textarea aria-label="记忆内容" maxLength={4000} rows={3} value={quickText} disabled={busy||quickPending} onChange={e=>setQuickText(e.target.value)} placeholder="希望助手记住什么？"/></label><label>隐私级别<select aria-label="记忆隐私级别" value={sensitivity} disabled={busy||quickPending} onChange={e=>setSensitivity(e.target.value as 'public'|'private'|'sensitive')}><option value="private">私人</option><option value="sensitive">敏感，不自动使用</option><option value="public">明确公开</option></select></label><p className="muted">范围使用上方的选择。保存即确认这些内容，系统会保留可查看的原消息来源。</p><button disabled={busy||!quickPending&&(!quickName.trim()||!quickText.trim())}>{quickPending?'核对本次记忆':memoryRevision?'保存记忆修改':'保存记忆'}</button>{memoryRevision&&<button type="button" disabled={busy||quickPending} onClick={()=>{clearMemoryRevision();setSimpleOpen(false);}}>取消修改</button>}</form></details>
-   {claims.map(claim=><article className="skill-card" key={claim.claimId} data-memory-claim={claim.claimId}><h4>{claim.factKey.split(':').at(-1)}</h4><p>{claim.factText}</p><p>{trustNames[claim.trust]??claim.trust} · {claim.status==='active'?'使用中':claim.status==='disputed'?'有待确认':'历史记录'}</p><details><summary>查看来源证据</summary>{claim.evidence.map(evidence=><div key={evidence.entryId}><p>{evidence.sourceRef}</p><pre>{evidence.sourceRevision}</pre><p>引用哈希：{evidence.quoteHash}</p><button disabled={busy} onClick={()=>{setForgetRef(evidence.sourceRef);setForgetConfirmed(false);setForgetReceipt(undefined);}}>遗忘此来源</button></div>)}</details>{!claim.factKey.startsWith('coding:')&&<button data-action="revise-memory" disabled={busy||!epochs} onClick={()=>reviseMemory(claim)}>修改记忆</button>}<button disabled={busy} onClick={()=>{setForgetRef('claim:'+claim.claimId);setForgetConfirmed(false);setForgetReceipt(undefined);}}>遗忘这条记忆及相关来源</button></article>)}
-   <details ref={memoryForm} data-memory-editor><summary>高级：使用已有消息与来源</summary>{memoryRevision&&<div data-memory-revision><p>正在修订 {memoryRevision.factKey} · v{memoryRevision.version}。请先在主聊天记录新的 /remember {memoryRevision.factKey} = 新值，再刷新并选择该消息。</p><p>新值需要用户明确确认；旧版及其来源会保留。</p><button type="button" className="secondary" data-action="cancel-memory-revision" disabled={busy} onClick={()=>{clearMemoryRevision();setNotice('已取消修订，原记忆保持原状。');}}>取消修订</button></div>}<form onSubmit={event=>{event.preventDefault();void remember();}}><label>原消息<select data-memory-message value={messageId} disabled={busy} onChange={event=>{const selected=messages.find(message=>message.messageId===event.target.value),command=selected?rememberCommand(selected):undefined;setMessageId(event.target.value);setQuote(memoryRevision&&command?.factKey===memoryRevision.factKey?command.value:'');setFactText(memoryRevision&&command?.factKey===memoryRevision.factKey?command.value:'');setClaimTrust(memoryRevision?'explicit_user':'agent_inference');}}><option value="">{memoryRevision?'选择新的同键 /remember 消息':'选择真实聊天消息'}</option>{memoryMessages.map(message=><option value={message.messageId} key={message.messageId}>{message.text.slice(0,80)}</option>)}</select></label>{memoryRevision&&!memoryMessages.length&&<p>当前尚无新的同键确认消息；本次不会从旧来源猜测修订值。</p>}{sourceMessage&&<p className="chat-user-text">{sourceMessage.text}</p>}<label>记忆键<input data-memory-fact-key value={factKey} maxLength={200} required readOnly={Boolean(memoryRevision)} disabled={busy} onChange={event=>setFactKey(event.target.value)}/></label><p>个人键为 personal:名称；任务键为 task:任务ID:名称。私人消息不会加入公开编码经验。</p><label>事实或推断<textarea data-memory-value value={factText} maxLength={4000} required disabled={busy} onChange={event=>setFactText(event.target.value)}/></label><label>逐字引用<textarea data-memory-quote value={quote} maxLength={4000} required disabled={busy} onChange={event=>setQuote(event.target.value)}/></label><label>依据<select data-memory-trust value={claimTrust} disabled={busy||Boolean(memoryRevision)} onChange={event=>setClaimTrust(event.target.value as 'explicit_user'|'agent_inference')}><option value="agent_inference">从原文推断，未确认</option><option value="explicit_user">原消息明确 /remember 确认</option></select></label><label>敏感级别<select value={sensitivity} disabled={busy} onChange={event=>setSensitivity(event.target.value as 'public'|'private'|'sensitive')}><option value="private">私人</option><option value="sensitive">敏感</option><option value="public">公开</option></select></label><button data-action="remember-message" disabled={busy||!sourceMessage||Boolean(memoryRevision&&!memoryMessages.some(message=>message.messageId===messageId))}>{memoryRevision?'保存明确修订':'保存来源与记忆'}</button></form></details>
-   <details data-memory-forget open={Boolean(forgetRef)||undefined}><summary>高级：按来源遗忘</summary><label>来源引用<input data-memory-forget-ref value={forgetRef} maxLength={200} disabled={busy} onChange={event=>{setForgetRef(event.target.value);setForgetConfirmed(false);setForgetReceipt(undefined);}} placeholder="message:消息ID 或 claim:记忆ID"/></label><p>将撤销此来源及相关派生记忆，相关目标和任务也可能暂停。同时移除本应用的本地备份、演练和旧运行代副本，再清理本地缓存与数据库。用户源码和认证不会删除；外部服务、外置备份及系统快照不在控制范围内。</p><label><input data-memory-forget-confirm type="checkbox" checked={forgetConfirmed} disabled={busy} onChange={event=>setForgetConfirmed(event.target.checked)}/>确认遗忘此来源及其派生内容</label><button data-action="forget-memory" disabled={busy||!epochs||!identifier(forgetRef)||!forgetRef.includes(':')||!forgetConfirmed} onClick={()=>void forget()}>执行遗忘</button>{forgetReceipt&&<div role="status" data-memory-forget-receipt><p>逻辑撤销已完成 · 隐私版本 {forgetReceipt.logical.privacyEpoch}</p><p>执行停止：{forgetReceipt.cleanup.executionStopped?'已确认':'待确认'}；文件清理：{forgetReceipt.cleanup.artifactsPurged?'完成':'待确认'}；来源缓存：{forgetReceipt.cleanup.sourcePayloadsPurged?'完成':'待确认'}；数据库清理：{forgetReceipt.cleanup.databaseCompacted?'完成':'待确认'}</p><p>本地物理清理：{forgetReceipt.cleanup.localPhysicalCleanupComplete?'已完成':'尚未完成'} · 外部服务、外置备份与系统快照：未控制</p></div>}</details>
-  </section>}
- </Root>;
+  function reviseMemory(claim: MemoryClaimView) {
+    if (!epochs) return;
+    const revision: MemoryRevision = {
+      claimId: claim.claimId,
+      version: claim.version,
+      factKey: claim.factKey,
+      privacyEpoch: epochs.privacyEpoch,
+      policyEpoch: epochs.policyEpoch,
+      sourceMessageIds: claim.revisionSourceRefs
+        .filter((ref) => ref.startsWith('message:'))
+        .map((ref) => ref.slice('message:'.length)),
+    };
+    revisionRef.current = revision;
+    setMemoryRevision(revision);
+    setSimpleOpen(true);
+    setQuickName(claim.factKey.split(':').at(-1) ?? '');
+    setQuickText('');
+    setMessageId('');
+    setFactKey(claim.factKey);
+    setFactText('');
+    setQuote('');
+    setClaimTrust('explicit_user');
+    setSensitivity('private');
+    setError(undefined);
+    setNotice('请选择新的 /remember 原消息确认修订值。旧版记忆和来源会保留可追溯关系。');
+    if (!embedded && memoryForm.current) memoryForm.current.open = true;
+  }
+  async function checkMemoryRevision(
+    current: { privacyEpoch: number; policyEpoch: number },
+    currentMessages?: MainChatEntry[],
+  ): Promise<boolean> {
+    const revision = revisionRef.current;
+    if (!revision) return true;
+    let valid =
+      current.privacyEpoch === revision.privacyEpoch &&
+      current.policyEpoch === revision.policyEpoch;
+    if (valid) {
+      const domain = revision.factKey.split(':')[0] as MemoryDomain,
+        rows = await value(
+          window.personalAgent.listMemory({
+            query: revision.factKey,
+            domain,
+            ...(domain === 'task' ? { taskId: revision.factKey.split(':')[1]! } : {}),
+          }),
+        );
+      valid = rows.some(
+        (claim) =>
+          claim.claimId === revision.claimId &&
+          claim.version === revision.version &&
+          claim.factKey === revision.factKey,
+      );
+    }
+    if (valid && currentMessages && messageId)
+      valid = currentMessages.some(
+        (message) =>
+          message.messageId === messageId &&
+          !revision.sourceMessageIds.includes(message.messageId) &&
+          rememberCommand(message)?.factKey === revision.factKey,
+      );
+    if (!valid && alive.current) {
+      clearMemoryRevision();
+      setNotice('记忆版本、隐私版本或来源已变化，旧修订草稿已清空。请重新检索并选择修订对象。');
+    }
+    return valid;
+  }
+  async function load() {
+    const [nextGoals, nextTasks, nextEpochs, nextSources, chat] = await Promise.all([
+      value(window.personalAgent.listGoals({ projectId: project.id })),
+      value(window.personalAgent.listTasks({ projectId: project.id })),
+      value(window.personalAgent.memoryState()),
+      value(window.personalAgent.listGoalSources()),
+      value(window.personalAgent.readMainChat({ projectId: project.id })),
+    ]);
+    if (!alive.current) return;
+    const nextSelected = nextGoals.find((goal) => goal.goalId === selectedId) ?? nextGoals[0];
+    const nextNotifications = nextSelected
+      ? await value(window.personalAgent.listGoalNotifications({ goalId: nextSelected.goalId }))
+      : [];
+    if (!alive.current) return;
+    await checkMemoryRevision(nextEpochs, chat.messages);
+    if (!alive.current) return;
+    setPrevious(lastGoals.current);
+    lastGoals.current = nextGoals;
+    setGoals(nextGoals);
+    setTasks(nextTasks);
+    setEpochs(nextEpochs);
+    setSources(nextSources);
+    setMessages(chat.messages);
+    setNotifications(nextNotifications);
+    if (tab === 'memory' && (memoryDomain !== 'task' || memoryTask)) {
+      const rows = await value(
+        window.personalAgent.listMemory({
+          query: memoryQuery,
+          domain: memoryDomain,
+          ...(memoryDomain === 'task' ? { taskId: memoryTask } : {}),
+        }),
+      );
+      if (alive.current) setClaims(rows);
+    } else setClaims([]);
+    if (messageId && !chat.messages.some((message) => message.messageId === messageId)) {
+      setMessageId('');
+      setFactText('');
+      setQuote('');
+    }
+  }
+  async function perform(work: () => Promise<void>) {
+    if (pending.current) return;
+    pending.current = true;
+    setBusy(true);
+    setError(undefined);
+    try {
+      await work();
+    } catch (error) {
+      if (alive.current) setError(errorText(error));
+    } finally {
+      pending.current = false;
+      if (alive.current) setBusy(false);
+    }
+  }
+  async function refresh() {
+    await perform(load);
+  }
+  useEffect(() => {
+    alive.current = true;
+    if (!embedded) dialog.current?.showModal();
+    void refresh();
+    return () => {
+      alive.current = false;
+      dialog.current?.close();
+    };
+  }, [project.id]);
+  async function apply(command?: GoalCommand) {
+    await perform(async () => {
+      const target = command ?? unconfirmed.current;
+      if (!target) return;
+      unconfirmed.current = target;
+      setHasUnconfirmed(true);
+      const result = await window.personalAgent.applyGoalCommand(target);
+      if (!result.ok) {
+        unconfirmed.current = undefined;
+        if (alive.current) setHasUnconfirmed(false);
+        throw Error(result.errorCode);
+      }
+      const receipt = result.value;
+      if (!alive.current) return;
+      unconfirmed.current = undefined;
+      setHasUnconfirmed(false);
+      setSelectedId(receipt.goal.goalId);
+      setNotice(`目标${names[receipt.goal.status] ?? receipt.goal.status}。`);
+      setEditing(undefined);
+      setCreateOpen(false);
+      setPlanGoal(undefined);
+      setPlanPreview(undefined);
+      await load();
+    });
+  }
+  function createOrRevise() {
+    const parts = lines(criteria);
+    if (
+      !parts.length ||
+      parts.length > 20 ||
+      parts.some((s) => s.length > 500) ||
+      !objective.trim() ||
+      !budgetConfirmed ||
+      !Number.isSafeInteger(budget) ||
+      budget < 1 ||
+      budget > 1000000000
+    ) {
+      setError('请填写目标与逐条完成标准，并明确确认预算。');
+      return;
+    }
+    if (editing) {
+      void apply({
+        kind: 'revise',
+        commandKey: crypto.randomUUID(),
+        goalId: editing.goalId,
+        expectedVersion: editing.version,
+        objective,
+        criteria: parts,
+        budgetTokens: budget,
+      });
+      return;
+    }
+    const minute = (time: string) => {
+      const [hour, min] = time.split(':').map(Number);
+      return Number(hour) * 60 + Number(min);
+    };
+    void apply({
+      kind: 'create',
+      commandKey: crypto.randomUUID(),
+      projectId: project.id,
+      title,
+      objective,
+      criteria: parts,
+      budgetTokens: budget,
+      notificationPolicy: {
+        enabled: notify,
+        dailyLimit,
+        quietStartMinute: minute(quietStart),
+        quietEndMinute: minute(quietEnd),
+      },
+    });
+  }
+  function edit(goal: GoalView) {
+    setEditing(goal);
+    setTitle(goal.title);
+    setObjective(goal.objective);
+    setCriteria(goal.criteria.join('\n'));
+    setBudget(goal.budgetTokens ?? 20000);
+    setBudgetConfirmed(false);
+  }
+  async function inspectGoal(goal: GoalView) {
+    setSelectedId(goal.goalId);
+    await perform(async () => {
+      const rows = await value(window.personalAgent.listGoalNotifications({ goalId: goal.goalId }));
+      if (alive.current) setNotifications(rows);
+    });
+  }
+  async function searchMemory() {
+    await perform(async () => {
+      if (memoryDomain === 'task' && !memoryTask) {
+        setError('请先选择任务。');
+        return;
+      }
+      const [rows, current] = await Promise.all([
+        value(
+          window.personalAgent.listMemory({
+            query: memoryQuery,
+            domain: memoryDomain,
+            ...(memoryDomain === 'task' ? { taskId: memoryTask } : {}),
+          }),
+        ),
+        value(window.personalAgent.memoryState()),
+      ]);
+      await checkMemoryRevision(current);
+      if (alive.current) {
+        setClaims(rows);
+        setEpochs(current);
+      }
+    });
+  }
+  async function remember() {
+    await perform(async () => {
+      const revision = revisionRef.current;
+      if (revision) {
+        const [current, chat] = await Promise.all([
+          value(window.personalAgent.memoryState()),
+          value(window.personalAgent.readMainChat({ projectId: project.id })),
+        ]);
+        if (!(await checkMemoryRevision(current, chat.messages))) return;
+        const selected = chat.messages.find((message) => message.messageId === messageId),
+          command = selected ? rememberCommand(selected) : undefined;
+        if (
+          !selected ||
+          revision.sourceMessageIds.includes(selected.messageId) ||
+          command?.factKey !== revision.factKey ||
+          command.value !== factText ||
+          factText !== quote ||
+          claimTrust !== 'explicit_user'
+        )
+          throw Error('MEMORY_EXPLICIT_USER_REQUIRED');
+      }
+      if (
+        !sourceMessage ||
+        !quote.trim() ||
+        !sourceMessage.text.includes(quote) ||
+        !factText.trim()
+      )
+        throw Error('EVIDENCE_MISMATCH');
+      try {
+        const receipt = await value(
+          window.personalAgent.rememberMessage({
+            messageId: sourceMessage.messageId,
+            sensitivity,
+            factKey: revision?.factKey ?? factKey,
+            factText,
+            quote,
+            trust: revision ? 'explicit_user' : claimTrust,
+            ...(revision
+              ? { supersedesClaimId: revision.claimId, expectedVersion: revision.version }
+              : {}),
+          }),
+        );
+        if (alive.current) {
+          if (revision) clearMemoryRevision();
+          setNotice(
+            revision
+              ? `已保存记忆修订 v${receipt.version}；旧版及其来源仍可追溯。`
+              : '已保存带来源的记忆；推断与用户明确确认会分别标注。',
+          );
+          setFactText('');
+          setQuote('');
+          await load();
+        }
+      } catch (error) {
+        if (
+          revision &&
+          error instanceof Error &&
+          /CLAIM_VERSION_CONFLICT|SOURCE_CHANGED|SOURCE_REVOKED|SOURCE_UNAVAILABLE|SCOPE_MISMATCH/.test(
+            error.message,
+          )
+        )
+          clearMemoryRevision();
+        throw error;
+      }
+    });
+  }
+  async function forget() {
+    if (!epochs || !forgetConfirmed) return;
+    const ref = forgetRef;
+    await perform(async () => {
+      setForgetReceipt(undefined);
+      try {
+        const result = await value(
+          window.personalAgent.forgetMemory({
+            sourceRefs: [ref],
+            expectedPrivacyEpoch: epochs.privacyEpoch,
+          }),
+        );
+        if (alive.current) {
+          if (revisionRef.current) clearMemoryRevision();
+          setForgetReceipt(result);
+          clearDrafts();
+          setClaims([]);
+          setMemoryQuery('');
+          setFactText('');
+          setQuote('');
+          setForgetConfirmed(false);
+          setNotice('已收到遗忘收据。相关任务、来源与派生记忆可能一并撤销，请查看实际清理结果。');
+          await load();
+        }
+      } catch (error) {
+        if (alive.current) {
+          if (revisionRef.current) clearMemoryRevision();
+          setClaims([]);
+          setNotice('遗忘结果尚未核对；请刷新隐私版本和检索结果，物理清理状态仍待确认。');
+        }
+        throw error;
+      }
+    });
+  }
+  async function saveSimpleMemory() {
+    await perform(async () => {
+      if (!quickRequest.current) {
+        const revision = revisionRef.current,
+          name = quickName.trim(),
+          text = quickText.trim();
+        if (!text || text.length > 4000 || !name || /[\s:]/.test(name)) {
+          setError('请输入记忆名称和内容，名称不要包含空格或冒号。');
+          return;
+        }
+        if (memoryDomain === 'task' && !memoryTask) {
+          setError('请选择所属任务。');
+          return;
+        }
+        if (memoryDomain === 'coding' && sensitivity !== 'public') {
+          setError('编码经验需要明确选择公开。');
+          return;
+        }
+        const factKey =
+          revision?.factKey ??
+          (memoryDomain === 'task' ? 'task:' + memoryTask + ':' : memoryDomain + ':') + name;
+        const chat = await value(window.personalAgent.readMainChat({ projectId: project.id }));
+        const messageId = crypto.randomUUID();
+        quickRequest.current = {
+          source: {
+            projectId: project.id,
+            messageId,
+            text: '/remember ' + factKey + ' = ' + text,
+            focusRevision: chat.focusRevision,
+          },
+          claim: {
+            messageId,
+            factKey,
+            factText: text,
+            quote: text,
+            trust: 'explicit_user',
+            sensitivity,
+            ...(revision
+              ? { supersedesClaimId: revision.claimId, expectedVersion: revision.version }
+              : {}),
+          },
+        };
+      }
+      setQuickPending(true);
+      const request = quickRequest.current;
+      await value(window.personalAgent.submitMainChat(request.source));
+      const receipt = await value(window.personalAgent.rememberMessage(request.claim));
+      if (!alive.current) return;
+      quickRequest.current = undefined;
+      setQuickPending(false);
+      clearMemoryRevision();
+      setQuickText('');
+      setQuickName('');
+      setSimpleOpen(false);
+      setNotice('已保存你明确确认的记忆；来源可以随时查看。');
+      await load();
+      setMemoryQuery(request.claim.factKey);
+      setClaims([receipt]);
+    });
+  }
+  async function completeWithReceipts(goal: GoalView) {
+    await perform(async () => {
+      const runs = await value(window.personalAgent.listRuns({ projectId: project.id }));
+      const ids: string[] = [];
+      for (const taskId of goal.taskIds) {
+        const candidates = runs.filter((run) => run.taskId === taskId);
+        let found: string | undefined;
+        for (const run of candidates) {
+          try {
+            const verified = await value(
+              window.personalAgent.getVerification({ projectId: project.id, runId: run.runId }),
+            );
+            if (verified.receipt?.status === 'passed') {
+              found = verified.receipt.verificationId;
+              break;
+            }
+          } catch {
+            /* A read-only or unavailable Run is not trusted evidence. */
+          }
+        }
+        if (!found) throw Error('GOAL_VERIFICATION_REQUIRED');
+        ids.push(found);
+      }
+      if (!ids.length) throw Error('GOAL_VERIFICATION_REQUIRED');
+      const command: GoalCommand = {
+        kind: 'complete',
+        goalId: goal.goalId,
+        expectedVersion: goal.version,
+        commandKey: crypto.randomUUID(),
+        verificationIds: ids,
+      };
+      unconfirmed.current = command;
+      setHasUnconfirmed(true);
+      const receipt = await value(window.personalAgent.applyGoalCommand(command));
+      unconfirmed.current = undefined;
+      setHasUnconfirmed(false);
+      setSelectedId(receipt.goal.goalId);
+      setNotice('目标已通过独立验证并完成。');
+      await load();
+    });
+  }
+  const editStale =
+      editing &&
+      !goals.some((goal) => goal.goalId === editing.goalId && goal.version === editing.version),
+    planStale =
+      planGoal &&
+      !goals.some(
+        (goal) =>
+          goal.goalId === planGoal.goalId &&
+          goal.version === planGoal.version &&
+          goal.planVersion === planGoal.planVersion,
+      ),
+    planSubscriptions = planPreview?.tasks.filter((node) => node.subscription) ?? [];
+  return (
+    <Root
+      ref={embedded ? undefined : dialog}
+      className={
+        'skills-dialog autonomy-dialog' + (embedded ? ' embedded-autonomy page-content' : '')
+      }
+      aria-label="目标与记忆"
+      onCancel={(event: React.SyntheticEvent) => {
+        event.preventDefault();
+        onClose();
+      }}
+      data-autonomy-dialog
+    >
+      <div className="skills-dialog-actions">
+        <button data-action="close-autonomy" disabled={busy} onClick={onClose}>
+          返回工作区
+        </button>
+        <button
+          className="secondary"
+          disabled={busy}
+          data-action="refresh-autonomy"
+          onClick={() => void refresh()}
+        >
+          刷新实际记录
+        </button>
+      </div>
+      <h2>
+        {embedded ? (tab === 'goals' ? '让长期工作持续推进' : '让助手更了解你') : '目标与记忆'}
+      </h2>
+      <div className={embedded ? 'visually-hidden' : 'queue-actions'}>
+        <button aria-pressed={tab === 'goals'} onClick={() => setTab('goals')}>
+          目标
+        </button>
+        <button aria-pressed={tab === 'memory'} onClick={() => setTab('memory')}>
+          记忆
+        </button>
+      </div>
+      {error && (
+        <p className="notice error" role="alert" data-autonomy-error>
+          {error}
+        </p>
+      )}
+      {notice && (
+        <p className="notice" role="status">
+          {notice}
+        </p>
+      )}
+      {hasUnconfirmed && (
+        <p className="notice">
+          上次目标命令尚未核对。
+          <button disabled={busy} onClick={() => void apply()}>
+            用原操作核对结果
+          </button>
+        </p>
+      )}
+      {tab === 'goals' ? (
+        <section data-goal-manager>
+          <details
+            className="create-goal"
+            open={Boolean(editing) || createOpen}
+            onToggle={(e) => setCreateOpen(e.currentTarget.open)}
+          >
+            <summary>{editing ? '调整目标' : '＋ 新建目标'}</summary>
+            <form
+              className="queue-create"
+              onSubmit={(event) => {
+                event.preventDefault();
+                createOrRevise();
+              }}
+            >
+              <h3>{editing ? '调整目标' : '创建目标'}</h3>
+              <label>
+                标题
+                <input
+                  data-goal-title
+                  required
+                  maxLength={200}
+                  value={title}
+                  disabled={locked || Boolean(editing)}
+                  onChange={(event) => setTitle(event.target.value)}
+                />
+              </label>
+              <label>
+                目标
+                <textarea
+                  data-goal-objective
+                  required
+                  rows={3}
+                  maxLength={8192}
+                  value={objective}
+                  disabled={locked}
+                  onChange={(event) => setObjective(event.target.value)}
+                />
+              </label>
+              <label>
+                完成标准（每行一项）
+                <textarea
+                  data-goal-criteria
+                  required
+                  rows={3}
+                  maxLength={10000}
+                  value={criteria}
+                  disabled={locked}
+                  onChange={(event) => setCriteria(event.target.value)}
+                />
+              </label>
+              <label>
+                目标 Token 预算
+                <input
+                  data-goal-budget
+                  type="number"
+                  required
+                  min={1}
+                  max={1000000000}
+                  value={budget}
+                  disabled={locked}
+                  onChange={(event) => {
+                    setBudget(Number(event.target.value));
+                    setBudgetConfirmed(false);
+                  }}
+                />
+              </label>
+              <label>
+                <input
+                  data-goal-budget-confirm
+                  type="checkbox"
+                  checked={budgetConfirmed}
+                  disabled={locked}
+                  onChange={(event) => setBudgetConfirmed(event.target.checked)}
+                />
+                我确认此目标的预算上限，执行仍受共享额度和任务状态限制
+              </label>
+              {!editing && (
+                <>
+                  <label>
+                    <input
+                      data-goal-notify
+                      type="checkbox"
+                      checked={notify}
+                      disabled={locked}
+                      onChange={(event) => setNotify(event.target.checked)}
+                    />
+                    允许此目标发送结果、失败或需输入的通知
+                  </label>
+                  {notify && (
+                    <>
+                      <label>
+                        每天最多
+                        <input
+                          type="number"
+                          min={1}
+                          max={20}
+                          required
+                          value={dailyLimit}
+                          disabled={locked}
+                          onChange={(event) => setDailyLimit(Number(event.target.value))}
+                        />
+                      </label>
+                      <label>
+                        免打扰开始（UTC）
+                        <input
+                          type="time"
+                          required
+                          value={quietStart}
+                          disabled={locked}
+                          onChange={(event) => setQuietStart(event.target.value)}
+                        />
+                      </label>
+                      <label>
+                        免打扰结束（UTC）
+                        <input
+                          type="time"
+                          required
+                          value={quietEnd}
+                          disabled={locked}
+                          onChange={(event) => setQuietEnd(event.target.value)}
+                        />
+                      </label>
+                    </>
+                  )}
+                </>
+              )}
+              {editing && (
+                <p>
+                  基于目标 v{editing.version} / 计划 v{editing.planVersion}
+                  。调整将暂停原计划，需重新确认新的任务计划。
+                </p>
+              )}
+              {editStale && <p role="alert">编辑期间目标已变化，请关闭编辑并重新打开。</p>}
+              <button
+                data-action="save-goal"
+                disabled={locked || !budgetConfirmed || Boolean(editStale)}
+              >
+                {editing ? '提交目标调整' : '创建目标'}
+              </button>
+              {editing && (
+                <button type="button" disabled={busy} onClick={() => setEditing(undefined)}>
+                  关闭调整
+                </button>
+              )}
+            </form>
+          </details>
+          <h3>已保存目标</h3>
+          {!goals.length && <p>尚无目标。</p>}
+          {goals.map((goal) => (
+            <article
+              className="queue-task"
+              key={goal.goalId}
+              data-goal-id={goal.goalId}
+              data-goal-status={goal.status}
+            >
+              <h4>{goal.title}</h4>
+              <p>{goal.objective}</p>
+              <p>
+                {names[goal.status]} · 预算 {goal.budgetTokens ?? '未设置'} · 通知
+                {goal.notificationPolicy.enabled ? '已允许' : '未允许'}
+              </p>
+              <ol>
+                {goal.criteria.map((criterion, index) => (
+                  <li key={index}>{criterion}</li>
+                ))}
+              </ol>
+              <p>{goal.requiresPlan ? '需要确认任务计划' : '当前计划已保存'}</p>
+              <div className="queue-actions">
+                <button disabled={busy} onClick={() => void inspectGoal(goal)}>
+                  查看任务与通知
+                </button>
+                {['active', 'paused'].includes(goal.status) && (
+                  <>
+                    <button disabled={locked} onClick={() => edit(goal)}>
+                      调整目标
+                    </button>
+                    <button
+                      disabled={locked}
+                      onClick={() => {
+                        setPlanGoal(goal);
+                        setPlanDraft(
+                          JSON.stringify(
+                            [{ key: 'task_1', text: '', dependsOn: [], dispatch: 'queue_only' }],
+                            null,
+                            2,
+                          ),
+                        );
+                        setPlanPreview(undefined);
+                        setSubscriptionsConfirmed(false);
+                      }}
+                    >
+                      编辑任务计划
+                    </button>
+                    <button
+                      disabled={locked}
+                      onClick={() =>
+                        void apply({
+                          kind: goal.status === 'active' ? 'pause' : 'resume',
+                          goalId: goal.goalId,
+                          expectedVersion: goal.version,
+                          commandKey: crypto.randomUUID(),
+                        })
+                      }
+                    >
+                      {goal.status === 'active' ? '暂停目标' : '恢复目标'}
+                    </button>
+                    <button
+                      disabled={locked}
+                      onClick={() =>
+                        void apply({
+                          kind: 'cancel',
+                          goalId: goal.goalId,
+                          expectedVersion: goal.version,
+                          commandKey: crypto.randomUUID(),
+                        })
+                      }
+                    >
+                      取消目标
+                    </button>
+                  </>
+                )}
+              </div>
+            </article>
+          ))}
+          {selected && (
+            <section data-goal-chain>
+              <h3>{selected.title} · 实际任务链</h3>
+              <details className="technical">
+                <summary>计划记录</summary>
+                <p>
+                  目标 v{selected.version} / 计划 v{selected.planVersion}
+                  {old &&
+                  (old.version !== selected.version || old.planVersion !== selected.planVersion)
+                    ? `；上次刷新为目标 v${old.version} / 计划 v${old.planVersion}`
+                    : ''}
+                </p>
+              </details>
+              {old && old.planVersion !== selected.planVersion && (
+                <div data-goal-plan-diff>
+                  <p>
+                    新增任务：
+                    {selected.taskIds
+                      .filter((id) => !old.taskIds.includes(id))
+                      .map((id) => tasks.find((task) => task.taskId === id)?.title ?? '新任务')
+                      .join('、') || '无'}
+                  </p>
+                  <p>
+                    移出当前计划：
+                    {old.taskIds
+                      .filter((id) => !selected.taskIds.includes(id))
+                      .map((id) => tasks.find((task) => task.taskId === id)?.title ?? '原任务')
+                      .join('、') || '无'}
+                  </p>
+                </div>
+              )}
+              <ol>
+                {selected.taskIds.map((id) => {
+                  const task = tasks.find((row) => row.taskId === id);
+                  return (
+                    <li key={id} data-goal-task={id}>
+                      {task
+                        ? `${task.title} · ${names[task.status] ?? task.status}${task.blocked ? ' · 已阻止新执行' : ''}`
+                        : '此任务当前不可见'}
+                      <details className="technical">
+                        <summary>任务记录</summary>
+                        <small>{id}</small>
+                      </details>
+                    </li>
+                  );
+                })}
+              </ol>
+              {!selected.taskIds.length && <p>还没有已创建的计划任务。</p>}
+              <h4>通知记录</h4>
+              {notifications
+                .filter((row) => row.goalId === selected.goalId)
+                .map((row) => (
+                  <article key={row.operationId} data-goal-notification={row.operationId}>
+                    <p>{row.summary}</p>
+                    <p>
+                      {names[row.state] ?? row.state} · {new Date(row.createdAt).toLocaleString()}
+                      {row.redacted ? ' · 内容已脱敏' : ''}
+                    </p>
+                  </article>
+                ))}
+              {selected.status === 'active' && (
+                <div className="goal-complete">
+                  <button
+                    data-action="complete-goal-from-receipts"
+                    disabled={locked || !selected.taskIds.length}
+                    onClick={() => void completeWithReceipts(selected)}
+                  >
+                    核验并完成目标
+                  </button>
+                  <p className="muted">
+                    自动查找这个目标的真实验证记录，只有全部任务通过才会完成。
+                  </p>
+                  <details className="technical">
+                    <summary>指定核验记录</summary>
+                    <form
+                      onSubmit={(event) => {
+                        event.preventDefault();
+                        void apply({
+                          kind: 'complete',
+                          goalId: selected.goalId,
+                          expectedVersion: selected.version,
+                          commandKey: crypto.randomUUID(),
+                          verificationIds: lines(verificationIds),
+                        });
+                      }}
+                    >
+                      <label>
+                        完成核验记录（每行一个实际 verificationId）
+                        <textarea
+                          value={verificationIds}
+                          disabled={locked}
+                          onChange={(event) => setVerificationIds(event.target.value)}
+                        />
+                      </label>
+                      <button disabled={locked || !lines(verificationIds).length}>
+                        提交完成核验
+                      </button>
+                    </form>
+                  </details>
+                </div>
+              )}
+            </section>
+          )}
+          {planGoal && (
+            <section data-goal-plan-editor>
+              <h3>计划提案 · {planGoal.title}</h3>
+              <p>
+                确认后将替换当前任务计划。每项工作会按你选择的方式开始；修改代码时需要指定允许文件与验证测试。
+              </p>
+              <GoalPlanEditor
+                value={planDraft}
+                disabled={locked}
+                onChange={(text) => {
+                  setPlanDraft(text);
+                  setPlanPreview(undefined);
+                  setSubscriptionsConfirmed(false);
+                }}
+              />
+              <button
+                disabled={locked}
+                onClick={() => {
+                  try {
+                    setPlanPreview({ text: planDraft, tasks: parsePlan(planDraft, sources) });
+                    setError(undefined);
+                  } catch (error) {
+                    setError(errorText(error));
+                  }
+                }}
+              >
+                预览提案
+              </button>
+              {planPreview && (
+                <>
+                  <p data-goal-plan-replacement>
+                    将原计划的 {planGoal.taskIds.length} 个任务替换为提案中的{' '}
+                    {planPreview.tasks.length} 个新任务。
+                  </p>
+                  <ol>
+                    {planPreview.tasks.map((node, index) => (
+                      <li key={node.key}>
+                        任务 {index + 1}：{node.text}
+                        <p>
+                          依赖：
+                          {node.dependsOn
+                            .map(
+                              (key) =>
+                                '任务 ' + (planPreview.tasks.findIndex((n) => n.key === key) + 1),
+                            )
+                            .join('、') || '无'}
+                        </p>
+                        {node.subscription && (
+                          <p>
+                            来源 {node.subscription.sourceId} / 线程 {node.subscription.threadRef} ·{' '}
+                            {node.subscription.purpose} · 到期{' '}
+                            {new Date(node.subscription.expiresAtMs).toLocaleString()}
+                          </p>
+                        )}
+                      </li>
+                    ))}
+                  </ol>
+                  {planSubscriptions.length > 0 && (
+                    <label>
+                      <input
+                        data-goal-subscription-confirm
+                        type="checkbox"
+                        disabled={locked}
+                        checked={subscriptionsConfirmed}
+                        onChange={(event) => setSubscriptionsConfirmed(event.target.checked)}
+                      />
+                      我明确允许以上来源、线程、用途和到期范围；wake/actionable 可在规则内恢复任务
+                    </label>
+                  )}
+                  <button
+                    data-action="apply-goal-plan"
+                    disabled={
+                      locked ||
+                      Boolean(planStale) ||
+                      planPreview.text !== planDraft ||
+                      (planSubscriptions.length > 0 && !subscriptionsConfirmed)
+                    }
+                    onClick={() =>
+                      void apply({
+                        kind: 'plan',
+                        commandKey: crypto.randomUUID(),
+                        goalId: planGoal.goalId,
+                        expectedVersion: planGoal.version,
+                        expectedPlanVersion: planGoal.planVersion,
+                        tasks: planPreview.tasks,
+                      })
+                    }
+                  >
+                    提交已预览计划
+                  </button>
+                </>
+              )}
+              {planStale && <p role="alert">原目标或计划版本已变化，请重新打开计划编辑。</p>}
+              <button disabled={busy} onClick={() => setPlanGoal(undefined)}>
+                关闭提案
+              </button>
+            </section>
+          )}
+          <details data-goal-sources>
+            <summary>可订阅的来源</summary>
+            <p>订阅只使用已登记的来源 ID、线程引用、事件类型和用途。</p>
+            {sources.length ? (
+              sources.map((source) => (
+                <article key={source.sourceId}>
+                  <p>
+                    {source.sourceId} · {source.enabled ? '已启用' : '已停用'} ·{' '}
+                    {source.eventTypes.join('、')}
+                  </p>
+                  <button
+                    disabled={busy}
+                    onClick={() =>
+                      void perform(async () => {
+                        const events = await value(
+                          window.personalAgent.listGoalSourceEvents({ sourceId: source.sourceId }),
+                        );
+                        if (alive.current) setSourceEvents(events);
+                      })
+                    }
+                  >
+                    查看接收记录
+                  </button>
+                </article>
+              ))
+            ) : (
+              <p>尚未登记来源。</p>
+            )}
+            <ol>
+              {sourceEvents.map((event) => (
+                <li key={event.triggerId}>
+                  {event.sourceId} · {event.eventType} · {event.threadRef} ·{' '}
+                  {new Date(event.receivedAtMs).toLocaleString()}
+                </li>
+              ))}
+            </ol>
+          </details>
+        </section>
+      ) : (
+        <section data-memory-manager>
+          {epochs?.pendingCleanupIds?.map((cleanupId) => (
+            <p className="notice" key={cleanupId}>
+              仍有本地清理待核对。
+              <button
+                disabled={busy}
+                data-action="retry-memory-cleanup"
+                onClick={() =>
+                  void perform(async () => {
+                    const receipt = await value(
+                      window.personalAgent.retryMemoryCleanup({ cleanupId }),
+                    );
+                    if (alive.current) {
+                      setForgetReceipt(receipt);
+                      await load();
+                    }
+                  })
+                }
+              >
+                继续核对清理
+              </button>
+            </p>
+          ))}
+          <h3>检索记忆</h3>
+          <p>个人记忆、任务记忆与公开编码经验分别检索。推断不等于用户确认。</p>
+          <details className="technical">
+            <summary>隐私状态</summary>
+            <p data-memory-epochs>
+              隐私版本 {epochs?.privacyEpoch ?? '待读取'} · 策略版本{' '}
+              {epochs?.policyEpoch ?? '待读取'}
+            </p>
+          </details>
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              void searchMemory();
+            }}
+          >
+            <label>
+              范围
+              <select
+                data-memory-domain
+                value={memoryDomain}
+                disabled={busy}
+                onChange={(event) => {
+                  setMemoryDomain(event.target.value as MemoryDomain);
+                  setClaims([]);
+                }}
+              >
+                <option value="personal">个人记忆</option>
+                <option value="task">任务记忆</option>
+                <option value="coding">公开编码经验</option>
+              </select>
+            </label>
+            {memoryDomain === 'task' && (
+              <label>
+                任务
+                <select
+                  value={memoryTask}
+                  disabled={busy}
+                  onChange={(event) => {
+                    setMemoryTask(event.target.value);
+                    setClaims([]);
+                  }}
+                >
+                  <option value="">选择任务</option>
+                  {tasks.map((task) => (
+                    <option value={task.taskId} key={task.taskId}>
+                      {task.title} · {task.taskId.slice(-6)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+            <label>
+              关键词
+              <input
+                data-memory-query
+                value={memoryQuery}
+                maxLength={1000}
+                disabled={busy}
+                onChange={(event) => setMemoryQuery(event.target.value)}
+              />
+            </label>
+            <button data-action="search-memory" disabled={busy}>
+              检索
+            </button>
+          </form>
+          <details
+            className="simple-memory"
+            open={simpleOpen || Boolean(memoryRevision)}
+            onToggle={(e) => setSimpleOpen(e.currentTarget.open)}
+          >
+            <summary>{memoryRevision ? '修改这条记忆' : '＋ 添加记忆'}</summary>
+            <form
+              className="queue-create"
+              onSubmit={(e) => {
+                e.preventDefault();
+                void saveSimpleMemory();
+              }}
+            >
+              <label>
+                记忆名称
+                <input
+                  aria-label="记忆名称"
+                  maxLength={100}
+                  value={quickName}
+                  disabled={busy || quickPending || Boolean(memoryRevision)}
+                  onChange={(e) => setQuickName(e.target.value)}
+                  placeholder="例如：称呼、回复语言"
+                />
+              </label>
+              <label>
+                记忆内容
+                <textarea
+                  aria-label="记忆内容"
+                  maxLength={4000}
+                  rows={3}
+                  value={quickText}
+                  disabled={busy || quickPending}
+                  onChange={(e) => setQuickText(e.target.value)}
+                  placeholder="希望助手记住什么？"
+                />
+              </label>
+              <label>
+                隐私级别
+                <select
+                  aria-label="记忆隐私级别"
+                  value={sensitivity}
+                  disabled={busy || quickPending}
+                  onChange={(e) =>
+                    setSensitivity(e.target.value as 'public' | 'private' | 'sensitive')
+                  }
+                >
+                  <option value="private">私人</option>
+                  <option value="sensitive">敏感，不自动使用</option>
+                  <option value="public">明确公开</option>
+                </select>
+              </label>
+              <p className="muted">
+                范围使用上方的选择。保存即确认这些内容，系统会保留可查看的原消息来源。
+              </p>
+              <button
+                disabled={busy || (!quickPending && (!quickName.trim() || !quickText.trim()))}
+              >
+                {quickPending ? '核对本次记忆' : memoryRevision ? '保存记忆修改' : '保存记忆'}
+              </button>
+              {memoryRevision && (
+                <button
+                  type="button"
+                  disabled={busy || quickPending}
+                  onClick={() => {
+                    clearMemoryRevision();
+                    setSimpleOpen(false);
+                  }}
+                >
+                  取消修改
+                </button>
+              )}
+            </form>
+          </details>
+          {claims.map((claim) => (
+            <article className="skill-card" key={claim.claimId} data-memory-claim={claim.claimId}>
+              <h4>{claim.factKey.split(':').at(-1)}</h4>
+              <p>{claim.factText}</p>
+              <p>
+                {trustNames[claim.trust] ?? claim.trust} ·{' '}
+                {claim.status === 'active'
+                  ? '使用中'
+                  : claim.status === 'disputed'
+                    ? '有待确认'
+                    : '历史记录'}
+              </p>
+              <details>
+                <summary>查看来源证据</summary>
+                {claim.evidence.map((evidence) => (
+                  <div key={evidence.entryId}>
+                    <p>{evidence.sourceRef}</p>
+                    <pre>{evidence.sourceRevision}</pre>
+                    <p>引用哈希：{evidence.quoteHash}</p>
+                    <button
+                      disabled={busy}
+                      onClick={() => {
+                        setForgetRef(evidence.sourceRef);
+                        setForgetConfirmed(false);
+                        setForgetReceipt(undefined);
+                      }}
+                    >
+                      遗忘此来源
+                    </button>
+                  </div>
+                ))}
+              </details>
+              {!claim.factKey.startsWith('coding:') && (
+                <button
+                  data-action="revise-memory"
+                  disabled={busy || !epochs}
+                  onClick={() => reviseMemory(claim)}
+                >
+                  修改记忆
+                </button>
+              )}
+              <button
+                disabled={busy}
+                onClick={() => {
+                  setForgetRef('claim:' + claim.claimId);
+                  setForgetConfirmed(false);
+                  setForgetReceipt(undefined);
+                }}
+              >
+                遗忘这条记忆及相关来源
+              </button>
+            </article>
+          ))}
+          <details ref={memoryForm} data-memory-editor>
+            <summary>高级：使用已有消息与来源</summary>
+            {memoryRevision && (
+              <div data-memory-revision>
+                <p>
+                  正在修订 {memoryRevision.factKey} · v{memoryRevision.version}
+                  。请先在主聊天记录新的 /remember {memoryRevision.factKey} =
+                  新值，再刷新并选择该消息。
+                </p>
+                <p>新值需要用户明确确认；旧版及其来源会保留。</p>
+                <button
+                  type="button"
+                  className="secondary"
+                  data-action="cancel-memory-revision"
+                  disabled={busy}
+                  onClick={() => {
+                    clearMemoryRevision();
+                    setNotice('已取消修订，原记忆保持原状。');
+                  }}
+                >
+                  取消修订
+                </button>
+              </div>
+            )}
+            <form
+              onSubmit={(event) => {
+                event.preventDefault();
+                void remember();
+              }}
+            >
+              <label>
+                原消息
+                <select
+                  data-memory-message
+                  value={messageId}
+                  disabled={busy}
+                  onChange={(event) => {
+                    const selected = messages.find(
+                        (message) => message.messageId === event.target.value,
+                      ),
+                      command = selected ? rememberCommand(selected) : undefined;
+                    setMessageId(event.target.value);
+                    setQuote(
+                      memoryRevision && command?.factKey === memoryRevision.factKey
+                        ? command.value
+                        : '',
+                    );
+                    setFactText(
+                      memoryRevision && command?.factKey === memoryRevision.factKey
+                        ? command.value
+                        : '',
+                    );
+                    setClaimTrust(memoryRevision ? 'explicit_user' : 'agent_inference');
+                  }}
+                >
+                  <option value="">
+                    {memoryRevision ? '选择新的同键 /remember 消息' : '选择真实聊天消息'}
+                  </option>
+                  {memoryMessages.map((message) => (
+                    <option value={message.messageId} key={message.messageId}>
+                      {message.text.slice(0, 80)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {memoryRevision && !memoryMessages.length && (
+                <p>当前尚无新的同键确认消息；本次不会从旧来源猜测修订值。</p>
+              )}
+              {sourceMessage && <p className="chat-user-text">{sourceMessage.text}</p>}
+              <label>
+                记忆键
+                <input
+                  data-memory-fact-key
+                  value={factKey}
+                  maxLength={200}
+                  required
+                  readOnly={Boolean(memoryRevision)}
+                  disabled={busy}
+                  onChange={(event) => setFactKey(event.target.value)}
+                />
+              </label>
+              <p>
+                个人键为 personal:名称；任务键为 task:任务ID:名称。私人消息不会加入公开编码经验。
+              </p>
+              <label>
+                事实或推断
+                <textarea
+                  data-memory-value
+                  value={factText}
+                  maxLength={4000}
+                  required
+                  disabled={busy}
+                  onChange={(event) => setFactText(event.target.value)}
+                />
+              </label>
+              <label>
+                逐字引用
+                <textarea
+                  data-memory-quote
+                  value={quote}
+                  maxLength={4000}
+                  required
+                  disabled={busy}
+                  onChange={(event) => setQuote(event.target.value)}
+                />
+              </label>
+              <label>
+                依据
+                <select
+                  data-memory-trust
+                  value={claimTrust}
+                  disabled={busy || Boolean(memoryRevision)}
+                  onChange={(event) =>
+                    setClaimTrust(event.target.value as 'explicit_user' | 'agent_inference')
+                  }
+                >
+                  <option value="agent_inference">从原文推断，未确认</option>
+                  <option value="explicit_user">原消息明确 /remember 确认</option>
+                </select>
+              </label>
+              <label>
+                敏感级别
+                <select
+                  value={sensitivity}
+                  disabled={busy}
+                  onChange={(event) =>
+                    setSensitivity(event.target.value as 'public' | 'private' | 'sensitive')
+                  }
+                >
+                  <option value="private">私人</option>
+                  <option value="sensitive">敏感</option>
+                  <option value="public">公开</option>
+                </select>
+              </label>
+              <button
+                data-action="remember-message"
+                disabled={
+                  busy ||
+                  !sourceMessage ||
+                  Boolean(
+                    memoryRevision &&
+                    !memoryMessages.some((message) => message.messageId === messageId),
+                  )
+                }
+              >
+                {memoryRevision ? '保存明确修订' : '保存来源与记忆'}
+              </button>
+            </form>
+          </details>
+          <details data-memory-forget open={Boolean(forgetRef) || undefined}>
+            <summary>高级：按来源遗忘</summary>
+            <label>
+              来源引用
+              <input
+                data-memory-forget-ref
+                value={forgetRef}
+                maxLength={200}
+                disabled={busy}
+                onChange={(event) => {
+                  setForgetRef(event.target.value);
+                  setForgetConfirmed(false);
+                  setForgetReceipt(undefined);
+                }}
+                placeholder="message:消息ID 或 claim:记忆ID"
+              />
+            </label>
+            <p>
+              将撤销此来源及相关派生记忆，相关目标和任务也可能暂停。同时移除本应用的本地备份、演练和旧运行代副本，再清理本地缓存与数据库。用户源码和认证不会删除；外部服务、外置备份及系统快照不在控制范围内。
+            </p>
+            <label>
+              <input
+                data-memory-forget-confirm
+                type="checkbox"
+                checked={forgetConfirmed}
+                disabled={busy}
+                onChange={(event) => setForgetConfirmed(event.target.checked)}
+              />
+              确认遗忘此来源及其派生内容
+            </label>
+            <button
+              data-action="forget-memory"
+              disabled={
+                busy ||
+                !epochs ||
+                !identifier(forgetRef) ||
+                !forgetRef.includes(':') ||
+                !forgetConfirmed
+              }
+              onClick={() => void forget()}
+            >
+              执行遗忘
+            </button>
+            {forgetReceipt && (
+              <div role="status" data-memory-forget-receipt>
+                <p>逻辑撤销已完成 · 隐私版本 {forgetReceipt.logical.privacyEpoch}</p>
+                <p>
+                  执行停止：{forgetReceipt.cleanup.executionStopped ? '已确认' : '待确认'}
+                  ；文件清理：{forgetReceipt.cleanup.artifactsPurged ? '完成' : '待确认'}
+                  ；来源缓存：{forgetReceipt.cleanup.sourcePayloadsPurged ? '完成' : '待确认'}
+                  ；数据库清理：{forgetReceipt.cleanup.databaseCompacted ? '完成' : '待确认'}
+                </p>
+                <p>
+                  本地物理清理：
+                  {forgetReceipt.cleanup.localPhysicalCleanupComplete ? '已完成' : '尚未完成'} ·
+                  外部服务、外置备份与系统快照：未控制
+                </p>
+              </div>
+            )}
+          </details>
+        </section>
+      )}
+    </Root>
+  );
 }

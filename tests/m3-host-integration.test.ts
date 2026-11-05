@@ -1,35 +1,241 @@
-import {test} from 'node:test';
+import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtempSync,mkdirSync,readFileSync,realpathSync,rmSync} from 'node:fs';
-import {join,resolve} from 'node:path';
-import {tmpdir} from 'node:os';
-import {DatabaseSync} from 'node:sqlite';
-import {ExecutionLedger} from '../packages/store/src/ledger.ts';
-import {ForegroundExecution} from '../packages/runtime/src/execution.ts';
-import {StdioRpcClient} from '../packages/codex-adapter/src/rpc.ts';
-import {MemoryService} from '../packages/runtime/src/memory-service.ts';
-const schema=readFileSync('docs/design/contracts/schema.sql','utf8');
-function fixture(t:{after(fn:()=>void|Promise<void>):void}){
- const root=realpathSync(mkdtempSync(join(tmpdir(),'personal-agent-m3-host-'))),cwd=join(root,'workspace'),file=join(root,'ledger.db');mkdirSync(cwd);let store:ExecutionLedger,runtime:ForegroundExecution,db:DatabaseSync,sequence=0;
- const open=()=>{store=new ExecutionLedger(file,schema,{budgetPolicy:{dailyTokens:10000,reservationTokens:100}});store.startOwner('public-host-owner-'+(++sequence),true);db=new DatabaseSync(file);runtime=new ForegroundExecution(store,{executable:process.execPath,stateDirectory:root,timeoutMs:2500,connect:callbacks=>new StdioRpcClient({executable:process.execPath,args:['--disable-warning=ExperimentalWarning',resolve('tests/fixtures/execution-server.ts'),'usage',file,join(root,'receipts.txt')],requestTimeoutMs:1500,...callbacks})});};open();const project=store!.registerWorkspace(cwd);
- t.after(async()=>{await runtime.close();db.close();store.close();rmSync(root,{recursive:true,force:true});});
- const capture=()=>{const messageId='public-memory-message',factKey='personal:publicHostPreference',marker='PUBLIC_HOST_ATOMIC_FORGET_MARKER';store.submitMainChat({projectId:project.id,messageId,text:'/remember '+factKey+' = '+marker,focusRevision:0});const entry=store.captureMemoryMessage(messageId),claim=store.commitMemory({entryId:entry.entryId,expectedPrivacyEpoch:entry.privacyEpoch,expectedPolicyEpoch:entry.policyEpoch,factKey,factText:marker,quote:marker,trust:'explicit_user'});return{messageId,marker,entry,claim};};
- return{root,file,project,capture,get store(){return store!;},get db(){return db!;},get runtime(){return runtime!;},async reopen(){await runtime.close();db.close();store.close();open();}};
+import { mkdtempSync, mkdirSync, readFileSync, realpathSync, rmSync } from 'node:fs';
+import { join, resolve } from 'node:path';
+import { tmpdir } from 'node:os';
+import { DatabaseSync } from 'node:sqlite';
+import { ExecutionLedger } from '../packages/store/src/ledger.ts';
+import { ForegroundExecution } from '../packages/runtime/src/execution.ts';
+import { StdioRpcClient } from '../packages/codex-adapter/src/rpc.ts';
+import { MemoryService } from '../packages/runtime/src/memory-service.ts';
+const schema = readFileSync('docs/design/contracts/schema.sql', 'utf8');
+function fixture(t: { after(fn: () => void | Promise<void>): void }) {
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'personal-agent-m3-host-'))),
+    cwd = join(root, 'workspace'),
+    file = join(root, 'ledger.db');
+  mkdirSync(cwd);
+  let store: ExecutionLedger,
+    runtime: ForegroundExecution,
+    db: DatabaseSync,
+    sequence = 0;
+  const open = () => {
+    store = new ExecutionLedger(file, schema, {
+      budgetPolicy: { dailyTokens: 10000, reservationTokens: 100 },
+    });
+    store.startOwner('public-host-owner-' + ++sequence, true);
+    db = new DatabaseSync(file);
+    runtime = new ForegroundExecution(store, {
+      executable: process.execPath,
+      stateDirectory: root,
+      timeoutMs: 2500,
+      connect: (callbacks) =>
+        new StdioRpcClient({
+          executable: process.execPath,
+          args: [
+            '--disable-warning=ExperimentalWarning',
+            resolve('tests/fixtures/execution-server.ts'),
+            'usage',
+            file,
+            join(root, 'receipts.txt'),
+          ],
+          requestTimeoutMs: 1500,
+          ...callbacks,
+        }),
+    });
+  };
+  open();
+  const project = store!.registerWorkspace(cwd);
+  t.after(async () => {
+    await runtime.close();
+    db.close();
+    store.close();
+    rmSync(root, { recursive: true, force: true });
+  });
+  const capture = () => {
+    const messageId = 'public-memory-message',
+      factKey = 'personal:publicHostPreference',
+      marker = 'PUBLIC_HOST_ATOMIC_FORGET_MARKER';
+    store.submitMainChat({
+      projectId: project.id,
+      messageId,
+      text: '/remember ' + factKey + ' = ' + marker,
+      focusRevision: 0,
+    });
+    const entry = store.captureMemoryMessage(messageId),
+      claim = store.commitMemory({
+        entryId: entry.entryId,
+        expectedPrivacyEpoch: entry.privacyEpoch,
+        expectedPolicyEpoch: entry.policyEpoch,
+        factKey,
+        factText: marker,
+        quote: marker,
+        trust: 'explicit_user',
+      });
+    return { messageId, marker, entry, claim };
+  };
+  return {
+    root,
+    file,
+    project,
+    capture,
+    get store() {
+      return store!;
+    },
+    get db() {
+      return db!;
+    },
+    get runtime() {
+      return runtime!;
+    },
+    async reopen() {
+      await runtime.close();
+      db.close();
+      store.close();
+      open();
+    },
+  };
 }
-test('currentRunCheckpoint builds a non-completion readOnly checkpoint after real stdio execution and rejects foreign application references',async t=>{
- const f=fixture(t),first=f.runtime.submit({projectId:f.project.id,text:'PUBLIC_FIRST_REQUEST',submissionKey:'first'});await f.runtime.wait();assert.equal(f.store.runForHost(first.runId).status,'completed');assert.equal(f.store.verificationPlan(first.runId),null);
- const current=f.store.currentRunCheckpoint(f.project.id,first.runId);assert.ok(current.checkpointId);const checkpoint=f.store.loadCheckpoint(first.taskId,current.checkpointId);assert.ok(checkpoint.completionCriteria.length);assert.equal(checkpoint.businessCompletionClaimed,false);assert.deepEqual(checkpoint.confirmedReceipts,[]);assert.ok(checkpoint.pendingSteps.length);assert.equal(f.store.currentRunCheckpoint(f.project.id,first.runId).checkpointId,current.checkpointId);
- const next=f.runtime.submit({projectId:f.project.id,text:'PUBLIC_SECOND_REQUEST',submissionKey:'second'});await f.runtime.wait();const other=f.store.currentRunCheckpoint(f.project.id,next.runId);assert.ok(other.checkpointId);const before=f.db.prepare('SELECT count(*) AS n FROM task_runs').get()!.n;
- assert.throws(()=>f.store.beginRollover({projectId:f.project.id,runId:first.runId,checkpointId:other.checkpointId!,submissionKey:'wrong-parent'}),/CHECKPOINT_NOT_FOUND/);assert.throws(()=>f.store.loadCheckpoint(next.taskId,current.checkpointId!),/CHECKPOINT_NOT_FOUND/);assert.throws(()=>f.store.currentRunCheckpoint(f.project.id,'missing-run'),/RUN_NOT_IN_PROJECT/);const otherPath=join(f.root,'other-workspace');mkdirSync(otherPath);const otherProject=f.store.registerWorkspace(otherPath);assert.throws(()=>f.store.currentRunCheckpoint(otherProject.id,first.runId),/RUN_NOT_IN_PROJECT/);assert.equal(f.db.prepare('SELECT count(*) AS n FROM task_runs').get()!.n,before);
+test('currentRunCheckpoint builds a non-completion readOnly checkpoint after real stdio execution and rejects foreign application references', async (t) => {
+  const f = fixture(t),
+    first = f.runtime.submit({
+      projectId: f.project.id,
+      text: 'PUBLIC_FIRST_REQUEST',
+      submissionKey: 'first',
+    });
+  await f.runtime.wait();
+  assert.equal(f.store.runForHost(first.runId).status, 'completed');
+  assert.equal(f.store.verificationPlan(first.runId), null);
+  const current = f.store.currentRunCheckpoint(f.project.id, first.runId);
+  assert.ok(current.checkpointId);
+  const checkpoint = f.store.loadCheckpoint(first.taskId, current.checkpointId);
+  assert.ok(checkpoint.completionCriteria.length);
+  assert.equal(checkpoint.businessCompletionClaimed, false);
+  assert.deepEqual(checkpoint.confirmedReceipts, []);
+  assert.ok(checkpoint.pendingSteps.length);
+  assert.equal(
+    f.store.currentRunCheckpoint(f.project.id, first.runId).checkpointId,
+    current.checkpointId,
+  );
+  const next = f.runtime.submit({
+    projectId: f.project.id,
+    text: 'PUBLIC_SECOND_REQUEST',
+    submissionKey: 'second',
+  });
+  await f.runtime.wait();
+  const other = f.store.currentRunCheckpoint(f.project.id, next.runId);
+  assert.ok(other.checkpointId);
+  const before = f.db.prepare('SELECT count(*) AS n FROM task_runs').get()!.n;
+  assert.throws(
+    () =>
+      f.store.beginRollover({
+        projectId: f.project.id,
+        runId: first.runId,
+        checkpointId: other.checkpointId!,
+        submissionKey: 'wrong-parent',
+      }),
+    /CHECKPOINT_NOT_FOUND/,
+  );
+  assert.throws(
+    () => f.store.loadCheckpoint(next.taskId, current.checkpointId!),
+    /CHECKPOINT_NOT_FOUND/,
+  );
+  assert.throws(
+    () => f.store.currentRunCheckpoint(f.project.id, 'missing-run'),
+    /RUN_NOT_IN_PROJECT/,
+  );
+  const otherPath = join(f.root, 'other-workspace');
+  mkdirSync(otherPath);
+  const otherProject = f.store.registerWorkspace(otherPath);
+  assert.throws(
+    () => f.store.currentRunCheckpoint(otherProject.id, first.runId),
+    /RUN_NOT_IN_PROJECT/,
+  );
+  assert.equal(f.db.prepare('SELECT count(*) AS n FROM task_runs').get()!.n, before);
 });
-test('fault injected while persisting complete cleanup payload rolls back source, Claim, epochs and tombstones in the same real Store transaction',t=>{
- const f=fixture(t),source=f.capture(),tables=['dots','messages','router_decisions','memory_entries','memory_claims','claim_evidence','derivation_edges','privacy_tombstones','outbox_events'],before=tables.map(table=>({table,rows:f.db.prepare('SELECT * FROM '+table).all()}));
- f.db.exec("CREATE TRIGGER public_fail_cleanup_payload BEFORE UPDATE ON outbox_events WHEN NEW.event_type='privacy_forgotten' AND json_extract(NEW.payload_json,'$.format')='memory-cleanup-v1' BEGIN SELECT RAISE(ABORT,'PUBLIC_ATOMIC_CLEANUP_FAILURE'); END");assert.throws(()=>f.store.forgetMemory({sourceRefs:[source.entry.sourceRef],expectedPrivacyEpoch:1}),/PUBLIC_ATOMIC_CLEANUP_FAILURE/);
- for(const snapshot of before)assert.deepEqual(f.db.prepare('SELECT * FROM '+snapshot.table).all(),snapshot.rows,snapshot.table);assert.equal(f.store.memoryState().privacyEpoch,1);assert.equal(f.store.memoryState().policyEpoch,1);assert.deepEqual(f.store.memoryState().pendingCleanupIds,[]);assert.equal(f.store.searchMemory({query:source.marker})[0]!.claimId,source.claim.claimId);assert.equal(f.db.prepare('SELECT deleted_at_ms FROM messages WHERE message_id=?').get(source.messageId)!.deleted_at_ms,null);assert.equal(f.db.prepare('PRAGMA foreign_key_check').all().length,0);
+test('fault injected while persisting complete cleanup payload rolls back source, Claim, epochs and tombstones in the same real Store transaction', (t) => {
+  const f = fixture(t),
+    source = f.capture(),
+    tables = [
+      'dots',
+      'messages',
+      'router_decisions',
+      'memory_entries',
+      'memory_claims',
+      'claim_evidence',
+      'derivation_edges',
+      'privacy_tombstones',
+      'outbox_events',
+    ],
+    before = tables.map((table) => ({ table, rows: f.db.prepare('SELECT * FROM ' + table).all() }));
+  f.db.exec(
+    "CREATE TRIGGER public_fail_cleanup_payload BEFORE UPDATE ON outbox_events WHEN NEW.event_type='privacy_forgotten' AND json_extract(NEW.payload_json,'$.format')='memory-cleanup-v1' BEGIN SELECT RAISE(ABORT,'PUBLIC_ATOMIC_CLEANUP_FAILURE'); END",
+  );
+  assert.throws(
+    () => f.store.forgetMemory({ sourceRefs: [source.entry.sourceRef], expectedPrivacyEpoch: 1 }),
+    /PUBLIC_ATOMIC_CLEANUP_FAILURE/,
+  );
+  for (const snapshot of before)
+    assert.deepEqual(
+      f.db.prepare('SELECT * FROM ' + snapshot.table).all(),
+      snapshot.rows,
+      snapshot.table,
+    );
+  assert.equal(f.store.memoryState().privacyEpoch, 1);
+  assert.equal(f.store.memoryState().policyEpoch, 1);
+  assert.deepEqual(f.store.memoryState().pendingCleanupIds, []);
+  assert.equal(f.store.searchMemory({ query: source.marker })[0]!.claimId, source.claim.claimId);
+  assert.equal(
+    f.db.prepare('SELECT deleted_at_ms FROM messages WHERE message_id=?').get(source.messageId)!
+      .deleted_at_ms,
+    null,
+  );
+  assert.equal(f.db.prepare('PRAGMA foreign_key_check').all().length, 0);
 });
-test('committed pending cleanup survives real DB/Owner reopen with the same ID and restores only its persisted Host ticket',async t=>{
- const f=fixture(t),source=f.capture(),logical=f.store.forgetMemory({sourceRefs:[source.entry.sourceRef],expectedPrivacyEpoch:1}),pending=f.store.pendingMemoryCleanup();assert.equal(pending.length,1);assert.equal(pending[0]!.cleanupId,'privacy:'+logical.privacyEpoch);assert.deepEqual(pending[0]!.logical,logical);assert.deepEqual(f.store.memoryState().pendingCleanupIds,[pending[0]!.cleanupId]);await f.reopen();assert.deepEqual(f.store.pendingMemoryCleanup(),pending);assert.deepEqual(f.store.memoryState().pendingCleanupIds,[pending[0]!.cleanupId]);assert.deepEqual(f.store.searchMemory({query:source.marker}),[]);
- // This fixture owns no external payload or Artifact files. The actual DB
- // compaction is exercised, without claiming control of Provider/backup copies.
- const seen:string[][]=[],service=new MemoryService({forget:input=>f.store.forgetMemory(input),revokeRuns:async ids=>({stoppedRunIds:ids,unknownRunIds:[]}),purgeArtifacts:async keys=>{assert.deepEqual(keys,[]);return{purgedKeys:keys};},purgeSourcePayloads:async refs=>{seen.push(refs);return{purgedRefs:refs};},compact:()=>f.store.compactMemory()});for(const ticket of f.store.pendingMemoryCleanup())service.restoreCleanup(ticket.cleanupId,ticket.logical);await assert.rejects(service.retryCleanup('privacy:999999'),/MEMORY_CLEANUP_NOT_FOUND/);const receipt=await service.retryCleanup(pending[0]!.cleanupId);assert.equal(receipt.cleanupId,pending[0]!.cleanupId);assert.equal(receipt.cleanup.localPhysicalCleanupComplete,true);assert.equal(receipt.cleanup.externalCopies,'not_controlled');assert.deepEqual(seen,[logical.affectedRefs]);assert.equal(f.store.memoryState().privacyEpoch,logical.privacyEpoch);f.store.completeMemoryCleanup(logical.privacyEpoch);assert.deepEqual(f.store.memoryState().pendingCleanupIds,[]);await f.reopen();assert.deepEqual(f.store.pendingMemoryCleanup(),[]);assert.deepEqual(f.store.searchMemory({query:source.marker}),[]);assert.equal(f.db.prepare('PRAGMA foreign_key_check').all().length,0);
+test('committed pending cleanup survives real DB/Owner reopen with the same ID and restores only its persisted Host ticket', async (t) => {
+  const f = fixture(t),
+    source = f.capture(),
+    logical = f.store.forgetMemory({
+      sourceRefs: [source.entry.sourceRef],
+      expectedPrivacyEpoch: 1,
+    }),
+    pending = f.store.pendingMemoryCleanup();
+  assert.equal(pending.length, 1);
+  assert.equal(pending[0]!.cleanupId, 'privacy:' + logical.privacyEpoch);
+  assert.deepEqual(pending[0]!.logical, logical);
+  assert.deepEqual(f.store.memoryState().pendingCleanupIds, [pending[0]!.cleanupId]);
+  await f.reopen();
+  assert.deepEqual(f.store.pendingMemoryCleanup(), pending);
+  assert.deepEqual(f.store.memoryState().pendingCleanupIds, [pending[0]!.cleanupId]);
+  assert.deepEqual(f.store.searchMemory({ query: source.marker }), []);
+  // This fixture owns no external payload or Artifact files. The actual DB
+  // compaction is exercised, without claiming control of Provider/backup copies.
+  const seen: string[][] = [],
+    service = new MemoryService({
+      forget: (input) => f.store.forgetMemory(input),
+      revokeRuns: async (ids) => ({ stoppedRunIds: ids, unknownRunIds: [] }),
+      purgeArtifacts: async (keys) => {
+        assert.deepEqual(keys, []);
+        return { purgedKeys: keys };
+      },
+      purgeSourcePayloads: async (refs) => {
+        seen.push(refs);
+        return { purgedRefs: refs };
+      },
+      compact: () => f.store.compactMemory(),
+    });
+  for (const ticket of f.store.pendingMemoryCleanup())
+    service.restoreCleanup(ticket.cleanupId, ticket.logical);
+  await assert.rejects(service.retryCleanup('privacy:999999'), /MEMORY_CLEANUP_NOT_FOUND/);
+  const receipt = await service.retryCleanup(pending[0]!.cleanupId);
+  assert.equal(receipt.cleanupId, pending[0]!.cleanupId);
+  assert.equal(receipt.cleanup.localPhysicalCleanupComplete, true);
+  assert.equal(receipt.cleanup.externalCopies, 'not_controlled');
+  assert.deepEqual(seen, [logical.affectedRefs]);
+  assert.equal(f.store.memoryState().privacyEpoch, logical.privacyEpoch);
+  f.store.completeMemoryCleanup(logical.privacyEpoch);
+  assert.deepEqual(f.store.memoryState().pendingCleanupIds, []);
+  await f.reopen();
+  assert.deepEqual(f.store.pendingMemoryCleanup(), []);
+  assert.deepEqual(f.store.searchMemory({ query: source.marker }), []);
+  assert.equal(f.db.prepare('PRAGMA foreign_key_check').all().length, 0);
 });

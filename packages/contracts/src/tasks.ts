@@ -1,28 +1,97 @@
-import type {TaskStatus} from '../../../docs/design/contracts/domain.ts';
-import type {CodeTaskSpec} from './views.ts';
+import type { TaskStatus } from '../../../docs/design/contracts/domain.ts';
+import type { CodeTaskSpec } from './views.ts';
 export interface TaskSummary {
- projectId:string;taskId:string;title:string;status:TaskStatus;version:number;blocked:boolean;
- activeRunId:string|null;mode:'readOnly'|'workspaceWrite';updatedAt:number;
+  projectId: string;
+  taskId: string;
+  title: string;
+  status: TaskStatus;
+  version: number;
+  blocked: boolean;
+  activeRunId: string | null;
+  mode: 'readOnly' | 'workspaceWrite';
+  updatedAt: number;
 }
 export type TaskCommand =
- | {projectId:string;commandKey:string;kind:'create';text:string;title?:string;code?:CodeTaskSpec}
- | {projectId:string;commandKey:string;kind:'pause'|'cancel'|'resume';taskId:string;expectedVersion:number}
- | {projectId:string;commandKey:string;kind:'rename';taskId:string;expectedVersion:number;title:string};
+  | {
+      projectId: string;
+      commandKey: string;
+      kind: 'create';
+      text: string;
+      title?: string;
+      code?: CodeTaskSpec;
+    }
+  | {
+      projectId: string;
+      commandKey: string;
+      kind: 'pause' | 'cancel' | 'resume';
+      taskId: string;
+      expectedVersion: number;
+    }
+  | {
+      projectId: string;
+      commandKey: string;
+      kind: 'rename';
+      taskId: string;
+      expectedVersion: number;
+      title: string;
+    };
 export interface OperationReceipt {
- operationId:string;kind:string;state:'executing'|'completed'|'outcome_unknown';taskId:string;
- taskVersion:number;status:TaskStatus;blocked:boolean;runId:string|null;
+  operationId: string;
+  kind: string;
+  state: 'executing' | 'completed' | 'outcome_unknown';
+  taskId: string;
+  taskVersion: number;
+  status: TaskStatus;
+  blocked: boolean;
+  runId: string | null;
 }
-export interface ActivityItem {sequence:number;eventId:string;taskId:string;eventType:string;taskVersion:number;runId:string|null}
-export interface ActivityPage {items:ActivityItem[];nextCursor:number|null;delivery:{pending:number;claimed:number;deadLetter:number}}
-export interface StartTask {projectId:string;taskId:string;expectedVersion:number;submissionKey:string}
+export interface ActivityItem {
+  sequence: number;
+  eventId: string;
+  taskId: string;
+  eventType: string;
+  taskVersion: number;
+  runId: string | null;
+}
+export interface ActivityPage {
+  items: ActivityItem[];
+  nextCursor: number | null;
+  delivery: { pending: number; claimed: number; deadLetter: number };
+}
+export interface StartTask {
+  projectId: string;
+  taskId: string;
+  expectedVersion: number;
+  submissionKey: string;
+}
 export interface TaskPlanNode {
- kind:'rename'|'pause'|'cancel'|'resume';taskId:string;expectedVersion?:number;versionFrom?:number;
- title?:string;dependsOn:number[];
+  kind: 'rename' | 'pause' | 'cancel' | 'resume';
+  taskId: string;
+  expectedVersion?: number;
+  versionFrom?: number;
+  title?: string;
+  dependsOn: number[];
 }
-export interface TaskPlanCommand {projectId:string;commandKey:string;nodes:TaskPlanNode[]}
+export interface TaskPlanCommand {
+  projectId: string;
+  commandKey: string;
+  nodes: TaskPlanNode[];
+}
 export interface TaskPlanOperation {
- operationId:string;index:number;kind:TaskPlanNode['kind'];taskId:string;dependsOn:number[];
- state:'pending'|'blocked'|'executing'|'completed'|'failed'|'cancelled'|'outcome_unknown';
- receipt?:OperationReceipt;errorCode?:string;
+  operationId: string;
+  index: number;
+  kind: TaskPlanNode['kind'];
+  taskId: string;
+  dependsOn: number[];
+  state:
+    'pending' | 'blocked' | 'executing' | 'completed' | 'failed' | 'cancelled' | 'outcome_unknown';
+  receipt?: OperationReceipt;
+  errorCode?: string;
 }
-export interface TaskPlanView {planId:string;projectId:string;createdAt:number;status:'pending'|'running'|'completed'|'cancelled'|'needs_review'|'outcome_unknown';operations:TaskPlanOperation[]}
+export interface TaskPlanView {
+  planId: string;
+  projectId: string;
+  createdAt: number;
+  status: 'pending' | 'running' | 'completed' | 'cancelled' | 'needs_review' | 'outcome_unknown';
+  operations: TaskPlanOperation[];
+}

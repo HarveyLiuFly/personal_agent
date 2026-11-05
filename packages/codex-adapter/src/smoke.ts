@@ -12,7 +12,7 @@ import type { ThreadStartResponse } from './generated/v2/ThreadStartResponse.ts'
 import type { TurnStartParams } from './generated/v2/TurnStartParams.ts';
 import type { TurnStartResponse } from './generated/v2/TurnStartResponse.ts';
 import type { ThreadReadResponse } from './generated/v2/ThreadReadResponse.ts';
-import type {ReadPort} from './history.ts';
+import type { ReadPort } from './history.ts';
 
 export interface SmokeResult {
   status: 'passed';
@@ -32,25 +32,42 @@ const initialization = {
   capabilities: { experimentalApi: false, requestAttestation: false },
 };
 
-export async function inspectCatalog(port:ReadPort):Promise<{models:number;defaultModel:string}>{
-  const response=await port.request<ModelListResponse>('model/list',{});
-  if(!Array.isArray(response.data))throw new RpcFailure('INVALID_MODEL_CATALOG');
-  const model=response.data.find(item=>item.isDefault&&!item.hidden);
-  if(!model)throw new RpcFailure('NO_DEFAULT_MODEL');
-  return{models:response.data.length,defaultModel:model.id};
+export async function inspectCatalog(
+  port: ReadPort,
+): Promise<{ models: number; defaultModel: string }> {
+  const response = await port.request<ModelListResponse>('model/list', {});
+  if (!Array.isArray(response.data)) throw new RpcFailure('INVALID_MODEL_CATALOG');
+  const model = response.data.find((item) => item.isDefault && !item.hidden);
+  if (!model) throw new RpcFailure('NO_DEFAULT_MODEL');
+  return { models: response.data.length, defaultModel: model.id };
 }
 
-export async function inspectConnection(executable: string, stateDirectory: string, signal?: AbortSignal): Promise<{ models: number; defaultModel: string }> {
-  const rpc = new StdioRpcClient({ executable, args: launchArguments(stateDirectory), env: runtimeEnvironment(), signal });
+export async function inspectConnection(
+  executable: string,
+  stateDirectory: string,
+  signal?: AbortSignal,
+): Promise<{ models: number; defaultModel: string }> {
+  const rpc = new StdioRpcClient({
+    executable,
+    args: launchArguments(stateDirectory),
+    env: runtimeEnvironment(),
+    signal,
+  });
   try {
     await rpc.request<InitializeResponse>('initialize', initialization);
     await rpc.notify('initialized');
     return await inspectCatalog(rpc);
-  } finally { await rpc.close(); }
+  } finally {
+    await rpc.close();
+  }
 }
 
 /** One bounded, read-only, no-tools model request. Does not reuse task history or create user files. */
-export async function runRealSmoke(executable: string, stateDirectory: string, signal?: AbortSignal): Promise<SmokeResult> {
+export async function runRealSmoke(
+  executable: string,
+  stateDirectory: string,
+  signal?: AbortSignal,
+): Promise<SmokeResult> {
   const workspace = await mkdtemp(join(tmpdir(), 'personal-agent-m0-'));
   const expectedText = `M0_READY_${randomUUID().replaceAll('-', '').slice(0, 12)}`;
   const notificationCounts: Record<string, number> = {};
@@ -65,18 +82,26 @@ export async function runRealSmoke(executable: string, stateDirectory: string, s
   let phase = 'initialize';
   let lastKnownStatus: string | undefined;
   let resolveCompletion!: (value: Record<string, unknown>) => void;
-  const completed = new Promise<Record<string, unknown>>(resolve => { resolveCompletion = resolve; });
+  const completed = new Promise<Record<string, unknown>>((resolve) => {
+    resolveCompletion = resolve;
+  });
   const rpc = new StdioRpcClient({
-    executable, args: launchArguments(stateDirectory), env: runtimeEnvironment(),
-    requestTimeoutMs: 25_000, signal,
-    onServerRequest: async request => {
+    executable,
+    args: launchArguments(stateDirectory),
+    env: runtimeEnvironment(),
+    requestTimeoutMs: 25_000,
+    signal,
+    onServerRequest: async (request) => {
       serverRequestsDenied++;
-      if (request.method === 'item/commandExecution/requestApproval' || request.method === 'item/fileChange/requestApproval') {
+      if (
+        request.method === 'item/commandExecution/requestApproval' ||
+        request.method === 'item/fileChange/requestApproval'
+      ) {
         return { decision: 'decline' };
       }
       throw new RpcFailure('UNSUPPORTED_SERVER_REQUEST');
     },
-    onNotification: message => {
+    onNotification: (message) => {
       projection?.receive(1, ++projectionSequence, message);
       const method = String(message.method);
       notificationCounts[method] = (notificationCounts[method] ?? 0) + 1;
@@ -85,25 +110,56 @@ export async function runRealSmoke(executable: string, stateDirectory: string, s
       const params = message.params;
       if (method === 'error' && isObject(params.error)) {
         const message = typeof params.error.message === 'string' ? params.error.message : '';
-        const transport = /websocket/i.test(message) ? 'websocket' : /\bSSE\b|event.?stream/i.test(message) ? 'sse' : undefined;
-        const httpStatus = message.match(/\b(?:status(?: code)?[: ]+|HTTP[\/\d. ]*)([45]\d{2})\b/i)?.[1];
+        const transport = /websocket/i.test(message)
+          ? 'websocket'
+          : /\bSSE\b|event.?stream/i.test(message)
+            ? 'sse'
+            : undefined;
+        const httpStatus = message.match(
+          /\b(?:status(?: code)?[: ]+|HTTP[\/\d. ]*)([45]\d{2})\b/i,
+        )?.[1];
         // Record only fixed classifications, never arbitrary error text, URLs, headers or credentials.
-        const classification = /certificate|\bTLS\b/i.test(message) ? 'tls' : /unauthorized|authentication|\b401\b|\b403\b/i.test(message) ? 'authorization'
-          : /timed? out|timeout/i.test(message) ? 'timeout' : /connection (?:refused|reset)|error sending request/i.test(message) ? 'connection' : undefined;
-        const safeDiagnostic = { transport, classification, statusFromMessage: httpStatus ? Number(httpStatus) : undefined,
-          willRetry: params.willRetry === true };
+        const classification = /certificate|\bTLS\b/i.test(message)
+          ? 'tls'
+          : /unauthorized|authentication|\b401\b|\b403\b/i.test(message)
+            ? 'authorization'
+            : /timed? out|timeout/i.test(message)
+              ? 'timeout'
+              : /connection (?:refused|reset)|error sending request/i.test(message)
+                ? 'connection'
+                : undefined;
+        const safeDiagnostic = {
+          transport,
+          classification,
+          statusFromMessage: httpStatus ? Number(httpStatus) : undefined,
+          willRetry: params.willRetry === true,
+        };
         const info = params.error.codexErrorInfo;
-        if (typeof info === 'string' && /^[a-zA-Z0-9_-]{1,80}$/.test(info)) upstreamErrors.push({ kind: info, ...safeDiagnostic });
+        if (typeof info === 'string' && /^[a-zA-Z0-9_-]{1,80}$/.test(info))
+          upstreamErrors.push({ kind: info, ...safeDiagnostic });
         else if (isObject(info)) {
           const kind = Object.keys(info)[0];
           const value = kind ? info[kind] : undefined;
-          if (kind && /^[a-zA-Z0-9_-]{1,80}$/.test(kind)) upstreamErrors.push({ kind, ...safeDiagnostic,
-            httpStatusCode: isObject(value) && typeof value.httpStatusCode === 'number' ? value.httpStatusCode : null });
+          if (kind && /^[a-zA-Z0-9_-]{1,80}$/.test(kind))
+            upstreamErrors.push({
+              kind,
+              ...safeDiagnostic,
+              httpStatusCode:
+                isObject(value) && typeof value.httpStatusCode === 'number'
+                  ? value.httpStatusCode
+                  : null,
+            });
         }
       }
       if ((method === 'item/started' || method === 'item/completed') && isObject(params.item)) {
         const item = params.item;
-        if (method === 'item/started' && !['userMessage', 'agentMessage', 'reasoning', 'plan', 'contextCompaction'].includes(String(item.type))) toolItems++;
+        if (
+          method === 'item/started' &&
+          !['userMessage', 'agentMessage', 'reasoning', 'plan', 'contextCompaction'].includes(
+            String(item.type),
+          )
+        )
+          toolItems++;
       }
       if (method === 'turn/completed' && isObject(params.turn)) resolveCompletion(params.turn);
     },
@@ -115,36 +171,59 @@ export async function runRealSmoke(executable: string, stateDirectory: string, s
     phase = 'model/list';
     const catalog = await rpc.request<ModelListResponse>('model/list', {});
     if (!Array.isArray(catalog.data)) throw new RpcFailure('INVALID_MODEL_CATALOG');
-    const model = catalog.data.find(item => item.isDefault && !item.hidden);
+    const model = catalog.data.find((item) => item.isDefault && !item.hidden);
     if (!model) throw new RpcFailure('NO_DEFAULT_MODEL');
-    const params: ThreadStartParams = { cwd: workspace, model: model.id, sandbox: 'read-only', approvalPolicy: 'on-request',
-      ephemeral: true, developerInstructions: 'Protocol smoke verification only. Do not call tools, read files, or access any website. Reply with the exact requested marker and nothing else.' };
+    const params: ThreadStartParams = {
+      cwd: workspace,
+      model: model.id,
+      sandbox: 'read-only',
+      approvalPolicy: 'on-request',
+      ephemeral: true,
+      developerInstructions:
+        'Protocol smoke verification only. Do not call tools, read files, or access any website. Reply with the exact requested marker and nothing else.',
+    };
     phase = 'thread/start';
     const thread = await rpc.request<ThreadStartResponse>('thread/start', params);
-    if (!thread.thread || typeof thread.thread.id !== 'string') throw new RpcFailure('INVALID_THREAD_RESPONSE');
+    if (!thread.thread || typeof thread.thread.id !== 'string')
+      throw new RpcFailure('INVALID_THREAD_RESPONSE');
     activeThreadId = thread.thread.id;
     projection = new ThreadProjection(activeThreadId);
     projectionSequence = 0;
-    const turnParams: TurnStartParams = { threadId: activeThreadId,
+    const turnParams: TurnStartParams = {
+      threadId: activeThreadId,
       input: [{ type: 'text', text: `Return exactly ${expectedText}`, text_elements: [] }],
-      sandboxPolicy: { type: 'readOnly', networkAccess: false }, approvalPolicy: 'on-request',
-      effort: model.supportedReasoningEfforts.some(option => option.reasoningEffort === 'low') ? 'low' : model.defaultReasoningEffort };
+      sandboxPolicy: { type: 'readOnly', networkAccess: false },
+      approvalPolicy: 'on-request',
+      effort: model.supportedReasoningEfforts.some((option) => option.reasoningEffort === 'low')
+        ? 'low'
+        : model.defaultReasoningEffort,
+    };
     phase = 'turn/start';
     const accepted = await rpc.request<TurnStartResponse>('turn/start', turnParams);
     activeTurnId = accepted.turn.id;
     phase = 'turn/completed';
     let completionSource: 'notification' | 'snapshot' = 'notification';
-    let final = await Promise.race([completed, rpc.waitClosed().then(() => {
-      throw new RpcFailure('PROCESS_EXITED', true);
-    }), new Promise<null>(resolve => {
-      timer = setTimeout(() => resolve(null), 90_000);
-    })]);
+    let final = await Promise.race([
+      completed,
+      rpc.waitClosed().then(() => {
+        throw new RpcFailure('PROCESS_EXITED', true);
+      }),
+      new Promise<null>((resolve) => {
+        timer = setTimeout(() => resolve(null), 90_000);
+      }),
+    ]);
     if (final === null) {
       phase = 'thread/read';
       let snapshot: ThreadReadResponse;
-      try { snapshot = await rpc.request<ThreadReadResponse>('thread/read', { threadId: activeThreadId, includeTurns: true }); }
-      catch { throw new RpcFailure('TURN_TIMEOUT', true); } // A failed reconciliation cannot make an accepted Turn known-safe to repeat.
-      const turn = snapshot.thread.turns.find(item => item.id === activeTurnId);
+      try {
+        snapshot = await rpc.request<ThreadReadResponse>('thread/read', {
+          threadId: activeThreadId,
+          includeTurns: true,
+        });
+      } catch {
+        throw new RpcFailure('TURN_TIMEOUT', true);
+      } // A failed reconciliation cannot make an accepted Turn known-safe to repeat.
+      const turn = snapshot.thread.turns.find((item) => item.id === activeTurnId);
       lastKnownStatus = turn?.status;
       if (!turn || turn.status !== 'completed') throw new RpcFailure('TURN_TIMEOUT', true);
       if (turn.itemsView !== 'full') throw new RpcFailure('TURN_SNAPSHOT_INCOMPLETE', true);
@@ -154,20 +233,52 @@ export async function runRealSmoke(executable: string, stateDirectory: string, s
     }
     lastKnownStatus = typeof final.status === 'string' ? final.status : undefined;
     if (final.id !== accepted.turn.id) throw new RpcFailure('TURN_ID_MISMATCH', true);
-    if (final.status !== 'completed') throw new RpcFailure(final.status === 'failed' ? 'TURN_FAILED' : 'TURN_NOT_COMPLETED', final.status !== 'failed' && final.status !== 'interrupted');
+    if (final.status !== 'completed')
+      throw new RpcFailure(
+        final.status === 'failed' ? 'TURN_FAILED' : 'TURN_NOT_COMPLETED',
+        final.status !== 'failed' && final.status !== 'interrupted',
+      );
     const view = projection.view();
-    if (view.needsSnapshot || view.truncated || view.unsupportedItems) throw new RpcFailure('INCOMPLETE_PROJECTION', true);
-    const finalText = view.items.filter(item => item.turnId === accepted.turn.id && item.role === 'assistant' && item.status === 'complete')
-      .map(item => item.text).join('').trim();
+    if (view.needsSnapshot || view.truncated || view.unsupportedItems)
+      throw new RpcFailure('INCOMPLETE_PROJECTION', true);
+    const finalText = view.items
+      .filter(
+        (item) =>
+          item.turnId === accepted.turn.id &&
+          item.role === 'assistant' &&
+          item.status === 'complete',
+      )
+      .map((item) => item.text)
+      .join('')
+      .trim();
     if (finalText !== expectedText) throw new RpcFailure('SMOKE_CONTENT_MISMATCH');
-    if (toolItems !== 0 || serverRequestsDenied !== 0) throw new RpcFailure('UNEXPECTED_TOOL_ACTIVITY');
-    return { status: 'passed', model: model.id, threadId: activeThreadId, turnId: accepted.turn.id,
-      finalText, expectedText, serverRequestsDenied, toolItems, notificationCounts, completionSource };
+    if (toolItems !== 0 || serverRequestsDenied !== 0)
+      throw new RpcFailure('UNEXPECTED_TOOL_ACTIVITY');
+    return {
+      status: 'passed',
+      model: model.id,
+      threadId: activeThreadId,
+      turnId: accepted.turn.id,
+      finalText,
+      expectedText,
+      serverRequestsDenied,
+      toolItems,
+      notificationCounts,
+      completionSource,
+    };
   } catch (error) {
     const failure = error instanceof RpcFailure ? error : new RpcFailure('HOST_ERROR', true);
-    throw new RpcFailure(failure.code, failure.outcomeUnknown, { phase, threadId: activeThreadId,
-      turnId: activeTurnId, lastKnownStatus, notificationCounts, notificationShapes,
-      upstreamErrors, serverRequestsDenied, toolItems });
+    throw new RpcFailure(failure.code, failure.outcomeUnknown, {
+      phase,
+      threadId: activeThreadId,
+      turnId: activeTurnId,
+      lastKnownStatus,
+      notificationCounts,
+      notificationShapes,
+      upstreamErrors,
+      serverRequestsDenied,
+      toolItems,
+    });
   } finally {
     if (timer) clearTimeout(timer);
     await rpc.close();

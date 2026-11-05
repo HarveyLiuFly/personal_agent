@@ -1,10 +1,37 @@
-import {resolveVerifierNode} from '../../packages/codex-adapter/src/launch.ts';
-import {readFileSync} from 'node:fs';
-import {resolve,join} from 'node:path';
-import {ExecutionLedger} from '../../packages/store/src/ledger.ts';
-import {WorktreeService} from '../../packages/workspace/src/worktrees.ts';
-const [file,cwd,state,git,stage]=process.argv.slice(2) as [string,string,string,string,string];
-const store=new ExecutionLedger(file,readFileSync('docs/design/contracts/schema.sql','utf8'));store.startOwner('owned-real-crash-worker',true);const project=store.registerWorkspace(cwd,cwd);
-const stop=()=>{process.stdout.write(JSON.stringify({stage,projectId:project.id})+'\n');Atomics.wait(new Int32Array(new SharedArrayBuffer(4)),0,0,15000);throw Error('CHILD_NOT_KILLED');};
-const service=new WorktreeService(store,{git,node:resolveVerifierNode(resolve('.')),worker:resolve('packages/workspace/src/worktree-worker.mjs'),stateDirectory:state,...(stage==='prepared'?{afterPrepared:stop}:stage==='dispatch'?{afterDispatch:stop}:{afterGit:stop})});
-await service.command({kind:'create',projectId:project.id,commandKey:'crash-'+stage,name:'SIGKILL fixture'});
+import { resolveVerifierNode } from '../../packages/codex-adapter/src/launch.ts';
+import { readFileSync } from 'node:fs';
+import { resolve, join } from 'node:path';
+import { ExecutionLedger } from '../../packages/store/src/ledger.ts';
+import { WorktreeService } from '../../packages/workspace/src/worktrees.ts';
+const [file, cwd, state, git, stage] = process.argv.slice(2) as [
+  string,
+  string,
+  string,
+  string,
+  string,
+];
+const store = new ExecutionLedger(file, readFileSync('docs/design/contracts/schema.sql', 'utf8'));
+store.startOwner('owned-real-crash-worker', true);
+const project = store.registerWorkspace(cwd, cwd);
+const stop = () => {
+  process.stdout.write(JSON.stringify({ stage, projectId: project.id }) + '\n');
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 15000);
+  throw Error('CHILD_NOT_KILLED');
+};
+const service = new WorktreeService(store, {
+  git,
+  node: resolveVerifierNode(resolve('.')),
+  worker: resolve('packages/workspace/src/worktree-worker.mjs'),
+  stateDirectory: state,
+  ...(stage === 'prepared'
+    ? { afterPrepared: stop }
+    : stage === 'dispatch'
+      ? { afterDispatch: stop }
+      : { afterGit: stop }),
+});
+await service.command({
+  kind: 'create',
+  projectId: project.id,
+  commandKey: 'crash-' + stage,
+  name: 'SIGKILL fixture',
+});

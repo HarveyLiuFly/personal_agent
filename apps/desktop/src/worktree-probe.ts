@@ -1,13 +1,45 @@
-import type {App,BrowserWindow} from 'electron';
-import {mkdirSync,writeFileSync,readFileSync,existsSync} from 'node:fs';
-import {resolve} from 'node:path';
-import {execFileSync} from 'node:child_process';
-import {ExecutionLedger} from '../../../packages/store/src/ledger.ts';
-import {resolveWorkspaceGit} from '../../../packages/workspace/src/service.ts';
-export function createWorktreeFixture(directory:string){const git=resolveWorkspaceGit(),run=(args:string[])=>execFileSync(git,['-c','core.hooksPath=/dev/null','-C',directory,...args],{env:{PATH:'/usr/bin:/bin',HOME:'/var/empty',GIT_CONFIG_NOSYSTEM:'1',GIT_CONFIG_GLOBAL:'/dev/null'},stdio:'ignore'});run(['init','-b','main']);writeFileSync(resolve(directory,'public.txt'),'WORKTREE_BASE\n');run(['add','.']);run(['-c','user.name=Fixture','-c','user.email=fixture@example.invalid','commit','--no-gpg-sign','-m','public fixture']);writeFileSync(resolve(directory,'public.txt'),'SOURCE_DIRTY_KEPT\n');}
+import type { App, BrowserWindow } from 'electron';
+import { mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { execFileSync } from 'node:child_process';
+import { ExecutionLedger } from '../../../packages/store/src/ledger.ts';
+import { resolveWorkspaceGit } from '../../../packages/workspace/src/service.ts';
+export function createWorktreeFixture(directory: string) {
+  const git = resolveWorkspaceGit(),
+    run = (args: string[]) =>
+      execFileSync(git, ['-c', 'core.hooksPath=/dev/null', '-C', directory, ...args], {
+        env: {
+          PATH: '/usr/bin:/bin',
+          HOME: '/var/empty',
+          GIT_CONFIG_NOSYSTEM: '1',
+          GIT_CONFIG_GLOBAL: '/dev/null',
+        },
+        stdio: 'ignore',
+      });
+  run(['init', '-b', 'main']);
+  writeFileSync(resolve(directory, 'public.txt'), 'WORKTREE_BASE\n');
+  run(['add', '.']);
+  run([
+    '-c',
+    'user.name=Fixture',
+    '-c',
+    'user.email=fixture@example.invalid',
+    'commit',
+    '--no-gpg-sign',
+    '-m',
+    'public fixture',
+  ]);
+  writeFileSync(resolve(directory, 'public.txt'), 'SOURCE_DIRTY_KEPT\n');
+}
 /** Owned real Git / Electron / native read sandbox fixture, zero model inference. */
-export async function runWorktreeProbe(root:string,app:App,window:BrowserWindow,store:ExecutionLedger,source:string){
- const result=await window.webContents.executeJavaScript(`(async()=>{
+export async function runWorktreeProbe(
+  root: string,
+  app: App,
+  window: BrowserWindow,
+  store: ExecutionLedger,
+  source: string,
+) {
+  const result = await window.webContents.executeJavaScript(`(async()=>{
   const call=async promise=>{const r=await promise;if(!r.ok)throw Error(r.errorCode);return r.value;},wait=async query=>{const until=Date.now()+12000;while(!query()){if(Date.now()>until)throw Error('UI_TIMEOUT');await new Promise(done=>setTimeout(done,30));}},click=async selector=>{await wait(()=>document.querySelector(selector)&&!document.querySelector(selector).disabled);document.querySelector(selector).click();};
   const project=await call(window.personalAgent.chooseProject());await wait(()=>document.querySelector('[data-action="choose-project"]')||document.querySelector('[data-action="open-workspace"]'));
   await click('[data-action="choose-project"]');await click('[data-action="open-workspace"]');await wait(()=>document.querySelector('[data-worktree-name]'));await click('[data-worktree-tools] > summary');
@@ -19,13 +51,63 @@ export async function runWorktreeProbe(root:string,app:App,window:BrowserWindow,
   const view=await call(window.personalAgent.getWorkspace({projectId:w.id}));
   return{projectId:project.id,workspaceId:w.id,baseCommit:w.baseCommit,branch:w.branch,directory:w.directory,created:first.operations[0].state==='completed',preview:true,linkedGit:view.git.available&&view.git.branch===w.branch,extraRejected:!extra.ok,foreignRejected:!foreign.ok,switched:document.querySelector('.project-select').value===w.id,sandboxed:window.personalAgent.security.sandboxed,isolated:window.personalAgent.security.isolated,noRequire:typeof require==='undefined',apiCount:Object.keys(window.personalAgent).length};
  })()`);
- writeFileSync(resolve(result.directory,'untracked.txt'),'KEEP_UNTRACKED\n');
- const second=await window.webContents.executeJavaScript(`(async()=>{const call=async p=>{const r=await p;if(!r.ok)throw Error(r.errorCode);return r.value;},q=${JSON.stringify({projectId:result.projectId,workspaceId:result.workspaceId})};const i=await call(window.personalAgent.inspectWorktree(q));const refused=await window.personalAgent.applyWorktreeCommand({...q,kind:'remove',commandKey:'unsafe',expectedVersion:i.version,inspectionId:i.inspectionId});return{untrackedBlocked:!i.canRemove&&i.reasons.includes('UNTRACKED_FILES')&&!refused.ok};})()`);
- if(readFileSync(resolve(result.directory,'untracked.txt'),'utf8')!=='KEEP_UNTRACKED\n')throw Error('UNTRACKED_LOST');
- // Fixture removal of its own public file, then drive the visible deletion controls.
- const {unlinkSync}=await import('node:fs');unlinkSync(resolve(result.directory,'untracked.txt'));
- const final=await window.webContents.executeJavaScript(`(async()=>{const call=async p=>{const r=await p;if(!r.ok)throw Error(r.errorCode);return r.value;},wait=async f=>{const until=Date.now()+12000;while(!f()){if(Date.now()>until)throw Error('UI_TIMEOUT');await new Promise(done=>setTimeout(done,30));}};
+  writeFileSync(resolve(result.directory, 'untracked.txt'), 'KEEP_UNTRACKED\n');
+  const second = await window.webContents.executeJavaScript(
+    `(async()=>{const call=async p=>{const r=await p;if(!r.ok)throw Error(r.errorCode);return r.value;},q=${JSON.stringify({ projectId: result.projectId, workspaceId: result.workspaceId })};const i=await call(window.personalAgent.inspectWorktree(q));const refused=await window.personalAgent.applyWorktreeCommand({...q,kind:'remove',commandKey:'unsafe',expectedVersion:i.version,inspectionId:i.inspectionId});return{untrackedBlocked:!i.canRemove&&i.reasons.includes('UNTRACKED_FILES')&&!refused.ok};})()`,
+  );
+  if (readFileSync(resolve(result.directory, 'untracked.txt'), 'utf8') !== 'KEEP_UNTRACKED\n')
+    throw Error('UNTRACKED_LOST');
+  // Fixture removal of its own public file, then drive the visible deletion controls.
+  const { unlinkSync } = await import('node:fs');
+  unlinkSync(resolve(result.directory, 'untracked.txt'));
+  const final = await window.webContents
+    .executeJavaScript(`(async()=>{const call=async p=>{const r=await p;if(!r.ok)throw Error(r.errorCode);return r.value;},wait=async f=>{const until=Date.now()+12000;while(!f()){if(Date.now()>until)throw Error('UI_TIMEOUT');await new Promise(done=>setTimeout(done,30));}};
   const select=document.querySelector('.project-select');Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value').set.call(select,${JSON.stringify(result.projectId)});select.dispatchEvent(new Event('change',{bubbles:true}));await wait(()=>!document.querySelector('[data-action="open-workspace"]').disabled);document.querySelector('[data-action="open-workspace"]').click();await wait(()=>document.querySelector('[data-action="inspect-worktree"]')&&!document.querySelector('[data-action="inspect-worktree"]').disabled);document.querySelector('[data-action="inspect-worktree"]').click();await wait(()=>document.querySelector('[data-action="remove-worktree"]'));document.querySelector('[data-action="remove-worktree"]').click();await wait(()=>!document.querySelector('[data-worktree-id]'));const page=await call(window.personalAgent.listWorktrees({projectId:${JSON.stringify(result.projectId)}}));return{removed:page.worktrees.length===0&&page.operations[0].state==='completed'};})()`);
- const checks={...Object.fromEntries(['created','preview','linkedGit','extraRejected','foreignRejected','switched','sandboxed','isolated','noRequire'].map(k=>[k,result[k]===true])),...second,...final,sourceDirtyPreserved:readFileSync(resolve(source,'public.txt'),'utf8')==='SOURCE_DIRTY_KEPT\n',directoryRemoved:!existsSync(result.directory),branchRetained:execFileSync(resolveWorkspaceGit(),['-C',source,'rev-parse',result.branch],{encoding:'utf8'}).trim()===result.baseCommit,noModelRuns:store.runs(result.projectId).length===0,apiCount:result.apiCount===63};
- const status=Object.values(checks).every(Boolean)?'passed':'blocked';mkdirSync(resolve(root,'docs/progress/evidence/screenshots'),{recursive:true});writeFileSync(resolve(root,'docs/progress/evidence/screenshots/M2.5a-worktrees.png'),(await window.webContents.capturePage()).toPNG());writeFileSync(resolve(root,'docs/progress/evidence/M2.5a-desktop.json'),JSON.stringify({observedAt:new Date().toISOString(),status,kind:'real_electron_git_managed_worktrees_native_reader',modelTurns:0,result:checks},null,2)+'\n');app.quit();
+  const checks = {
+    ...Object.fromEntries(
+      [
+        'created',
+        'preview',
+        'linkedGit',
+        'extraRejected',
+        'foreignRejected',
+        'switched',
+        'sandboxed',
+        'isolated',
+        'noRequire',
+      ].map((k) => [k, result[k] === true]),
+    ),
+    ...second,
+    ...final,
+    sourceDirtyPreserved:
+      readFileSync(resolve(source, 'public.txt'), 'utf8') === 'SOURCE_DIRTY_KEPT\n',
+    directoryRemoved: !existsSync(result.directory),
+    branchRetained:
+      execFileSync(resolveWorkspaceGit(), ['-C', source, 'rev-parse', result.branch], {
+        encoding: 'utf8',
+      }).trim() === result.baseCommit,
+    noModelRuns: store.runs(result.projectId).length === 0,
+    apiCount: result.apiCount === 63,
+  };
+  const status = Object.values(checks).every(Boolean) ? 'passed' : 'blocked';
+  mkdirSync(resolve(root, 'docs/progress/evidence/screenshots'), { recursive: true });
+  writeFileSync(
+    resolve(root, 'docs/progress/evidence/screenshots/M2.5a-worktrees.png'),
+    (await window.webContents.capturePage()).toPNG(),
+  );
+  writeFileSync(
+    resolve(root, 'docs/progress/evidence/M2.5a-desktop.json'),
+    JSON.stringify(
+      {
+        observedAt: new Date().toISOString(),
+        status,
+        kind: 'real_electron_git_managed_worktrees_native_reader',
+        modelTurns: 0,
+        result: checks,
+      },
+      null,
+      2,
+    ) + '\n',
+  );
+  app.quit();
 }

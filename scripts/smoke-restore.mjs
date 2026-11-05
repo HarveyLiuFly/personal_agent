@@ -1,10 +1,102 @@
-import {spawn} from 'node:child_process';
-import {mkdtemp,mkdir,readFile,writeFile} from 'node:fs/promises';
-import {resolve,join} from 'node:path';
+import { spawn } from 'node:child_process';
+import { mkdtemp, mkdir, readFile, writeFile } from 'node:fs/promises';
+import { resolve, join } from 'node:path';
 import electron from 'electron';
-import {DatabaseSync} from 'node:sqlite';
-import {openDisplay} from './virtual-display.mjs';
-const inference=!process.argv.includes('--preflight'),root=resolve('.');await mkdir(join(root,'.local'),{recursive:true});const state=await mkdtemp(join(root,'.local/desktop-restore-smoke-'));let display,result;const children=[];
-async function run(phase){const child=spawn(electron,['.','--m2-restore-smoke','--restore-phase='+phase,'--restore-state='+state,...(inference?['--restore-inference']:[])],{cwd:root,env:display.env,stdio:'inherit'});children.push(child);const timer=setTimeout(()=>child.kill('SIGKILL'),inference&&phase==='reopen'?240000:40000);try{return await new Promise((done,reject)=>{child.once('error',reject);child.once('exit',(code,signal)=>done({code,signal}));});}finally{clearTimeout(timer);}}
-try{display=await openDisplay(root);const first=await run('prepare');if(first.code!==0)throw Error('RESTORE_PREPARE_PROCESS_FAILED');const prepared=JSON.parse(await readFile(join(state,'prepare-result.json'),'utf8')),pointer=JSON.parse(await readFile(join(state,'runtimes/active.json'),'utf8'));if(pointer.id!==prepared.id)throw Error('RESTORE_POINTER_NOT_COMMITTED');const old=new DatabaseSync(join(state,'execution/ledger.db'),{readOnly:true});try{if(old.prepare('SELECT state FROM runtime_owners').get()?.state!=='stopped')throw Error('RESTORE_OLD_OWNER_NOT_STOPPED');}finally{old.close();}const second=await run('reopen');if(second.code!==0)throw Error('RESTORE_REOPEN_PROCESS_FAILED');const checks=JSON.parse(await readFile(join(state,'reopen-result.json'),'utf8'));result={status:Object.values(checks.checks).every(Boolean)&&Object.entries(prepared).every(([k,v])=>['id','ownerEpoch'].includes(k)||v===true)?'passed':'blocked',kind:'real_electron_cold_restore_generation_switch_and_new_process',inferenceRequested:inference,modelTurns:checks.native?.modelTurns??0,native:checks.native,processesLaunched:2,history:'not_requested',fixture:'public_tasks_and_controlled_budget_privacy_metadata',display:display.kind,prepared:Object.fromEntries(Object.entries(prepared).filter(([k])=>!['id'].includes(k))),result:checks.checks};}catch(error){result={status:'blocked',kind:'real_electron_cold_restore',code:error instanceof Error&&/^[A-Z0-9_]+$/.test(error.message)?error.message:'RESTORE_PROBE_FAILED',inferenceRequested:inference};}finally{for(const c of children)if(c.exitCode===null&&c.signalCode===null)c.kill('SIGKILL');await display?.close();}
-result.observedAt=new Date().toISOString();result.platform=process.platform+'-'+process.arch;const file=join(root,`docs/progress/evidence/${inference?'M2.7c-desktop':'M2.7c-preflight'}.json`);await writeFile(file,JSON.stringify(result,null,2)+'\n');await writeFile(file.replace('.json','-'+result.observedAt.replaceAll(':','-').replaceAll('.','-')+'.json'),JSON.stringify(result,null,2)+'\n');console.log(JSON.stringify(result,null,2));if(result.status!=='passed')process.exitCode=1;
+import { DatabaseSync } from 'node:sqlite';
+import { openDisplay } from './virtual-display.mjs';
+const inference = !process.argv.includes('--preflight'),
+  root = resolve('.');
+await mkdir(join(root, '.local'), { recursive: true });
+const state = await mkdtemp(join(root, '.local/desktop-restore-smoke-'));
+let display, result;
+const children = [];
+async function run(phase) {
+  const child = spawn(
+    electron,
+    [
+      '.',
+      '--m2-restore-smoke',
+      '--restore-phase=' + phase,
+      '--restore-state=' + state,
+      ...(inference ? ['--restore-inference'] : []),
+    ],
+    { cwd: root, env: display.env, stdio: 'inherit' },
+  );
+  children.push(child);
+  const timer = setTimeout(
+    () => child.kill('SIGKILL'),
+    inference && phase === 'reopen' ? 240000 : 40000,
+  );
+  try {
+    return await new Promise((done, reject) => {
+      child.once('error', reject);
+      child.once('exit', (code, signal) => done({ code, signal }));
+    });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+try {
+  display = await openDisplay(root);
+  const first = await run('prepare');
+  if (first.code !== 0) throw Error('RESTORE_PREPARE_PROCESS_FAILED');
+  const prepared = JSON.parse(await readFile(join(state, 'prepare-result.json'), 'utf8')),
+    pointer = JSON.parse(await readFile(join(state, 'runtimes/active.json'), 'utf8'));
+  if (pointer.id !== prepared.id) throw Error('RESTORE_POINTER_NOT_COMMITTED');
+  const old = new DatabaseSync(join(state, 'execution/ledger.db'), { readOnly: true });
+  try {
+    if (old.prepare('SELECT state FROM runtime_owners').get()?.state !== 'stopped')
+      throw Error('RESTORE_OLD_OWNER_NOT_STOPPED');
+  } finally {
+    old.close();
+  }
+  const second = await run('reopen');
+  if (second.code !== 0) throw Error('RESTORE_REOPEN_PROCESS_FAILED');
+  const checks = JSON.parse(await readFile(join(state, 'reopen-result.json'), 'utf8'));
+  result = {
+    status:
+      Object.values(checks.checks).every(Boolean) &&
+      Object.entries(prepared).every(([k, v]) => ['id', 'ownerEpoch'].includes(k) || v === true)
+        ? 'passed'
+        : 'blocked',
+    kind: 'real_electron_cold_restore_generation_switch_and_new_process',
+    inferenceRequested: inference,
+    modelTurns: checks.native?.modelTurns ?? 0,
+    native: checks.native,
+    processesLaunched: 2,
+    history: 'not_requested',
+    fixture: 'public_tasks_and_controlled_budget_privacy_metadata',
+    display: display.kind,
+    prepared: Object.fromEntries(Object.entries(prepared).filter(([k]) => !['id'].includes(k))),
+    result: checks.checks,
+  };
+} catch (error) {
+  result = {
+    status: 'blocked',
+    kind: 'real_electron_cold_restore',
+    code:
+      error instanceof Error && /^[A-Z0-9_]+$/.test(error.message)
+        ? error.message
+        : 'RESTORE_PROBE_FAILED',
+    inferenceRequested: inference,
+  };
+} finally {
+  for (const c of children) if (c.exitCode === null && c.signalCode === null) c.kill('SIGKILL');
+  await display?.close();
+}
+result.observedAt = new Date().toISOString();
+result.platform = process.platform + '-' + process.arch;
+const file = join(
+  root,
+  `docs/progress/evidence/${inference ? 'M2.7c-desktop' : 'M2.7c-preflight'}.json`,
+);
+await writeFile(file, JSON.stringify(result, null, 2) + '\n');
+await writeFile(
+  file.replace(
+    '.json',
+    '-' + result.observedAt.replaceAll(':', '-').replaceAll('.', '-') + '.json',
+  ),
+  JSON.stringify(result, null, 2) + '\n',
+);
+console.log(JSON.stringify(result, null, 2));
+if (result.status !== 'passed') process.exitCode = 1;

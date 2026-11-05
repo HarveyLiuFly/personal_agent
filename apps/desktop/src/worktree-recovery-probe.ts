@@ -1,23 +1,112 @@
-import type {App,BrowserWindow} from 'electron';
-import {readFileSync,writeFileSync,mkdirSync,renameSync,existsSync} from 'node:fs';
-import {resolve} from 'node:path';
-import {execFileSync} from 'node:child_process';
-import {DatabaseSync} from 'node:sqlite';
-import {ExecutionLedger} from '../../../packages/store/src/ledger.ts';
-import {resolveWorkspaceGit} from '../../../packages/workspace/src/service.ts';
-export interface RecoveryProbeState {archiveStops:number;revealed:string[]}
-const waitScript=`const wait=async check=>{const until=Date.now()+15000;while(!check()){if(Date.now()>until)throw Error('RECOVERY_UI_TIMEOUT');await new Promise(done=>setTimeout(done,30));}},call=async p=>{const r=await p;if(!r.ok)throw Error(r.errorCode);return r.value;},click=async s=>{await wait(()=>document.querySelector(s)&&!document.querySelector(s).disabled);document.querySelector(s).click();};`;
+import type { App, BrowserWindow } from 'electron';
+import { readFileSync, writeFileSync, mkdirSync, renameSync, existsSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { execFileSync } from 'node:child_process';
+import { DatabaseSync } from 'node:sqlite';
+import { ExecutionLedger } from '../../../packages/store/src/ledger.ts';
+import { resolveWorkspaceGit } from '../../../packages/workspace/src/service.ts';
+export interface RecoveryProbeState {
+  archiveStops: number;
+  revealed: string[];
+}
+const waitScript = `const wait=async check=>{const until=Date.now()+15000;while(!check()){if(Date.now()>until)throw Error('RECOVERY_UI_TIMEOUT');await new Promise(done=>setTimeout(done,30));}},call=async p=>{const r=await p;if(!r.ok)throw Error(r.errorCode);return r.value;},click=async s=>{await wait(()=>document.querySelector(s)&&!document.querySelector(s).disabled);document.querySelector(s).click();};`;
 /** Real Git + filesystem recovery. System folder reveal is deliberately a destination-checking stub. */
-export async function runWorktreeRecoveryProbe(root:string,app:App,window:BrowserWindow,store:ExecutionLedger,source:string,ledgerFile:string,probe:RecoveryProbeState){
- const prepared=await window.webContents.executeJavaScript(`(async()=>{${waitScript}
+export async function runWorktreeRecoveryProbe(
+  root: string,
+  app: App,
+  window: BrowserWindow,
+  store: ExecutionLedger,
+  source: string,
+  ledgerFile: string,
+  probe: RecoveryProbeState,
+) {
+  const prepared = await window.webContents.executeJavaScript(`(async()=>{${waitScript}
   await click('[data-action="choose-project"]');await click('[data-action="open-workspace"]');await wait(()=>document.querySelector('[data-worktree-name]'));await click('[data-worktree-tools] > summary');const input=document.querySelector('[data-worktree-name]');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'恢复演练工作树');input.dispatchEvent(new Event('input',{bubbles:true}));await click('[data-action="create-worktree"]');await wait(()=>document.querySelector('[data-worktree-id]'));const scope=document.querySelector('.project-select').value,page=await call(window.personalAgent.listWorktrees({projectId:scope})),w=page.worktrees[0];
   await click('[data-action="inspect-worktree"]');await click('[data-action="remove-worktree"]');await wait(()=>document.querySelector('[data-worktree-operation="outcome_unknown"]'));document.querySelector('[data-worktree-recoveries]').open=true;await wait(()=>document.querySelector('[data-action="repair-worktree-removal"]'));const pending=await call(window.personalAgent.listWorktrees({projectId:scope})),recovery=pending.recoveries[0];const ambiguous=await window.personalAgent.applyWorktreeCommand({kind:'reconcile',projectId:scope,operationId:recovery.repairOperationId});return{scope,workspaceId:w.id,branch:w.branch,baseCommit:w.baseCommit,original:w.directory,recovery,ambiguous:!ambiguous.ok};})()`);
- const retainedBefore=readFileSync(resolve(prepared.recovery.directory,'public.txt'),'utf8')==='WORKTREE_BASE\n',oldRegistration=execFileSync(resolveWorkspaceGit(),['-C',source,'worktree','list','--porcelain'],{encoding:'utf8'}).includes(prepared.original);
- const fixed=await window.webContents.executeJavaScript(`(async()=>{${waitScript}await click('[data-action="repair-worktree-removal"]');await wait(()=>!document.querySelector('[data-worktree-id]'));const page=await call(window.personalAgent.listWorktrees({projectId:${JSON.stringify(prepared.scope)}}));await click('[data-action="reveal-worktree-recovery"]');const extra=await window.personalAgent.applyWorktreeCommand({kind:'revealRecovery',projectId:${JSON.stringify(prepared.scope)},recoveryId:page.recoveries[0].recoveryId,path:'/etc'}),foreign=await window.personalAgent.applyWorktreeCommand({kind:'revealRecovery',projectId:${JSON.stringify(prepared.scope)},recoveryId:'foreign'});return{retained:page.recoveries[0].state==='retained',parentCompleted:page.operations.find(o=>o.operationId===${JSON.stringify(prepared.recovery.repairOperationId)}).state==='completed',freshRepair:page.operations[0].kind==='repairRemove'&&page.operations[0].state==='completed',extraRejected:!extra.ok,foreignRejected:!foreign.ok};})()`);
- const noOriginal= !existsSync(prepared.original),noRegistration=!execFileSync(resolveWorkspaceGit(),['-C',source,'worktree','list','--porcelain'],{encoding:'utf8'}).includes(prepared.original),branchKept=execFileSync(resolveWorkspaceGit(),['-C',source,'rev-parse',prepared.branch],{encoding:'utf8'}).trim()===prepared.baseCommit;
- renameSync(source,source+'-moved');const loaded=new Promise<void>(done=>window.webContents.once('did-finish-load',()=>done()));window.webContents.reload();await loaded;
- const missingSource=await window.webContents.executeJavaScript(`(async()=>{${waitScript}await click('[data-action="open-workspace"]');await wait(()=>document.querySelector('[data-worktree-recoveries]'));document.querySelector('[data-worktree-recoveries]').open=true;await click('[data-action="reveal-worktree-recovery"]');const page=await call(window.personalAgent.listWorktrees({projectId:${JSON.stringify(prepared.scope)}})),run=await window.personalAgent.submitMessage({projectId:${JSON.stringify(prepared.scope)},submissionKey:'missing-source-must-not-send',text:'must not send'});return{recoveryVisible:page.recoveries[0].canReveal&&page.recoveries[0].reasons.includes('SOURCE_CHANGED'),modelRejected:!run.ok,noRequire:typeof require==='undefined',sandboxed:window.personalAgent.security.sandboxed,isolated:window.personalAgent.security.isolated,apiCount:Object.keys(window.personalAgent).length};})()`);
- const db=new DatabaseSync(ledgerFile,{readOnly:true});let modelRuns:number;try{modelRuns=Number(db.prepare('SELECT COUNT(*) AS n FROM task_runs').get()!.n);}finally{db.close();}
- const result={realArchiveGap:probe.archiveStops===1,retainedBefore,oldRegistrationBeforeRepair:oldRegistration,readOnlyReconcileRefusedAmbiguity:prepared.ambiguous,...fixed,noOriginal,noRegistration,branchKept,archiveStillIntact:readFileSync(resolve(prepared.recovery.directory,'public.txt'),'utf8')==='WORKTREE_BASE\n',sourceDirtyPreserved:readFileSync(resolve(source+'-moved','public.txt'),'utf8')==='SOURCE_DIRTY_KEPT\n',sourceMissingRecoveryView:missingSource.recoveryVisible,sourceMissingModelRejected:missingSource.modelRejected,revealDestinationChecked:probe.revealed.length===2&&probe.revealed.every(p=>p===prepared.recovery.directory),noModelRuns:modelRuns===0,apiCount:missingSource.apiCount===63,sandboxed:missingSource.sandboxed,isolated:missingSource.isolated,noRequire:missingSource.noRequire};
- await window.webContents.executeJavaScript(`document.querySelector('[data-worktree-recoveries]').scrollIntoView({block:'center'});`);mkdirSync(resolve(root,'docs/progress/evidence/screenshots'),{recursive:true});writeFileSync(resolve(root,'docs/progress/evidence/screenshots/M2.5b-recovery.png'),(await window.webContents.capturePage()).toPNG());writeFileSync(resolve(root,'docs/progress/evidence/M2.5b-desktop.json'),JSON.stringify({observedAt:new Date().toISOString(),status:Object.values(result).every(Boolean)?'passed':'blocked',kind:'real_electron_git_archive_metadata_repair',modelTurns:0,historyMetadata:'synthetic_fixture',finderAdapter:'stub_destination_checked_actual_Finder_not_run',result},null,2)+'\n');app.quit();
+  const retainedBefore =
+      readFileSync(resolve(prepared.recovery.directory, 'public.txt'), 'utf8') ===
+      'WORKTREE_BASE\n',
+    oldRegistration = execFileSync(
+      resolveWorkspaceGit(),
+      ['-C', source, 'worktree', 'list', '--porcelain'],
+      { encoding: 'utf8' },
+    ).includes(prepared.original);
+  const fixed = await window.webContents.executeJavaScript(
+    `(async()=>{${waitScript}await click('[data-action="repair-worktree-removal"]');await wait(()=>!document.querySelector('[data-worktree-id]'));const page=await call(window.personalAgent.listWorktrees({projectId:${JSON.stringify(prepared.scope)}}));await click('[data-action="reveal-worktree-recovery"]');const extra=await window.personalAgent.applyWorktreeCommand({kind:'revealRecovery',projectId:${JSON.stringify(prepared.scope)},recoveryId:page.recoveries[0].recoveryId,path:'/etc'}),foreign=await window.personalAgent.applyWorktreeCommand({kind:'revealRecovery',projectId:${JSON.stringify(prepared.scope)},recoveryId:'foreign'});return{retained:page.recoveries[0].state==='retained',parentCompleted:page.operations.find(o=>o.operationId===${JSON.stringify(prepared.recovery.repairOperationId)}).state==='completed',freshRepair:page.operations[0].kind==='repairRemove'&&page.operations[0].state==='completed',extraRejected:!extra.ok,foreignRejected:!foreign.ok};})()`,
+  );
+  const noOriginal = !existsSync(prepared.original),
+    noRegistration = !execFileSync(
+      resolveWorkspaceGit(),
+      ['-C', source, 'worktree', 'list', '--porcelain'],
+      { encoding: 'utf8' },
+    ).includes(prepared.original),
+    branchKept =
+      execFileSync(resolveWorkspaceGit(), ['-C', source, 'rev-parse', prepared.branch], {
+        encoding: 'utf8',
+      }).trim() === prepared.baseCommit;
+  renameSync(source, source + '-moved');
+  const loaded = new Promise<void>((done) =>
+    window.webContents.once('did-finish-load', () => done()),
+  );
+  window.webContents.reload();
+  await loaded;
+  const missingSource = await window.webContents.executeJavaScript(
+    `(async()=>{${waitScript}await click('[data-action="open-workspace"]');await wait(()=>document.querySelector('[data-worktree-recoveries]'));document.querySelector('[data-worktree-recoveries]').open=true;await click('[data-action="reveal-worktree-recovery"]');const page=await call(window.personalAgent.listWorktrees({projectId:${JSON.stringify(prepared.scope)}})),run=await window.personalAgent.submitMessage({projectId:${JSON.stringify(prepared.scope)},submissionKey:'missing-source-must-not-send',text:'must not send'});return{recoveryVisible:page.recoveries[0].canReveal&&page.recoveries[0].reasons.includes('SOURCE_CHANGED'),modelRejected:!run.ok,noRequire:typeof require==='undefined',sandboxed:window.personalAgent.security.sandboxed,isolated:window.personalAgent.security.isolated,apiCount:Object.keys(window.personalAgent).length};})()`,
+  );
+  const db = new DatabaseSync(ledgerFile, { readOnly: true });
+  let modelRuns: number;
+  try {
+    modelRuns = Number(db.prepare('SELECT COUNT(*) AS n FROM task_runs').get()!.n);
+  } finally {
+    db.close();
+  }
+  const result = {
+    realArchiveGap: probe.archiveStops === 1,
+    retainedBefore,
+    oldRegistrationBeforeRepair: oldRegistration,
+    readOnlyReconcileRefusedAmbiguity: prepared.ambiguous,
+    ...fixed,
+    noOriginal,
+    noRegistration,
+    branchKept,
+    archiveStillIntact:
+      readFileSync(resolve(prepared.recovery.directory, 'public.txt'), 'utf8') ===
+      'WORKTREE_BASE\n',
+    sourceDirtyPreserved:
+      readFileSync(resolve(source + '-moved', 'public.txt'), 'utf8') === 'SOURCE_DIRTY_KEPT\n',
+    sourceMissingRecoveryView: missingSource.recoveryVisible,
+    sourceMissingModelRejected: missingSource.modelRejected,
+    revealDestinationChecked:
+      probe.revealed.length === 2 && probe.revealed.every((p) => p === prepared.recovery.directory),
+    noModelRuns: modelRuns === 0,
+    apiCount: missingSource.apiCount === 63,
+    sandboxed: missingSource.sandboxed,
+    isolated: missingSource.isolated,
+    noRequire: missingSource.noRequire,
+  };
+  await window.webContents.executeJavaScript(
+    `document.querySelector('[data-worktree-recoveries]').scrollIntoView({block:'center'});`,
+  );
+  mkdirSync(resolve(root, 'docs/progress/evidence/screenshots'), { recursive: true });
+  writeFileSync(
+    resolve(root, 'docs/progress/evidence/screenshots/M2.5b-recovery.png'),
+    (await window.webContents.capturePage()).toPNG(),
+  );
+  writeFileSync(
+    resolve(root, 'docs/progress/evidence/M2.5b-desktop.json'),
+    JSON.stringify(
+      {
+        observedAt: new Date().toISOString(),
+        status: Object.values(result).every(Boolean) ? 'passed' : 'blocked',
+        kind: 'real_electron_git_archive_metadata_repair',
+        modelTurns: 0,
+        historyMetadata: 'synthetic_fixture',
+        finderAdapter: 'stub_destination_checked_actual_Finder_not_run',
+        result,
+      },
+      null,
+      2,
+    ) + '\n',
+  );
+  app.quit();
 }

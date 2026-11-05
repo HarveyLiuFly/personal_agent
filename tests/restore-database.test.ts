@@ -1,66 +1,468 @@
-import {test} from 'node:test';
+import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import {createHash} from 'node:crypto';
-import {mkdtempSync,mkdirSync,realpathSync,readFileSync,writeFileSync,copyFileSync,rmSync,linkSync} from 'node:fs';
-import {join} from 'node:path';
-import {tmpdir} from 'node:os';
-import {DatabaseSync} from 'node:sqlite';
-import {ExecutionLedger} from '../packages/store/src/ledger.ts';
-import {prepareRestoreDatabase} from '../packages/backup/src/restore-database.ts';
+import { createHash } from 'node:crypto';
+import {
+  mkdtempSync,
+  mkdirSync,
+  realpathSync,
+  readFileSync,
+  writeFileSync,
+  copyFileSync,
+  rmSync,
+  linkSync,
+} from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+import { DatabaseSync } from 'node:sqlite';
+import { ExecutionLedger } from '../packages/store/src/ledger.ts';
+import { prepareRestoreDatabase } from '../packages/backup/src/restore-database.ts';
 
-const schema=readFileSync('docs/design/contracts/schema.sql','utf8'),sha=(v:string|Buffer)=>createHash('sha256').update(v).digest('hex');
+const schema = readFileSync('docs/design/contracts/schema.sql', 'utf8'),
+  sha = (v: string | Buffer) => createHash('sha256').update(v).digest('hex');
 /** Actual SQLite/FS. Any Run, approval or usage rows below are synthetic accounting metadata, not model receipts. */
-function fixture(t:{after(fn:()=>void):void}){
-  const root=realpathSync(mkdtempSync(join(tmpdir(),'personal-agent-restore-database-'))),live=join(root,'live');mkdirSync(live,{mode:0o700});const file=join(live,'ledger.db'),store=new ExecutionLedger(file,schema,{budgetPolicy:{dailyTokens:100,reservationTokens:10}});store.startOwner('restore-source-fixture',true);
-  const workspace=join(root,'workspace');mkdirSync(workspace);writeFileSync(join(workspace,'public.txt'),'PUBLIC_SOURCE_UNCHANGED');const project=store.registerWorkspace(workspace),task=store.taskCommand({kind:'create',projectId:project.id,commandKey:'task',text:'PUBLIC_OLD_TASK'}),budget=store.resourceBudget(),db=new DatabaseSync(file);db.exec('PRAGMA foreign_keys=ON;');
-  const backup=join(root,'backup.db'),candidateRoot=join(root,'candidate'),candidate=join(candidateRoot,'ledger.db'),current=join(root,'current.db');mkdirSync(candidateRoot,{mode:0o700});t.after(()=>{db.close();store.close();rmSync(root,{recursive:true,force:true});});
-  const checkpoint=()=>{store.snapshotForBackup(backup);copyFileSync(backup,candidate);};const snapshot=()=>store.snapshotForBackup(current);
-  return{root,file,store,workspace,project,task,db,backup,candidate,current,checkpoint,snapshot,bucket:'tokens:local-dot:'+budget.periodStart};
+function fixture(t: { after(fn: () => void): void }) {
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'personal-agent-restore-database-'))),
+    live = join(root, 'live');
+  mkdirSync(live, { mode: 0o700 });
+  const file = join(live, 'ledger.db'),
+    store = new ExecutionLedger(file, schema, {
+      budgetPolicy: { dailyTokens: 100, reservationTokens: 10 },
+    });
+  store.startOwner('restore-source-fixture', true);
+  const workspace = join(root, 'workspace');
+  mkdirSync(workspace);
+  writeFileSync(join(workspace, 'public.txt'), 'PUBLIC_SOURCE_UNCHANGED');
+  const project = store.registerWorkspace(workspace),
+    task = store.taskCommand({
+      kind: 'create',
+      projectId: project.id,
+      commandKey: 'task',
+      text: 'PUBLIC_OLD_TASK',
+    }),
+    budget = store.resourceBudget(),
+    db = new DatabaseSync(file);
+  db.exec('PRAGMA foreign_keys=ON;');
+  const backup = join(root, 'backup.db'),
+    candidateRoot = join(root, 'candidate'),
+    candidate = join(candidateRoot, 'ledger.db'),
+    current = join(root, 'current.db');
+  mkdirSync(candidateRoot, { mode: 0o700 });
+  t.after(() => {
+    db.close();
+    store.close();
+    rmSync(root, { recursive: true, force: true });
+  });
+  const checkpoint = () => {
+    store.snapshotForBackup(backup);
+    copyFileSync(backup, candidate);
+  };
+  const snapshot = () => store.snapshotForBackup(current);
+  return {
+    root,
+    file,
+    store,
+    workspace,
+    project,
+    task,
+    db,
+    backup,
+    candidate,
+    current,
+    checkpoint,
+    snapshot,
+    bucket: 'tokens:local-dot:' + budget.periodStart,
+  };
 }
-function change(file:string,work:(db:DatabaseSync)=>void){const db=new DatabaseSync(file);try{db.exec('PRAGMA foreign_keys=ON;');work(db);}finally{db.close();}}
-function read(file:string,work:(db:DatabaseSync)=>void){const db=new DatabaseSync(file,{readOnly:true});try{work(db);}finally{db.close();}}
-function model(db:DatabaseSync,workspaceId:string,id='finished',status='completed'){
-  const task='task-'+id;db.prepare("INSERT INTO tasks(task_id,dot_id,workspace_id,title,status,created_at_ms,updated_at_ms) VALUES (?,'local-dot',?,'Public synthetic accounting','completed',1,1)").run(task,workspaceId);
-  db.prepare("INSERT INTO task_runs(run_id,task_id,dot_id,idempotency_key,executor_kind,status,task_snapshot_version,task_fence,runtime_epoch,policy_epoch,privacy_epoch,worker_id,lease_until_ms,started_at_ms) VALUES (?,?,'local-dot',?,'codex',?,1,1,1,1,1,'synthetic-not-executed',0,1)").run(id,task,id,status);return task;
+function change(file: string, work: (db: DatabaseSync) => void) {
+  const db = new DatabaseSync(file);
+  try {
+    db.exec('PRAGMA foreign_keys=ON;');
+    work(db);
+  } finally {
+    db.close();
+  }
 }
-function usage(db:DatabaseSync,id:string,tokens:number){db.prepare('INSERT INTO run_usage VALUES (?,?,0,?,0,1,?,1)').run(id,'thread-'+id,tokens,sha('public-observation-'+tokens));db.prepare("INSERT INTO thread_usage VALUES (?,'local-dot',?,?,1,1)").run('thread-'+id,tokens,id);}
-function copiedHashes(f:ReturnType<typeof fixture>){return[sha(readFileSync(f.backup)),sha(readFileSync(f.current))];}
+function read(file: string, work: (db: DatabaseSync) => void) {
+  const db = new DatabaseSync(file, { readOnly: true });
+  try {
+    work(db);
+  } finally {
+    db.close();
+  }
+}
+function model(db: DatabaseSync, workspaceId: string, id = 'finished', status = 'completed') {
+  const task = 'task-' + id;
+  db.prepare(
+    "INSERT INTO tasks(task_id,dot_id,workspace_id,title,status,created_at_ms,updated_at_ms) VALUES (?,'local-dot',?,'Public synthetic accounting','completed',1,1)",
+  ).run(task, workspaceId);
+  db.prepare(
+    "INSERT INTO task_runs(run_id,task_id,dot_id,idempotency_key,executor_kind,status,task_snapshot_version,task_fence,runtime_epoch,policy_epoch,privacy_epoch,worker_id,lease_until_ms,started_at_ms) VALUES (?,?,'local-dot',?,'codex',?,1,1,1,1,1,'synthetic-not-executed',0,1)",
+  ).run(id, task, id, status);
+  return task;
+}
+function usage(db: DatabaseSync, id: string, tokens: number) {
+  db.prepare('INSERT INTO run_usage VALUES (?,?,0,?,0,1,?,1)').run(
+    id,
+    'thread-' + id,
+    tokens,
+    sha('public-observation-' + tokens),
+  );
+  db.prepare("INSERT INTO thread_usage VALUES (?,'local-dot',?,?,1,1)").run(
+    'thread-' + id,
+    tokens,
+    id,
+  );
+}
+function copiedHashes(f: ReturnType<typeof fixture>) {
+  return [sha(readFileSync(f.backup)), sha(readFileSync(f.current))];
+}
 
-test('restorable copy preserves current consumption, latest policy and tombstones without changing either source',t=>{
-  const f=fixture(t);f.db.prepare('UPDATE budget_buckets SET consumed_units=20 WHERE bucket_id=?').run(f.bucket);f.db.prepare("INSERT INTO artifacts VALUES ('synthetic-private','local-dot',?,'hash','private.json','published','private',1,1,NULL)").run(f.task.taskId);f.checkpoint();
-  f.store.taskCommand({kind:'rename',projectId:f.project.id,commandKey:'rename',taskId:f.task.taskId,expectedVersion:f.task.taskVersion,title:'PUBLIC_NEW_TASK'});f.db.exec('UPDATE dots SET policy_epoch=4,privacy_epoch=7; UPDATE budget_policies SET daily_token_limit=500,reservation_tokens=40;');f.db.prepare('UPDATE budget_buckets SET limit_units=300,consumed_units=80 WHERE bucket_id=?').run(f.bucket);f.db.prepare("INSERT INTO privacy_tombstones VALUES ('local-dot',?,7,123)").run('task:'+f.task.taskId);f.snapshot();const hashes=copiedHashes(f);
-  const result=prepareRestoreDatabase(f.candidate,f.current,'public-restore');assert.equal(result.runtimeEpoch,2);assert.equal(result.policyEpoch,5);assert.equal(result.privacyEpoch,8);assert.equal(result.tombstones,5);assert.equal(result.quarantinedArtifacts,1);assert.equal(result.mergedBudgetBuckets,1);assert.equal(result.unknownRuns,0);assert.equal(result.retainedLeases,0);assert.deepEqual(copiedHashes(f),hashes);
-  read(f.candidate,db=>{assert.equal(db.prepare("SELECT name FROM sqlite_master WHERE name='recovery_quarantine'").get(),undefined);assert.equal(db.prepare('SELECT state FROM runtime_owners').get()!.state,'stopped');assert.equal(db.prepare('SELECT title FROM tasks WHERE task_id=?').get(f.task.taskId)!.title,'已遗忘任务');assert.equal(db.prepare('SELECT status FROM tasks WHERE task_id=?').get(f.task.taskId)!.status,'paused');assert.equal(db.prepare('SELECT dispatch_blocked FROM tasks WHERE task_id=?').get(f.task.taskId)!.dispatch_blocked,1);assert.equal(db.prepare('SELECT state FROM artifacts').get()!.state,'deleted');});
-  const restored=new ExecutionLedger(f.candidate,schema);try{assert.equal(restored.startOwner('restored-owner-component-fixture',true),3);const budget=restored.resourceBudget();assert.equal(budget.reportedTokens,80);assert.equal(budget.limitTokens,100);assert.equal(budget.reservationPerRun,40);assert.equal(budget.availableTokens,20);assert.throws(()=>restored.beginRun(f.project.id,'new admission still respects current spend','new-admission','readOnly'),/TOKEN_BUDGET_EXHAUSTED/);}finally{restored.close();}
-  assert.deepEqual(copiedHashes(f),hashes);assert.equal(f.db.prepare('SELECT title FROM tasks WHERE task_id=?').get(f.task.taskId)!.title,'PUBLIC_NEW_TASK');assert.equal(readFileSync(join(f.workspace,'public.txt'),'utf8'),'PUBLIC_SOURCE_UNCHANGED');
+test('restorable copy preserves current consumption, latest policy and tombstones without changing either source', (t) => {
+  const f = fixture(t);
+  f.db.prepare('UPDATE budget_buckets SET consumed_units=20 WHERE bucket_id=?').run(f.bucket);
+  f.db
+    .prepare(
+      "INSERT INTO artifacts VALUES ('synthetic-private','local-dot',?,'hash','private.json','published','private',1,1,NULL)",
+    )
+    .run(f.task.taskId);
+  f.checkpoint();
+  f.store.taskCommand({
+    kind: 'rename',
+    projectId: f.project.id,
+    commandKey: 'rename',
+    taskId: f.task.taskId,
+    expectedVersion: f.task.taskVersion,
+    title: 'PUBLIC_NEW_TASK',
+  });
+  f.db.exec(
+    'UPDATE dots SET policy_epoch=4,privacy_epoch=7; UPDATE budget_policies SET daily_token_limit=500,reservation_tokens=40;',
+  );
+  f.db
+    .prepare('UPDATE budget_buckets SET limit_units=300,consumed_units=80 WHERE bucket_id=?')
+    .run(f.bucket);
+  f.db
+    .prepare("INSERT INTO privacy_tombstones VALUES ('local-dot',?,7,123)")
+    .run('task:' + f.task.taskId);
+  f.snapshot();
+  const hashes = copiedHashes(f);
+  const result = prepareRestoreDatabase(f.candidate, f.current, 'public-restore');
+  assert.equal(result.runtimeEpoch, 2);
+  assert.equal(result.policyEpoch, 5);
+  assert.equal(result.privacyEpoch, 8);
+  assert.equal(result.tombstones, 5);
+  assert.equal(result.quarantinedArtifacts, 1);
+  assert.equal(result.mergedBudgetBuckets, 1);
+  assert.equal(result.unknownRuns, 0);
+  assert.equal(result.retainedLeases, 0);
+  assert.deepEqual(copiedHashes(f), hashes);
+  read(f.candidate, (db) => {
+    assert.equal(
+      db.prepare("SELECT name FROM sqlite_master WHERE name='recovery_quarantine'").get(),
+      undefined,
+    );
+    assert.equal(db.prepare('SELECT state FROM runtime_owners').get()!.state, 'stopped');
+    assert.equal(
+      db.prepare('SELECT title FROM tasks WHERE task_id=?').get(f.task.taskId)!.title,
+      '已遗忘任务',
+    );
+    assert.equal(
+      db.prepare('SELECT status FROM tasks WHERE task_id=?').get(f.task.taskId)!.status,
+      'paused',
+    );
+    assert.equal(
+      db.prepare('SELECT dispatch_blocked FROM tasks WHERE task_id=?').get(f.task.taskId)!
+        .dispatch_blocked,
+      1,
+    );
+    assert.equal(db.prepare('SELECT state FROM artifacts').get()!.state, 'deleted');
+  });
+  const restored = new ExecutionLedger(f.candidate, schema);
+  try {
+    assert.equal(restored.startOwner('restored-owner-component-fixture', true), 3);
+    const budget = restored.resourceBudget();
+    assert.equal(budget.reportedTokens, 80);
+    assert.equal(budget.limitTokens, 100);
+    assert.equal(budget.reservationPerRun, 40);
+    assert.equal(budget.availableTokens, 20);
+    assert.throws(
+      () =>
+        restored.beginRun(
+          f.project.id,
+          'new admission still respects current spend',
+          'new-admission',
+          'readOnly',
+        ),
+      /TOKEN_BUDGET_EXHAUSTED/,
+    );
+  } finally {
+    restored.close();
+  }
+  assert.deepEqual(copiedHashes(f), hashes);
+  assert.equal(
+    f.db.prepare('SELECT title FROM tasks WHERE task_id=?').get(f.task.taskId)!.title,
+    'PUBLIC_NEW_TASK',
+  );
+  assert.equal(readFileSync(join(f.workspace, 'public.txt'), 'utf8'), 'PUBLIC_SOURCE_UNCHANGED');
 });
-test('matching Run usage merges high water, and current-only usage stays in its source snapshot without forged Run/FK',t=>{
-  const f=fixture(t);model(f.db,f.project.id,'shared');usage(f.db,'shared',10);f.db.exec("INSERT INTO thread_bindings VALUES ('binding','task-shared','codex','thread-shared',1,1,'active',NULL);");f.checkpoint();f.db.prepare("UPDATE run_usage SET latest_total_tokens=35,observation_hash=?,updated_at_ms=2 WHERE run_id='shared'").run(sha('latest35'));f.db.exec("UPDATE thread_usage SET total_tokens=35,updated_at_ms=2;UPDATE budget_buckets SET consumed_units=90;");model(f.db,f.project.id,'current-only');usage(f.db,'current-only',55);f.snapshot();const hashes=copiedHashes(f);prepareRestoreDatabase(f.candidate,f.current,'usage-restore');
-  read(f.candidate,db=>{assert.equal(db.prepare("SELECT latest_total_tokens FROM run_usage WHERE run_id='shared'").get()!.latest_total_tokens,35);assert.equal(db.prepare("SELECT observation_hash FROM run_usage WHERE run_id='shared'").get()!.observation_hash,sha('latest35'));assert.equal(db.prepare("SELECT total_tokens FROM thread_usage WHERE thread_id='thread-shared'").get()!.total_tokens,35);assert.equal(db.prepare('SELECT count(*) AS n FROM thread_usage WHERE baseline_known<>0').get()!.n,0);assert.equal(db.prepare("SELECT state FROM thread_bindings WHERE binding_id='binding'").get()!.state,'invalidated');assert.equal(db.prepare("SELECT run_id FROM task_runs WHERE run_id='current-only'").get(),undefined);assert.equal(db.prepare('SELECT consumed_units FROM budget_buckets').get()!.consumed_units,90);assert.equal(db.prepare('PRAGMA foreign_key_check').all().length,0);});assert.deepEqual(copiedHashes(f),hashes);read(f.current,db=>assert.equal(db.prepare("SELECT latest_total_tokens FROM run_usage WHERE run_id='current-only'").get()!.latest_total_tokens,55));
+test('matching Run usage merges high water, and current-only usage stays in its source snapshot without forged Run/FK', (t) => {
+  const f = fixture(t);
+  model(f.db, f.project.id, 'shared');
+  usage(f.db, 'shared', 10);
+  f.db.exec(
+    "INSERT INTO thread_bindings VALUES ('binding','task-shared','codex','thread-shared',1,1,'active',NULL);",
+  );
+  f.checkpoint();
+  f.db
+    .prepare(
+      "UPDATE run_usage SET latest_total_tokens=35,observation_hash=?,updated_at_ms=2 WHERE run_id='shared'",
+    )
+    .run(sha('latest35'));
+  f.db.exec(
+    'UPDATE thread_usage SET total_tokens=35,updated_at_ms=2;UPDATE budget_buckets SET consumed_units=90;',
+  );
+  model(f.db, f.project.id, 'current-only');
+  usage(f.db, 'current-only', 55);
+  f.snapshot();
+  const hashes = copiedHashes(f);
+  prepareRestoreDatabase(f.candidate, f.current, 'usage-restore');
+  read(f.candidate, (db) => {
+    assert.equal(
+      db.prepare("SELECT latest_total_tokens FROM run_usage WHERE run_id='shared'").get()!
+        .latest_total_tokens,
+      35,
+    );
+    assert.equal(
+      db.prepare("SELECT observation_hash FROM run_usage WHERE run_id='shared'").get()!
+        .observation_hash,
+      sha('latest35'),
+    );
+    assert.equal(
+      db.prepare("SELECT total_tokens FROM thread_usage WHERE thread_id='thread-shared'").get()!
+        .total_tokens,
+      35,
+    );
+    assert.equal(
+      db.prepare('SELECT count(*) AS n FROM thread_usage WHERE baseline_known<>0').get()!.n,
+      0,
+    );
+    assert.equal(
+      db.prepare("SELECT state FROM thread_bindings WHERE binding_id='binding'").get()!.state,
+      'invalidated',
+    );
+    assert.equal(
+      db.prepare("SELECT run_id FROM task_runs WHERE run_id='current-only'").get(),
+      undefined,
+    );
+    assert.equal(db.prepare('SELECT consumed_units FROM budget_buckets').get()!.consumed_units, 90);
+    assert.equal(db.prepare('PRAGMA foreign_key_check').all().length, 0);
+  });
+  assert.deepEqual(copiedHashes(f), hashes);
+  read(f.current, (db) =>
+    assert.equal(
+      db.prepare("SELECT latest_total_tokens FROM run_usage WHERE run_id='current-only'").get()!
+        .latest_total_tokens,
+      55,
+    ),
+  );
 });
-test('same scope/period buckets use conservative maximum spend and minimum limit even with different IDs',t=>{
-  const f=fixture(t);f.db.exec('UPDATE budget_buckets SET consumed_units=20');f.checkpoint();f.db.exec('UPDATE budget_buckets SET limit_units=200,consumed_units=60');f.db.prepare("INSERT INTO budget_buckets SELECT 'new-equivalent-id',dot_id,goal_id,unit,period_start_ms,period_end_ms,70,0,80 FROM budget_buckets WHERE bucket_id=?").run(f.bucket);f.snapshot();const result=prepareRestoreDatabase(f.candidate,f.current,'scope-merge');assert.equal(result.mergedBudgetBuckets,2);read(f.candidate,db=>{const values=db.prepare('SELECT limit_units,consumed_units,reserved_units FROM budget_buckets').all();assert.equal(values.length,2);for(const row of values){assert.equal(row.limit_units,70);assert.equal(row.consumed_units,80);assert.equal(row.reserved_units,0);}});
+test('same scope/period buckets use conservative maximum spend and minimum limit even with different IDs', (t) => {
+  const f = fixture(t);
+  f.db.exec('UPDATE budget_buckets SET consumed_units=20');
+  f.checkpoint();
+  f.db.exec('UPDATE budget_buckets SET limit_units=200,consumed_units=60');
+  f.db
+    .prepare(
+      "INSERT INTO budget_buckets SELECT 'new-equivalent-id',dot_id,goal_id,unit,period_start_ms,period_end_ms,70,0,80 FROM budget_buckets WHERE bucket_id=?",
+    )
+    .run(f.bucket);
+  f.snapshot();
+  const result = prepareRestoreDatabase(f.candidate, f.current, 'scope-merge');
+  assert.equal(result.mergedBudgetBuckets, 2);
+  read(f.candidate, (db) => {
+    const values = db
+      .prepare('SELECT limit_units,consumed_units,reserved_units FROM budget_buckets')
+      .all();
+    assert.equal(values.length, 2);
+    for (const row of values) {
+      assert.equal(row.limit_units, 70);
+      assert.equal(row.consumed_units, 80);
+      assert.equal(row.reserved_units, 0);
+    }
+  });
 });
-test('old mandates, schedules and bindings stay invalidated after a genuinely openable restore',t=>{
-  const f=fixture(t);f.db.prepare("INSERT INTO mandates VALUES ('mandate',?,NULL,1,'[]','synthetic','active',NULL)").run(f.task.taskId);f.db.prepare("INSERT INTO schedules VALUES ('schedule',?,1,'once','{}','UTC','active','coalesce','coalesce',1,9999999999999,NULL)").run(f.task.taskId);f.checkpoint();f.snapshot();const result=prepareRestoreDatabase(f.candidate,f.current,'no-old-authorization');assert.equal(result.revokedApprovals,1);assert.equal(result.pausedSchedules,1);read(f.candidate,db=>{assert.equal(db.prepare('SELECT state FROM mandates').get()!.state,'revoked');assert.equal(db.prepare('SELECT state FROM schedules').get()!.state,'paused');assert.equal(db.prepare('SELECT next_fire_at_ms FROM schedules').get()!.next_fire_at_ms,null);});
-  const restored=new ExecutionLedger(f.candidate,schema);try{restored.startOwner('normal-owner-after-restoration-fixture',true);assert.equal(restored.tasks(f.project.id)[0]!.blocked,true);}finally{restored.close();}
+test('old mandates, schedules and bindings stay invalidated after a genuinely openable restore', (t) => {
+  const f = fixture(t);
+  f.db
+    .prepare("INSERT INTO mandates VALUES ('mandate',?,NULL,1,'[]','synthetic','active',NULL)")
+    .run(f.task.taskId);
+  f.db
+    .prepare(
+      "INSERT INTO schedules VALUES ('schedule',?,1,'once','{}','UTC','active','coalesce','coalesce',1,9999999999999,NULL)",
+    )
+    .run(f.task.taskId);
+  f.checkpoint();
+  f.snapshot();
+  const result = prepareRestoreDatabase(f.candidate, f.current, 'no-old-authorization');
+  assert.equal(result.revokedApprovals, 1);
+  assert.equal(result.pausedSchedules, 1);
+  read(f.candidate, (db) => {
+    assert.equal(db.prepare('SELECT state FROM mandates').get()!.state, 'revoked');
+    assert.equal(db.prepare('SELECT state FROM schedules').get()!.state, 'paused');
+    assert.equal(db.prepare('SELECT next_fire_at_ms FROM schedules').get()!.next_fire_at_ms, null);
+  });
+  const restored = new ExecutionLedger(f.candidate, schema);
+  try {
+    restored.startOwner('normal-owner-after-restoration-fixture', true);
+    assert.equal(restored.tasks(f.project.id)[0]!.blocked, true);
+  } finally {
+    restored.close();
+  }
 });
-test('both backup and current unsettled budgets refuse restoration without inventing released balances',t=>{
-  for(const target of ['candidate','current'] as const)for(const state of ['active','held_unknown','settled-null','orphan-reserved']){const f=fixture(t);f.checkpoint();const apply=(db:DatabaseSync)=>{model(db,f.project.id);if(state!=='orphan-reserved')db.prepare("INSERT INTO budget_reservations VALUES ('reservation',?,'finished',10,?,NULL,NULL)").run(f.bucket,state==='settled-null'?'settled':state);if(state!=='settled-null')db.exec('UPDATE budget_buckets SET reserved_units=10');};if(target==='current')apply(f.db);else change(f.candidate,apply);f.snapshot();const hashes=copiedHashes(f);assert.throws(()=>prepareRestoreDatabase(f.candidate,f.current,'blocked-budget'),/RESTORE_UNRESOLVED_BUDGET/);assert.deepEqual(copiedHashes(f),hashes);read(f.candidate,db=>assert.equal(db.prepare("SELECT name FROM sqlite_master WHERE name='recovery_quarantine'").get(),undefined));}
+test('both backup and current unsettled budgets refuse restoration without inventing released balances', (t) => {
+  for (const target of ['candidate', 'current'] as const)
+    for (const state of ['active', 'held_unknown', 'settled-null', 'orphan-reserved']) {
+      const f = fixture(t);
+      f.checkpoint();
+      const apply = (db: DatabaseSync) => {
+        model(db, f.project.id);
+        if (state !== 'orphan-reserved')
+          db.prepare(
+            "INSERT INTO budget_reservations VALUES ('reservation',?,'finished',10,?,NULL,NULL)",
+          ).run(f.bucket, state === 'settled-null' ? 'settled' : state);
+        if (state !== 'settled-null') db.exec('UPDATE budget_buckets SET reserved_units=10');
+      };
+      if (target === 'current') apply(f.db);
+      else change(f.candidate, apply);
+      f.snapshot();
+      const hashes = copiedHashes(f);
+      assert.throws(
+        () => prepareRestoreDatabase(f.candidate, f.current, 'blocked-budget'),
+        /RESTORE_UNRESOLVED_BUDGET/,
+      );
+      assert.deepEqual(copiedHashes(f), hashes);
+      read(f.candidate, (db) =>
+        assert.equal(
+          db.prepare("SELECT name FROM sqlite_master WHERE name='recovery_quarantine'").get(),
+          undefined,
+        ),
+      );
+    }
 });
-test('unresolved Runs, reserved Actions, grants, execution Operations and all three lease types are refused',t=>{
-  for(const kind of ['run','reserved-action','grant','operation','write-lease','terminal','terminal-lease','worktree','project-lease']){const f=fixture(t);f.checkpoint();f.snapshot();change(f.candidate,db=>{
-    const task=model(db,f.project.id,'finished',kind==='run'?'outcome_unknown':'completed'),op=String(db.prepare('SELECT operation_id FROM operations LIMIT 1').get()!.operation_id),project=String(db.prepare('SELECT project_id FROM workspaces').get()!.project_id);
-    if(kind==='reserved-action'||kind==='grant'){db.prepare("INSERT INTO actions(action_id,task_id,run_id,action_key,capability,canonical_payload_json,payload_hash,task_version,task_fence,policy_epoch,status) VALUES ('action',?,'finished','key','synthetic','{}','hash',1,1,1,?)").run(task,kind==='grant'?'succeeded':'reserved');if(kind==='grant')db.exec("INSERT INTO approval_receipts VALUES ('approval','action','hash','synthetic',9999999999999,1,'granted')");}
-    if(kind==='operation')db.prepare("UPDATE operations SET state='executing' WHERE operation_id=?").run(op);
-    if(kind==='write-lease')db.prepare("INSERT INTO workspace_write_leases VALUES (?,'finished',1,9999999999999)").run(f.project.id);
-    if(kind==='terminal'||kind==='terminal-lease'){db.prepare("INSERT INTO terminal_sessions VALUES ('terminal',?,'local-dot',?,?,1,1,987650001,987650002,80,24,0,NULL,NULL,1)").run(op,f.project.id,kind==='terminal'?'outcome_unknown':'exited');if(kind==='terminal-lease')db.prepare("INSERT INTO workspace_terminal_leases VALUES (?,'terminal',1,1)").run(f.project.id);}
-    if(kind==='worktree'||kind==='project-lease'){db.prepare("INSERT INTO worktree_operations VALUES (?,'local-dot',?,?,NULL,'create',?,1,1,987650003,'{}','hash',NULL,NULL,1)").run(op,project,f.project.id,kind==='worktree'?'outcome_unknown':'completed');if(kind==='project-lease')db.prepare('INSERT INTO project_operation_leases VALUES (?,?,1,1)').run(project,op);}
-  });const hashes=copiedHashes(f);assert.throws(()=>prepareRestoreDatabase(f.candidate,f.current,'pending-refused'),/RESTORE_UNRESOLVED_EXECUTION/);assert.deepEqual(copiedHashes(f),hashes);}
+test('unresolved Runs, reserved Actions, grants, execution Operations and all three lease types are refused', (t) => {
+  for (const kind of [
+    'run',
+    'reserved-action',
+    'grant',
+    'operation',
+    'write-lease',
+    'terminal',
+    'terminal-lease',
+    'worktree',
+    'project-lease',
+  ]) {
+    const f = fixture(t);
+    f.checkpoint();
+    f.snapshot();
+    change(f.candidate, (db) => {
+      const task = model(
+          db,
+          f.project.id,
+          'finished',
+          kind === 'run' ? 'outcome_unknown' : 'completed',
+        ),
+        op = String(db.prepare('SELECT operation_id FROM operations LIMIT 1').get()!.operation_id),
+        project = String(db.prepare('SELECT project_id FROM workspaces').get()!.project_id);
+      if (kind === 'reserved-action' || kind === 'grant') {
+        db.prepare(
+          "INSERT INTO actions(action_id,task_id,run_id,action_key,capability,canonical_payload_json,payload_hash,task_version,task_fence,policy_epoch,status) VALUES ('action',?,'finished','key','synthetic','{}','hash',1,1,1,?)",
+        ).run(task, kind === 'grant' ? 'succeeded' : 'reserved');
+        if (kind === 'grant')
+          db.exec(
+            "INSERT INTO approval_receipts VALUES ('approval','action','hash','synthetic',9999999999999,1,'granted')",
+          );
+      }
+      if (kind === 'operation')
+        db.prepare("UPDATE operations SET state='executing' WHERE operation_id=?").run(op);
+      if (kind === 'write-lease')
+        db.prepare("INSERT INTO workspace_write_leases VALUES (?,'finished',1,9999999999999)").run(
+          f.project.id,
+        );
+      if (kind === 'terminal' || kind === 'terminal-lease') {
+        db.prepare(
+          "INSERT INTO terminal_sessions VALUES ('terminal',?,'local-dot',?,?,1,1,987650001,987650002,80,24,0,NULL,NULL,1)",
+        ).run(op, f.project.id, kind === 'terminal' ? 'outcome_unknown' : 'exited');
+        if (kind === 'terminal-lease')
+          db.prepare("INSERT INTO workspace_terminal_leases VALUES (?,'terminal',1,1)").run(
+            f.project.id,
+          );
+      }
+      if (kind === 'worktree' || kind === 'project-lease') {
+        db.prepare(
+          "INSERT INTO worktree_operations VALUES (?,'local-dot',?,?,NULL,'create',?,1,1,987650003,'{}','hash',NULL,NULL,1)",
+        ).run(op, project, f.project.id, kind === 'worktree' ? 'outcome_unknown' : 'completed');
+        if (kind === 'project-lease')
+          db.prepare('INSERT INTO project_operation_leases VALUES (?,?,1,1)').run(project, op);
+      }
+    });
+    const hashes = copiedHashes(f);
+    assert.throws(
+      () => prepareRestoreDatabase(f.candidate, f.current, 'pending-refused'),
+      /RESTORE_UNRESOLVED_EXECUTION/,
+    );
+    assert.deepEqual(copiedHashes(f), hashes);
+  }
 });
-test('numeric overflow, unknown goals, scope conflicts and corrupt inputs fail conservatively',t=>{
-  for(const kind of ['overflow','new-goal','scope-conflict','corrupt','revision','alias']){const f=fixture(t);f.checkpoint();if(kind==='overflow')f.db.exec('UPDATE budget_buckets SET consumed_units=9007199254740991');if(kind==='new-goal'){f.db.exec("INSERT INTO goals VALUES ('new-goal','local-dot','Synthetic','not executed','active',1,1,'{}','[]',NULL)");f.db.prepare("INSERT INTO budget_buckets SELECT 'goal-bucket',dot_id,'new-goal',unit,period_start_ms,period_end_ms,limit_units,0,0 FROM budget_buckets WHERE bucket_id=?").run(f.bucket);}if(kind==='scope-conflict')f.db.exec('UPDATE budget_buckets SET period_end_ms=period_end_ms+1');f.snapshot();if(kind==='corrupt')writeFileSync(f.current,'PUBLIC_CORRUPTION'.repeat(100));if(kind==='revision')change(f.current,db=>db.exec('UPDATE schema_metadata SET schema_revision=99'));const hashes=copiedHashes(f);if(kind==='alias'){const alias=join(f.root,'same-inode.db');linkSync(f.candidate,alias);assert.throws(()=>prepareRestoreDatabase(f.candidate,alias,'same-file'),/RESTORE_DATABASE_ALIAS/);}else assert.throws(()=>prepareRestoreDatabase(f.candidate,f.current,'unsupported-input'));assert.deepEqual(copiedHashes(f),hashes);}
+test('numeric overflow, unknown goals, scope conflicts and corrupt inputs fail conservatively', (t) => {
+  for (const kind of ['overflow', 'new-goal', 'scope-conflict', 'corrupt', 'revision', 'alias']) {
+    const f = fixture(t);
+    f.checkpoint();
+    if (kind === 'overflow') f.db.exec('UPDATE budget_buckets SET consumed_units=9007199254740991');
+    if (kind === 'new-goal') {
+      f.db.exec(
+        "INSERT INTO goals VALUES ('new-goal','local-dot','Synthetic','not executed','active',1,1,'{}','[]',NULL)",
+      );
+      f.db
+        .prepare(
+          "INSERT INTO budget_buckets SELECT 'goal-bucket',dot_id,'new-goal',unit,period_start_ms,period_end_ms,limit_units,0,0 FROM budget_buckets WHERE bucket_id=?",
+        )
+        .run(f.bucket);
+    }
+    if (kind === 'scope-conflict')
+      f.db.exec('UPDATE budget_buckets SET period_end_ms=period_end_ms+1');
+    f.snapshot();
+    if (kind === 'corrupt') writeFileSync(f.current, 'PUBLIC_CORRUPTION'.repeat(100));
+    if (kind === 'revision')
+      change(f.current, (db) => db.exec('UPDATE schema_metadata SET schema_revision=99'));
+    const hashes = copiedHashes(f);
+    if (kind === 'alias') {
+      const alias = join(f.root, 'same-inode.db');
+      linkSync(f.candidate, alias);
+      assert.throws(
+        () => prepareRestoreDatabase(f.candidate, alias, 'same-file'),
+        /RESTORE_DATABASE_ALIAS/,
+      );
+    } else assert.throws(() => prepareRestoreDatabase(f.candidate, f.current, 'unsupported-input'));
+    assert.deepEqual(copiedHashes(f), hashes);
+  }
 });
-test('a failure in final accounting merge retains quarantine rather than exposing a half-prepared runnable database',t=>{
-  const f=fixture(t);f.checkpoint();f.snapshot();change(f.candidate,db=>db.exec("CREATE TRIGGER restore_accounting_failure BEFORE UPDATE ON budget_buckets BEGIN SELECT RAISE(ABORT,'CONTROLLED_ACCOUNTING_FAILURE'); END;"));const hashes=copiedHashes(f);assert.throws(()=>prepareRestoreDatabase(f.candidate,f.current,'merge-failure'),/RESTORE_DATABASE_PREPARATION_FAILED/);assert.deepEqual(copiedHashes(f),hashes);assert.throws(()=>new ExecutionLedger(f.candidate,schema),/RECOVERY_REHEARSAL_NOT_ACTIVE/);read(f.candidate,db=>{assert.equal(db.prepare('SELECT state FROM runtime_owners').get()!.state,'stopped');assert.equal(db.prepare('SELECT consumed_units FROM budget_buckets').get()!.consumed_units,0);});
+test('a failure in final accounting merge retains quarantine rather than exposing a half-prepared runnable database', (t) => {
+  const f = fixture(t);
+  f.checkpoint();
+  f.snapshot();
+  change(f.candidate, (db) =>
+    db.exec(
+      "CREATE TRIGGER restore_accounting_failure BEFORE UPDATE ON budget_buckets BEGIN SELECT RAISE(ABORT,'CONTROLLED_ACCOUNTING_FAILURE'); END;",
+    ),
+  );
+  const hashes = copiedHashes(f);
+  assert.throws(
+    () => prepareRestoreDatabase(f.candidate, f.current, 'merge-failure'),
+    /RESTORE_DATABASE_PREPARATION_FAILED/,
+  );
+  assert.deepEqual(copiedHashes(f), hashes);
+  assert.throws(() => new ExecutionLedger(f.candidate, schema), /RECOVERY_REHEARSAL_NOT_ACTIVE/);
+  read(f.candidate, (db) => {
+    assert.equal(db.prepare('SELECT state FROM runtime_owners').get()!.state, 'stopped');
+    assert.equal(db.prepare('SELECT consumed_units FROM budget_buckets').get()!.consumed_units, 0);
+  });
 });

@@ -1,36 +1,299 @@
-import {test} from 'node:test';
+import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import {createHash,randomUUID} from 'node:crypto';
-import {mkdtempSync,mkdirSync,realpathSync,writeFileSync,readFileSync,rmSync,existsSync,readdirSync,statSync} from 'node:fs';
-import {join,resolve} from 'node:path';
-import {tmpdir} from 'node:os';
-import {DatabaseSync} from 'node:sqlite';
-import {spawn} from 'node:child_process';
-import {once} from 'node:events';
-import {ExecutionLedger} from '../packages/store/src/ledger.ts';
-import {BackupService} from '../packages/backup/src/service.ts';
-const schema=readFileSync('docs/design/contracts/schema.sql','utf8'),sha=(v:string|Buffer)=>createHash('sha256').update(v).digest('hex');
-function fixture(t:{after(fn:()=>void):void},options:Partial<ConstructorParameters<typeof BackupService>[1]>={}){
-  const root=realpathSync(mkdtempSync(join(tmpdir(),'personal-agent-rehearsal-'))),file=join(root,'live.db'),store=new ExecutionLedger(file,schema);store.startOwner('source-owner',true);const cwd=join(root,'workspace');mkdirSync(cwd);writeFileSync(join(cwd,'source.txt'),'PUBLIC_SOURCE_UNCHANGED');const project=store.registerWorkspace(cwd),db=new DatabaseSync(file),receipts=join(root,'receipts');mkdirSync(receipts,{mode:0o700});t.after(()=>{store.close();db.close();rmSync(root,{recursive:true,force:true});});const service=new BackupService(store,{directory:join(root,'backups'),verificationDirectory:receipts,...options});const task=store.taskCommand({kind:'create',projectId:project.id,commandKey:'task',text:'PUBLIC_BACKUP_TASK'});return{root,file,cwd,store,db,receipts,project,service,task};
+import { createHash, randomUUID } from 'node:crypto';
+import {
+  mkdtempSync,
+  mkdirSync,
+  realpathSync,
+  writeFileSync,
+  readFileSync,
+  rmSync,
+  existsSync,
+  readdirSync,
+  statSync,
+} from 'node:fs';
+import { join, resolve } from 'node:path';
+import { tmpdir } from 'node:os';
+import { DatabaseSync } from 'node:sqlite';
+import { spawn } from 'node:child_process';
+import { once } from 'node:events';
+import { ExecutionLedger } from '../packages/store/src/ledger.ts';
+import { BackupService } from '../packages/backup/src/service.ts';
+const schema = readFileSync('docs/design/contracts/schema.sql', 'utf8'),
+  sha = (v: string | Buffer) => createHash('sha256').update(v).digest('hex');
+function fixture(
+  t: { after(fn: () => void): void },
+  options: Partial<ConstructorParameters<typeof BackupService>[1]> = {},
+) {
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'personal-agent-rehearsal-'))),
+    file = join(root, 'live.db'),
+    store = new ExecutionLedger(file, schema);
+  store.startOwner('source-owner', true);
+  const cwd = join(root, 'workspace');
+  mkdirSync(cwd);
+  writeFileSync(join(cwd, 'source.txt'), 'PUBLIC_SOURCE_UNCHANGED');
+  const project = store.registerWorkspace(cwd),
+    db = new DatabaseSync(file),
+    receipts = join(root, 'receipts');
+  mkdirSync(receipts, { mode: 0o700 });
+  t.after(() => {
+    store.close();
+    db.close();
+    rmSync(root, { recursive: true, force: true });
+  });
+  const service = new BackupService(store, {
+    directory: join(root, 'backups'),
+    verificationDirectory: receipts,
+    ...options,
+  });
+  const task = store.taskCommand({
+    kind: 'create',
+    projectId: project.id,
+    commandKey: 'task',
+    text: 'PUBLIC_BACKUP_TASK',
+  });
+  return { root, file, cwd, store, db, receipts, project, service, task };
 }
-function seedUnknownReceipt(f:ReturnType<typeof fixture>){const {token}=f.store.beginRun(f.project.id,'Synthetic unknown metadata only','run','workspaceWrite'),taskId=f.store.runForHost(token.runId).taskId,id=randomUUID(),specId=randomUUID(),content='{"status":"unknown","synthetic":true}\n',key=id+'.json';writeFileSync(join(f.receipts,key),content,{mode:0o600});f.db.prepare("INSERT INTO verification_specs VALUES (?,?,1,NULL,'[]','[]','{}',?)").run(specId,taskId,'0'.repeat(64));f.db.prepare("INSERT INTO artifacts VALUES (?,?,?,?,?,'published','private',1,?,NULL)").run(id,f.store.dotId,taskId,sha(content),key,Buffer.byteLength(content));f.db.prepare("INSERT INTO verification_results VALUES (?,?,?,'unknown',NULL,NULL,NULL,?,?)").run(id,token.runId,specId,id,Date.now());return{taskId,key,content};}
-test('rehearsal restores physical SQLite and receipts, merges current deletion barriers and preserves source and backup',t=>{
-  const f=fixture(t),r=seedUnknownReceipt(f),backup=f.service.command({kind:'create',commandKey:'backup'}),backupPath=join(f.root,'backups',backup.backup.id,'ledger.db'),before=sha(readFileSync(backupPath));f.db.exec('UPDATE dots SET policy_epoch=3,privacy_epoch=7');f.db.prepare('INSERT INTO privacy_tombstones VALUES (?,?,7,?)').run(f.store.dotId,'task:'+r.taskId,Date.now());
-  const result=f.service.command({kind:'rehearse',backupId:backup.backup.id,commandKey:'rehearsal'}),candidate=result.rehearsal!,path=join(f.root,'rehearsals',candidate.id);assert.equal(candidate.state,'saved');assert.equal(candidate.activationBlocked,true);assert.equal(candidate.summary!.runtimeEpoch,2);assert.equal(candidate.summary!.policyEpoch,4);assert.equal(candidate.summary!.privacyEpoch,8);assert.equal(candidate.summary!.tombstones,6);assert.equal(candidate.summary!.unknownRuns,1);assert.equal(candidate.summary!.retainedLeases,1);assert.equal(candidate.summary!.quarantinedArtifacts,1);
-  assert.equal(sha(readFileSync(backupPath)),before);assert.equal(readFileSync(join(f.root,'backups',backup.backup.id,'receipts',r.key),'utf8'),r.content);assert.equal(readFileSync(join(f.receipts,r.key),'utf8'),r.content);assert.equal(readFileSync(join(f.cwd,'source.txt'),'utf8'),'PUBLIC_SOURCE_UNCHANGED');assert.equal(existsSync(join(path,'receipts',r.key)),false);
-  const db=new DatabaseSync(join(path,'ledger.db'),{readOnly:true});try{assert.equal(db.prepare('SELECT title FROM tasks WHERE task_id=?').get(f.task.taskId)!.title,'PUBLIC_BACKUP_TASK');assert.equal(db.prepare('SELECT title FROM tasks WHERE task_id=?').get(r.taskId)!.title,'已遗忘任务');assert.equal(db.prepare('SELECT state FROM runtime_owners').get()!.state,'stopped');assert.equal(db.prepare('SELECT count(*) AS n FROM workspace_write_leases').get()!.n,1);assert.equal(db.prepare('PRAGMA foreign_key_check').all().length,0);}finally{db.close();}
-  assert.equal(f.db.prepare('SELECT runtime_epoch FROM runtime_owners').get()!.runtime_epoch,1);assert.equal(f.db.prepare('SELECT policy_epoch FROM dots').get()!.policy_epoch,3);assert.equal(f.db.prepare('SELECT status FROM task_runs').get()!.status,'preparing');assert.equal(f.db.prepare('SELECT count(*) AS n FROM execution_intents').get()!.n,0);assert.equal(statSync(path).mode&0o777,0o700);
+function seedUnknownReceipt(f: ReturnType<typeof fixture>) {
+  const { token } = f.store.beginRun(
+      f.project.id,
+      'Synthetic unknown metadata only',
+      'run',
+      'workspaceWrite',
+    ),
+    taskId = f.store.runForHost(token.runId).taskId,
+    id = randomUUID(),
+    specId = randomUUID(),
+    content = '{"status":"unknown","synthetic":true}\n',
+    key = id + '.json';
+  writeFileSync(join(f.receipts, key), content, { mode: 0o600 });
+  f.db
+    .prepare("INSERT INTO verification_specs VALUES (?,?,1,NULL,'[]','[]','{}',?)")
+    .run(specId, taskId, '0'.repeat(64));
+  f.db
+    .prepare("INSERT INTO artifacts VALUES (?,?,?,?,?,'published','private',1,?,NULL)")
+    .run(id, f.store.dotId, taskId, sha(content), key, Buffer.byteLength(content));
+  f.db
+    .prepare("INSERT INTO verification_results VALUES (?,?,?,'unknown',NULL,NULL,NULL,?,?)")
+    .run(id, token.runId, specId, id, Date.now());
+  return { taskId, key, content };
+}
+test('rehearsal restores physical SQLite and receipts, merges current deletion barriers and preserves source and backup', (t) => {
+  const f = fixture(t),
+    r = seedUnknownReceipt(f),
+    backup = f.service.command({ kind: 'create', commandKey: 'backup' }),
+    backupPath = join(f.root, 'backups', backup.backup.id, 'ledger.db'),
+    before = sha(readFileSync(backupPath));
+  f.db.exec('UPDATE dots SET policy_epoch=3,privacy_epoch=7');
+  f.db
+    .prepare('INSERT INTO privacy_tombstones VALUES (?,?,7,?)')
+    .run(f.store.dotId, 'task:' + r.taskId, Date.now());
+  const result = f.service.command({
+      kind: 'rehearse',
+      backupId: backup.backup.id,
+      commandKey: 'rehearsal',
+    }),
+    candidate = result.rehearsal!,
+    path = join(f.root, 'rehearsals', candidate.id);
+  assert.equal(candidate.state, 'saved');
+  assert.equal(candidate.activationBlocked, true);
+  assert.equal(candidate.summary!.runtimeEpoch, 2);
+  assert.equal(candidate.summary!.policyEpoch, 4);
+  assert.equal(candidate.summary!.privacyEpoch, 8);
+  assert.equal(candidate.summary!.tombstones, 6);
+  assert.equal(candidate.summary!.unknownRuns, 1);
+  assert.equal(candidate.summary!.retainedLeases, 1);
+  assert.equal(candidate.summary!.quarantinedArtifacts, 1);
+  assert.equal(sha(readFileSync(backupPath)), before);
+  assert.equal(
+    readFileSync(join(f.root, 'backups', backup.backup.id, 'receipts', r.key), 'utf8'),
+    r.content,
+  );
+  assert.equal(readFileSync(join(f.receipts, r.key), 'utf8'), r.content);
+  assert.equal(readFileSync(join(f.cwd, 'source.txt'), 'utf8'), 'PUBLIC_SOURCE_UNCHANGED');
+  assert.equal(existsSync(join(path, 'receipts', r.key)), false);
+  const db = new DatabaseSync(join(path, 'ledger.db'), { readOnly: true });
+  try {
+    assert.equal(
+      db.prepare('SELECT title FROM tasks WHERE task_id=?').get(f.task.taskId)!.title,
+      'PUBLIC_BACKUP_TASK',
+    );
+    assert.equal(
+      db.prepare('SELECT title FROM tasks WHERE task_id=?').get(r.taskId)!.title,
+      '已遗忘任务',
+    );
+    assert.equal(db.prepare('SELECT state FROM runtime_owners').get()!.state, 'stopped');
+    assert.equal(db.prepare('SELECT count(*) AS n FROM workspace_write_leases').get()!.n, 1);
+    assert.equal(db.prepare('PRAGMA foreign_key_check').all().length, 0);
+  } finally {
+    db.close();
+  }
+  assert.equal(f.db.prepare('SELECT runtime_epoch FROM runtime_owners').get()!.runtime_epoch, 1);
+  assert.equal(f.db.prepare('SELECT policy_epoch FROM dots').get()!.policy_epoch, 3);
+  assert.equal(f.db.prepare('SELECT status FROM task_runs').get()!.status, 'preparing');
+  assert.equal(f.db.prepare('SELECT count(*) AS n FROM execution_intents').get()!.n, 0);
+  assert.equal(statSync(path).mode & 0o777, 0o700);
 });
-test('ordinary Ledger refuses both pending-file and published-database quarantine guards',t=>{
-  const f=fixture(t),backup=f.service.command({kind:'create',commandKey:'backup'}),result=f.service.command({kind:'rehearse',backupId:backup.backup.id,commandKey:'candidate'}),path=join(f.root,'rehearsals',result.rehearsal!.id),database=join(path,'ledger.db');assert.throws(()=>new ExecutionLedger(database,schema),/RECOVERY_REHEARSAL_NOT_ACTIVE/);rmSync(join(path,'RESTORE_QUARANTINE'));assert.throws(()=>new ExecutionLedger(database,schema),/RECOVERY_REHEARSAL_NOT_ACTIVE/);const pending=join(f.root,'pending');mkdirSync(pending);writeFileSync(join(pending,'RESTORE_QUARANTINE'),'guard');assert.throws(()=>new ExecutionLedger(join(pending,'ledger.db'),schema),/RECOVERY_REHEARSAL_NOT_ACTIVE/);assert.equal(existsSync(join(pending,'ledger.db')),false);
+test('ordinary Ledger refuses both pending-file and published-database quarantine guards', (t) => {
+  const f = fixture(t),
+    backup = f.service.command({ kind: 'create', commandKey: 'backup' }),
+    result = f.service.command({
+      kind: 'rehearse',
+      backupId: backup.backup.id,
+      commandKey: 'candidate',
+    }),
+    path = join(f.root, 'rehearsals', result.rehearsal!.id),
+    database = join(path, 'ledger.db');
+  assert.throws(() => new ExecutionLedger(database, schema), /RECOVERY_REHEARSAL_NOT_ACTIVE/);
+  rmSync(join(path, 'RESTORE_QUARANTINE'));
+  assert.throws(() => new ExecutionLedger(database, schema), /RECOVERY_REHEARSAL_NOT_ACTIVE/);
+  const pending = join(f.root, 'pending');
+  mkdirSync(pending);
+  writeFileSync(join(pending, 'RESTORE_QUARANTINE'), 'guard');
+  assert.throws(
+    () => new ExecutionLedger(join(pending, 'ledger.db'), schema),
+    /RECOVERY_REHEARSAL_NOT_ACTIVE/,
+  );
+  assert.equal(existsSync(join(pending, 'ledger.db')), false);
 });
-test('same rehearsal Key verifies the same candidate; conflicting source and corrupt copy are refused',t=>{
-  const f=fixture(t),backup=f.service.command({kind:'create',commandKey:'backup'}),first=f.service.command({kind:'rehearse',backupId:backup.backup.id,commandKey:'candidate'}),same=f.service.command({kind:'rehearse',backupId:backup.backup.id,commandKey:'candidate'});assert.equal(first.rehearsal!.createdAt,same.rehearsal!.createdAt);assert.equal(f.service.list().rehearsals!.length,1);const second=f.service.command({kind:'create',commandKey:'another-backup'});assert.throws(()=>f.service.command({kind:'rehearse',backupId:second.backup.id,commandKey:'candidate'}),/IDEMPOTENCY_CONFLICT/);writeFileSync(join(f.root,'rehearsals',first.rehearsal!.id,'ledger.db'),'PUBLIC_CORRUPTION'.repeat(20));assert.throws(()=>f.service.command({kind:'rehearse',backupId:backup.backup.id,commandKey:'candidate'}),/REHEARSAL_HASH_MISMATCH/);
+test('same rehearsal Key verifies the same candidate; conflicting source and corrupt copy are refused', (t) => {
+  const f = fixture(t),
+    backup = f.service.command({ kind: 'create', commandKey: 'backup' }),
+    first = f.service.command({
+      kind: 'rehearse',
+      backupId: backup.backup.id,
+      commandKey: 'candidate',
+    }),
+    same = f.service.command({
+      kind: 'rehearse',
+      backupId: backup.backup.id,
+      commandKey: 'candidate',
+    });
+  assert.equal(first.rehearsal!.createdAt, same.rehearsal!.createdAt);
+  assert.equal(f.service.list().rehearsals!.length, 1);
+  const second = f.service.command({ kind: 'create', commandKey: 'another-backup' });
+  assert.throws(
+    () =>
+      f.service.command({ kind: 'rehearse', backupId: second.backup.id, commandKey: 'candidate' }),
+    /IDEMPOTENCY_CONFLICT/,
+  );
+  writeFileSync(
+    join(f.root, 'rehearsals', first.rehearsal!.id, 'ledger.db'),
+    'PUBLIC_CORRUPTION'.repeat(20),
+  );
+  assert.throws(
+    () =>
+      f.service.command({ kind: 'rehearse', backupId: backup.backup.id, commandKey: 'candidate' }),
+    /REHEARSAL_HASH_MISMATCH/,
+  );
 });
-test('raw destination, foreign backup and incomplete copy fail without starting an executor',t=>{
-  const f=fixture(t),backup=f.service.command({kind:'create',commandKey:'backup'});assert.throws(()=>f.service.command({kind:'rehearse',backupId:backup.backup.id,commandKey:'bad',path:'/tmp'} as never),/INVALID_BACKUP_COMMAND/);assert.throws(()=>f.service.command({kind:'rehearse',backupId:'0'.repeat(64),commandKey:'foreign'}));const other=new BackupService(f.store,{directory:join(f.root,'backups'),verificationDirectory:f.receipts,afterRehearsalStage:()=>{throw Error('injected copy gap');}});assert.throws(()=>other.command({kind:'rehearse',backupId:backup.backup.id,commandKey:'gap'}),/REHEARSAL_OPERATION_FAILED/);const pending=other.list().rehearsals![0]!;assert.equal(pending.state,'incomplete');assert.throws(()=>other.command({kind:'rehearse',backupId:backup.backup.id,commandKey:'gap'}),/REHEARSAL_INCOMPLETE_OR_INVALID/);assert.throws(()=>new ExecutionLedger(join(f.root,'rehearsals',pending.id+'.pending','ledger.db'),schema),/RECOVERY_REHEARSAL_NOT_ACTIVE/);assert.equal(f.db.prepare('SELECT count(*) AS n FROM task_runs').get()!.n,0);assert.equal(f.db.prepare('SELECT state FROM runtime_owners').get()!.state,'ready');
+test('raw destination, foreign backup and incomplete copy fail without starting an executor', (t) => {
+  const f = fixture(t),
+    backup = f.service.command({ kind: 'create', commandKey: 'backup' });
+  assert.throws(
+    () =>
+      f.service.command({
+        kind: 'rehearse',
+        backupId: backup.backup.id,
+        commandKey: 'bad',
+        path: '/tmp',
+      } as never),
+    /INVALID_BACKUP_COMMAND/,
+  );
+  assert.throws(() =>
+    f.service.command({ kind: 'rehearse', backupId: '0'.repeat(64), commandKey: 'foreign' }),
+  );
+  const other = new BackupService(f.store, {
+    directory: join(f.root, 'backups'),
+    verificationDirectory: f.receipts,
+    afterRehearsalStage: () => {
+      throw Error('injected copy gap');
+    },
+  });
+  assert.throws(
+    () => other.command({ kind: 'rehearse', backupId: backup.backup.id, commandKey: 'gap' }),
+    /REHEARSAL_OPERATION_FAILED/,
+  );
+  const pending = other.list().rehearsals![0]!;
+  assert.equal(pending.state, 'incomplete');
+  assert.throws(
+    () => other.command({ kind: 'rehearse', backupId: backup.backup.id, commandKey: 'gap' }),
+    /REHEARSAL_INCOMPLETE_OR_INVALID/,
+  );
+  assert.throws(
+    () =>
+      new ExecutionLedger(join(f.root, 'rehearsals', pending.id + '.pending', 'ledger.db'), schema),
+    /RECOVERY_REHEARSAL_NOT_ACTIVE/,
+  );
+  assert.equal(f.db.prepare('SELECT count(*) AS n FROM task_runs').get()!.n, 0);
+  assert.equal(f.db.prepare('SELECT state FROM runtime_owners').get()!.state, 'ready');
 });
-for(const stage of ['copied','published'] as const)test(`actual Host SIGKILL at rehearsal ${stage} preserves quarantine and never repeats recovery`,async t=>{
-  const f=fixture(t),backup=f.service.command({kind:'create',commandKey:'backup'}),child=spawn(process.execPath,[resolve('tests/fixtures/rehearsal-crash-worker.ts'),f.file,join(f.root,'backups'),f.receipts,backup.backup.id,stage],{stdio:['ignore','pipe','pipe']});let output='';const timeout=setTimeout(()=>child.kill('SIGKILL'),10000);try{await new Promise<void>((done,reject)=>{child.stdout.on('data',data=>{output+=data;if(output.includes('\n'))done();});child.once('exit',()=>reject(Error('REHEARSAL_CHILD_EARLY_EXIT')));});const path=join(f.root,'rehearsals',sha(JSON.stringify('crash-rehearsal'))+(stage==='copied'?'.pending':''));assert.ok(existsSync(join(path,'RESTORE_QUARANTINE')));const exited=once(child,'exit');child.kill('SIGKILL');const [code,signal]=await exited;assert.equal(code,null);assert.equal(signal,'SIGKILL');const row=f.service.list().rehearsals![0]!;assert.equal(row.state,stage==='copied'?'incomplete':'saved');assert.throws(()=>new ExecutionLedger(join(path,'ledger.db'),schema),/RECOVERY_REHEARSAL_NOT_ACTIVE/);if(stage==='copied')assert.throws(()=>f.service.command({kind:'rehearse',backupId:backup.backup.id,commandKey:'crash-rehearsal'}),/REHEARSAL_INCOMPLETE_OR_INVALID/);else assert.equal(f.service.command({kind:'rehearse',backupId:backup.backup.id,commandKey:'crash-rehearsal'}).rehearsal!.id,row.id);assert.equal(readdirSync(join(f.root,'rehearsals')).length,1);assert.equal(f.db.prepare('SELECT count(*) AS n FROM execution_intents').get()!.n,0);
-  }finally{clearTimeout(timeout);if(child.exitCode===null&&child.signalCode===null)child.kill('SIGKILL');}
-});
+for (const stage of ['copied', 'published'] as const)
+  test(`actual Host SIGKILL at rehearsal ${stage} preserves quarantine and never repeats recovery`, async (t) => {
+    const f = fixture(t),
+      backup = f.service.command({ kind: 'create', commandKey: 'backup' }),
+      child = spawn(
+        process.execPath,
+        [
+          resolve('tests/fixtures/rehearsal-crash-worker.ts'),
+          f.file,
+          join(f.root, 'backups'),
+          f.receipts,
+          backup.backup.id,
+          stage,
+        ],
+        { stdio: ['ignore', 'pipe', 'pipe'] },
+      );
+    let output = '';
+    const timeout = setTimeout(() => child.kill('SIGKILL'), 10000);
+    try {
+      await new Promise<void>((done, reject) => {
+        child.stdout.on('data', (data) => {
+          output += data;
+          if (output.includes('\n')) done();
+        });
+        child.once('exit', () => reject(Error('REHEARSAL_CHILD_EARLY_EXIT')));
+      });
+      const path = join(
+        f.root,
+        'rehearsals',
+        sha(JSON.stringify('crash-rehearsal')) + (stage === 'copied' ? '.pending' : ''),
+      );
+      assert.ok(existsSync(join(path, 'RESTORE_QUARANTINE')));
+      const exited = once(child, 'exit');
+      child.kill('SIGKILL');
+      const [code, signal] = await exited;
+      assert.equal(code, null);
+      assert.equal(signal, 'SIGKILL');
+      const row = f.service.list().rehearsals![0]!;
+      assert.equal(row.state, stage === 'copied' ? 'incomplete' : 'saved');
+      assert.throws(
+        () => new ExecutionLedger(join(path, 'ledger.db'), schema),
+        /RECOVERY_REHEARSAL_NOT_ACTIVE/,
+      );
+      if (stage === 'copied')
+        assert.throws(
+          () =>
+            f.service.command({
+              kind: 'rehearse',
+              backupId: backup.backup.id,
+              commandKey: 'crash-rehearsal',
+            }),
+          /REHEARSAL_INCOMPLETE_OR_INVALID/,
+        );
+      else
+        assert.equal(
+          f.service.command({
+            kind: 'rehearse',
+            backupId: backup.backup.id,
+            commandKey: 'crash-rehearsal',
+          }).rehearsal!.id,
+          row.id,
+        );
+      assert.equal(readdirSync(join(f.root, 'rehearsals')).length, 1);
+      assert.equal(f.db.prepare('SELECT count(*) AS n FROM execution_intents').get()!.n, 0);
+    } finally {
+      clearTimeout(timeout);
+      if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL');
+    }
+  });

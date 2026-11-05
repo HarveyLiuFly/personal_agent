@@ -1,10 +1,15 @@
-import type {App,BrowserWindow} from 'electron';
-import {writeFileSync} from 'node:fs';
-import {join} from 'node:path';
-import type {ForegroundExecution} from '../../../packages/runtime/src/execution.ts';
+import type { App, BrowserWindow } from 'electron';
+import { writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import type { ForegroundExecution } from '../../../packages/runtime/src/execution.ts';
 /** Fixed public UI fixture; no evaluation or fixture controls are exposed through IPC. */
-export async function runPlanProbe(root:string,app:App,window:BrowserWindow,execution:ForegroundExecution){
- const result=await window.webContents.executeJavaScript(`(async()=>{
+export async function runPlanProbe(
+  root: string,
+  app: App,
+  window: BrowserWindow,
+  execution: ForegroundExecution,
+) {
+  const result = await window.webContents.executeJavaScript(`(async()=>{
   const wait=async(check)=>{const deadline=Date.now()+15000;while(!await check()){if(Date.now()>deadline)throw new Error('PLAN_UI_TIMEOUT');await new Promise(r=>setTimeout(r,30));}};
   const call=async(p)=>{const r=await p;if(!r.ok)throw new Error(r.errorCode);return r.value;};
   document.querySelector('[data-action="choose-project"]').click();await wait(()=>document.querySelector('[data-action="open-tasks"]')&&!document.querySelector('[data-action="open-tasks"]').disabled);document.querySelector('[data-action="open-tasks"]').click();await wait(()=>document.querySelector('[data-task-manager]'));document.querySelector('[data-task-manager]').open=true;
@@ -28,7 +33,29 @@ export async function runPlanProbe(root:string,app:App,window:BrowserWindow,exec
   await wait(()=>!document.querySelector('[data-task-plan="'+withdrawal.planId+'"] [data-plan-action="withdraw"]'));document.querySelector('[data-task-plan="'+partial.planId+'"]').scrollIntoView({block:'start'});await new Promise(r=>setTimeout(r,60));
   return{allPaused,partialFailureShown:partial.operations.filter(o=>o.state==='failed'&&o.errorCode==='TASK_VERSION_CONFLICT').length===1&&partial.operations.filter(o=>o.state==='completed').length===1,selectionVersionPreserved:(await call(window.personalAgent.listTasks({projectId}))).find(t=>t.taskId===first.taskId).status==='queued',withdrawalKeptCommitted:withdrawn.operations.some(o=>o.state==='completed')&&final.title.startsWith('Public retained edit '),withdrawalCancelledPending:withdrawn.operations.some(o=>o.state==='cancelled')&&!withdrawn.operations.some(o=>['pending','blocked'].includes(o.state)),invalidRejected:!invalid.ok,extraRejected:!foreign.ok,noModelRuns:(await call(window.personalAgent.listRuns({projectId}))).length===0,sandboxed:window.personalAgent.security.sandboxed,isolated:window.personalAgent.security.isolated,hasRequire:typeof require!=='undefined'};
  })()`);
- const passed=Object.entries(result).every(([k,v])=>k==='hasRequire'?v===false:v===true)&&execution.diagnostics.clientTurnStarts===0;
- writeFileSync(join(root,'docs/progress/evidence/M2.2d-desktop.json'),JSON.stringify({status:passed?'passed':'blocked',observedAt:new Date().toISOString(),kind:'real_electron_and_sqlite_task_plans',backend:'synthetic_stdio_not_called',folderDialogSelection:'fixed_fixture_substitution',inferenceRequested:false,modelTurns:0,result},null,2)+'\n');
- writeFileSync(join(root,'.local/M2-task-plans-desktop.png'),(await window.webContents.capturePage()).toPNG());app.quit();
+  const passed =
+    Object.entries(result).every(([k, v]) => (k === 'hasRequire' ? v === false : v === true)) &&
+    execution.diagnostics.clientTurnStarts === 0;
+  writeFileSync(
+    join(root, 'docs/progress/evidence/M2.2d-desktop.json'),
+    JSON.stringify(
+      {
+        status: passed ? 'passed' : 'blocked',
+        observedAt: new Date().toISOString(),
+        kind: 'real_electron_and_sqlite_task_plans',
+        backend: 'synthetic_stdio_not_called',
+        folderDialogSelection: 'fixed_fixture_substitution',
+        inferenceRequested: false,
+        modelTurns: 0,
+        result,
+      },
+      null,
+      2,
+    ) + '\n',
+  );
+  writeFileSync(
+    join(root, '.local/M2-task-plans-desktop.png'),
+    (await window.webContents.capturePage()).toPNG(),
+  );
+  app.quit();
 }

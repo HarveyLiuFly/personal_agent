@@ -1,68 +1,468 @@
 import assert from 'node:assert/strict';
-import {test} from 'node:test';
-import {mkdtempSync,mkdirSync,readFileSync,realpathSync,rmSync} from 'node:fs';
-import {tmpdir} from 'node:os';
-import {join} from 'node:path';
-import {DatabaseSync} from 'node:sqlite';
-import {spawn} from 'node:child_process';
-import {once} from 'node:events';
-import {ExecutionLedger} from '../packages/store/src/ledger.ts';
-import type {TaskPlanCommand} from '../packages/contracts/src/tasks.ts';
-const schema=readFileSync('docs/design/contracts/schema.sql','utf8');
-function fixture(t:{after(fn:()=>void):void},fault?:(index:number)=>void){
- const root=realpathSync(mkdtempSync(join(tmpdir(),'personal-agent-plan-'))),cwd=join(root,'project'),file=join(root,'store.db');mkdirSync(cwd);const store=new ExecutionLedger(file,schema,{afterPlanEffectForTests:fault});store.startOwner('plan-owner',true);const project=store.registerWorkspace(cwd,cwd),db=new DatabaseSync(file);db.exec('PRAGMA foreign_keys=ON');t.after(()=>{db.close();store.close();rmSync(root,{recursive:true,force:true});});
- const create=(key='task')=>store.taskCommand({projectId:project.id,commandKey:key,kind:'create',text:'public task '+key});const counts=()=>Object.fromEntries(['messages','router_decisions','operations','operation_dependencies','task_events','outbox_events'].map(table=>[table,Number(db.prepare(`SELECT COUNT(*) AS n FROM ${table}`).get()!.n)]));return{root,cwd,file,store,project,db,create,counts};
+import { test } from 'node:test';
+import { mkdtempSync, mkdirSync, readFileSync, realpathSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { DatabaseSync } from 'node:sqlite';
+import { spawn } from 'node:child_process';
+import { once } from 'node:events';
+import { ExecutionLedger } from '../packages/store/src/ledger.ts';
+import type { TaskPlanCommand } from '../packages/contracts/src/tasks.ts';
+const schema = readFileSync('docs/design/contracts/schema.sql', 'utf8');
+function fixture(t: { after(fn: () => void): void }, fault?: (index: number) => void) {
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'personal-agent-plan-'))),
+    cwd = join(root, 'project'),
+    file = join(root, 'store.db');
+  mkdirSync(cwd);
+  const store = new ExecutionLedger(file, schema, { afterPlanEffectForTests: fault });
+  store.startOwner('plan-owner', true);
+  const project = store.registerWorkspace(cwd, cwd),
+    db = new DatabaseSync(file);
+  db.exec('PRAGMA foreign_keys=ON');
+  t.after(() => {
+    db.close();
+    store.close();
+    rmSync(root, { recursive: true, force: true });
+  });
+  const create = (key = 'task') =>
+    store.taskCommand({
+      projectId: project.id,
+      commandKey: key,
+      kind: 'create',
+      text: 'public task ' + key,
+    });
+  const counts = () =>
+    Object.fromEntries(
+      [
+        'messages',
+        'router_decisions',
+        'operations',
+        'operation_dependencies',
+        'task_events',
+        'outbox_events',
+      ].map((table) => [table, Number(db.prepare(`SELECT COUNT(*) AS n FROM ${table}`).get()!.n)]),
+    );
+  return { root, cwd, file, store, project, db, create, counts };
 }
-test('one immutable Message/Decision owns all Host-assigned plan nodes and repeated keys do not duplicate it',t=>{
- const f=fixture(t),a=f.create('a'),b=f.create('b'),before=f.counts(),input:TaskPlanCommand={projectId:f.project.id,commandKey:'plan',nodes:[{kind:'pause',taskId:a.taskId,expectedVersion:2,dependsOn:[]},{kind:'cancel',taskId:b.taskId,expectedVersion:2,dependsOn:[]}]},plan=f.store.submitTaskPlan(input);
- assert.equal(plan.status,'pending');assert.equal(plan.operations.length,2);assert.equal(new Set(plan.operations.map(x=>x.operationId)).size,2);const after=f.counts();assert.equal(after.messages!,before.messages!+1);assert.equal(after.router_decisions!,before.router_decisions!+1);assert.equal(after.operations!,before.operations!+2);assert.equal(f.store.tasks(f.project.id).every(x=>x.status==='queued'),true);
- assert.deepEqual(f.store.submitTaskPlan(input),plan);assert.deepEqual(f.counts(),after);assert.throws(()=>f.store.submitTaskPlan({...input,nodes:[...input.nodes].reverse()}),/IDEMPOTENCY_CONFLICT/);
+test('one immutable Message/Decision owns all Host-assigned plan nodes and repeated keys do not duplicate it', (t) => {
+  const f = fixture(t),
+    a = f.create('a'),
+    b = f.create('b'),
+    before = f.counts(),
+    input: TaskPlanCommand = {
+      projectId: f.project.id,
+      commandKey: 'plan',
+      nodes: [
+        { kind: 'pause', taskId: a.taskId, expectedVersion: 2, dependsOn: [] },
+        { kind: 'cancel', taskId: b.taskId, expectedVersion: 2, dependsOn: [] },
+      ],
+    },
+    plan = f.store.submitTaskPlan(input);
+  assert.equal(plan.status, 'pending');
+  assert.equal(plan.operations.length, 2);
+  assert.equal(new Set(plan.operations.map((x) => x.operationId)).size, 2);
+  const after = f.counts();
+  assert.equal(after.messages!, before.messages! + 1);
+  assert.equal(after.router_decisions!, before.router_decisions! + 1);
+  assert.equal(after.operations!, before.operations! + 2);
+  assert.equal(
+    f.store.tasks(f.project.id).every((x) => x.status === 'queued'),
+    true,
+  );
+  assert.deepEqual(f.store.submitTaskPlan(input), plan);
+  assert.deepEqual(f.counts(), after);
+  assert.throws(
+    () => f.store.submitTaskPlan({ ...input, nodes: [...input.nodes].reverse() }),
+    /IDEMPOTENCY_CONFLICT/,
+  );
 });
-test('version references use the prior same-Task receipt through a sequential DAG',t=>{
- const f=fixture(t),task=f.create(),plan=f.store.submitTaskPlan({projectId:f.project.id,commandKey:'sequence',nodes:[{kind:'rename',taskId:task.taskId,expectedVersion:2,title:'renamed by plan',dependsOn:[]},{kind:'pause',taskId:task.taskId,versionFrom:0,dependsOn:[0]},{kind:'resume',taskId:task.taskId,versionFrom:1,dependsOn:[1]}]});const result=f.store.advanceTaskPlan(f.project.id,plan.planId);
- assert.equal(result.status,'completed');assert.deepEqual(result.operations.map(o=>o.receipt!.taskVersion),[3,4,5]);assert.equal(f.store.tasks(f.project.id)[0]!.status,'queued');assert.equal(f.store.tasks(f.project.id)[0]!.title,'renamed by plan');const before=f.counts();f.store.advanceTaskPlan(f.project.id,plan.planId);assert.deepEqual(f.counts(),before);
+test('version references use the prior same-Task receipt through a sequential DAG', (t) => {
+  const f = fixture(t),
+    task = f.create(),
+    plan = f.store.submitTaskPlan({
+      projectId: f.project.id,
+      commandKey: 'sequence',
+      nodes: [
+        {
+          kind: 'rename',
+          taskId: task.taskId,
+          expectedVersion: 2,
+          title: 'renamed by plan',
+          dependsOn: [],
+        },
+        { kind: 'pause', taskId: task.taskId, versionFrom: 0, dependsOn: [0] },
+        { kind: 'resume', taskId: task.taskId, versionFrom: 1, dependsOn: [1] },
+      ],
+    });
+  const result = f.store.advanceTaskPlan(f.project.id, plan.planId);
+  assert.equal(result.status, 'completed');
+  assert.deepEqual(
+    result.operations.map((o) => o.receipt!.taskVersion),
+    [3, 4, 5],
+  );
+  assert.equal(f.store.tasks(f.project.id)[0]!.status, 'queued');
+  assert.equal(f.store.tasks(f.project.id)[0]!.title, 'renamed by plan');
+  const before = f.counts();
+  f.store.advanceTaskPlan(f.project.id, plan.planId);
+  assert.deepEqual(f.counts(), before);
 });
-test('cycles, self/missing dependencies, sparse arrays and cross-Task version references never persist',t=>{
- const f=fixture(t),a=f.create('a'),b=f.create('b'),before=f.counts(),node={kind:'pause',taskId:a.taskId,expectedVersion:2,dependsOn:[]};
- for(const nodes of [[],new Array(1),[{...node,dependsOn:[0]}],[{...node,dependsOn:[1]}],[{...node,dependsOn:[1]},{...node,dependsOn:[0]}],[{...node,dependsOn:new Array(1)}],[node,{kind:'resume',taskId:b.taskId,versionFrom:0,dependsOn:[0]}],[node,{kind:'resume',taskId:a.taskId,versionFrom:0,dependsOn:[]}]])assert.throws(()=>f.store.submitTaskPlan({projectId:f.project.id,commandKey:'bad',nodes}),/TASK_PLAN|PLAN_VERSION/);
- assert.deepEqual(f.counts(),before);
+test('cycles, self/missing dependencies, sparse arrays and cross-Task version references never persist', (t) => {
+  const f = fixture(t),
+    a = f.create('a'),
+    b = f.create('b'),
+    before = f.counts(),
+    node = { kind: 'pause', taskId: a.taskId, expectedVersion: 2, dependsOn: [] };
+  for (const nodes of [
+    [],
+    new Array(1),
+    [{ ...node, dependsOn: [0] }],
+    [{ ...node, dependsOn: [1] }],
+    [
+      { ...node, dependsOn: [1] },
+      { ...node, dependsOn: [0] },
+    ],
+    [{ ...node, dependsOn: new Array(1) }],
+    [node, { kind: 'resume', taskId: b.taskId, versionFrom: 0, dependsOn: [0] }],
+    [node, { kind: 'resume', taskId: a.taskId, versionFrom: 0, dependsOn: [] }],
+  ])
+    assert.throws(
+      () => f.store.submitTaskPlan({ projectId: f.project.id, commandKey: 'bad', nodes }),
+      /TASK_PLAN|PLAN_VERSION/,
+    );
+  assert.deepEqual(f.counts(), before);
 });
-test('foreign Task/Project and extra executor fields are rejected before the parent message',t=>{
- const f=fixture(t),task=f.create();mkdirSync(join(f.root,'other'));const other=f.store.registerWorkspace(join(f.root,'other'),join(f.root,'other')),before=f.counts();
- for(const input of [{projectId:other.id,commandKey:'foreign',nodes:[{kind:'cancel',taskId:task.taskId,expectedVersion:2,dependsOn:[]}]},{projectId:f.project.id,commandKey:'argv',nodes:[{kind:'cancel',taskId:task.taskId,expectedVersion:2,dependsOn:[],argv:['x']}]},{projectId:f.project.id,commandKey:'raw',nodes:[{kind:'create',text:'x',dependsOn:[]}]}])assert.throws(()=>f.store.submitTaskPlan(input));assert.deepEqual(f.counts(),before);
+test('foreign Task/Project and extra executor fields are rejected before the parent message', (t) => {
+  const f = fixture(t),
+    task = f.create();
+  mkdirSync(join(f.root, 'other'));
+  const other = f.store.registerWorkspace(join(f.root, 'other'), join(f.root, 'other')),
+    before = f.counts();
+  for (const input of [
+    {
+      projectId: other.id,
+      commandKey: 'foreign',
+      nodes: [{ kind: 'cancel', taskId: task.taskId, expectedVersion: 2, dependsOn: [] }],
+    },
+    {
+      projectId: f.project.id,
+      commandKey: 'argv',
+      nodes: [
+        { kind: 'cancel', taskId: task.taskId, expectedVersion: 2, dependsOn: [], argv: ['x'] },
+      ],
+    },
+    {
+      projectId: f.project.id,
+      commandKey: 'raw',
+      nodes: [{ kind: 'create', text: 'x', dependsOn: [] }],
+    },
+  ])
+    assert.throws(() => f.store.submitTaskPlan(input));
+  assert.deepEqual(f.counts(), before);
 });
-test('a stale node fails, its descendants are cancelled and independent nodes still complete',t=>{
- const f=fixture(t),a=f.create('a'),b=f.create('b'),plan=f.store.submitTaskPlan({projectId:f.project.id,commandKey:'partial',nodes:[{kind:'rename',taskId:a.taskId,expectedVersion:1,title:'must not apply',dependsOn:[]},{kind:'cancel',taskId:a.taskId,versionFrom:0,dependsOn:[0]},{kind:'pause',taskId:b.taskId,expectedVersion:2,dependsOn:[]}]});const result=f.store.advanceTaskPlan(f.project.id,plan.planId);
- assert.equal(result.status,'needs_review');assert.deepEqual(result.operations.map(o=>o.state),['failed','cancelled','completed']);assert.equal(result.operations[0]!.errorCode,'TASK_VERSION_CONFLICT');assert.equal(result.operations[1]!.errorCode,'DEPENDENCY_FAILED');assert.equal(f.store.tasks(f.project.id).find(x=>x.taskId===a.taskId)!.status,'queued');assert.equal(f.store.tasks(f.project.id).find(x=>x.taskId===b.taskId)!.status,'paused');
+test('a stale node fails, its descendants are cancelled and independent nodes still complete', (t) => {
+  const f = fixture(t),
+    a = f.create('a'),
+    b = f.create('b'),
+    plan = f.store.submitTaskPlan({
+      projectId: f.project.id,
+      commandKey: 'partial',
+      nodes: [
+        {
+          kind: 'rename',
+          taskId: a.taskId,
+          expectedVersion: 1,
+          title: 'must not apply',
+          dependsOn: [],
+        },
+        { kind: 'cancel', taskId: a.taskId, versionFrom: 0, dependsOn: [0] },
+        { kind: 'pause', taskId: b.taskId, expectedVersion: 2, dependsOn: [] },
+      ],
+    });
+  const result = f.store.advanceTaskPlan(f.project.id, plan.planId);
+  assert.equal(result.status, 'needs_review');
+  assert.deepEqual(
+    result.operations.map((o) => o.state),
+    ['failed', 'cancelled', 'completed'],
+  );
+  assert.equal(result.operations[0]!.errorCode, 'TASK_VERSION_CONFLICT');
+  assert.equal(result.operations[1]!.errorCode, 'DEPENDENCY_FAILED');
+  assert.equal(f.store.tasks(f.project.id).find((x) => x.taskId === a.taskId)!.status, 'queued');
+  assert.equal(f.store.tasks(f.project.id).find((x) => x.taskId === b.taskId)!.status, 'paused');
 });
-test('an external change between nodes is not silently accepted as a new expected version',t=>{
- const f=fixture(t),task=f.create(),plan=f.store.submitTaskPlan({projectId:f.project.id,commandKey:'stale-alias',nodes:[{kind:'rename',taskId:task.taskId,expectedVersion:2,title:'planned',dependsOn:[]},{kind:'pause',taskId:task.taskId,versionFrom:0,dependsOn:[0]}]});f.store.advanceTaskPlan(f.project.id,plan.planId,1);f.store.taskCommand({projectId:f.project.id,commandKey:'external',kind:'rename',taskId:task.taskId,expectedVersion:3,title:'external command'});const result=f.store.advanceTaskPlan(f.project.id,plan.planId);assert.equal(result.operations[1]!.state,'failed');assert.equal(result.operations[1]!.errorCode,'TASK_VERSION_CONFLICT');assert.equal(f.store.tasks(f.project.id)[0]!.title,'external command');
+test('an external change between nodes is not silently accepted as a new expected version', (t) => {
+  const f = fixture(t),
+    task = f.create(),
+    plan = f.store.submitTaskPlan({
+      projectId: f.project.id,
+      commandKey: 'stale-alias',
+      nodes: [
+        {
+          kind: 'rename',
+          taskId: task.taskId,
+          expectedVersion: 2,
+          title: 'planned',
+          dependsOn: [],
+        },
+        { kind: 'pause', taskId: task.taskId, versionFrom: 0, dependsOn: [0] },
+      ],
+    });
+  f.store.advanceTaskPlan(f.project.id, plan.planId, 1);
+  f.store.taskCommand({
+    projectId: f.project.id,
+    commandKey: 'external',
+    kind: 'rename',
+    taskId: task.taskId,
+    expectedVersion: 3,
+    title: 'external command',
+  });
+  const result = f.store.advanceTaskPlan(f.project.id, plan.planId);
+  assert.equal(result.operations[1]!.state, 'failed');
+  assert.equal(result.operations[1]!.errorCode, 'TASK_VERSION_CONFLICT');
+  assert.equal(f.store.tasks(f.project.id)[0]!.title, 'external command');
 });
-test('an unresolved active stop blocks dependent effects while independent work advances',t=>{
- const f=fixture(t),a=f.create('active'),b=f.create('independent'),run=f.store.claimTask(f.project.id,a.taskId,2,'run');const plan=f.store.submitTaskPlan({projectId:f.project.id,commandKey:'stop',nodes:[{kind:'pause',taskId:a.taskId,expectedVersion:3,dependsOn:[]},{kind:'resume',taskId:a.taskId,versionFrom:0,dependsOn:[0]},{kind:'rename',taskId:b.taskId,expectedVersion:2,title:'independent applied',dependsOn:[]}]});let result=f.store.advanceTaskPlan(f.project.id,plan.planId);
- assert.deepEqual(result.operations.map(o=>o.state),['executing','blocked','completed']);f.store.uncertain(run.token);result=f.store.advanceTaskPlan(f.project.id,plan.planId);assert.equal(result.status,'outcome_unknown');assert.equal(result.operations[1]!.state,'blocked');assert.equal(f.store.tasks(f.project.id).find(x=>x.taskId===a.taskId)!.status,'outcome_unknown');assert.equal(f.store.tasks(f.project.id).find(x=>x.taskId===b.taskId)!.title,'independent applied');assert.equal(f.store.runs(f.project.id).length,1);
+test('an unresolved active stop blocks dependent effects while independent work advances', (t) => {
+  const f = fixture(t),
+    a = f.create('active'),
+    b = f.create('independent'),
+    run = f.store.claimTask(f.project.id, a.taskId, 2, 'run');
+  const plan = f.store.submitTaskPlan({
+    projectId: f.project.id,
+    commandKey: 'stop',
+    nodes: [
+      { kind: 'pause', taskId: a.taskId, expectedVersion: 3, dependsOn: [] },
+      { kind: 'resume', taskId: a.taskId, versionFrom: 0, dependsOn: [0] },
+      {
+        kind: 'rename',
+        taskId: b.taskId,
+        expectedVersion: 2,
+        title: 'independent applied',
+        dependsOn: [],
+      },
+    ],
+  });
+  let result = f.store.advanceTaskPlan(f.project.id, plan.planId);
+  assert.deepEqual(
+    result.operations.map((o) => o.state),
+    ['executing', 'blocked', 'completed'],
+  );
+  f.store.uncertain(run.token);
+  result = f.store.advanceTaskPlan(f.project.id, plan.planId);
+  assert.equal(result.status, 'outcome_unknown');
+  assert.equal(result.operations[1]!.state, 'blocked');
+  assert.equal(
+    f.store.tasks(f.project.id).find((x) => x.taskId === a.taskId)!.status,
+    'outcome_unknown',
+  );
+  assert.equal(
+    f.store.tasks(f.project.id).find((x) => x.taskId === b.taskId)!.title,
+    'independent applied',
+  );
+  assert.equal(f.store.runs(f.project.id).length, 1);
 });
-test('confirmed stop completion unblocks the same persisted dependent node',t=>{
- const f=fixture(t),task=f.create(),run=f.store.claimTask(f.project.id,task.taskId,2,'run'),plan=f.store.submitTaskPlan({projectId:f.project.id,commandKey:'stop-resume',nodes:[{kind:'pause',taskId:task.taskId,expectedVersion:3,dependsOn:[]},{kind:'resume',taskId:task.taskId,versionFrom:0,dependsOn:[0]}]});f.store.advanceTaskPlan(f.project.id,plan.planId);f.store.finish(run.token,'cancelled');const result=f.store.advanceTaskPlan(f.project.id,plan.planId);assert.equal(result.status,'completed');assert.equal(result.operations[0]!.receipt!.status,'paused');assert.equal(result.operations[1]!.receipt!.status,'queued');assert.equal(f.store.runs(f.project.id).length,1);
+test('confirmed stop completion unblocks the same persisted dependent node', (t) => {
+  const f = fixture(t),
+    task = f.create(),
+    run = f.store.claimTask(f.project.id, task.taskId, 2, 'run'),
+    plan = f.store.submitTaskPlan({
+      projectId: f.project.id,
+      commandKey: 'stop-resume',
+      nodes: [
+        { kind: 'pause', taskId: task.taskId, expectedVersion: 3, dependsOn: [] },
+        { kind: 'resume', taskId: task.taskId, versionFrom: 0, dependsOn: [0] },
+      ],
+    });
+  f.store.advanceTaskPlan(f.project.id, plan.planId);
+  f.store.finish(run.token, 'cancelled');
+  const result = f.store.advanceTaskPlan(f.project.id, plan.planId);
+  assert.equal(result.status, 'completed');
+  assert.equal(result.operations[0]!.receipt!.status, 'paused');
+  assert.equal(result.operations[1]!.receipt!.status, 'queued');
+  assert.equal(f.store.runs(f.project.id).length, 1);
 });
-test('withdrawal cancels only pending/blocked nodes and never rolls back completed or unknown effects',t=>{
- const f=fixture(t),task=f.create(),plan=f.store.submitTaskPlan({projectId:f.project.id,commandKey:'withdraw',nodes:[{kind:'rename',taskId:task.taskId,expectedVersion:2,title:'kept',dependsOn:[]},{kind:'pause',taskId:task.taskId,versionFrom:0,dependsOn:[0]}]});f.store.advanceTaskPlan(f.project.id,plan.planId,1);const result=f.store.cancelTaskPlan(f.project.id,plan.planId,'withdraw-key');assert.deepEqual(result.operations.map(o=>o.state),['completed','cancelled']);assert.equal(f.store.advanceTaskPlan(f.project.id,plan.planId).status,'needs_review');assert.equal(f.store.tasks(f.project.id)[0]!.title,'kept');assert.equal(f.store.tasks(f.project.id)[0]!.status,'queued');const before=f.counts();f.store.cancelTaskPlan(f.project.id,plan.planId,'withdraw-key');assert.deepEqual(f.counts(),before);
- const second=f.store.submitTaskPlan({projectId:f.project.id,commandKey:'all-withdraw',nodes:[{kind:'cancel',taskId:task.taskId,expectedVersion:3,dependsOn:[]}]});assert.equal(f.store.cancelTaskPlan(f.project.id,second.planId,'all-withdraw-key').status,'cancelled');
+test('withdrawal cancels only pending/blocked nodes and never rolls back completed or unknown effects', (t) => {
+  const f = fixture(t),
+    task = f.create(),
+    plan = f.store.submitTaskPlan({
+      projectId: f.project.id,
+      commandKey: 'withdraw',
+      nodes: [
+        { kind: 'rename', taskId: task.taskId, expectedVersion: 2, title: 'kept', dependsOn: [] },
+        { kind: 'pause', taskId: task.taskId, versionFrom: 0, dependsOn: [0] },
+      ],
+    });
+  f.store.advanceTaskPlan(f.project.id, plan.planId, 1);
+  const result = f.store.cancelTaskPlan(f.project.id, plan.planId, 'withdraw-key');
+  assert.deepEqual(
+    result.operations.map((o) => o.state),
+    ['completed', 'cancelled'],
+  );
+  assert.equal(f.store.advanceTaskPlan(f.project.id, plan.planId).status, 'needs_review');
+  assert.equal(f.store.tasks(f.project.id)[0]!.title, 'kept');
+  assert.equal(f.store.tasks(f.project.id)[0]!.status, 'queued');
+  const before = f.counts();
+  f.store.cancelTaskPlan(f.project.id, plan.planId, 'withdraw-key');
+  assert.deepEqual(f.counts(), before);
+  const second = f.store.submitTaskPlan({
+    projectId: f.project.id,
+    commandKey: 'all-withdraw',
+    nodes: [{ kind: 'cancel', taskId: task.taskId, expectedVersion: 3, dependsOn: [] }],
+  });
+  assert.equal(
+    f.store.cancelTaskPlan(f.project.id, second.planId, 'all-withdraw-key').status,
+    'cancelled',
+  );
 });
-test('failed pure-node transactions remain retryable without erasing an earlier commit',t=>{
- let fail=true;const f=fixture(t,index=>{if(index===1&&fail)throw new Error('controlled storage-style fault');}),a=f.create('a'),b=f.create('b'),plan=f.store.submitTaskPlan({projectId:f.project.id,commandKey:'failure',nodes:[{kind:'rename',taskId:a.taskId,expectedVersion:2,title:'first committed',dependsOn:[]},{kind:'rename',taskId:b.taskId,expectedVersion:2,title:'second committed',dependsOn:[]}]});assert.throws(()=>f.store.advanceTaskPlan(f.project.id,plan.planId),/controlled/);assert.deepEqual(f.store.taskPlan(f.project.id,plan.planId).operations.map(o=>o.state),['completed','pending']);assert.equal(f.store.tasks(f.project.id).find(x=>x.taskId===b.taskId)!.version,2);fail=false;assert.equal(f.store.advanceTaskPlan(f.project.id,plan.planId).status,'completed');assert.equal(f.store.tasks(f.project.id).find(x=>x.taskId===a.taskId)!.version,3);
+test('failed pure-node transactions remain retryable without erasing an earlier commit', (t) => {
+  let fail = true;
+  const f = fixture(t, (index) => {
+      if (index === 1 && fail) throw new Error('controlled storage-style fault');
+    }),
+    a = f.create('a'),
+    b = f.create('b'),
+    plan = f.store.submitTaskPlan({
+      projectId: f.project.id,
+      commandKey: 'failure',
+      nodes: [
+        {
+          kind: 'rename',
+          taskId: a.taskId,
+          expectedVersion: 2,
+          title: 'first committed',
+          dependsOn: [],
+        },
+        {
+          kind: 'rename',
+          taskId: b.taskId,
+          expectedVersion: 2,
+          title: 'second committed',
+          dependsOn: [],
+        },
+      ],
+    });
+  assert.throws(() => f.store.advanceTaskPlan(f.project.id, plan.planId), /controlled/);
+  assert.deepEqual(
+    f.store.taskPlan(f.project.id, plan.planId).operations.map((o) => o.state),
+    ['completed', 'pending'],
+  );
+  assert.equal(f.store.tasks(f.project.id).find((x) => x.taskId === b.taskId)!.version, 2);
+  fail = false;
+  assert.equal(f.store.advanceTaskPlan(f.project.id, plan.planId).status, 'completed');
+  assert.equal(f.store.tasks(f.project.id).find((x) => x.taskId === a.taskId)!.version, 3);
 });
-test('Root pending-plan and step budgets bound work without accepting an empty plan as success',t=>{
- const f=fixture(t),task=f.create();for(let n=0;n<20;n++)f.store.submitTaskPlan({projectId:f.project.id,commandKey:'pending-'+n,nodes:[{kind:'pause',taskId:task.taskId,expectedVersion:2,dependsOn:[]}]});assert.throws(()=>f.store.submitTaskPlan({projectId:f.project.id,commandKey:'overflow',nodes:[{kind:'pause',taskId:task.taskId,expectedVersion:2,dependsOn:[]}]}),/TASK_PLAN_LIMIT/);assert.throws(()=>f.store.advanceTaskPlan(f.project.id,f.store.pendingTaskPlans()[0]!.planId,21),/INVALID_PLAN_STEP_LIMIT/);assert.equal(f.store.taskPlans(f.project.id).length,20);
+test('Root pending-plan and step budgets bound work without accepting an empty plan as success', (t) => {
+  const f = fixture(t),
+    task = f.create();
+  for (let n = 0; n < 20; n++)
+    f.store.submitTaskPlan({
+      projectId: f.project.id,
+      commandKey: 'pending-' + n,
+      nodes: [{ kind: 'pause', taskId: task.taskId, expectedVersion: 2, dependsOn: [] }],
+    });
+  assert.throws(
+    () =>
+      f.store.submitTaskPlan({
+        projectId: f.project.id,
+        commandKey: 'overflow',
+        nodes: [{ kind: 'pause', taskId: task.taskId, expectedVersion: 2, dependsOn: [] }],
+      }),
+    /TASK_PLAN_LIMIT/,
+  );
+  assert.throws(
+    () => f.store.advanceTaskPlan(f.project.id, f.store.pendingTaskPlans()[0]!.planId, 21),
+    /INVALID_PLAN_STEP_LIMIT/,
+  );
+  assert.equal(f.store.taskPlans(f.project.id).length, 20);
 });
-test('a Task tombstone hides the whole plan and stops its remaining effects',t=>{
- const f=fixture(t),a=f.create('hidden'),b=f.create('visible'),plan=f.store.submitTaskPlan({projectId:f.project.id,commandKey:'privacy-plan',nodes:[{kind:'rename',taskId:a.taskId,expectedVersion:2,title:'private plan edit',dependsOn:[]},{kind:'cancel',taskId:b.taskId,expectedVersion:2,dependsOn:[]}]});
- f.db.prepare('INSERT INTO privacy_tombstones VALUES (?,?,1,?)').run(f.store.dotId,'task:'+a.taskId,Date.now());assert.deepEqual(f.store.taskPlans(f.project.id),[]);assert.deepEqual(f.store.pendingTaskPlans(),[]);assert.throws(()=>f.store.taskPlan(f.project.id,plan.planId),/TASK_PLAN_NOT_FOUND/);assert.throws(()=>f.store.advanceTaskPlan(f.project.id,plan.planId),/TASK_PLAN_NOT_FOUND/);assert.equal(f.store.tasks(f.project.id)[0]!.status,'queued');
+test('a Task tombstone hides the whole plan and stops its remaining effects', (t) => {
+  const f = fixture(t),
+    a = f.create('hidden'),
+    b = f.create('visible'),
+    plan = f.store.submitTaskPlan({
+      projectId: f.project.id,
+      commandKey: 'privacy-plan',
+      nodes: [
+        {
+          kind: 'rename',
+          taskId: a.taskId,
+          expectedVersion: 2,
+          title: 'private plan edit',
+          dependsOn: [],
+        },
+        { kind: 'cancel', taskId: b.taskId, expectedVersion: 2, dependsOn: [] },
+      ],
+    });
+  f.db
+    .prepare('INSERT INTO privacy_tombstones VALUES (?,?,1,?)')
+    .run(f.store.dotId, 'task:' + a.taskId, Date.now());
+  assert.deepEqual(f.store.taskPlans(f.project.id), []);
+  assert.deepEqual(f.store.pendingTaskPlans(), []);
+  assert.throws(() => f.store.taskPlan(f.project.id, plan.planId), /TASK_PLAN_NOT_FOUND/);
+  assert.throws(() => f.store.advanceTaskPlan(f.project.id, plan.planId), /TASK_PLAN_NOT_FOUND/);
+  assert.equal(f.store.tasks(f.project.id)[0]!.status, 'queued');
 });
-test('real process SIGKILL preserves committed nodes and rolls back the in-progress node before resume',async t=>{
- const root=realpathSync(mkdtempSync(join(tmpdir(),'personal-agent-plan-crash-'))),cwd=join(root,'project'),file=join(root,'store.db');mkdirSync(cwd);t.after(()=>rmSync(root,{recursive:true,force:true}));const child=spawn(process.execPath,['--disable-warning=ExperimentalWarning','tests/fixtures/plan-worker.ts',file,cwd],{stdio:['ignore','pipe','ignore']}),closed=once(child,'close');t.after(()=>child.kill('SIGKILL'));let line='';
- const ready=await new Promise<{projectId:string;planId:string;firstTaskId:string;secondTaskId:string}>((done,reject)=>{const timer=setTimeout(()=>{child.kill('SIGKILL');reject(new Error('PLAN_CHILD_TIMEOUT'));},5000);child.once('error',e=>{clearTimeout(timer);reject(e);});child.stdout.on('data',chunk=>{line+=String(chunk);if(line.includes('\n')){clearTimeout(timer);done(JSON.parse(line.trim()));}});});
- const before=new DatabaseSync(file,{readOnly:true});assert.equal(before.prepare('SELECT title FROM tasks WHERE task_id=?').get(ready.firstTaskId)!.title,'first committed');assert.equal(before.prepare('SELECT title FROM tasks WHERE task_id=?').get(ready.secondTaskId)!.title,'second original');before.close();child.kill('SIGKILL');const [code,signal]=await closed;assert.equal(code,null);assert.equal(signal,'SIGKILL');const recovered=new ExecutionLedger(file,schema);recovered.startOwner('after-actual-plan-child-exit',true);
- try{assert.deepEqual(recovered.taskPlan(ready.projectId,ready.planId).operations.map(o=>o.state),['completed','pending']);assert.equal(recovered.advanceTaskPlan(ready.projectId,ready.planId).status,'completed');const tasks=recovered.tasks(ready.projectId);assert.equal(tasks.find(x=>x.taskId===ready.firstTaskId)!.version,3);assert.equal(tasks.find(x=>x.taskId===ready.secondTaskId)!.version,3);assert.equal(recovered.runs(ready.projectId).length,0);}
- finally{recovered.close();}
+test('real process SIGKILL preserves committed nodes and rolls back the in-progress node before resume', async (t) => {
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'personal-agent-plan-crash-'))),
+    cwd = join(root, 'project'),
+    file = join(root, 'store.db');
+  mkdirSync(cwd);
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const child = spawn(
+      process.execPath,
+      ['--disable-warning=ExperimentalWarning', 'tests/fixtures/plan-worker.ts', file, cwd],
+      { stdio: ['ignore', 'pipe', 'ignore'] },
+    ),
+    closed = once(child, 'close');
+  t.after(() => child.kill('SIGKILL'));
+  let line = '';
+  const ready = await new Promise<{
+    projectId: string;
+    planId: string;
+    firstTaskId: string;
+    secondTaskId: string;
+  }>((done, reject) => {
+    const timer = setTimeout(() => {
+      child.kill('SIGKILL');
+      reject(new Error('PLAN_CHILD_TIMEOUT'));
+    }, 5000);
+    child.once('error', (e) => {
+      clearTimeout(timer);
+      reject(e);
+    });
+    child.stdout.on('data', (chunk) => {
+      line += String(chunk);
+      if (line.includes('\n')) {
+        clearTimeout(timer);
+        done(JSON.parse(line.trim()));
+      }
+    });
+  });
+  const before = new DatabaseSync(file, { readOnly: true });
+  assert.equal(
+    before.prepare('SELECT title FROM tasks WHERE task_id=?').get(ready.firstTaskId)!.title,
+    'first committed',
+  );
+  assert.equal(
+    before.prepare('SELECT title FROM tasks WHERE task_id=?').get(ready.secondTaskId)!.title,
+    'second original',
+  );
+  before.close();
+  child.kill('SIGKILL');
+  const [code, signal] = await closed;
+  assert.equal(code, null);
+  assert.equal(signal, 'SIGKILL');
+  const recovered = new ExecutionLedger(file, schema);
+  recovered.startOwner('after-actual-plan-child-exit', true);
+  try {
+    assert.deepEqual(
+      recovered.taskPlan(ready.projectId, ready.planId).operations.map((o) => o.state),
+      ['completed', 'pending'],
+    );
+    assert.equal(recovered.advanceTaskPlan(ready.projectId, ready.planId).status, 'completed');
+    const tasks = recovered.tasks(ready.projectId);
+    assert.equal(tasks.find((x) => x.taskId === ready.firstTaskId)!.version, 3);
+    assert.equal(tasks.find((x) => x.taskId === ready.secondTaskId)!.version, 3);
+    assert.equal(recovered.runs(ready.projectId).length, 0);
+  } finally {
+    recovered.close();
+  }
 });

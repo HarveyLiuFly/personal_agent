@@ -1,11 +1,27 @@
-import type {App,BrowserWindow} from 'electron';
-import {writeFileSync,renameSync} from 'node:fs';
-import {join} from 'node:path';
-import {DatabaseSync} from 'node:sqlite';
-import {ExecutionLedger} from '../../../packages/store/src/ledger.ts';
-export function seedMainChatProbe(store:ExecutionLedger,source:string){const project=store.registerWorkspace(source);for(const key of ['a','b'])store.taskCommand({kind:'create',projectId:project.id,commandKey:'chat-public-'+key,text:'同名任务'});}
-export async function runMainChatProbe(root:string,app:App,window:BrowserWindow,store:ExecutionLedger,source:string,database:string){
- const result=await window.webContents.executeJavaScript(`(async()=>{
+import type { App, BrowserWindow } from 'electron';
+import { writeFileSync, renameSync } from 'node:fs';
+import { join } from 'node:path';
+import { DatabaseSync } from 'node:sqlite';
+import { ExecutionLedger } from '../../../packages/store/src/ledger.ts';
+export function seedMainChatProbe(store: ExecutionLedger, source: string) {
+  const project = store.registerWorkspace(source);
+  for (const key of ['a', 'b'])
+    store.taskCommand({
+      kind: 'create',
+      projectId: project.id,
+      commandKey: 'chat-public-' + key,
+      text: '同名任务',
+    });
+}
+export async function runMainChatProbe(
+  root: string,
+  app: App,
+  window: BrowserWindow,
+  store: ExecutionLedger,
+  source: string,
+  database: string,
+) {
+  const result = await window.webContents.executeJavaScript(`(async()=>{
   const wait=async f=>{const end=Date.now()+20000;while(!f()){if(Date.now()>end)throw Error('MAIN_CHAT_UI_TIMEOUT');await new Promise(r=>setTimeout(r,25));}},click=async s=>{await wait(()=>document.querySelector(s)&&!document.querySelector(s).disabled);document.querySelector(s).click();},fill=(s,v)=>{const el=document.querySelector(s);Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(el,v);el.dispatchEvent(new Event('input',{bubbles:true}));};
   await click('[data-action="choose-project"]');await click('[data-action="project-tasks"]');await wait(()=>document.querySelector('[data-task-draft]'));fill('[data-task-draft]','UNDERLYING_TASK_DRAFT_KEPT');await click('[data-action="open-main-chat"]');await wait(()=>document.querySelector('[data-action="send-main-chat"]'));fill('[data-chat-draft]','/query');await click('[data-action="send-main-chat"]');await wait(()=>document.querySelector('[data-chat-pending]'));
   const pendingShown=document.querySelectorAll('[data-chat-choice]').length===2;fill('[data-chat-draft]','/note PUBLIC_PENDING_DRAFT_KEPT');await click('[data-chat-choice]');await wait(()=>document.querySelector('[data-chat-task-result]'));await wait(()=>!document.querySelector('[data-action="refresh-main-chat"]').disabled);const pendingDraftKept=document.querySelector('[data-chat-draft]').value==='/note PUBLIC_PENDING_DRAFT_KEPT';
@@ -15,9 +31,51 @@ export async function runMainChatProbe(root:string,app:App,window:BrowserWindow,
   await click('[data-action="refresh-main-chat"]');await wait(()=>document.querySelector('[data-chat-message="public-exact-replay"]'));const messageCount=document.querySelectorAll('[data-chat-message]').length;await click('[data-action="project-tasks"]');const taskDraftKept=document.querySelector('[data-task-draft]').value==='UNDERLYING_TASK_DRAFT_KEPT';await click('[data-action="open-main-chat"]');await wait(()=>document.querySelector('[data-chat-message="public-exact-replay"]'));await wait(()=>!document.querySelector('[data-action="refresh-main-chat"]').disabled);
   return{projectId,pendingShown,pendingDraftKept,plainText,taskDraftKept,reopenedSameMessages:document.querySelectorAll('[data-chat-message]').length===messageCount,sameIdDeduped:first.ok&&same.ok&&same.value.messages.filter(m=>m.messageId===q.messageId).length===1,conflictRejected:!conflict.ok&&conflict.errorCode==='IDEMPOTENCY_CONFLICT',focusCasRejected:!stale.ok&&stale.errorCode==='CHAT_FOCUS_CHANGED',extraRejected:!extra.ok&&extra.errorCode==='INVALID_CHAT_QUERY',sandboxed:window.personalAgent.security.sandboxed,isolated:window.personalAgent.security.isolated,noRequire:typeof require==='undefined',apiCount:Object.keys(window.personalAgent).length===63};
  })()`);
- renameSync(source,source+'-moved');const registry=await window.webContents.executeJavaScript(`(async()=>{const r=await window.personalAgent.readMainChat({projectId:${JSON.stringify(result.projectId)}});return{registryAvailableAfterSourceMoved:r.ok&&r.value.messages.length>0};})()`);
- await window.webContents.executeJavaScript(`(async()=>{document.querySelector('.main-chat-entries').scrollTop=document.querySelector('.main-chat-entries').scrollHeight;await new Promise(requestAnimationFrame);await new Promise(requestAnimationFrame);})()`);
- writeFileSync(join(root,'docs/progress/evidence/screenshots/M3.1b-main-chat-regression.png'),(await window.webContents.capturePage()).toPNG());
- const db=new DatabaseSync(database,{readOnly:true});let metadata;try{metadata={noRuns:db.prepare('SELECT count(*) AS n FROM task_runs').get()!.n===0,noIntents:db.prepare('SELECT count(*) AS n FROM execution_intents').get()!.n===0,noBudgetReservation:db.prepare('SELECT count(*) AS n FROM budget_reservations').get()!.n===0,originalTaskVersions:db.prepare('SELECT count(*) AS n FROM tasks WHERE version<>2').get()!.n===0,queryOperations:db.prepare("SELECT count(*) AS n FROM operations WHERE kind='QUERY_TASK'").get()!.n===2};}finally{db.close();}
- const {projectId,...ui}=result,checks={...ui,...registry,...metadata};writeFileSync(join(root,'docs/progress/evidence/M3.1b-main-chat-regression.json'),JSON.stringify({status:Object.values(checks).every(Boolean)?'passed':'blocked',observedAt:new Date().toISOString(),kind:'real_electron_sqlite_durable_main_chat_readonly_registry',history:'synthetic_navigation_metadata',router:'deterministic_no_model',inferenceRequested:false,modelTurns:0,result:checks},null,2)+'\n');app.quit();
+  renameSync(source, source + '-moved');
+  const registry = await window.webContents.executeJavaScript(
+    `(async()=>{const r=await window.personalAgent.readMainChat({projectId:${JSON.stringify(result.projectId)}});return{registryAvailableAfterSourceMoved:r.ok&&r.value.messages.length>0};})()`,
+  );
+  await window.webContents.executeJavaScript(
+    `(async()=>{document.querySelector('.main-chat-entries').scrollTop=document.querySelector('.main-chat-entries').scrollHeight;await new Promise(requestAnimationFrame);await new Promise(requestAnimationFrame);})()`,
+  );
+  writeFileSync(
+    join(root, 'docs/progress/evidence/screenshots/M3.1b-main-chat-regression.png'),
+    (await window.webContents.capturePage()).toPNG(),
+  );
+  const db = new DatabaseSync(database, { readOnly: true });
+  let metadata;
+  try {
+    metadata = {
+      noRuns: db.prepare('SELECT count(*) AS n FROM task_runs').get()!.n === 0,
+      noIntents: db.prepare('SELECT count(*) AS n FROM execution_intents').get()!.n === 0,
+      noBudgetReservation:
+        db.prepare('SELECT count(*) AS n FROM budget_reservations').get()!.n === 0,
+      originalTaskVersions:
+        db.prepare('SELECT count(*) AS n FROM tasks WHERE version<>2').get()!.n === 0,
+      queryOperations:
+        db.prepare("SELECT count(*) AS n FROM operations WHERE kind='QUERY_TASK'").get()!.n === 2,
+    };
+  } finally {
+    db.close();
+  }
+  const { projectId, ...ui } = result,
+    checks = { ...ui, ...registry, ...metadata };
+  writeFileSync(
+    join(root, 'docs/progress/evidence/M3.1b-main-chat-regression.json'),
+    JSON.stringify(
+      {
+        status: Object.values(checks).every(Boolean) ? 'passed' : 'blocked',
+        observedAt: new Date().toISOString(),
+        kind: 'real_electron_sqlite_durable_main_chat_readonly_registry',
+        history: 'synthetic_navigation_metadata',
+        router: 'deterministic_no_model',
+        inferenceRequested: false,
+        modelTurns: 0,
+        result: checks,
+      },
+      null,
+      2,
+    ) + '\n',
+  );
+  app.quit();
 }

@@ -1,12 +1,19 @@
-import type {App,BrowserWindow} from 'electron';
-import {writeFileSync,renameSync} from 'node:fs';
-import {join} from 'node:path';
-import {DatabaseSync} from 'node:sqlite';
-import type {ExecutionLedger} from '../../../packages/store/src/ledger.ts';
-import type {ForegroundExecution} from '../../../packages/runtime/src/execution.ts';
+import type { App, BrowserWindow } from 'electron';
+import { writeFileSync, renameSync } from 'node:fs';
+import { join } from 'node:path';
+import { DatabaseSync } from 'node:sqlite';
+import type { ExecutionLedger } from '../../../packages/store/src/ledger.ts';
+import type { ForegroundExecution } from '../../../packages/runtime/src/execution.ts';
 /** Real Main sampling and PTY occupancy, no model/task inference. */
-export async function runResourceProbe(root:string,app:App,window:BrowserWindow,store:ExecutionLedger,execution:ForegroundExecution,database:string){
-  const open=await window.webContents.executeJavaScript(`(async()=>{
+export async function runResourceProbe(
+  root: string,
+  app: App,
+  window: BrowserWindow,
+  store: ExecutionLedger,
+  execution: ForegroundExecution,
+  database: string,
+) {
+  const open = await window.webContents.executeJavaScript(`(async()=>{
     const call=async p=>{const r=await p;if(!r.ok)throw Error(r.errorCode);return r.value;},wait=async f=>{const until=Date.now()+15000;while(!await f()){if(Date.now()>until)throw Error('RESOURCE_UI_TIMEOUT');await new Promise(r=>setTimeout(r,40));}};
     document.querySelector('[data-action="choose-project"]').click();await wait(()=>document.querySelector('[data-action="open-tasks"]')&&!document.querySelector('[data-action="open-tasks"]').disabled);document.querySelector('[data-action="open-tasks"]').click();await wait(()=>document.querySelector('[data-task-manager]'));document.querySelector('[data-task-manager]').open=true;await wait(()=>document.querySelector('[data-runtime-resources]'));
     const state=await call(window.personalAgent.workspaceState()),projectId=state.projects[0].id,before=await call(window.personalAgent.resourceBudget()),opened=await call(window.personalAgent.openTerminal({projectId,commandKey:'resource-real-pty',cols:80,rows:24}));
@@ -14,13 +21,74 @@ export async function runResourceProbe(root:string,app:App,window:BrowserWindow,
     const held=await call(window.personalAgent.resourceBudget()),blocked=await window.personalAgent.submitMessage({projectId,text:'PUBLIC_MUST_NOT_SEND_WHILE_TERMINAL_HELD',submissionKey:'resource-no-send'});await wait(()=>document.querySelector('[data-main-resources]'));document.querySelector('[data-runtime-resources]').scrollIntoView({block:'center'});
     return{projectId,sessionId:opened.session.sessionId,initialNoOccupancy:before.occupancy.modelActive===0&&before.occupancy.terminalActive===0,realTerminalHeld:held.occupancy.terminalActive===1&&held.occupancy.terminalUnknown===0,noModelOccupancy:held.occupancy.modelActive===0&&held.occupancy.modelUnknown===0,modelAdmissionRefused:!blocked.ok&&blocked.errorCode==='WORKSPACE_TERMINAL_ACTIVE',noReservation:held.reservedTokens===0&&held.unknownHeldTokens===0,mainRss:held.mainProcess.rssBytes>0,cpuSample:typeof held.mainProcess.cpuPercent==='number'&&Number.isFinite(held.mainProcess.cpuPercent),mainScope:held.mainProcess.scope==='main_process',noPidsOrPaths:!('pid' in held.mainProcess)&&!('directory' in held.mainProcess),budgetStillVisible:!!document.querySelector('[data-resource-budget]'),sandboxed:window.personalAgent.security.sandboxed,isolated:window.personalAgent.security.isolated,noRequire:typeof require==='undefined',apiCount:Object.keys(window.personalAgent).length===63};
   })()`);
-  const host=store.terminalHost(open.projectId,open.sessionId),pids=[host.supervisorPid,host.ptyPid];const realPidsAlive=pids.every(pid=>{if(!pid)return false;try{process.kill(pid,0);return true;}catch{return false;}});
-  writeFileSync(join(root,'docs/progress/evidence/screenshots/M2.2e-resources.png'),(await window.webContents.capturePage()).toPNG());
-  const closed=await window.webContents.executeJavaScript(`(async()=>{const call=async p=>{const r=await p;if(!r.ok)throw Error(r.errorCode);return r.value;},projectId=${JSON.stringify(open.projectId)};await call(window.personalAgent.closeTerminal({projectId,sessionId:${JSON.stringify(open.sessionId)},commandKey:'resource-close'}));const until=Date.now()+10000;while(Date.now()<until){const view=await call(window.personalAgent.readTerminal({projectId,afterSequence:0}));if(view.session?.state==='exited'){const budget=await call(window.personalAgent.resourceBudget());return{exitObserved:true,terminalReleased:budget.occupancy.terminalActive===0&&budget.occupancy.terminalUnknown===0};}await new Promise(r=>setTimeout(r,50));}throw Error('RESOURCE_TERMINAL_STOP_TIMEOUT');})()`);
-  const realPidsGone=pids.every(pid=>{if(!pid)return false;try{process.kill(pid,0);return false;}catch(error){return(error as NodeJS.ErrnoException).code==='ESRCH';}}),db=new DatabaseSync(database,{readOnly:true});let noIntents;try{noIntents=db.prepare('SELECT count(*) AS n FROM execution_intents').get()!.n===0;}finally{db.close();}
+  const host = store.terminalHost(open.projectId, open.sessionId),
+    pids = [host.supervisorPid, host.ptyPid];
+  const realPidsAlive = pids.every((pid) => {
+    if (!pid) return false;
+    try {
+      process.kill(pid, 0);
+      return true;
+    } catch {
+      return false;
+    }
+  });
+  writeFileSync(
+    join(root, 'docs/progress/evidence/screenshots/M2.2e-resources.png'),
+    (await window.webContents.capturePage()).toPNG(),
+  );
+  const closed = await window.webContents.executeJavaScript(
+    `(async()=>{const call=async p=>{const r=await p;if(!r.ok)throw Error(r.errorCode);return r.value;},projectId=${JSON.stringify(open.projectId)};await call(window.personalAgent.closeTerminal({projectId,sessionId:${JSON.stringify(open.sessionId)},commandKey:'resource-close'}));const until=Date.now()+10000;while(Date.now()<until){const view=await call(window.personalAgent.readTerminal({projectId,afterSequence:0}));if(view.session?.state==='exited'){const budget=await call(window.personalAgent.resourceBudget());return{exitObserved:true,terminalReleased:budget.occupancy.terminalActive===0&&budget.occupancy.terminalUnknown===0};}await new Promise(r=>setTimeout(r,50));}throw Error('RESOURCE_TERMINAL_STOP_TIMEOUT');})()`,
+  );
+  const realPidsGone = pids.every((pid) => {
+      if (!pid) return false;
+      try {
+        process.kill(pid, 0);
+        return false;
+      } catch (error) {
+        return (error as NodeJS.ErrnoException).code === 'ESRCH';
+      }
+    }),
+    db = new DatabaseSync(database, { readOnly: true });
+  let noIntents;
+  try {
+    noIntents = db.prepare('SELECT count(*) AS n FROM execution_intents').get()!.n === 0;
+  } finally {
+    db.close();
+  }
   // Owned source goes away after the actual Shell is stopped; shared resource metadata stays readable.
-  const source=store.workspace(open.projectId).directory;renameSync(source,source+'-moved');
-  const missingSource=await window.webContents.executeJavaScript(`(async()=>{await new Promise(r=>setTimeout(r,1200));const result=await window.personalAgent.resourceBudget();return{metadataReadableWithoutSource:result.ok&&result.value.occupancy.terminalActive===0,freshViewWithoutSource:document.querySelector('[data-runtime-resources]')?.dataset.resourcesStale==='false'&&Boolean(document.querySelector('[data-main-resources]'))};})()`);
-  const {projectId,sessionId,...checks}=open,result={...checks,...closed,...missingSource,realPidsAlive,realPidsGone,noIntents,noRuns:store.runs(projectId).length===0,noNativeDispatch:execution.diagnostics.clientThreadStarts===0&&execution.diagnostics.clientTurnStarts===0};
-  writeFileSync(join(root,'docs/progress/evidence/M2.2e-desktop.json'),JSON.stringify({status:Object.values(result).every(Boolean)?'passed':'blocked',observedAt:new Date().toISOString(),kind:'real_electron_main_sampling_and_real_pty_occupancy',history:'synthetic_metadata',inferenceRequested:false,modelTurns:0,result},null,2)+'\n');app.quit();
+  const source = store.workspace(open.projectId).directory;
+  renameSync(source, source + '-moved');
+  const missingSource = await window.webContents.executeJavaScript(
+    `(async()=>{await new Promise(r=>setTimeout(r,1200));const result=await window.personalAgent.resourceBudget();return{metadataReadableWithoutSource:result.ok&&result.value.occupancy.terminalActive===0,freshViewWithoutSource:document.querySelector('[data-runtime-resources]')?.dataset.resourcesStale==='false'&&Boolean(document.querySelector('[data-main-resources]'))};})()`,
+  );
+  const { projectId, sessionId, ...checks } = open,
+    result = {
+      ...checks,
+      ...closed,
+      ...missingSource,
+      realPidsAlive,
+      realPidsGone,
+      noIntents,
+      noRuns: store.runs(projectId).length === 0,
+      noNativeDispatch:
+        execution.diagnostics.clientThreadStarts === 0 &&
+        execution.diagnostics.clientTurnStarts === 0,
+    };
+  writeFileSync(
+    join(root, 'docs/progress/evidence/M2.2e-desktop.json'),
+    JSON.stringify(
+      {
+        status: Object.values(result).every(Boolean) ? 'passed' : 'blocked',
+        observedAt: new Date().toISOString(),
+        kind: 'real_electron_main_sampling_and_real_pty_occupancy',
+        history: 'synthetic_metadata',
+        inferenceRequested: false,
+        modelTurns: 0,
+        result,
+      },
+      null,
+      2,
+    ) + '\n',
+  );
+  app.quit();
 }

@@ -1,37 +1,262 @@
-import {existsSync,mkdirSync,readFileSync,writeFileSync} from 'node:fs';
-import {join,resolve} from 'node:path';
-import {DatabaseSync} from 'node:sqlite';
-import {ExecutionLedger} from '../packages/store/src/ledger.ts';
-import {ForegroundExecution} from '../packages/runtime/src/execution.ts';
-import {LocalPrivacyCleanup} from '../packages/runtime/src/local-cleanup.ts';
-import {verifiedCodex} from '../packages/codex-adapter/src/binary.ts';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
+import { DatabaseSync } from 'node:sqlite';
+import { ExecutionLedger } from '../packages/store/src/ledger.ts';
+import { ForegroundExecution } from '../packages/runtime/src/execution.ts';
+import { LocalPrivacyCleanup } from '../packages/runtime/src/local-cleanup.ts';
+import { verifiedCodex } from '../packages/codex-adapter/src/binary.ts';
 
 // Continue only the independently recorded, clean read-only native Run. This
 // never retries the old privacy-revoked Unknown or rewrites its evidence.
-const root=resolve('.'),markerPath=join(root,'.local/M3-native-rollover-state.json'),privacyEvidence=JSON.parse(readFileSync(join(root,'docs/progress/evidence/M3.4-native-privacy.json'),'utf8')),source=JSON.parse(readFileSync(join(root,'.local/M3-native-privacy-attempt2-state.json'),'utf8'));
-if(privacyEvidence.status!=='passed'||source.stage!=='complete'||typeof source.state!=='string'||typeof source.freshRunId!=='string')throw Error('PASSED_NATIVE_PRIVACY_REQUIRED');
-if(existsSync(markerPath))throw Error('NATIVE_PROBE_ALREADY_RECORDED_NO_AUTOMATIC_RESEND');mkdirSync(join(root,'.local'),{recursive:true});
-const database=join(source.state,'execution/ledger.db'),store=new ExecutionLedger(database,readFileSync(join(root,'docs/design/contracts/schema.sql'),'utf8'));store.startOwner('m3-native-clean-rollover-owner',true);
-const marker:Record<string,unknown>={state:source.state,sourceRunId:source.freshRunId,stage:'prepared',requestMayHaveBeenSent:false};writeFileSync(markerPath,JSON.stringify(marker)+'\n',{flag:'wx',mode:0o600});
-const stamp=(stage:string,extra:Record<string,unknown>={})=>{Object.assign(marker,{stage,...extra});writeFileSync(markerPath,JSON.stringify(marker)+'\n',{mode:0o600});};
-const execution=new ForegroundExecution(store,{executable:verifiedCodex(root).executable,stateDirectory:join(source.state,'codex-state'),timeoutMs:180000});let phase='save-readonly-checkpoint',evidence:Record<string,unknown>={status:'blocked',kind:'native_readonly_checkpoint_rollover',provider:'original_supported_codex_login',inferenceRequested:false,businessCompletionClaimed:false,verificationReceipts:0,automaticResends:0};
-const safeCode=(error:unknown)=>{const code=error&&typeof error==='object'&&'code'in error?String(error.code):error instanceof Error?error.message:'';return/^[A-Z][A-Z0-9_]{0,99}$/.test(code)?code:'HOST_ERROR';};
-try{
- const before=store.runForHost(source.freshRunId);if(before.status!=='completed'||before.mode!=='readOnly'||!before.threadId)throw Error('CLEAN_READONLY_SOURCE_REQUIRED');
- const checkpoint=store.saveCheckpoint(before.runId,{goal:'Complete the clean memory-context check by replying exactly CLEAN.',constraints:['Use only current Host-provided context.','Do not use tools or personal memory.'],completionCriteria:['A read-only reply is not independent business verification.'],pendingSteps:['Reply exactly CLEAN.'],sourceRefs:['task:'+before.taskId],verificationIds:[]});
- if(checkpoint.bundle.businessCompletionClaimed!==false||checkpoint.bundle.confirmedReceipts.length!==0)throw Error('CHECKPOINT_FALSE_BUSINESS_COMPLETION');
- const query=new DatabaseSync(database,{readOnly:true});let generation:number;try{generation=Number(query.prepare("SELECT generation FROM thread_bindings WHERE task_id=? AND state='active'").get(before.taskId)!.generation);}finally{query.close();}
- phase='native-checkpoint-rollover';stamp(phase,{requestMayHaveBeenSent:true});evidence.inferenceRequested=true;const admitted=execution.rolloverRun({projectId:before.workspaceId,runId:before.runId,checkpointId:checkpoint.checkpointId,submissionKey:'m3-native-checkpoint-fresh-generation'});stamp('admitted',{runId:admitted.runId});await execution.wait();const current=store.runForHost(admitted.runId),view=execution.view({projectId:before.workspaceId,runId:admitted.runId}),reply=view.snapshot?.items.filter(item=>item.role==='assistant').map(item=>item.text).join('').trim();
- if(current.status!=='completed'||current.taskId!==before.taskId||!current.threadId||current.threadId===before.threadId||reply!=='CLEAN'||!execution.diagnostics.nativePolicyVerified)throw Error('NATIVE_ROLLOVER_OUTCOME_MISMATCH');
- const db=new DatabaseSync(database,{readOnly:true});let boundGeneration:number,oldInvalid:boolean,parentHashBound:boolean,parentUnchanged:boolean,newStarts:number,newResumes:number,newTurns:number,reportedRunTokens:number|null;try{
-  boundGeneration=Number(db.prepare("SELECT generation FROM thread_bindings WHERE task_id=? AND state='active'").get(before.taskId)!.generation);oldInvalid=db.prepare('SELECT state FROM thread_bindings WHERE task_id=? AND execution_thread_id=?').get(before.taskId,before.threadId)?.state==='invalidated';
-  const row=db.prepare("SELECT summary_json FROM task_checkpoints WHERE run_id=? AND checkpoint_id<>?").get(admitted.runId,checkpoint.checkpointId),bundle=row?JSON.parse(String(row.summary_json)):null;parentHashBound=bundle?.rolloverAdmission?.fromCheckpointHash===checkpoint.bundle.contentHash&&bundle.rolloverAdmission.fromCheckpointId===checkpoint.checkpointId&&bundle.rolloverAdmission.runId===admitted.runId;parentUnchanged=db.prepare('SELECT content_sha256 FROM task_checkpoints WHERE checkpoint_id=?').get(checkpoint.checkpointId)?.content_sha256===checkpoint.bundle.contentHash;
-  newStarts=Number(db.prepare("SELECT count(*) AS n FROM execution_intents WHERE run_id=? AND kind='thread_start' AND state='accepted'").get(admitted.runId)!.n);newResumes=Number(db.prepare("SELECT count(*) AS n FROM execution_intents WHERE run_id=? AND kind='thread_resume'").get(admitted.runId)!.n);newTurns=Number(db.prepare("SELECT count(*) AS n FROM execution_intents WHERE run_id=? AND kind='turn_start' AND state='accepted'").get(admitted.runId)!.n);
-  const usage=db.prepare('SELECT baseline_tokens,latest_total_tokens,invalid_count FROM run_usage WHERE run_id=?').get(admitted.runId);reportedRunTokens=usage&&typeof usage.baseline_tokens==='number'&&typeof usage.latest_total_tokens==='number'&&usage.invalid_count===0?usage.latest_total_tokens-usage.baseline_tokens:null;
- }finally{db.close();}
- if(boundGeneration!==generation+1||!oldInvalid||!parentHashBound||!parentUnchanged||newStarts!==1||newResumes!==0||newTurns!==1)throw Error('ROLLOVER_PROVENANCE_MISMATCH');
- execution.rolloverRun({projectId:before.workspaceId,runId:before.runId,checkpointId:checkpoint.checkpointId,submissionKey:'m3-native-checkpoint-fresh-generation'});if(execution.diagnostics.clientTurnStarts!==1)throw Error('ROLLOVER_DUPLICATE_SENT');
- evidence={...evidence,status:'passed',phase:'complete',model:execution.diagnostics.selectedModel,nativePolicyVerified:execution.diagnostics.nativePolicyVerified,runStatus:current.status,sameTask:true,freshThreadDifferent:true,oldBindingInvalidated:oldInvalid,generationBefore:generation,generationAfter:boundGeneration,parentCheckpointHashBound:parentHashBound,parentCheckpointUnchanged:parentUnchanged,threadStarts:newStarts,threadResumes:newResumes,turnStarts:newTurns,duplicateTurnStarts:0,freshReply:'CLEAN',tools:'none',ephemeral:true,reportedTokens:reportedRunTokens,reportedTokensTotal:store.resourceBudget().reportedTokens,oldUnknownHeldTokens:store.resourceBudget().unknownHeldTokens};stamp('complete',{status:'passed'});
-}catch(error){const code=safeCode(error);evidence={...evidence,status:'blocked',phase,code,diagnosticCode:execution.diagnostics.failureCode||undefined};stamp('blocked',{phase,code});}
-finally{await execution.close();new LocalPrivacyCleanup({storageRoot:source.state,database,verification:join(source.state,'verification')}).purgeSnapshots();store.close();}
-evidence.observedAt=new Date().toISOString();writeFileSync(join(root,'docs/progress/evidence/M3.4-native-rollover.json'),JSON.stringify(evidence,null,2)+'\n');console.log(JSON.stringify(evidence,null,2));if(evidence.status!=='passed')process.exitCode=1;
+const root = resolve('.'),
+  markerPath = join(root, '.local/M3-native-rollover-state.json'),
+  privacyEvidence = JSON.parse(
+    readFileSync(join(root, 'docs/progress/evidence/M3.4-native-privacy.json'), 'utf8'),
+  ),
+  source = JSON.parse(
+    readFileSync(join(root, '.local/M3-native-privacy-attempt2-state.json'), 'utf8'),
+  );
+if (
+  privacyEvidence.status !== 'passed' ||
+  source.stage !== 'complete' ||
+  typeof source.state !== 'string' ||
+  typeof source.freshRunId !== 'string'
+)
+  throw Error('PASSED_NATIVE_PRIVACY_REQUIRED');
+if (existsSync(markerPath)) throw Error('NATIVE_PROBE_ALREADY_RECORDED_NO_AUTOMATIC_RESEND');
+mkdirSync(join(root, '.local'), { recursive: true });
+const database = join(source.state, 'execution/ledger.db'),
+  store = new ExecutionLedger(
+    database,
+    readFileSync(join(root, 'docs/design/contracts/schema.sql'), 'utf8'),
+  );
+store.startOwner('m3-native-clean-rollover-owner', true);
+const marker: Record<string, unknown> = {
+  state: source.state,
+  sourceRunId: source.freshRunId,
+  stage: 'prepared',
+  requestMayHaveBeenSent: false,
+};
+writeFileSync(markerPath, JSON.stringify(marker) + '\n', { flag: 'wx', mode: 0o600 });
+const stamp = (stage: string, extra: Record<string, unknown> = {}) => {
+  Object.assign(marker, { stage, ...extra });
+  writeFileSync(markerPath, JSON.stringify(marker) + '\n', { mode: 0o600 });
+};
+const execution = new ForegroundExecution(store, {
+  executable: verifiedCodex(root).executable,
+  stateDirectory: join(source.state, 'codex-state'),
+  timeoutMs: 180000,
+});
+let phase = 'save-readonly-checkpoint',
+  evidence: Record<string, unknown> = {
+    status: 'blocked',
+    kind: 'native_readonly_checkpoint_rollover',
+    provider: 'original_supported_codex_login',
+    inferenceRequested: false,
+    businessCompletionClaimed: false,
+    verificationReceipts: 0,
+    automaticResends: 0,
+  };
+const safeCode = (error: unknown) => {
+  const code =
+    error && typeof error === 'object' && 'code' in error
+      ? String(error.code)
+      : error instanceof Error
+        ? error.message
+        : '';
+  return /^[A-Z][A-Z0-9_]{0,99}$/.test(code) ? code : 'HOST_ERROR';
+};
+try {
+  const before = store.runForHost(source.freshRunId);
+  if (before.status !== 'completed' || before.mode !== 'readOnly' || !before.threadId)
+    throw Error('CLEAN_READONLY_SOURCE_REQUIRED');
+  const checkpoint = store.saveCheckpoint(before.runId, {
+    goal: 'Complete the clean memory-context check by replying exactly CLEAN.',
+    constraints: [
+      'Use only current Host-provided context.',
+      'Do not use tools or personal memory.',
+    ],
+    completionCriteria: ['A read-only reply is not independent business verification.'],
+    pendingSteps: ['Reply exactly CLEAN.'],
+    sourceRefs: ['task:' + before.taskId],
+    verificationIds: [],
+  });
+  if (
+    checkpoint.bundle.businessCompletionClaimed !== false ||
+    checkpoint.bundle.confirmedReceipts.length !== 0
+  )
+    throw Error('CHECKPOINT_FALSE_BUSINESS_COMPLETION');
+  const query = new DatabaseSync(database, { readOnly: true });
+  let generation: number;
+  try {
+    generation = Number(
+      query
+        .prepare("SELECT generation FROM thread_bindings WHERE task_id=? AND state='active'")
+        .get(before.taskId)!.generation,
+    );
+  } finally {
+    query.close();
+  }
+  phase = 'native-checkpoint-rollover';
+  stamp(phase, { requestMayHaveBeenSent: true });
+  evidence.inferenceRequested = true;
+  const admitted = execution.rolloverRun({
+    projectId: before.workspaceId,
+    runId: before.runId,
+    checkpointId: checkpoint.checkpointId,
+    submissionKey: 'm3-native-checkpoint-fresh-generation',
+  });
+  stamp('admitted', { runId: admitted.runId });
+  await execution.wait();
+  const current = store.runForHost(admitted.runId),
+    view = execution.view({ projectId: before.workspaceId, runId: admitted.runId }),
+    reply = view.snapshot?.items
+      .filter((item) => item.role === 'assistant')
+      .map((item) => item.text)
+      .join('')
+      .trim();
+  if (
+    current.status !== 'completed' ||
+    current.taskId !== before.taskId ||
+    !current.threadId ||
+    current.threadId === before.threadId ||
+    reply !== 'CLEAN' ||
+    !execution.diagnostics.nativePolicyVerified
+  )
+    throw Error('NATIVE_ROLLOVER_OUTCOME_MISMATCH');
+  const db = new DatabaseSync(database, { readOnly: true });
+  let boundGeneration: number,
+    oldInvalid: boolean,
+    parentHashBound: boolean,
+    parentUnchanged: boolean,
+    newStarts: number,
+    newResumes: number,
+    newTurns: number,
+    reportedRunTokens: number | null;
+  try {
+    boundGeneration = Number(
+      db
+        .prepare("SELECT generation FROM thread_bindings WHERE task_id=? AND state='active'")
+        .get(before.taskId)!.generation,
+    );
+    oldInvalid =
+      db
+        .prepare('SELECT state FROM thread_bindings WHERE task_id=? AND execution_thread_id=?')
+        .get(before.taskId, before.threadId)?.state === 'invalidated';
+    const row = db
+        .prepare('SELECT summary_json FROM task_checkpoints WHERE run_id=? AND checkpoint_id<>?')
+        .get(admitted.runId, checkpoint.checkpointId),
+      bundle = row ? JSON.parse(String(row.summary_json)) : null;
+    parentHashBound =
+      bundle?.rolloverAdmission?.fromCheckpointHash === checkpoint.bundle.contentHash &&
+      bundle.rolloverAdmission.fromCheckpointId === checkpoint.checkpointId &&
+      bundle.rolloverAdmission.runId === admitted.runId;
+    parentUnchanged =
+      db
+        .prepare('SELECT content_sha256 FROM task_checkpoints WHERE checkpoint_id=?')
+        .get(checkpoint.checkpointId)?.content_sha256 === checkpoint.bundle.contentHash;
+    newStarts = Number(
+      db
+        .prepare(
+          "SELECT count(*) AS n FROM execution_intents WHERE run_id=? AND kind='thread_start' AND state='accepted'",
+        )
+        .get(admitted.runId)!.n,
+    );
+    newResumes = Number(
+      db
+        .prepare(
+          "SELECT count(*) AS n FROM execution_intents WHERE run_id=? AND kind='thread_resume'",
+        )
+        .get(admitted.runId)!.n,
+    );
+    newTurns = Number(
+      db
+        .prepare(
+          "SELECT count(*) AS n FROM execution_intents WHERE run_id=? AND kind='turn_start' AND state='accepted'",
+        )
+        .get(admitted.runId)!.n,
+    );
+    const usage = db
+      .prepare(
+        'SELECT baseline_tokens,latest_total_tokens,invalid_count FROM run_usage WHERE run_id=?',
+      )
+      .get(admitted.runId);
+    reportedRunTokens =
+      usage &&
+      typeof usage.baseline_tokens === 'number' &&
+      typeof usage.latest_total_tokens === 'number' &&
+      usage.invalid_count === 0
+        ? usage.latest_total_tokens - usage.baseline_tokens
+        : null;
+  } finally {
+    db.close();
+  }
+  if (
+    boundGeneration !== generation + 1 ||
+    !oldInvalid ||
+    !parentHashBound ||
+    !parentUnchanged ||
+    newStarts !== 1 ||
+    newResumes !== 0 ||
+    newTurns !== 1
+  )
+    throw Error('ROLLOVER_PROVENANCE_MISMATCH');
+  execution.rolloverRun({
+    projectId: before.workspaceId,
+    runId: before.runId,
+    checkpointId: checkpoint.checkpointId,
+    submissionKey: 'm3-native-checkpoint-fresh-generation',
+  });
+  if (execution.diagnostics.clientTurnStarts !== 1) throw Error('ROLLOVER_DUPLICATE_SENT');
+  evidence = {
+    ...evidence,
+    status: 'passed',
+    phase: 'complete',
+    model: execution.diagnostics.selectedModel,
+    nativePolicyVerified: execution.diagnostics.nativePolicyVerified,
+    runStatus: current.status,
+    sameTask: true,
+    freshThreadDifferent: true,
+    oldBindingInvalidated: oldInvalid,
+    generationBefore: generation,
+    generationAfter: boundGeneration,
+    parentCheckpointHashBound: parentHashBound,
+    parentCheckpointUnchanged: parentUnchanged,
+    threadStarts: newStarts,
+    threadResumes: newResumes,
+    turnStarts: newTurns,
+    duplicateTurnStarts: 0,
+    freshReply: 'CLEAN',
+    tools: 'none',
+    ephemeral: true,
+    reportedTokens: reportedRunTokens,
+    reportedTokensTotal: store.resourceBudget().reportedTokens,
+    oldUnknownHeldTokens: store.resourceBudget().unknownHeldTokens,
+  };
+  stamp('complete', { status: 'passed' });
+} catch (error) {
+  const code = safeCode(error);
+  evidence = {
+    ...evidence,
+    status: 'blocked',
+    phase,
+    code,
+    diagnosticCode: execution.diagnostics.failureCode || undefined,
+  };
+  stamp('blocked', { phase, code });
+} finally {
+  await execution.close();
+  new LocalPrivacyCleanup({
+    storageRoot: source.state,
+    database,
+    verification: join(source.state, 'verification'),
+  }).purgeSnapshots();
+  store.close();
+}
+evidence.observedAt = new Date().toISOString();
+writeFileSync(
+  join(root, 'docs/progress/evidence/M3.4-native-rollover.json'),
+  JSON.stringify(evidence, null, 2) + '\n',
+);
+console.log(JSON.stringify(evidence, null, 2));
+if (evidence.status !== 'passed') process.exitCode = 1;

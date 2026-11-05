@@ -1,10 +1,15 @@
-import type {App,BrowserWindow} from 'electron';
-import {writeFileSync} from 'node:fs';
-import {resolve} from 'node:path';
-import type {ExecutionLedger} from '../../../packages/store/src/ledger.ts';
+import type { App, BrowserWindow } from 'electron';
+import { writeFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import type { ExecutionLedger } from '../../../packages/store/src/ledger.ts';
 /** Real renderer and durable stdio workflow; ALL tool items below come from a synthetic server. */
-export async function runToolProbe(root:string,app:App,window:BrowserWindow,store:ExecutionLedger){
-  const result=await window.webContents.executeJavaScript(`(async()=>{
+export async function runToolProbe(
+  root: string,
+  app: App,
+  window: BrowserWindow,
+  store: ExecutionLedger,
+) {
+  const result = await window.webContents.executeJavaScript(`(async()=>{
     const wait=async f=>{const until=Date.now()+15000;while(!f()){if(Date.now()>until)throw Error('TOOLS_UI_TIMEOUT');await new Promise(r=>setTimeout(r,30));}},click=async s=>{await wait(()=>document.querySelector(s)&&!document.querySelector(s).disabled);document.querySelector(s).click();},select=async(s,value)=>{const e=document.querySelector(s);Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value').set.call(e,value);e.dispatchEvent(new Event('change',{bubbles:true}));await new Promise(r=>setTimeout(r,60));};
     await click('[data-action="choose-project"]');await wait(()=>document.querySelector('[data-task-draft]'));
     const input=document.querySelector('[data-task-draft]');Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(input,'Public tool display fixture');input.dispatchEvent(new Event('input',{bubbles:true}));await click('[data-action="send"]');
@@ -21,9 +26,39 @@ export async function runToolProbe(root:string,app:App,window:BrowserWindow,stor
     const state=await window.personalAgent.workspaceState(),projectId=state.value.projects[0].id,rows=await window.personalAgent.listRuns({projectId}),view=await window.personalAgent.getRun({projectId,runId:rows.value[0].runId});
     document.querySelector('[data-agent-tools]').scrollIntoView();return{projectId,runId:view.value.runId,liveObserved,count,failedFilter,emptyFilter,filesFilter,plainText,noSecrets,states,taskNeedsReview:view.value.taskStatus==='needs_review',sandboxed:window.personalAgent.security.sandboxed,isolated:window.personalAgent.security.isolated,noRequire:typeof require==='undefined',apiCount:Object.keys(window.personalAgent).length===63};
   })()`);
-  const {projectId,runId,states,...checks}=result;
-  const expected={ok:'completed',failed:'failed',declined:'declined',files:'completed',pending:'unknown',mcp:'failed',legacy:'unknown'};
-  const passed=Object.values(checks).every(Boolean)&&JSON.stringify(states)===JSON.stringify(expected)&&store.runs(projectId).length===1;
-  writeFileSync(resolve(root,'docs/progress/evidence/screenshots/M2.1b-tools-fixture.png'),(await window.webContents.capturePage()).toPNG());
-  writeFileSync(resolve(root,'docs/progress/evidence/M2.1b-tools-desktop.json'),JSON.stringify({status:passed?'passed':'blocked',observedAt:new Date().toISOString(),kind:'real_electron_sqlite_synthetic_tool_items',inferenceRequested:false,toolExecutionRequested:false,history:'synthetic_metadata',result:{...checks,states,oneSyntheticRun:store.runs(projectId).length===1}},null,2)+'\n');app.quit();
+  const { projectId, runId, states, ...checks } = result;
+  const expected = {
+    ok: 'completed',
+    failed: 'failed',
+    declined: 'declined',
+    files: 'completed',
+    pending: 'unknown',
+    mcp: 'failed',
+    legacy: 'unknown',
+  };
+  const passed =
+    Object.values(checks).every(Boolean) &&
+    JSON.stringify(states) === JSON.stringify(expected) &&
+    store.runs(projectId).length === 1;
+  writeFileSync(
+    resolve(root, 'docs/progress/evidence/screenshots/M2.1b-tools-fixture.png'),
+    (await window.webContents.capturePage()).toPNG(),
+  );
+  writeFileSync(
+    resolve(root, 'docs/progress/evidence/M2.1b-tools-desktop.json'),
+    JSON.stringify(
+      {
+        status: passed ? 'passed' : 'blocked',
+        observedAt: new Date().toISOString(),
+        kind: 'real_electron_sqlite_synthetic_tool_items',
+        inferenceRequested: false,
+        toolExecutionRequested: false,
+        history: 'synthetic_metadata',
+        result: { ...checks, states, oneSyntheticRun: store.runs(projectId).length === 1 },
+      },
+      null,
+      2,
+    ) + '\n',
+  );
+  app.quit();
 }
