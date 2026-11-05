@@ -1816,15 +1816,66 @@ export class ExecutionLedger {
     if (data.projectId !== projectId) return fail('ROUTE_PROJECT_MISMATCH');
     return { row, data };
   }
+  /** Routes of the same 50 visible messages that `mainChat` shows (each message has one). */
   mainRoutes(projectId: string): ChatRouteView[] {
     this.chatProject(projectId);
     return this.all(
-      "SELECT d.decision_id,d.message_id FROM router_decisions d JOIN messages m USING(message_id) WHERE m.dot_id=? AND router_revision='main-chat-proposal-v2' AND json_extract(decision_json,'$.projectId')=? ORDER BY d.created_at_ms DESC,d.rowid DESC LIMIT 20",
+      "SELECT d.decision_id,d.message_id FROM router_decisions d JOIN messages m USING(message_id) WHERE m.dot_id=? AND router_revision='main-chat-proposal-v2' AND json_extract(decision_json,'$.projectId')=? ORDER BY d.created_at_ms DESC,d.rowid DESC LIMIT 201",
       this.dotId,
       projectId,
     )
       .filter((r) => this.chatVisible(String(r.message_id)))
+      .slice(0, 50)
       .map((r) => this.routeData(projectId, String(r.decision_id)).data.route);
+  }
+  /** One route by ID, however old. */
+  routeView(projectId: string, planId: string): ChatRouteView {
+    return this.routeData(projectId, planId).data.route;
+  }
+  /** What starting a route's proposal needs: its captured candidates, sources and request. */
+  routeProposal(projectId: string, planId: string) {
+    const { data } = this.routeData(projectId, planId);
+    return {
+      route: data.route as ChatRouteView,
+      candidates: data.candidates as TaskSummary[],
+      sourceRefs: data.sourceRefs as Array<{ ref: string; revision: string }>,
+      focusTaskId: data.focusTaskId as string | null,
+      text: String(data.input.text),
+    };
+  }
+  /**
+   * Routes the Host still has to move, of any age: waiting to propose, proposing, committing or
+   * Unknown, and a fresh single-answer proposal (at most 10 minutes old) awaiting its answer.
+   */
+  pendingRoutes(projectId: string): ChatRouteView[] {
+    this.chatProject(projectId);
+    return this.all(
+      "SELECT d.decision_id,d.message_id FROM router_decisions d JOIN messages m USING(message_id) WHERE m.dot_id=? AND router_revision='main-chat-proposal-v2' AND json_extract(decision_json,'$.projectId')=? AND (json_extract(decision_json,'$.route.state') IN ('prepared','proposing','committing','outcome_unknown') OR (json_extract(decision_json,'$.route.state')='proposed' AND json_extract(decision_json,'$.route.autoAnswer')=1 AND d.created_at_ms>?)) ORDER BY d.created_at_ms,d.rowid LIMIT 200",
+      this.dotId,
+      projectId,
+      Date.now() - 10 * 60_000,
+    )
+      .filter((r) => this.chatVisible(String(r.message_id)))
+      .map((r) => this.routeData(projectId, String(r.decision_id)).data.route);
+  }
+  /** A route whose proposal could not start (nothing was sent) ends as failed. */
+  failPreparedRoute(projectId: string, planId: string, errorCode: string): ChatRouteView {
+    if (!/^[A-Z][A-Z0-9_]{0,100}$/.test(errorCode)) return fail('INVALID_DIAGNOSTIC');
+    return this.tx(() => {
+      this.owner();
+      const { data } = this.routeData(projectId, planId);
+      if (data.route.state !== 'prepared' || data.route.routingRunId)
+        return fail('ROUTE_NOT_PREPARED');
+      data.route.state = 'failed';
+      data.route.errorCode = errorCode;
+      data.route.version++;
+      this.exec(
+        'UPDATE router_decisions SET decision_json=? WHERE decision_id=?',
+        JSON.stringify(data),
+        planId,
+      );
+      return data.route;
+    });
   }
   prepareMainRoute(input: ProposeMainChat): {
     route: ChatRouteView;
@@ -1889,6 +1940,8 @@ export class ExecutionLedger {
           steps: [],
           plan: null,
           createdAt,
+          // This fresh send authorizes one direct read-only answer (a single CHAT proposal).
+          autoAnswer: true,
         },
         sourceRefs = [
           { ref: 'message:' + input.messageId, revision: inputHash },

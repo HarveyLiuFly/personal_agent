@@ -841,8 +841,10 @@ async function boot(): Promise<void> {
   }
   if (ledger && execution) {
     taskService = new TaskService(ledger, execution);
+    const routeLog = new BackgroundLog(resolve(app.getPath('userData'), 'logs'));
     chatRoutes = new ChatRouteService(ledger, execution, taskService, {
       profile: (input) => routeRoleProfile(ledger!, input),
+      onError: (error) => routeLog.record('routes', error),
     });
     goalService = new GoalService(ledger, execution, {
       sourcePoller,

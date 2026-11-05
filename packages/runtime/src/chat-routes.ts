@@ -9,6 +9,7 @@ import type {
   ProposeMainChat,
   RouteStep,
 } from '../../contracts/src/routing.ts';
+import { answersDirectly } from '../../contracts/src/routing.ts';
 import type { OperationReceipt, TaskSummary } from '../../contracts/src/tasks.ts';
 import {
   routePrompt,
@@ -23,6 +24,10 @@ type Store = Pick<
   | 'routeModelBound'
   | 'saveRouteModel'
   | 'mainRoutes'
+  | 'routeView'
+  | 'routeProposal'
+  | 'pendingRoutes'
+  | 'failPreparedRoute'
   | 'beginRouteCommit'
   | 'routeStepContext'
   | 'saveRouteStep'
@@ -58,6 +63,8 @@ export interface ChatRouteOptions {
   /** Host-only Context builder; never accepted from Renderer/model output. */ profile: (
     request: ChatRouteProfileRequest,
   ) => ExecutionRoleProfile;
+  /** Receives a route that could not advance in a tick (for the background log). */
+  onError?: (error: unknown) => void;
 }
 const digest = (value: unknown) => createHash('sha256').update(JSON.stringify(value)).digest('hex');
 export const routeModelKey = (planId: string) => 'chat-route-model:' + digest(planId);
@@ -80,7 +87,11 @@ const transient = new Set([
   'TOKEN_BUDGET_EXHAUSTED',
   'WORKSPACE_BUSY',
 ]);
-const clipped = (s: string, max = 8192) => {
+/** A fresh send's direct answer is started only this soon after the send (not on a late start). */
+const AUTO_ANSWER_WINDOW_MS = 10 * 60_000;
+/** Refusals that only mean "not now": the route waits and a later tick starts it. */
+const waiting = new Set(['RUNTIME_BUSY', 'WORKSPACE_BUSY', 'WORKSPACE_TERMINAL_ACTIVE']);
+const clipped = (s: string, max = 16384) => {
   if (s.length <= max) return s;
   let text = s.slice(0, max - 12);
   if (/[\uD800-\uDBFF]$/.test(text)) text = text.slice(0, -1);
@@ -88,7 +99,9 @@ const clipped = (s: string, max = 8192) => {
 };
 
 /** Candidate proposals and explicit commits share the existing Ledger/Gateway.
- * A tick never commits a proposal or resends an executing/Unknown child.
+ * A tick never resends an executing/Unknown child. The only proposal it commits is a fresh send's
+ * single read-only CHAT answer (`autoAnswer`, at most 10 minutes old); everything else waits for
+ * explicit confirmation.
  */
 export class ChatRouteService {
   private store: Store;
@@ -124,31 +137,46 @@ export class ChatRouteService {
     return profile;
   }
   private view(projectId: string, planId: string): ChatRouteView {
-    return (
-      this.store.mainRoutes(projectId).find((route) => route.id === planId) ??
-      this.store.routeStepContext(projectId, planId, 0).route
-    );
+    return this.store.routeView(projectId, planId);
   }
   propose(input: ProposeMainChat): ChatRouteView {
     const prepared = this.store.prepareMainRoute(input);
     if (prepared.route.state !== 'prepared') return prepared.route;
-    const text = routePrompt(input.text, prepared.candidates, prepared.focusTaskId),
-      run = this.execution.submitRole(
-        { projectId: input.projectId, text, submissionKey: routeModelKey(prepared.route.id) },
+    return this.startProposal(input.projectId, prepared.route.id);
+  }
+  /**
+   * Starts the routing Run of a prepared route. At capacity, or while the project is busy, the
+   * route stays prepared and a later tick starts it; any other refusal ends it as failed. Nothing
+   * was sent either way, and the fixed model key means a retry can never run it twice.
+   */
+  private startProposal(projectId: string, planId: string): ChatRouteView {
+    const prepared = this.store.routeProposal(projectId, planId);
+    if (prepared.route.state !== 'prepared' || this.execution.atCapacity) return prepared.route;
+    const text = routePrompt(prepared.text, prepared.candidates, prepared.focusTaskId);
+    let runId: string;
+    try {
+      runId = this.execution.submitRole(
+        { projectId, text, submissionKey: routeModelKey(planId) },
         (token) =>
           this.profile({
             role: 'dot-router',
             token,
-            projectId: input.projectId,
-            planId: prepared.route.id,
+            projectId,
+            planId,
             text,
             sourceRefs: prepared.sourceRefs,
             candidates: prepared.candidates,
             focusTaskId: prepared.focusTaskId,
           }),
-        'route-profile:' + digest([prepared.route.id, routeSchemaHash]),
-      );
-    return this.store.routeModelBound(input.projectId, prepared.route.id, run.runId);
+        'route-profile:' + digest([planId, routeSchemaHash]),
+      ).runId;
+    } catch (error) {
+      if (error instanceof LedgerError && waiting.has(error.code)) return prepared.route;
+      if (error instanceof LedgerError)
+        return this.store.failPreparedRoute(projectId, planId, code(error));
+      throw error;
+    }
+    return this.store.routeModelBound(projectId, planId, runId);
   }
   async commit(input: CommitChatRoute): Promise<ChatRouteView> {
     if (
@@ -190,28 +218,38 @@ export class ChatRouteService {
       input.focusRevision,
     );
   }
-  private response(projectId: string, runId: string): { run: RunRecord; text: string | null } {
+  /**
+   * The final answer of a role Run. Other items (such as a long sourced input) may be clipped
+   * without losing it. A clipped answer is returned with a marker when `partial` allows (a CHAT
+   * answer); a routing proposal must be complete.
+   */
+  private response(
+    projectId: string,
+    runId: string,
+    partial = false,
+  ): { run: RunRecord; text: string | null } {
     const run = this.store.runs(projectId, { runId })[0];
     if (!run) throw new LedgerError('ROUTE_RUN_UNAVAILABLE');
     const snapshot = run.snapshot;
     if (
       !snapshot ||
       snapshot.needsSnapshot ||
-      snapshot.truncated ||
       snapshot.unsupportedItems ||
       !run.turnId ||
       !snapshot.turns.some((turn) => turn.id === run.turnId && turn.status === 'completed')
     )
       return { run, text: null };
-    const messages = snapshot.items.filter(
-      (item) =>
-        item.turnId === run.turnId &&
-        item.kind === 'message' &&
-        item.role === 'assistant' &&
-        item.status === 'complete' &&
-        !item.truncated,
-    );
-    return { run, text: messages.at(-1)?.text ?? null };
+    const answer = snapshot.items
+      .filter(
+        (item) =>
+          item.turnId === run.turnId &&
+          item.kind === 'message' &&
+          item.role === 'assistant' &&
+          item.status === 'complete',
+      )
+      .at(-1);
+    if (!answer || (answer.truncated && !partial)) return { run, text: null };
+    return { run, text: answer.truncated ? answer.text + '\n[内容已截断]' : answer.text };
   }
   private proposal(route: ChatRouteView): void {
     if (!route.routingRunId) return;
@@ -288,7 +326,7 @@ export class ChatRouteService {
       }
     }
     if (runId) {
-      const { run, text } = this.response(route.projectId, runId),
+      const { run, text } = this.response(route.projectId, runId, step.operation.kind === 'CHAT'),
         state: RouteStep['state'] = active.has(run.status)
           ? 'executing'
           : run.status === 'completed'
@@ -499,25 +537,38 @@ export class ChatRouteService {
       for (const project of projectId ? [{ id: projectId }] : this.store.projects()) {
         let routes: ChatRouteView[];
         try {
-          routes = this.store.mainRoutes(project.id);
+          // Every route that still needs the Host, however old (not only the latest page).
+          routes = this.store.pendingRoutes(project.id);
         } catch {
           continue;
         }
         for (const route of routes) {
           try {
+            let current = route;
+            if (current.state === 'prepared') current = this.startProposal(project.id, current.id);
             if (
-              route.state === 'proposing' ||
-              (route.state === 'outcome_unknown' &&
-                route.plan === null &&
-                route.steps.length === 0 &&
-                isRejectedRouteOutput(route.errorCode))
+              current.state === 'proposing' ||
+              (current.state === 'outcome_unknown' &&
+                current.plan === null &&
+                current.steps.length === 0 &&
+                isRejectedRouteOutput(current.errorCode))
+            ) {
+              this.proposal(current);
+              current = this.view(project.id, current.id);
+            }
+            // A fresh send's single CHAT is answered here, not by a page that must stay open.
+            if (
+              current.autoAnswer &&
+              answersDirectly(current) &&
+              Date.now() - current.createdAt < AUTO_ANSWER_WINDOW_MS
             )
-              this.proposal(route);
-            else if (route.state === 'committing' || route.state === 'outcome_unknown')
-              await this.advance(route);
-            result.push(this.view(project.id, route.id));
-          } catch {
-            /* A revoked or unavailable plan cannot advance another scope. */
+              current = this.store.beginRouteCommit(project.id, current.id, current.version);
+            if (current.state === 'committing' || current.state === 'outcome_unknown')
+              await this.advance(current);
+            result.push(this.view(project.id, current.id));
+          } catch (error) {
+            // A revoked or unavailable plan cannot advance another scope.
+            this.options.onError?.(error);
           }
         }
       }

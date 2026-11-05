@@ -1,5 +1,6 @@
 import type { ItemView, RunSummary } from '../../../packages/contracts/src/views.ts';
-import type { ChatRouteView, RouteStep } from '../../../packages/contracts/src/routing.ts';
+import type { RouteStep } from '../../../packages/contracts/src/routing.ts';
+import { answersDirectly } from '../../../packages/contracts/src/routing.ts';
 export const taskLabels: Record<string, string> = {
   created: '待处理',
   queued: '待开始',
@@ -27,18 +28,8 @@ export const operationLabels: Record<string, string> = {
   CREATE_GOAL: '创建目标',
   CLARIFY: '需要补充',
 };
-/** Only the response to a fresh user send may use this. Polling must never dispatch. */
-export function canAnswerImmediately(route: ChatRouteView): boolean {
-  return (
-    route.state === 'proposed' &&
-    route.plan?.operations.length === 1 &&
-    route.plan.operations[0]?.kind === 'CHAT' &&
-    route.plan.operations[0].dependsOn.length === 0 &&
-    route.steps.length === 1 &&
-    route.steps[0]?.operation.kind === 'CHAT' &&
-    route.steps[0].state === 'pending'
-  );
-}
+/** A single read-only CHAT proposal (the Host answers it for a fresh send). */
+export const canAnswerImmediately = answersDirectly;
 export function latestTaskRuns(runs: RunSummary[]): RunSummary[] {
   const seen = new Set<string>();
   return runs.filter((run) => {
@@ -139,33 +130,6 @@ export class DraftBank {
       this.listeners.delete(listener);
     };
   }
-}
-/** Continue only the in-flight user send. This API deliberately cannot start a model. */
-export async function finishFreshDiscussion(
-  initial: ChatRouteView,
-  options: {
-    read: () => Promise<ChatRouteView[]>;
-    commit: (route: ChatRouteView) => Promise<ChatRouteView>;
-    active: () => boolean;
-    observe: (route: ChatRouteView) => void;
-    wait?: () => Promise<void>;
-    now?: () => number;
-    timeoutMs?: number;
-  },
-): Promise<ChatRouteView> {
-  const now = options.now ?? Date.now,
-    until = now() + (options.timeoutMs ?? 180000);
-  let route = initial;
-  while (route.state === 'proposing' && route.routingRunId && options.active() && now() < until) {
-    await (options.wait?.() ?? new Promise<void>((resolve) => setTimeout(resolve, 900)));
-    if (!options.active()) return route;
-    const current = (await options.read()).find((r) => r.id === initial.id);
-    if (!current) return route;
-    route = current;
-    options.observe(route);
-  }
-  if (options.active() && canAnswerImmediately(route)) return options.commit(route);
-  return route;
 }
 export function displayDiscussion(text: string): string {
   const remember = /^\/remember\s+[^\s=]+\s*=\s*([\s\S]+)$/.exec(text.trim());

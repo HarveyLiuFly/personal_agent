@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { ExecutionLedger, LedgerError, hashInput } from '../packages/store/src/ledger.ts';
 import type { RunToken } from '../packages/store/src/ledger.ts';
+import type { BudgetPolicy } from '../packages/store/src/budget.ts';
 import { TaskService } from '../packages/runtime/src/tasks.ts';
 import type {
   ForegroundExecution,
@@ -39,12 +40,12 @@ const plan = (operations: RouteOperation[], question: string | null = null): Rou
 // Actual SQLite, TaskService and domain transactions. The execution adapter is
 // deliberately synthetic: it writes accepted Run/Intent/projection metadata,
 // performs no RPC or model call, and never proves real model/task success.
-function fixture(t: { after(fn: () => void): void }) {
+function fixture(t: { after(fn: () => void): void }, budgetPolicy?: BudgetPolicy) {
   const root = realpathSync(mkdtempSync(join(tmpdir(), 'personal-agent-chat-routes-'))),
     cwd = join(root, 'project'),
     file = join(root, 'ledger.db');
   mkdirSync(cwd);
-  let store = new ExecutionLedger(file, schema);
+  let store = new ExecutionLedger(file, schema, budgetPolicy ? { budgetPolicy } : {});
   store.startOwner('route-fixture-owner', true);
   const project = store.registerWorkspace(cwd),
     db = new DatabaseSync(file);
@@ -149,6 +150,7 @@ function fixture(t: { after(fn: () => void): void }) {
     runId: string,
     output: string,
     outcome: 'completed' | 'failed' | 'outcome_unknown' = 'completed',
+    clip: { input?: boolean; answer?: boolean } = {},
   ) => {
     const token =
       pending.get(runId) ??
@@ -173,10 +175,24 @@ function fixture(t: { after(fn: () => void): void }) {
       epoch: 1,
       sequence: 1,
       needsSnapshot: false,
-      truncated: false,
+      truncated: Boolean(clip.input || clip.answer),
       unsupportedItems: false,
       turns: [{ id: turnId, status: 'completed' }],
       items: [
+        ...(clip.input
+          ? [
+              {
+                id: 'synthetic-user-' + runId,
+                turnId,
+                kind: 'message' as const,
+                role: 'user' as const,
+                label: 'synthetic-user',
+                text: 'x'.repeat(100),
+                status: 'complete' as const,
+                truncated: true,
+              },
+            ]
+          : []),
         {
           id: 'synthetic-assistant-' + runId,
           turnId,
@@ -185,7 +201,7 @@ function fixture(t: { after(fn: () => void): void }) {
           label: 'synthetic-assistant',
           text: output,
           status: 'complete',
-          truncated: false,
+          truncated: Boolean(clip.answer),
         },
       ],
     });
@@ -240,7 +256,7 @@ function fixture(t: { after(fn: () => void): void }) {
     },
     reopen() {
       store.close();
-      store = new ExecutionLedger(file, schema);
+      store = new ExecutionLedger(file, schema, budgetPolicy ? { budgetPolicy } : {});
       store.startOwner('reopened-route-owner', true);
       tasks = new TaskService(store, fake as unknown as ForegroundExecution);
       taskApply = (input) => tasks.apply(input);
@@ -422,13 +438,11 @@ test('continuation admission on explicit commit persists one Run which is checke
 });
 test('CHAT uses a separate no-tools role and stores its current-turn snapshot answer after completion', async (t) => {
   const f = fixture(t),
-    route = await f.propose(plan([op('CHAT', { text: 'Public discussion question' })]));
-  assert.equal(f.calls().roles, 1);
-  const running = await f.service.commit({
-    projectId: f.project.id,
-    planId: route.id,
-    expectedVersion: route.version,
-  });
+    // A fresh send's single CHAT is answered by the Host in the same tick (no page commit).
+    running = await f.propose(plan([op('CHAT', { text: 'Public discussion question' })])),
+    route = running;
+  assert.equal(running.state, 'committing');
+  assert.equal(running.steps[0]!.state, 'executing');
   assert.equal(f.calls().roles, 2);
   assert.equal(f.profiles[1]!.role, 'dot-chat');
   assert.equal(f.profiles[1]!.tools, 'none');
@@ -655,16 +669,19 @@ test('version changes, additional command fields and unsafe Host role profiles f
   const unsafe = new ChatRouteService(f.store, f.fake, f.tasks, {
     profile: (request) => ({ ...f.profile(request), tools: 'readOnly' }),
   });
-  assert.throws(
-    () =>
-      unsafe.propose({
-        projectId: f.project.id,
-        messageId: 'unsafe-role',
-        text: 'Public unsafe profile fixture',
-        focusRevision: 0,
-      }),
-    /INVALID_ROUTE_PROFILE/,
-  );
+  // Refused before anything is sent: the route ends as failed instead of waiting forever.
+  const sent = () =>
+    f.db.prepare("SELECT count(*) AS n FROM execution_intents WHERE state<>'prepared'").get()!.n;
+  const before = sent();
+  const refused = unsafe.propose({
+    projectId: f.project.id,
+    messageId: 'unsafe-role',
+    text: 'Public unsafe profile fixture',
+    focusRevision: 0,
+  });
+  assert.equal(refused.state, 'failed');
+  assert.equal(refused.errorCode, 'INVALID_ROUTE_PROFILE');
+  assert.equal(sent(), before);
 });
 
 test('legacy invalid completed proposals are reclassified from original evidence without another model call', async (t) => {
@@ -687,4 +704,106 @@ test('legacy invalid completed proposals are reclassified from original evidence
   assert.equal(f.calls().roles, 1);
   assert.equal(f.calls().taskCalls, 0);
   assert.equal(f.db.prepare('SELECT count(*) AS n FROM task_runs').get()!.n, 1);
+});
+
+test('a question asked at capacity waits as prepared and starts once a slot frees (L10)', async (t) => {
+  const f = fixture(t);
+  // Another routing Run holds the only slot.
+  const first = f.service.propose({
+    projectId: f.project.id,
+    messageId: 'busy-first',
+    text: 'Public first question',
+    focusRevision: 0,
+  });
+  assert.equal(first.state, 'proposing');
+  const waiting = f.service.propose({
+    projectId: f.project.id,
+    messageId: 'busy-second',
+    text: 'Public second question',
+    focusRevision: 0,
+  });
+  assert.equal(waiting.state, 'prepared', 'no RUNTIME_BUSY error and no stuck send');
+  assert.equal(f.calls().roles, 1);
+  await f.service.tick(f.project.id);
+  assert.equal(f.store.routeView(f.project.id, waiting.id).state, 'prepared');
+  f.complete(first.routingRunId!, JSON.stringify(plan([op('CLARIFY')], 'Which one?')));
+  await f.service.tick(f.project.id);
+  const started = f.store.routeView(f.project.id, waiting.id);
+  assert.equal(started.state, 'proposing');
+  assert.ok(started.routingRunId);
+  assert.equal(f.calls().roles, 2);
+  // A retried start is the same Run (fixed model key), never a second one.
+  await f.service.tick(f.project.id);
+  assert.equal(f.calls().roles, 2);
+});
+
+test('only a fresh single CHAT is answered without confirmation (L11)', async (t) => {
+  const f = fixture(t);
+  // Mixed or mutating plans still wait for explicit confirmation.
+  const mixed = await f.propose(
+    plan([op('CHAT', { text: 'Public question' }), op('QUERY_TASK', { taskId: f.a.taskId })]),
+  );
+  assert.equal(mixed.state, 'proposed');
+  // A legacy route without the fresh-send mark is never auto-committed.
+  const input = {
+    projectId: f.project.id,
+    messageId: 'legacy-message',
+    text: 'Public legacy question',
+    focusRevision: f.store.mainChat({ projectId: f.project.id }).focusRevision,
+  };
+  const legacy = f.service.propose(input);
+  f.db
+    .prepare(
+      "UPDATE router_decisions SET decision_json=json_remove(decision_json,'$.route.autoAnswer') WHERE decision_id=?",
+    )
+    .run(legacy.id);
+  f.complete(legacy.routingRunId!, JSON.stringify(plan([op('CHAT', { text: 'Old question' })])));
+  await f.service.tick(f.project.id);
+  assert.equal(f.store.routeView(f.project.id, legacy.id).state, 'proposed');
+  // A fresh send proposed more than 10 minutes ago is not answered on a later start either.
+  const late = f.service.propose({ ...input, messageId: 'late-message', text: 'Public late one' });
+  f.db
+    .prepare(
+      "UPDATE router_decisions SET created_at_ms=created_at_ms-660000,decision_json=json_set(decision_json,'$.route.createdAt',json_extract(decision_json,'$.route.createdAt')-660000) WHERE decision_id=?",
+    )
+    .run(late.id);
+  f.complete(late.routingRunId!, JSON.stringify(plan([op('CHAT', { text: 'Late question' })])));
+  await f.service.tick(f.project.id);
+  // Its proposal still lands (it was proposing), but it waits for confirmation.
+  assert.equal(f.store.routeView(f.project.id, late.id).state, 'proposed');
+  assert.equal(f.calls().roles, 3);
+});
+
+test('routes beyond the latest page still advance and are found by ID (L5)', async (t) => {
+  // Each synthetic routing Run keeps its reservation (no usage report), so allow 60 of them.
+  const f = fixture(t, { dailyTokens: 1e9, reservationTokens: 1000, maxActiveRuns: 1 });
+  const old = await f.propose(plan([op('QUERY_TASK', { taskId: f.a.taskId })]));
+  for (let i = 0; i < 55; i++)
+    await f.propose(plan([op('CLARIFY')], 'Which one?'), 'Public newer request ' + i);
+  assert.equal(f.store.mainRoutes(f.project.id).length, 50);
+  assert.ok(!f.store.mainRoutes(f.project.id).some((r) => r.id === old.id));
+  const done = await f.service.commit({
+    projectId: f.project.id,
+    planId: old.id,
+    expectedVersion: old.version,
+  });
+  assert.equal(done.state, 'completed');
+  assert.equal(done.steps[0]!.state, 'completed');
+  assert.equal(f.store.mainChat({ projectId: f.project.id }).truncated, true);
+});
+
+test('a long input keeps the answer, and a long answer is kept with a marker (L13)', async (t) => {
+  const f = fixture(t);
+  const route = await f.propose(plan([op('CHAT', { text: 'Public long question' })]));
+  f.complete(route.steps[0]!.runId!, 'Public complete answer', 'completed', { input: true });
+  await f.service.tick(f.project.id);
+  const answered = f.store.routeView(f.project.id, route.id);
+  assert.equal(answered.state, 'completed');
+  assert.equal(answered.steps[0]!.result, 'Public complete answer');
+  const second = await f.propose(plan([op('CHAT', { text: 'Public second question' })]));
+  f.complete(second.steps[0]!.runId!, 'Public clipped answer', 'completed', { answer: true });
+  await f.service.tick(f.project.id);
+  const clipped = f.store.routeView(f.project.id, second.id);
+  assert.equal(clipped.state, 'completed');
+  assert.match(clipped.steps[0]!.result!, /^Public clipped answer\n\[内容已截断\]$/);
 });

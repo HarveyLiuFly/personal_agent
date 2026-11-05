@@ -253,7 +253,10 @@ test('an external change after an own completed receipt is still rejected rather
 });
 test('wrong Project route and sibling/foreign Task sources are refused before any native request', (t) => {
   const f = fixture(t);
-  assert.throws(() => f.role('dot-chat', f.otherProject.id), /ROUTE_PLAN_UNAVAILABLE/);
+  assert.throws(
+    () => f.role('dot-chat', f.otherProject.id),
+    /ROUTE_PLAN_UNAVAILABLE|ROUTE_PROJECT_MISMATCH/,
+  );
   const chat = f.role('dot-chat');
   for (const taskId of [f.a.taskId, f.foreign.taskId])
     assert.throws(

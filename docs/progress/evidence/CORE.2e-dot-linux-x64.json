@@ -1,0 +1,35 @@
+{
+  "checkpoint": "CORE.2e",
+  "date": "2026-11-05",
+  "platform": "linux-x64",
+  "status": "passed",
+  "fixes": {
+    "L5": "Host advances every unfinished route (not only the latest page); routes found by ID; routes and messages share one 50-message window with a notice",
+    "L10": "a question at capacity waits as prepared and starts when a slot frees; other refusals fail the route; nothing sent",
+    "L11": "a fresh send's single read-only CHAT (within 10 minutes) is answered by the Host, not by the open page",
+    "L13": "a clipped input no longer loses a complete answer; a clipped answer is kept with a marker (limit 16,384)"
+  },
+  "deferred": { "L14": "CORE.5 (Dot redesign)" },
+  "automated": {
+    "newTests": 4,
+    "rewrittenTests": 3,
+    "removedTests": 3,
+    "removedReason": "page-side auto-commit moved to the Host and is covered by the new route tests",
+    "affectedFiles": 50,
+    "affectedTests": 511,
+    "passed": 511
+  },
+  "windowSmokes": {
+    "mainChatRegressionM3_1b": "passed (synthetic data)",
+    "conversationCORE_2d": "passed",
+    "window": "passed"
+  },
+  "checks": {
+    "typecheck": "passed",
+    "build": "passed",
+    "prettier": "passed",
+    "eslintChangedFiles": "passed",
+    "dependencyRules": "0 errors, 14 warnings (unchanged)"
+  },
+  "modelRequests": 0
+}

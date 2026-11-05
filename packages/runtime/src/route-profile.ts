@@ -8,8 +8,7 @@ export function routeRoleProfile(
   input: { role: 'dot-router' | 'dot-chat'; token: RunToken; planId: string },
 ): ExecutionRoleProfile {
   const run = store.runForHost(input.token.runId),
-    messageId = store.mainRoutes(run.workspaceId).find((r) => r.id === input.planId)?.messageId;
-  if (!messageId) throw Error('ROUTE_PLAN_UNAVAILABLE');
+    messageId = store.routeView(run.workspaceId, input.planId).messageId;
   store.prepareRoleTask(input.token, input.role);
   store.linkContextMessage(input.token.runId, messageId);
   const bundle = store.contextForRun(input.token.runId, {

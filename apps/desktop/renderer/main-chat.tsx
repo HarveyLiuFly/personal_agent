@@ -6,8 +6,8 @@ import type {
   ProposeMainChat,
   CommitChatRoute,
 } from '../../../packages/contracts/src/routing.ts';
+import { answersDirectly } from '../../../packages/contracts/src/routing.ts';
 import {
-  finishFreshDiscussion,
   sendOnEnter,
   operationLabels,
   routeResult,
@@ -16,7 +16,7 @@ import {
 } from './ui-model.ts';
 import { MessageBody } from './message-body.tsx';
 import { useDraft } from './drafts.ts';
-import { subscribeRefresh, nextHostEvent } from './host-events.ts';
+import { subscribeRefresh } from './host-events.ts';
 async function value<T>(work: Promise<HostResult<T>>) {
   const r = await work;
   if (!r.ok) throw Error(r.errorCode);
@@ -115,7 +115,7 @@ export function MainChatWorkspace({
     if (scroller.current && atEnd.current)
       scroller.current.scrollTop = scroller.current.scrollHeight;
   }, [contentStamp, busy]);
-  async function execute(request: Request, fresh = false) {
+  async function execute(request: Request) {
     if (pending.current) return;
     pending.current = true;
     setBusy(true);
@@ -134,27 +134,7 @@ export function MainChatWorkspace({
         const route = await value(window.personalAgent.proposeMainChat(request.input));
         if (!alive.current) return;
         setRoutes((old) => [route, ...old.filter((r) => r.id !== route.id)]);
-        if (fresh)
-          await finishFreshDiscussion(route, {
-            active: () => alive.current,
-            wait: () => nextHostEvent('store', 5000),
-            read: () => value(window.personalAgent.listChatRoutes({ projectId: project.id })),
-            observe: (current) =>
-              setRoutes((old) => [current, ...old.filter((r) => r.id !== current.id)]),
-            commit: (current) => {
-              const commit: Request = {
-                kind: 'commit',
-                input: {
-                  projectId: project.id,
-                  planId: current.id,
-                  expectedVersion: current.version,
-                },
-              };
-              unconfirmed.current = commit;
-              setPhase('正在回答…');
-              return value(window.personalAgent.commitChatRoute(commit.input));
-            },
-          });
+        // The Host answers a single read-only question itself; this page only shows progress.
       }
       if (alive.current) {
         if ((request.kind === 'rule' || request.kind === 'propose') && text === request.input.text)
@@ -192,10 +172,10 @@ export function MainChatWorkspace({
       focusRevision: view.focusRevision,
       ...(selected ? { taskId: selected } : {}),
     };
-    void execute(
-      { kind: /^\/(query|note|remember)\b/.test(text.trim()) ? 'rule' : 'propose', input },
-      true,
-    );
+    void execute({
+      kind: /^\/(query|note|remember)\b/.test(text.trim()) ? 'rule' : 'propose',
+      input,
+    });
   }
   const messageIds = new Set(view?.messages.map((m) => m.messageId));
   const card = (route: ChatRouteView) => (
@@ -221,9 +201,14 @@ export function MainChatWorkspace({
           停止生成
         </button>
       )}
-      {['prepared', 'proposing', 'committing'].includes(route.state) && (
+      {(['prepared', 'proposing', 'committing'].includes(route.state) ||
+        (route.autoAnswer && answersDirectly(route))) && (
         <p className="muted" role="status">
-          {route.state === 'committing' ? '正在处理…' : '正在理解请求…'}
+          {route.state === 'committing' || route.state === 'proposed'
+            ? '正在回答…'
+            : route.state === 'prepared'
+              ? '等待空闲后开始…'
+              : '正在理解请求…'}
         </p>
       )}
       {route.steps.map((step) => (
@@ -253,20 +238,22 @@ export function MainChatWorkspace({
           )}
         </div>
       ))}
-      {route.state === 'proposed' && route.steps.some((s) => s.operation.kind !== 'CLARIFY') && (
-        <button
-          data-action="commit-main-route"
-          disabled={busy || uncertain}
-          onClick={() =>
-            void execute({
-              kind: 'commit',
-              input: { projectId: project.id, planId: route.id, expectedVersion: route.version },
-            })
-          }
-        >
-          确认并处理以上操作
-        </button>
-      )}
+      {route.state === 'proposed' &&
+        !(route.autoAnswer && answersDirectly(route)) &&
+        route.steps.some((s) => s.operation.kind !== 'CLARIFY') && (
+          <button
+            data-action="commit-main-route"
+            disabled={busy || uncertain}
+            onClick={() =>
+              void execute({
+                kind: 'commit',
+                input: { projectId: project.id, planId: route.id, expectedVersion: route.version },
+              })
+            }
+          >
+            确认并处理以上操作
+          </button>
+        )}
       {route.state === 'failed' && (
         <p role="status" className="muted">
           本次请求未完成，已有结果会保留。你可以调整要求后重新发送。
@@ -339,6 +326,11 @@ export function MainChatWorkspace({
           if (n) atEnd.current = n.scrollHeight - n.scrollTop - n.clientHeight < 90;
         }}
       >
+        {view?.truncated && (
+          <p className="muted" role="note" data-main-chat-truncated>
+            只显示最近 50 条消息。
+          </p>
+        )}
         {!view?.messages.length && (
           <div className="conversation-empty">
             <span className="assistant-mark">P</span>

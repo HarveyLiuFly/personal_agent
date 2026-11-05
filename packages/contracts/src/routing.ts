@@ -53,6 +53,23 @@ export interface ChatRouteView {
   plan: RoutePlan | null;
   errorCode?: string;
   createdAt: number;
+  /** Set on a fresh user send: a single read-only CHAT proposal is answered without confirmation. */
+  autoAnswer?: boolean;
+}
+/**
+ * A proposal that is exactly one pending CHAT step with no dependencies: the user's send already
+ * authorizes answering it. Every other plan waits for explicit confirmation.
+ */
+export function answersDirectly(route: ChatRouteView): boolean {
+  return (
+    route.state === 'proposed' &&
+    route.plan?.operations.length === 1 &&
+    route.plan.operations[0]?.kind === 'CHAT' &&
+    route.plan.operations[0].dependsOn.length === 0 &&
+    route.steps.length === 1 &&
+    route.steps[0]?.operation.kind === 'CHAT' &&
+    route.steps[0].state === 'pending'
+  );
 }
 export type ProposeMainChat = Omit<MainChatInput, 'pendingInteractionId'>;
 export interface CommitChatRoute {
