@@ -152,12 +152,15 @@ export function HistoryApp({ children }: { children: React.ReactNode }) {
       unsubscribe();
     };
   }, [project?.id, cap.canManageTasks, query, pages, showArchived]);
+  // A conversation to open once the project switch below has reset the view.
+  const openAfterSwitch = useRef<string | undefined>(undefined);
   useEffect(() => {
     setPinned([]);
     setListed([]);
     setMoreCursor(null);
     setPages(1);
-    setConversationId(undefined);
+    setConversationId(openAfterSwitch.current);
+    openAfterSwitch.current = undefined;
     setForkSource(undefined);
     setShowArchived(false);
   }, [project?.id]);
@@ -463,6 +466,11 @@ export function HistoryApp({ children }: { children: React.ReactNode }) {
                   canCode={cap.canCode}
                   {...(forkSource && !conversationId ? { fork: forkSource } : {})}
                   onCreated={openConversation}
+                  onCreatedIn={(workspace, id) => {
+                    setProjects((old) => [workspace, ...old.filter((p) => p.id !== workspace.id)]);
+                    switchProject(workspace);
+                    openAfterSwitch.current = id;
+                  }}
                   onFork={forkConversation}
                 />
               )}

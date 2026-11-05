@@ -682,3 +682,22 @@ test('a file change approval lists the files and can be allowed only inside the 
   });
   await f.runtime.wait();
 });
+
+test('a fork (always read-only) does not change the choices a new conversation starts with', async (t) => {
+  const f = fixture(t);
+  const source = f.runtime.submit({
+    projectId: f.project.id,
+    text: 'Edit it',
+    submissionKey: 'choice-src',
+    permissionMode: 'auto',
+  });
+  await f.runtime.wait();
+  f.runtime.submit({
+    projectId: f.project.id,
+    text: 'Look at it from here',
+    submissionKey: 'choice-fork',
+    fork: { runId: source.runId },
+  });
+  await f.runtime.wait();
+  assert.equal(f.store.projectChoices(f.project.id).permissionMode, 'auto');
+});

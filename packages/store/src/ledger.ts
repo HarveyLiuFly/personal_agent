@@ -1466,7 +1466,7 @@ export class ExecutionLedger {
   projectChoices(projectId: string): Required<ConversationChoices> {
     this.workspace(projectId);
     const row = this.one(
-      "SELECT model,reasoning_effort,permission_mode FROM tasks t WHERE workspace_id=? AND dot_id=? AND json_extract(constraints_json,'$.internalRole') IS NULL AND json_extract(constraints_json,'$.code') IS NULL ORDER BY created_at_ms DESC,rowid DESC LIMIT 1",
+      "SELECT model,reasoning_effort,permission_mode FROM tasks t WHERE workspace_id=? AND dot_id=? AND json_extract(constraints_json,'$.internalRole') IS NULL AND json_extract(constraints_json,'$.code') IS NULL AND json_extract(constraints_json,'$.forkOf') IS NULL ORDER BY created_at_ms DESC,rowid DESC LIMIT 1",
       projectId,
       this.dotId,
     );

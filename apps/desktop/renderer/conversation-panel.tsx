@@ -44,6 +44,8 @@ interface Props {
   /** A new conversation started from another one's ended turn ("从这里新开"). */
   fork?: { runId: string; title: string };
   onCreated?: (conversationId: string) => void;
+  /** A new conversation started in a new worktree: the shell switches to that workspace. */
+  onCreatedIn?: (workspace: ProjectView, conversationId: string) => void;
   onFork?: (source: { runId: string; title: string }) => void;
 }
 
@@ -58,6 +60,7 @@ export function ConversationPanel({
   canCode = false,
   fork,
   onCreated,
+  onCreatedIn,
   onFork,
 }: Props) {
   const [summary, setSummary] = useState<ConversationSummary>(),
@@ -84,6 +87,10 @@ export function ConversationPanel({
     model: null,
     effort: null,
   });
+  // Where a new conversation runs: this workspace, or a new worktree of the project.
+  const [environment, setEnvironment] = useState<'local' | 'worktree'>('local'),
+    [canWorktree, setCanWorktree] = useState(false),
+    worktree = useRef<{ key: string; workspace?: ProjectView } | undefined>(undefined);
   const [codeEnabled, setCodeEnabled] = useState(false),
     [target, setTarget] = useState(''),
     [paths, setPaths] = useState('');
@@ -170,6 +177,18 @@ export function ConversationPanel({
     };
   }, [project.id, conversationId]);
 
+  useEffect(() => {
+    if (conversationId || fork) return;
+    let stopped = false;
+    void value(window.personalAgent.listWorktrees({ projectId: project.id }))
+      .then((page) => {
+        if (!stopped) setCanWorktree(page.canCreate);
+      })
+      .catch(() => undefined);
+    return () => {
+      stopped = true;
+    };
+  }, [project.id, conversationId]);
   useEffect(() => {
     if (conversationId) return;
     let stopped = false;
@@ -277,6 +296,32 @@ export function ConversationPanel({
         atEnd.current = true;
         return;
       }
+      // A new worktree first (once: a retry reuses it), then the conversation inside it.
+      let home = project;
+      if (!conversationId && !fork && environment === 'worktree') {
+        worktree.current ??= { key: crypto.randomUUID() };
+        if (!worktree.current.workspace) {
+          const before = new Set(
+            (
+              await value(window.personalAgent.listWorktrees({ projectId: project.id }))
+            ).worktrees.map((w) => w.id),
+          );
+          const page = await value(
+            window.personalAgent.applyWorktreeCommand({
+              kind: 'create',
+              projectId: project.id,
+              commandKey: worktree.current.key,
+              name: text.trim().replace(/\s+/g, ' ').slice(0, 40) || '新对话',
+            }),
+          );
+          const created = page.worktrees.find((w) => !before.has(w.id) && w.state === 'ready');
+          if (!created) throw Error('WORKTREE_NOT_CREATED');
+          worktree.current.workspace = await value(
+            window.personalAgent.useWorktree({ projectId: project.id, workspaceId: created.id }),
+          );
+        }
+        home = worktree.current.workspace;
+      }
       const run = await value(
         conversationId
           ? window.personalAgent.continueRun({
@@ -286,7 +331,7 @@ export function ConversationPanel({
               submissionKey: key.current,
             })
           : window.personalAgent.submitMessage({
-              projectId: project.id,
+              projectId: home.id,
               text,
               submissionKey: key.current,
               ...(fork ? { fork: { runId: fork.runId } } : {}),
@@ -316,10 +361,17 @@ export function ConversationPanel({
       key.current = undefined;
       setUncertain(false);
       atEnd.current = true;
-      if (!conversationId) onCreated?.(run.taskId);
+      if (!conversationId) {
+        if (home.id !== project.id) onCreatedIn?.(home, run.taskId);
+        else onCreated?.(run.taskId);
+      }
     } catch (cause) {
       if (!alive.current) return;
       const code = cause instanceof Error ? cause.message : '';
+      if (/WORKTREE_/.test(code) && !worktree.current?.workspace) {
+        setError('新工作树没有建好，消息还没有发出。可以再试一次，或改为在本地进行。');
+        return;
+      }
       if (steering && /STEER_REJECTED|RUN_NOT_STEERABLE/.test(code)) {
         // The turn just ended: nothing was added; the words stay for the next turn.
         setError('这一轮刚刚结束，追加的内容没有发出，可以直接发送为下一轮。');
@@ -724,6 +776,26 @@ export function ConversationPanel({
         <p className="notice error" role="alert">
           {error}
         </p>
+      )}
+      {!conversationId && !fork && canWorktree && (
+        <div className="execution-scope">
+          <label>
+            环境
+            <select
+              data-environment
+              aria-label="环境"
+              value={environment}
+              disabled={sending}
+              onChange={(e) => {
+                setEnvironment(e.target.value as 'local' | 'worktree');
+                worktree.current = undefined;
+              }}
+            >
+              <option value="local">本地（当前工作区）</option>
+              <option value="worktree">新工作树（独立分支，不影响本地改动）</option>
+            </select>
+          </label>
+        </div>
       )}
       {canCode && !conversationId && !fork && (
         <div className="execution-scope">

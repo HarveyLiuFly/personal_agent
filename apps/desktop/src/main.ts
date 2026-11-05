@@ -502,7 +502,8 @@ async function boot(): Promise<void> {
       resourcesSmoke ||
       worktreeSmoke ||
       terminalSmoke ||
-      recoverySmoke
+      recoverySmoke ||
+      conversationSmoke
     )
       createWorktreeFixture(fixtureWorkspace);
     if (skillsSmoke) createProjectSkillsFixture(fixtureWorkspace);
@@ -607,7 +608,8 @@ async function boot(): Promise<void> {
       seedRestoreProbe(restoreProbeState!, ledger, backupService);
     // Platform-neutral: each optional service probes its own prerequisites (verified Node 24,
     // Codex CLI, git, node-pty binding) and stays disabled with a logged reason when missing.
-    if (!executionSmoke) {
+    // The conversation smoke also needs them (new worktree environment, check commands).
+    if (!executionSmoke || conversationSmoke) {
       const optional = <T>(name: string, create: () => T): T | undefined => {
         try {
           return create();

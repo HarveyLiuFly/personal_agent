@@ -35,6 +35,7 @@ const script = `(async () => {
     const button = document.querySelector('[data-action="project-tasks"]');
     return button && !button.disabled;
   }, 'PROJECT_NOT_OPENED');
+  const projectId = (await window.personalAgent.workspaceState()).value.projects[0].id;
   click('[data-action="project-tasks"]');
   await wait(() => panel() && panel().dataset.conversationId === '', 'NEW_CONVERSATION_NOT_SHOWN');
   // Choices: a new conversation starts in "auto"; full access needs an explicit confirmation.
@@ -56,6 +57,8 @@ const script = `(async () => {
     'FIRST_TURN_NOT_COMPLETED',
   );
   await wait(() => rows().length === 1, 'SIDEBAR_NOT_UPDATED');
+  const markupShownAsText = document.body.textContent.includes('<b>bold</b>');
+  const noInjectedMarkup = !document.querySelector('[data-execution-items] b');
   const composerOpenAfterTurn = !document.querySelector('[data-task-draft]').disabled;
   type('Follow-up synthetic question');
   await sendWhenReady('FOLLOW_UP_DISABLED');
@@ -123,14 +126,37 @@ const script = `(async () => {
   );
   click('[data-action="toggle-archived"]');
   await wait(() => rows().length === 1 && rows()[0].dataset.conversationId === conversationId, 'LIST_NOT_RESTORED');
-  const state = await window.personalAgent.workspaceState();
-  const projectId = state.value.projects[0].id;
   const summary = (await window.personalAgent.getConversation({ projectId, conversationId })).value;
   const page = (await window.personalAgent.listConversations({ projectId })).value;
   const runs = (await window.personalAgent.listRuns({ projectId })).value;
   const catalog = await window.personalAgent.listModels();
   const fork = (await window.personalAgent.getConversation({ projectId, conversationId: forkId })).value;
+  // A new conversation in a new worktree: the window switches to that workspace.
+  click('[data-action="project-tasks"]');
+  await wait(() => document.querySelector('[data-environment]'), 'ENVIRONMENT_CHOICE_NOT_SHOWN');
+  const environment = document.querySelector('[data-environment]');
+  environment.value = 'worktree';
+  environment.dispatchEvent(new Event('change', { bubbles: true }));
+  type('Worktree synthetic question');
+  await sendWhenReady('WORKTREE_SEND_DISABLED');
+  await wait(
+    () => document.querySelector('.project-crumb')?.textContent !== 'workspace' && panel()?.dataset.conversationId,
+    'WORKTREE_NOT_OPENED',
+    60000,
+  );
+  await wait(() => turns().length === 1 && turns()[0].dataset.runStatus === 'completed', 'WORKTREE_TURN_NOT_COMPLETED');
+  const worktreeCrumb = document.querySelector('.project-crumb').textContent;
+  const worktrees = (await window.personalAgent.listWorktrees({ projectId })).value.worktrees;
+  const worktreeConversation = (
+    await window.personalAgent.getConversation({
+      projectId: worktrees[0]?.id ?? '',
+      conversationId: panel().dataset.conversationId,
+    })
+  ).value;
   return {
+    worktreeCrumb,
+    worktreeCount: worktrees.length,
+    worktreeConversationTurns: worktreeConversation?.turns ?? 0,
     conversationId,
     composerOpenAfterTurn,
     sidebarRows,
@@ -153,8 +179,8 @@ const script = `(async () => {
     checkStatus,
     checkAfterLastTurn,
     modelCatalog: catalog.ok ? catalog.value.length : catalog.errorCode,
-    markupShownAsText: document.body.textContent.includes('<b>bold</b>'),
-    noInjectedMarkup: !document.querySelector('[data-execution-items] b'),
+    markupShownAsText,
+    noInjectedMarkup,
     sandboxed: window.personalAgent.security.sandboxed,
     isolated: window.personalAgent.security.isolated,
     noRequire: typeof require === 'undefined',
@@ -206,6 +232,10 @@ export async function runConversationProbe(
     result.dotLabel === 'Dot' &&
     result.fullAccessNeedsConfirmation === true &&
     result.checkStatus === 'passed' &&
+    result.worktreeCount === 1 &&
+    result.worktreeConversationTurns === 1 &&
+    typeof result.worktreeCrumb === 'string' &&
+    result.worktreeCrumb !== 'workspace' &&
     result.checkAfterLastTurn === true &&
     typeof result.modelCatalog === 'number' &&
     result.modelCatalog > 0 &&
@@ -214,7 +244,7 @@ export async function runConversationProbe(
     result.sandboxed === true &&
     result.isolated === true &&
     result.noRequire === true &&
-    execution.diagnostics.clientThreadStarts === 1 &&
+    execution.diagnostics.clientThreadStarts === 2 &&
     execution.diagnostics.clientThreadResumes === 1 &&
     execution.diagnostics.clientThreadForks === 1;
   writeFileSync(

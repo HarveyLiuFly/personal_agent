@@ -1,0 +1,37 @@
+{
+  "checkpoint": "CORE.3e",
+  "date": "2026-11-05",
+  "platform": "linux-x64",
+  "status": "passed",
+  "windowSmoke": {
+    "conversation": "2/2 passed",
+    "newWorktree": {
+      "worktreesCreated": 1,
+      "windowSwitchedToWorktree": true,
+      "conversationTurns": 1
+    }
+  },
+  "fixes": [
+    "open the new conversation after a project switch instead of resetting it",
+    "forks no longer set the project's default choices"
+  ],
+  "automated": {
+    "newTests": 1,
+    "affectedFiles": 64,
+    "affectedTests": 631,
+    "passed": 631
+  },
+  "otherSmokes": {
+    "window": "passed",
+    "m1Execution": "passed",
+    "dot": "passed",
+    "m1Approvals": "passed"
+  },
+  "checks": {
+    "typecheck": "passed",
+    "build": "passed",
+    "prettier": "passed",
+    "dependencyRules": "0 errors"
+  },
+  "modelRequests": 0
+}
