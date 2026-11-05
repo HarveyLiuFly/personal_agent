@@ -99,7 +99,9 @@ def check_transition_contract():
     edges = {k: json.loads(v) for k, v in re.findall(r'^  (\w+): (\[[^\n]*\])', body, re.M)}
     require(set(edges) == states, 'Every Task state needs a transition entry')
     require(all(set(v) <= states for v in edges.values()), 'Unknown transition target')
-    require(edges['completed'] == [] and edges['cancelled'] == [], 'Terminal Task states changed')
+    # A task is a conversation: an ended one reopens only by queueing a new turn.
+    require(edges['completed'] == ['queued'] and edges['cancelled'] == ['queued'],
+            'Ended Task states may only reopen through a new turn')
     require('queued' not in edges['outcome_unknown'], 'Unknown must not enter ordinary retry')
 
 

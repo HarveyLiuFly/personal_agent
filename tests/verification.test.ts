@@ -301,11 +301,15 @@ test('continuation inherits the original file/test/case contract and verifies ac
   const result = await f.service.verify(f.p.id, next.token.runId);
   assert.equal(result.status, 'passed');
   await assert.rejects(f.service.verify(f.p.id, f.token.runId), /RUN_NOT_VERIFIABLE/);
-  assert.throws(
-    () =>
-      f.store.beginContinuation(f.p.id, next.token.runId, 'cannot reopen completed task', 'closed'),
-    /RUN_NOT_CONTINUABLE/,
+  // A verified conversation still continues: the new turn reopens it (CORE.2c).
+  const reopened = f.store.beginContinuation(
+    f.p.id,
+    next.token.runId,
+    'continue after verification',
+    'reopen',
   );
+  assert.equal(reopened.created, true);
+  assert.equal(f.store.runForHost(reopened.token.runId).taskStatus, 'running');
 });
 test('continuation cannot silently accept changed tests or missing required cases as a weaker baseline', async (t) => {
   for (const kind of ['test_modified', 'case_missing']) {

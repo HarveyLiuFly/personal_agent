@@ -28,7 +28,10 @@ export const actionStatuses = [
 ] as const;
 export type ActionStatus = typeof actionStatuses[number];
 
-/** These transitions also require the guards specified in the design document. */
+/**
+ * These transitions also require the guards specified in the design document. A task is a
+ * conversation: `completed` and `cancelled` end it for now and reopen only through a new turn.
+ */
 export const taskTransitions: Readonly<Record<TaskStatus, readonly TaskStatus[]>> = {
   created: ["queued", "cancelled"],
   queued: ["running", "waiting_trigger", "paused", "cancelled"],
@@ -38,9 +41,9 @@ export const taskTransitions: Readonly<Record<TaskStatus, readonly TaskStatus[]>
   waiting_trigger: ["queued", "paused", "cancelled"],
   paused: ["queued", "cancelled"],
   needs_review: ["queued", "completed", "failed", "cancelled"],
-  completed: [],
+  completed: ["queued"],
   failed: ["queued", "cancelled"],
-  cancelled: [],
+  cancelled: ["queued"],
   outcome_unknown: ["needs_review", "waiting_input", "completed", "failed"]
 };
 

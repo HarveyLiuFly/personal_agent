@@ -1379,6 +1379,19 @@ export class ExecutionLedger {
   updateConversation(input: unknown): ConversationSummary {
     return this.conversationList.update(input);
   }
+  /** Model and reasoning effort chosen for the conversation of a Run (null: defaults). */
+  conversationChoices(runId: string): { model: string | null; effort: string | null } {
+    const row = this.one(
+      'SELECT t.model,t.reasoning_effort FROM task_runs r JOIN tasks t USING(task_id) WHERE r.run_id=? AND r.dot_id=?',
+      runId,
+      this.dotId,
+    );
+    if (!row) return fail('UNKNOWN_RUN');
+    return {
+      model: (row.model as string | null) ?? null,
+      effort: (row.reasoning_effort as string | null) ?? null,
+    };
+  }
   /** Turns (Runs) of one conversation, newest first, ten per page. */
   conversationTurns(input: unknown): ConversationTurns {
     if (
@@ -3775,10 +3788,27 @@ export class ExecutionLedger {
       }
       this.projectOperationAvailable(workspaceId);
       const task = this.one('SELECT * FROM tasks WHERE task_id=?', source.taskId)!;
+      // Any ended conversation may continue from its latest turn once that turn's outcome is
+      // known. A user stop or pause blocks dispatch; this explicit new turn lifts it below.
+      const latest = this.one(
+        'SELECT run_id FROM task_runs WHERE task_id=? ORDER BY started_at_ms DESC,rowid DESC LIMIT 1',
+        source.taskId,
+      );
       if (
-        !['completed', 'failed'].includes(source.status) ||
-        !['needs_review', 'failed'].includes(String(task.status)) ||
-        source.blocked ||
+        latest?.run_id !== sourceRunId ||
+        !['completed', 'failed', 'cancelled'].includes(source.status) ||
+        !['needs_review', 'failed', 'completed', 'cancelled'].includes(String(task.status)) ||
+        this.stopTarget(source.taskId) ||
+        this.one(
+          `SELECT run_id FROM task_runs WHERE task_id=? AND status IN ${active}`,
+          source.taskId,
+        ) ||
+        this.one(
+          "SELECT source_ref FROM privacy_tombstones WHERE dot_id=? AND source_ref IN (?,'task:'||?)",
+          this.dotId,
+          source.taskId,
+          source.taskId,
+        ) ||
         task.write_fence !== source.taskFence
       )
         return fail('RUN_NOT_CONTINUABLE');
@@ -3805,7 +3835,10 @@ export class ExecutionLedger {
         return fail('VERIFICATION_NOT_CONFIGURED');
       this.transition(source.taskId, 'queued');
       this.transition(source.taskId, 'running');
-      this.exec('UPDATE tasks SET write_fence=write_fence+1 WHERE task_id=?', source.taskId);
+      this.exec(
+        'UPDATE tasks SET write_fence=write_fence+1,dispatch_blocked=0 WHERE task_id=?',
+        source.taskId,
+      );
       const current = this.one(
           'SELECT version,write_fence FROM tasks WHERE task_id=?',
           source.taskId,

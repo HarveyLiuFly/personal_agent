@@ -1,0 +1,39 @@
+{
+  "checkpoint": "CORE.2c",
+  "date": "2026-11-05",
+  "platform": "linux-x64",
+  "status": "passed",
+  "kind": "synthetic stdio app-server (records what each request would send to the model); no model request",
+  "automated": {
+    "newFile": "tests/conversation-turns.test.ts",
+    "newTests": 4,
+    "rewrittenAssertions": [
+      "verification: a verified conversation now continues and reopens",
+      "m3 long chain: delivered source events appear in the developer instructions",
+      "rollover: original request and checkpoint appear in the developer instructions; the turn input is the fixed resume line"
+    ],
+    "affectedFiles": 48,
+    "affectedTests": 484,
+    "passed": 484,
+    "covers": [
+      "turn input is the user's own text on the first turn and on a follow-up (same thread)",
+      "prompt manifest records the hash of the raw text",
+      "reference section format, request excluded or kept on checkpoint resume, source text cannot close the fence",
+      "stop -> continue (block lifted) -> failed -> continue -> completed -> continue: one thread, one conversation",
+      "only the latest turn can be continued",
+      "conversation model/effort used when offered, default model and low otherwise"
+    ]
+  },
+  "contractChange": "taskTransitions: completed -> queued, cancelled -> queued (reopen only through a new turn); validator checks exactly this",
+  "checks": {
+    "typecheck": "passed",
+    "build": "passed",
+    "prettier": "passed",
+    "designContracts": "17 passed",
+    "dependencyRules": "0 errors, 14 warnings (unchanged)",
+    "eslintChangedFiles": "only CORE.0 baseline findings in touched legacy files",
+    "windowSmoke": "passed"
+  },
+  "realModelCheck": "deferred to the CORE.2 closing acceptance (follow-up that cites the previous answer)",
+  "modelRequests": 0
+}

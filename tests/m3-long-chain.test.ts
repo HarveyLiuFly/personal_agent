@@ -500,13 +500,14 @@ test('an explicitly authorized Source wake automatically enters the existing Sch
       .contextManifestReceipt(runs[0]!.runId)!
       .contextRefs.some((ref) => ref.ref.startsWith('trigger:')),
   );
-  const userInput = f.runtime
-    .view({ projectId: f.project.id, runId: runs[0]!.runId })
-    .snapshot!.items.filter((item) => item.role === 'user')
-    .map((item) => item.text)
-    .join('');
-  assert.ok(userInput.includes('PUBLIC_EVENT_automatic-first'));
-  assert.ok(userInput.includes('untrusted_external'));
+  // The delivered event is sourced reference data in the instructions, not the user's message.
+  const instructions = readFileSync(join(f.root, 'stdio-receipts.txt.params'), 'utf8')
+    .trim()
+    .split('\n')
+    .map((line) => JSON.parse(line))
+    .find((sent) => sent.method === 'thread/start').developerInstructions as string;
+  assert.ok(instructions.includes('PUBLIC_EVENT_automatic-first'));
+  assert.ok(instructions.includes('trust="untrusted_external"'));
   assert.deepEqual(f.store.goalDispatchCandidates(), []);
   pump.step();
   assert.equal(f.store.runs(f.project.id).length, 1);

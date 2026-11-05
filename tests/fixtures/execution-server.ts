@@ -40,6 +40,13 @@ for await (const line of createInterface({ input: process.stdin })) {
             supportedReasoningEfforts: [{ reasoningEffort: 'low' }],
             defaultReasoningEffort: 'low',
           },
+          {
+            id: 'synthetic-alternative',
+            isDefault: false,
+            hidden: false,
+            supportedReasoningEfforts: [{ reasoningEffort: 'low' }, { reasoningEffort: 'high' }],
+            defaultReasoningEffort: 'low',
+          },
         ],
       },
     });
@@ -73,7 +80,20 @@ for await (const line of createInterface({ input: process.stdin })) {
       });
       continue;
     }
-    if (receipts) appendFileSync(receipts, m.method + '\n');
+    if (receipts) {
+      appendFileSync(receipts, m.method + '\n');
+      // What the model would see: instructions, input, model and effort.
+      appendFileSync(
+        receipts + '.params',
+        JSON.stringify({
+          method: m.method,
+          developerInstructions: m.params.developerInstructions,
+          input: m.params.input,
+          model: m.params.model,
+          effort: m.params.effort,
+        }) + '\n',
+      );
+    }
   }
   if (m.method === 'thread/start' || m.method === 'thread/resume') {
     if (m.params.config?.['mcp_servers.fixture-external.enabled'] !== false) {
@@ -253,7 +273,10 @@ for await (const line of createInterface({ input: process.stdin })) {
           turnId,
           item: { id: 'fixture-assistant', type: 'agentMessage', text: 'aab' },
         });
-        notify('turn/completed', { threadId, turn: { id: turnId, status: 'completed' } });
+        notify('turn/completed', {
+          threadId,
+          turn: { id: turnId, status: mode === 'turn-failed' ? 'failed' : 'completed' },
+        });
       },
       mode === 'tool-status' ? 2000 : mode === 'slow' ? 800 : 25,
     );

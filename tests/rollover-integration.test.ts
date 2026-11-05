@@ -282,12 +282,21 @@ test('actual stdio Rollover admits current Task/Goal once and sends original Use
   assert.equal(Number(bindings[1]!.generation), Number(bindings[0]!.generation) + 1);
   assert.equal(bindings[1]!.generation, admission.generation);
   assert.deepEqual(f.methods(), ['thread/start', 'turn/start', 'thread/start', 'turn/start']);
+  // The new thread's input is the fixed resume line; the original request and the checkpoint
+  // travel as sourced reference data in its instructions.
   const user = secondView.snapshot!.items.find((item) => item.role === 'user')!.text;
-  assert.ok(user.includes('PUBLIC_ORIGINAL_USER_REQUEST'));
-  assert.ok(user.includes('PUBLIC_CHECKPOINT_NEXT_STEP'));
-  assert.ok(user.includes(old.bundle.contentHash));
-  assert.ok(user.includes('host_rollover_admission'));
+  assert.equal(user, 'Resume using the Host-validated checkpoint.');
   assert.equal(f.store.matchesUserInput(second.runId, user), true);
+  const instructions = readFileSync(f.receipts + '.params', 'utf8')
+    .trim()
+    .split('\n')
+    .map((line) => JSON.parse(line))
+    .filter((sent) => sent.method === 'thread/start')
+    .at(-1).developerInstructions as string;
+  assert.ok(instructions.includes('PUBLIC_ORIGINAL_USER_REQUEST'));
+  assert.ok(instructions.includes('PUBLIC_CHECKPOINT_NEXT_STEP'));
+  assert.ok(instructions.includes(old.bundle.contentHash));
+  assert.ok(instructions.includes('host_rollover_admission'));
   assert.deepEqual(
     f.db.prepare('SELECT * FROM task_checkpoints WHERE checkpoint_id=?').get(old.checkpointId),
     oldCheckpointRow,

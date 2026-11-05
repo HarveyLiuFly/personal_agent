@@ -14,6 +14,7 @@ import type { TurnStartParams } from '../../codex-adapter/src/generated/v2/TurnS
 import type { ModelListResponse } from '../../codex-adapter/src/generated/v2/ModelListResponse.ts';
 import type { RunSummary, RunView } from '../../contracts/src/views.ts';
 import { InteractionBroker } from './interactions.ts';
+import { contextInstructions } from './context.ts';
 import { codeInput } from '../../verification/src/verification.ts';
 import type { CodeTaskSpec } from '../../contracts/src/views.ts';
 import type { InteractionContext } from './interactions.ts';
@@ -694,9 +695,14 @@ export class ForegroundExecution {
               workspace_write: mode === 'workspaceWrite',
             },
           });
+      // The user's own words are the turn input; sourced context goes with the instructions.
+      let contextNote = '';
       if (bundle) {
-        text = bundle.userContext;
         this.store.bindRoleInput(session.token, text);
+        // A checkpoint resume starts a new thread with a fixed input, so the request goes along.
+        contextNote = contextInstructions(bundle.userContext, {
+          includeRequest: Boolean(session.checkpointId),
+        });
       }
       if (session.abort.signal.aborted) throw new LedgerError('RUN_CANCELLED_BEFORE_SEND');
       const runtimeFence = this.options.runtime
@@ -741,7 +747,14 @@ export class ForegroundExecution {
       await rpc.notify('initialized');
       this.diagnostics.phase = 'model/list';
       const catalog = await rpc.request<ModelListResponse>('model/list', {});
-      const model = catalog.data?.find((model) => model.isDefault && !model.hidden);
+      // The conversation's chosen model and effort when the catalog still offers them.
+      const choices = session.profile
+        ? { model: null, effort: null }
+        : this.store.conversationChoices(session.token.runId);
+      const model =
+        (choices.model &&
+          catalog.data?.find((option) => option.id === choices.model && !option.hidden)) ||
+        catalog.data?.find((option) => option.isDefault && !option.hidden);
       if (!model) throw new RpcFailure('NO_DEFAULT_MODEL');
       this.diagnostics.selectedModel = model.id;
       if (session.profile) {
@@ -820,7 +833,9 @@ export class ForegroundExecution {
       };
       if (session.profile)
         threadParams.developerInstructions = session.profile.developerInstructions;
-      else if (bundle) threadParams.developerInstructions += '\n' + bundle.developerInstructions;
+      else if (bundle)
+        threadParams.developerInstructions +=
+          '\n' + bundle.developerInstructions + (contextNote ? '\n\n' + contextNote : '');
       const contract = this.store.verificationPlan(session.token.runId);
       if (contract)
         threadParams.developerInstructions +=
@@ -963,9 +978,15 @@ export class ForegroundExecution {
               }
             : { type: 'readOnly', networkAccess: false },
         ...(session.profile?.outputSchema ? { outputSchema: session.profile.outputSchema } : {}),
-        effort: model.supportedReasoningEfforts.some((option) => option.reasoningEffort === 'low')
-          ? 'low'
-          : model.defaultReasoningEffort,
+        effort:
+          choices.effort &&
+          model.supportedReasoningEfforts.some(
+            (option) => option.reasoningEffort === choices.effort,
+          )
+            ? choices.effort
+            : model.supportedReasoningEfforts.some((option) => option.reasoningEffort === 'low')
+              ? 'low'
+              : model.defaultReasoningEffort,
       };
       const turnIntent = this.store.prepare(
         session.token,
