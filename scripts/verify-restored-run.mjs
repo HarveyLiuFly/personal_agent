@@ -3,10 +3,9 @@ import { readFile, writeFile, readdir, stat } from 'node:fs/promises';
 import { resolve, join } from 'node:path';
 import electron from 'electron';
 import { openDisplay } from './virtual-display.mjs';
+import { evidenceDir } from './lib/evidence.mjs';
 const root = resolve('.'),
-  original = JSON.parse(
-    await readFile(join(root, 'docs/progress/evidence/M2.7c-desktop.json'), 'utf8'),
-  );
+  original = JSON.parse(await readFile(join(evidenceDir(root), 'M2.7c-desktop.json'), 'utf8'));
 let state;
 for (const name of await readdir(join(root, '.local'))) {
   if (!name.startsWith('desktop-restore-smoke-')) continue;
@@ -63,7 +62,7 @@ try {
 }
 evidence.observedAt = new Date().toISOString();
 await writeFile(
-  join(root, 'docs/progress/evidence/M2.7c-native-verification.json'),
+  join(evidenceDir(root), 'M2.7c-native-verification.json'),
   JSON.stringify(evidence, null, 2) + '\n',
 );
 console.log(JSON.stringify(evidence, null, 2));

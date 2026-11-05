@@ -4,6 +4,7 @@ import { verifiedCodex } from '../packages/codex-adapter/src/binary.ts';
 import { StdioRpcClient } from '../packages/codex-adapter/src/rpc.ts';
 import { executionArguments } from '../packages/runtime/src/execution.ts';
 import { runtimeEnvironment } from '../packages/codex-adapter/src/launch.ts';
+import { evidenceDir } from './lib/evidence.mjs';
 const root = resolve('.');
 mkdirSync(join(root, '.local'), { recursive: true });
 const state = mkdtempSync(join(root, '.local/dot-role-probe-'));
@@ -59,7 +60,7 @@ try {
 }
 evidence.observedAt = new Date().toISOString();
 writeFileSync(
-  join(root, 'docs/progress/evidence/M3.1b-native-role-config.json'),
+  join(evidenceDir(root), 'M3.1b-native-role-config.json'),
   JSON.stringify(evidence, null, 2) + '\n',
 );
 console.log(JSON.stringify(evidence, null, 2));

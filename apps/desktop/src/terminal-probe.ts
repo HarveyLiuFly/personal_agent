@@ -5,6 +5,7 @@ import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { ExecutionLedger } from '../../../packages/store/src/ledger.ts';
 import { TerminalService } from '../../../packages/workspace/src/terminal.ts';
+import { evidenceDir } from './evidence.ts';
 async function wait(check: () => boolean, ms = 10000, stage = 'UNKNOWN') {
   const until = Date.now() + ms;
   while (!check()) {
@@ -155,9 +156,9 @@ export async function runTerminalProbe(
     isolated: recovery.isolated,
     noRequire: recovery.noRequire,
   };
-  mkdirSync(resolve(root, 'docs/progress/evidence/screenshots'), { recursive: true });
+  mkdirSync(resolve(evidenceDir(root), 'screenshots'), { recursive: true });
   writeFileSync(
-    resolve(root, 'docs/progress/evidence/screenshots/M2.6a-terminal.png'),
+    resolve(evidenceDir(root), 'screenshots/M2.6a-terminal.png'),
     (await reopened.webContents.capturePage()).toPNG(),
   );
   await click(reopened, '[data-action="open-terminal"]');
@@ -188,7 +189,7 @@ export async function runTerminalProbe(
     }),
   );
   writeFileSync(
-    resolve(root, 'docs/progress/evidence/M2.6a-desktop.json'),
+    resolve(evidenceDir(root), 'M2.6a-desktop.json'),
     JSON.stringify(
       {
         observedAt: new Date().toISOString(),

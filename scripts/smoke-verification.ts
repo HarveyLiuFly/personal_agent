@@ -6,6 +6,7 @@ import { verifiedCodex } from '../packages/codex-adapter/src/binary.ts';
 import { resolveVerifierNode } from '../packages/codex-adapter/src/launch.ts';
 import { ExecutionLedger, LedgerError } from '../packages/store/src/ledger.ts';
 import { NodeVerification } from '../packages/verification/src/verification.ts';
+import { evidenceDir } from './lib/evidence.mjs';
 const root = resolve(import.meta.dirname, '..'),
   { executable, lock, platform } = verifiedCodex(root),
   node = resolveVerifierNode(root);
@@ -103,12 +104,7 @@ try {
 } finally {
   store.close();
 }
-const file = join(
-  process.env.PERSONAL_AGENT_EVIDENCE_DIR
-    ? resolve(process.env.PERSONAL_AGENT_EVIDENCE_DIR)
-    : join(root, 'docs/progress/evidence'),
-  'M1.3b-native-verifier.json',
-);
+const file = join(evidenceDir(root), 'M1.3b-native-verifier.json');
 mkdirSync(dirname(file), { recursive: true });
 writeFileSync(file, JSON.stringify(evidence, null, 2) + '\n');
 writeFileSync(

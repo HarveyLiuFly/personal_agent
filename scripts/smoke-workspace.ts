@@ -16,6 +16,7 @@ import { resolveVerifierNode } from '../packages/codex-adapter/src/launch.ts';
 import { WorkspaceService, resolveWorkspaceGit } from '../packages/workspace/src/service.ts';
 import { ExecutionLedger, LedgerError } from '../packages/store/src/ledger.ts';
 import { createWorkspaceFixture } from '../tests/fixtures/workspace-project.ts';
+import { evidenceDir } from './lib/evidence.mjs';
 const root = resolve(import.meta.dirname, '..'),
   binary = verifiedCodex(root),
   node = resolveVerifierNode(root),
@@ -130,12 +131,7 @@ try{
     await new Promise<void>((done, reject) => server.close((e) => (e ? reject(e) : done())));
   store.close();
 }
-const output = join(
-  process.env.PERSONAL_AGENT_EVIDENCE_DIR
-    ? resolve(process.env.PERSONAL_AGENT_EVIDENCE_DIR)
-    : join(root, 'docs/progress/evidence'),
-  'M2.1a-native-workspace.json',
-);
+const output = join(evidenceDir(root), 'M2.1a-native-workspace.json');
 mkdirSync(dirname(output), { recursive: true });
 writeFileSync(output, JSON.stringify(evidence, null, 2) + '\n');
 writeFileSync(

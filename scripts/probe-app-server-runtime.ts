@@ -8,6 +8,7 @@ import {
   runtimeEnvironment,
 } from '../packages/codex-adapter/src/launch.ts';
 import { inspectCatalog } from '../packages/codex-adapter/src/smoke.ts';
+import { evidenceDir } from './lib/evidence.mjs';
 const root = resolve(import.meta.dirname, '..'),
   pin = verifiedCodex(root),
   directory = mkdtempSync(join(root, '.local/runtime-native-')),
@@ -106,7 +107,7 @@ try {
   await runtime.close();
 }
 writeFileSync(
-  resolve(root, 'docs/progress/evidence/M3-runtime-native.json'),
+  resolve(evidenceDir(root), 'M3-runtime-native.json'),
   JSON.stringify(evidence, null, 2) + '\n',
 );
 console.log(JSON.stringify(evidence, null, 2));

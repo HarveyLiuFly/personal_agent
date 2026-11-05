@@ -2,6 +2,7 @@ import type { App, BrowserWindow } from 'electron';
 import { writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import type { ExecutionLedger } from '../../../packages/store/src/ledger.ts';
+import { evidenceDir } from './evidence.ts';
 /** Real renderer and durable stdio workflow; ALL tool items below come from a synthetic server. */
 export async function runToolProbe(
   root: string,
@@ -41,11 +42,11 @@ export async function runToolProbe(
     JSON.stringify(states) === JSON.stringify(expected) &&
     store.runs(projectId).length === 1;
   writeFileSync(
-    resolve(root, 'docs/progress/evidence/screenshots/M2.1b-tools-fixture.png'),
+    resolve(evidenceDir(root), 'screenshots/M2.1b-tools-fixture.png'),
     (await window.webContents.capturePage()).toPNG(),
   );
   writeFileSync(
-    resolve(root, 'docs/progress/evidence/M2.1b-tools-desktop.json'),
+    resolve(evidenceDir(root), 'M2.1b-tools-desktop.json'),
     JSON.stringify(
       {
         status: passed ? 'passed' : 'blocked',

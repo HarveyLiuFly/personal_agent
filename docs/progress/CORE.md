@@ -1,6 +1,6 @@
 # CORE：产品主干收敛重构计划
 
-日期：2026-11-05　依据：[架构/界面/逻辑审查](../reviews/2026-11-05-architecture-ui-logic-review.md)　状态：**计划已确认（2026-11-05，决策见第 7 节），下一步 CORE.0**
+日期：2026-11-05　依据：[架构/界面/逻辑审查](../reviews/2026-11-05-architecture-ui-logic-review.md)　状态：**CORE.0 完成（2026-11-05），下一步 CORE.1**。决策见第 7 节，执行记录见第 9 节。
 
 ## 1. 目标
 
@@ -178,4 +178,25 @@
 
 ## 9. 执行记录
 
-（按工作包追加：完成内容、实际运行的检查与结果、阻塞、下一步。）
+### CORE.0 基线与护栏（2026-11-05，Linux x64）
+
+完成：
+
+- 工具（`88b6f02`）：Prettier 3.9.10、ESLint 10.13.0 + typescript-eslint 8.72.0、dependency-cruiser 18.7.0，新增 `format`、`format:check`、`lint`、`deps:check` 脚本；只报告，暂不进入 `pnpm check`。
+- 一次性格式化（`598701e`，已加入 `.git-blame-ignore-revs`）：239 个已跟踪源文件，生成协议与文档不动。逐文件核对行为未变：227 个文件编译压缩后完全一致；10 个 TSX 仅 JSX 文本拆分；CSS 仅自定义属性值前的空格；HTML 仅标签间空白且 CSP 逐字相同。
+- 证据目录（D4）：43 个 Smoke/探针改为经 `evidenceDir()`（`scripts/lib/evidence.mjs`、`apps/desktop/src/evidence.ts`）写入，默认 `.local/evidence/`，仍可用 `PERSONAL_AGENT_EVIDENCE_DIR` 覆盖；应用正常启动不会创建该目录。`baseline-platform.mjs` 例外：锁文件引用它的证据，仍写入 `docs/progress/evidence/`。
+- 验收清单：[CORE_ACCEPTANCE.md](CORE_ACCEPTANCE.md)，14 条，标注各自首次可验的工作包。
+- 汇总证据：[CORE.0-baseline.json](evidence/CORE.0-baseline.json)。
+
+实际检查（D5：未跑全量）：类型检查、构建、17 项设计合同通过；7 个文件 73 个用例通过（platform、ui-model、rpc、projection、workspace、terminal-input、binary）；宿主机连接探针与窗口 Smoke 通过，证据写入 `.local/evidence/`，`docs/progress/evidence/` 下已提交文件 0 改动。0 次模型请求。
+
+基线（供 CORE.6 对比）：ESLint 242 个文件中 50 个有问题（空代码块 45、未用变量 26、`prefer-const` 9、`any` 3）；依赖检查 261 个模块，循环 2 处（store ↔ runtime、verification ↔ store），store 依赖 runtime 8 处，生产代码引用 `tests/` 2 处、引用 `docs/` 2 处。
+
+过程中的问题：转换脚本最初把一个导入插进了某探针内测试夹具的模板字符串里，类型检查发现后已移回文件头，并逐个确认 43 个文件的导入位置。
+
+未完成 / 移交：
+
+- macOS 正式数据备份演练需要在 Mac 上执行；CORE.2 的迁移会在迁移前自动备份，在 Mac 上首次运行 CORE.2 前完成。
+- `verify-linux.sh` 仍为每次运行单独设置证据目录，行为不变。
+
+下一步：CORE.1（多对话并发与事件推送）。

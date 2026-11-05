@@ -16,6 +16,7 @@ import { resolveVerifierNode } from '../packages/codex-adapter/src/launch.ts';
 import { ExecutionLedger, LedgerError } from '../packages/store/src/ledger.ts';
 import { ForegroundExecution } from '../packages/runtime/src/execution.ts';
 import { RpcFailure } from '../packages/codex-adapter/src/rpc.ts';
+import { evidenceDir } from './lib/evidence.mjs';
 const scenario = process.argv[2];
 assert.ok(['deny', 'accept', 'interrupt'].includes(scenario ?? ''));
 const root = resolve(import.meta.dirname, '..'),
@@ -217,7 +218,7 @@ try {
   }
   store.close();
 }
-const file = join(root, `docs/progress/evidence/M1.4a-native-${scenario}.json`);
+const file = join(evidenceDir(root), `M1.4a-native-${scenario}.json`);
 writeFileSync(file, JSON.stringify(evidence, null, 2) + '\n');
 writeFileSync(
   file.replace(

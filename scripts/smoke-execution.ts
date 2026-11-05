@@ -7,6 +7,7 @@ import { ExecutionLedger, LedgerError } from '../packages/store/src/ledger.ts';
 import { HistoryBrowser } from '../packages/codex-adapter/src/history.ts';
 import { readConnection } from '../packages/codex-adapter/src/read-connection.ts';
 import { RpcFailure } from '../packages/codex-adapter/src/rpc.ts';
+import { evidenceDir } from './lib/evidence.mjs';
 const root = resolve(import.meta.dirname, '..'),
   { executable, lock, platform } = verifiedCodex(root);
 mkdirSync(resolve(root, '.local'), { recursive: true });
@@ -17,7 +18,7 @@ const file = resolve(temporary, 'execution/ledger.db'),
   state = resolve(temporary, 'codex-state');
 const schema = readFileSync(resolve(root, 'docs/design/contracts/schema.sql'), 'utf8');
 const expected = `M1_READY_${randomUUID().replaceAll('-', '').slice(0, 12)}`;
-const evidenceFile = resolve(root, 'docs/progress/evidence/M1.1c-real-execution.json');
+const evidenceFile = resolve(evidenceDir(root), 'M1.1c-real-execution.json');
 writeFileSync(
   evidenceFile,
   JSON.stringify(

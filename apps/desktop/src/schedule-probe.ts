@@ -2,6 +2,7 @@ import type { App, BrowserWindow } from 'electron';
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { ForegroundExecution } from '../../../packages/runtime/src/execution.ts';
+import { evidenceDir } from './evidence.ts';
 /** Public owned fixture using actual wall-clock due time; no Renderer clock injection. */
 export async function runScheduleProbe(
   root: string,
@@ -44,12 +45,7 @@ export async function runScheduleProbe(
     Object.entries(result).every(([k, v]) => (k === 'hasRequire' ? v === false : v === true)) &&
     execution.diagnostics.clientTurnStarts === (automaticProbe ? 1 : 0);
   writeFileSync(
-    join(
-      root,
-      automaticProbe
-        ? 'docs/progress/evidence/M2.3d-desktop.json'
-        : 'docs/progress/evidence/M2.3c-desktop.json',
-    ),
+    join(evidenceDir(root), automaticProbe ? 'M2.3d-desktop.json' : 'M2.3c-desktop.json'),
     JSON.stringify(
       {
         status: passed ? 'passed' : 'blocked',

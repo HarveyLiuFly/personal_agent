@@ -16,6 +16,7 @@ import { verifiedCodex } from '../packages/codex-adapter/src/binary.ts';
 import { resolveVerifierNode } from '../packages/codex-adapter/src/launch.ts';
 import { projectSkillConnection } from '../packages/runtime/src/skills-connection.ts';
 import { ProjectSkillCatalog } from '../packages/runtime/src/skills.ts';
+import { evidenceDir } from './lib/evidence.mjs';
 const root = resolve('.'),
   fixture = realpathSync(
     mkdtempSync(join(realpathSync(tmpdir()), 'personal-agent-project-skills-')),
@@ -120,7 +121,7 @@ try {
   await new Promise<void>((done) => server.close(() => done()));
   rmSync(fixture, { recursive: true, force: true });
 }
-const file = resolve(root, 'docs/progress/evidence/M2.8a-native-skills.json');
+const file = resolve(evidenceDir(root), 'M2.8a-native-skills.json');
 writeFileSync(file, JSON.stringify(evidence, null, 2) + '\n');
 writeFileSync(
   file.replace(

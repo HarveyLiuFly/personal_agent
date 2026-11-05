@@ -11,6 +11,7 @@ import { ExecutionLedger } from '../packages/store/src/ledger.ts';
 import { ForegroundExecution } from '../packages/runtime/src/execution.ts';
 import { routeRoleProfile } from '../packages/runtime/src/route-profile.ts';
 import { verifiedCodex } from '../packages/codex-adapter/src/binary.ts';
+import { evidenceDir } from './lib/evidence.mjs';
 const root = resolve('.'),
   marker = join(root, '.local/M3-native-chat-state.json');
 mkdirSync(join(root, '.local'), { recursive: true });
@@ -110,7 +111,7 @@ try {
 }
 evidence.observedAt = new Date().toISOString();
 writeFileSync(
-  join(root, 'docs/progress/evidence/M3.1b-native-chat.json'),
+  join(evidenceDir(root), 'M3.1b-native-chat.json'),
   JSON.stringify(evidence, null, 2) + '\n',
 );
 console.log(JSON.stringify(evidence, null, 2));

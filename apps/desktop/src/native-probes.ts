@@ -18,6 +18,7 @@ import type { ForegroundExecution } from '../../../packages/runtime/src/executio
 import { verifiedCodex } from '../../../packages/codex-adapter/src/binary.ts';
 import { resolveWorkspaceGit } from '../../../packages/workspace/src/service.ts';
 import { createWorkspaceFixture } from '../../../tests/fixtures/workspace-project.ts';
+import { evidenceDir } from './evidence.ts';
 export interface NativeProbe {
   kind: 'owner-primary' | 'owner-secondary' | 'folder' | 'restart' | 'workspace';
   stateDirectory: string;
@@ -114,8 +115,8 @@ export async function runNativeProbe(
       inferenceRequested: false,
     };
     const file = join(
-      root,
-      `docs/progress/evidence/${name === 'workspace' ? 'M2.1a-desktop' : 'M1.4b-' + name}.json`,
+      evidenceDir(root),
+      `${name === 'workspace' ? 'M2.1a-desktop' : 'M1.4b-' + name}.json`,
     );
     writeFileSync(file, JSON.stringify(evidence, null, 2) + '\n');
     writeFileSync(
@@ -216,7 +217,7 @@ export async function runNativeProbe(
   }
   if (probe.kind === 'restart') {
     const original = JSON.parse(
-      readFileSync(join(root, 'docs/progress/evidence/M1-native-code-desktop.json'), 'utf8'),
+      readFileSync(join(evidenceDir(root), 'M1-native-code-desktop.json'), 'utf8'),
     );
     if (original.status !== 'passed' || !host.verifier)
       throw new Error('NATIVE_CODE_RECEIPT_REQUIRED');

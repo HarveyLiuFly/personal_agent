@@ -7,6 +7,7 @@ import type { ExecutionLedger } from '../../../packages/store/src/ledger.ts';
 import type { ForegroundExecution } from '../../../packages/runtime/src/execution.ts';
 import { verifiedCodex } from '../../../packages/codex-adapter/src/binary.ts';
 import { resolveWorkspaceGit } from '../../../packages/workspace/src/service.ts';
+import { evidenceDir } from './evidence.ts';
 /** One explicitly requested model Turn, always through the existing ledger. No retry path. */
 export async function runWorktreeCodeProbe(
   root: string,
@@ -59,7 +60,7 @@ export async function runWorktreeCodeProbe(
         git(['status', '--porcelain']) === sourceStatus,
     };
     writeFileSync(
-      resolve(root, 'docs/progress/evidence/M2.1b-worktree-preflight.json'),
+      resolve(evidenceDir(root), 'M2.1b-worktree-preflight.json'),
       JSON.stringify(
         {
           status: Object.values(result).every(Boolean) ? 'passed' : 'blocked',
@@ -154,7 +155,7 @@ export async function runWorktreeCodeProbe(
   };
   const passed = Object.values(checks).every(Boolean);
   writeFileSync(
-    resolve(root, 'docs/progress/evidence/M2.1b-worktree-native.json'),
+    resolve(evidenceDir(root), 'M2.1b-worktree-native.json'),
     JSON.stringify(
       {
         status: passed ? 'passed' : 'blocked',

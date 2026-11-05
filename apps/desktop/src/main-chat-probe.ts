@@ -3,6 +3,7 @@ import { writeFileSync, renameSync } from 'node:fs';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { ExecutionLedger } from '../../../packages/store/src/ledger.ts';
+import { evidenceDir } from './evidence.ts';
 export function seedMainChatProbe(store: ExecutionLedger, source: string) {
   const project = store.registerWorkspace(source);
   for (const key of ['a', 'b'])
@@ -39,7 +40,7 @@ export async function runMainChatProbe(
     `(async()=>{document.querySelector('.main-chat-entries').scrollTop=document.querySelector('.main-chat-entries').scrollHeight;await new Promise(requestAnimationFrame);await new Promise(requestAnimationFrame);})()`,
   );
   writeFileSync(
-    join(root, 'docs/progress/evidence/screenshots/M3.1b-main-chat-regression.png'),
+    join(evidenceDir(root), 'screenshots/M3.1b-main-chat-regression.png'),
     (await window.webContents.capturePage()).toPNG(),
   );
   const db = new DatabaseSync(database, { readOnly: true });
@@ -61,7 +62,7 @@ export async function runMainChatProbe(
   const { projectId, ...ui } = result,
     checks = { ...ui, ...registry, ...metadata };
   writeFileSync(
-    join(root, 'docs/progress/evidence/M3.1b-main-chat-regression.json'),
+    join(evidenceDir(root), 'M3.1b-main-chat-regression.json'),
     JSON.stringify(
       {
         status: Object.values(checks).every(Boolean) ? 'passed' : 'blocked',

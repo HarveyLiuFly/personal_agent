@@ -7,6 +7,7 @@ import { DatabaseSync } from 'node:sqlite';
 import type { ExecutionLedger } from '../../../packages/store/src/ledger.ts';
 import type { ForegroundExecution } from '../../../packages/runtime/src/execution.ts';
 import { verifiedCodex } from '../../../packages/codex-adapter/src/binary.ts';
+import { evidenceDir } from './evidence.ts';
 /** Fixed owned fixture. Termination targets only this harness's BrowserWindow renderer PID. */
 export async function runBackgroundProbe(
   root: string,
@@ -108,7 +109,7 @@ export async function runBackgroundProbe(
   const passed = Object.values(checks).every((v) => v === true),
     name = native ? 'M2.4a-native-background' : 'M2.4a-desktop';
   writeFileSync(
-    join(root, 'docs/progress/evidence/' + name + '.json'),
+    join(evidenceDir(root), name + '.json'),
     JSON.stringify(
       {
         status: passed ? 'passed' : 'blocked',

@@ -4,6 +4,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import electron from 'electron';
 import { openDisplay } from './virtual-display.mjs';
+import { evidenceDir } from './lib/evidence.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const recovery = process.argv.includes('--worktree-recovery');
@@ -31,9 +32,7 @@ const tasks = process.argv.includes('--tasks') || budget || plans || scheduler;
 const interactions = process.argv.includes('--interactions');
 const execution = process.argv.includes('--execution') || interactions;
 const history = process.argv.includes('--history');
-const evidenceDirectory = process.env.PERSONAL_AGENT_EVIDENCE_DIR
-  ? resolve(process.env.PERSONAL_AGENT_EVIDENCE_DIR)
-  : resolve(root, 'docs/progress/evidence');
+const evidenceDirectory = evidenceDir(root);
 const file = resolve(
   evidenceDirectory,
   `${autonomy ? 'M3.4-autonomy-desktop' : mainChat ? 'M3.1b-main-chat-regression' : skills ? 'M2.8a-desktop' : resources ? 'M2.2e-desktop' : rehearsal ? 'M2.7b-desktop' : backups ? 'M2.7a-desktop' : worktreeCode ? (worktreeCodePreflight ? 'M2.1b-worktree-preflight' : 'M2.1b-worktree-native') : tools ? 'M2.1b-tools-desktop' : recovery ? 'M2.5b-desktop' : terminal ? 'M2.6a-desktop' : worktrees ? 'M2.5a-desktop' : background ? (backgroundNative ? 'M2.4a-native-background' : 'M2.4a-desktop') : schedulerAuto ? 'M2.3d-desktop' : scheduler ? 'M2.3c-desktop' : plans ? 'M2.2d-desktop' : budget ? 'M2.2c-desktop' : tasks ? 'M2.2b-desktop' : nativeCode ? 'M1-native-code-desktop' : continuation ? 'M1.3c-desktop' : interactions ? 'M1.2-desktop' : execution ? 'M1.1c-desktop' : history ? 'M1.1b-desktop' : 'M0-desktop-smoke'}.json`,

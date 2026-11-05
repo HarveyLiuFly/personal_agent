@@ -21,6 +21,7 @@ import { verifiedCodex } from '../packages/codex-adapter/src/binary.ts';
 import { resolveVerifierNode } from '../packages/codex-adapter/src/launch.ts';
 import { backupFile } from '../packages/backup/src/service.ts';
 import { createCodeFixture } from '../tests/fixtures/code-project.ts';
+import { evidenceDir } from './lib/evidence.mjs';
 
 const root = resolve('.'),
   schema = readFileSync(join(root, 'docs/design/contracts/schema.sql'), 'utf8'),
@@ -693,7 +694,7 @@ async function main() {
   }
   evidence.observedAt = new Date().toISOString();
   writeFileSync(
-    join(root, 'docs/progress/evidence/M3.4-native-lifecycle.json'),
+    join(evidenceDir(root), 'M3.4-native-lifecycle.json'),
     JSON.stringify(evidence, null, 2) + '\n',
   );
   console.log(JSON.stringify(evidence, null, 2));
@@ -712,8 +713,8 @@ async function finalizeReadonly() {
     resumed.stopRunStatus !== 'outcome_unknown'
   )
     throw Error('LIFECYCLE_STOP_FACTS_NOT_PROVEN');
-  const evidencePath = join(root, 'docs/progress/evidence/M3.4-native-lifecycle.json'),
-    archive = join(root, 'docs/progress/evidence/M3.4-native-lifecycle-first-inspection.json');
+  const evidencePath = join(evidenceDir(root), 'M3.4-native-lifecycle.json'),
+    archive = join(evidenceDir(root), 'M3.4-native-lifecycle-first-inspection.json');
   if (!existsSync(archive)) writeFileSync(archive, readFileSync(evidencePath), { flag: 'wx' });
   await child(['--inspect-only', configPath]);
   const inspection = JSON.parse(readFileSync(join(config.state, 'inspection.json'), 'utf8'));

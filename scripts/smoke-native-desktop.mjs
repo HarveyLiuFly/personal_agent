@@ -4,6 +4,7 @@ import { mkdtemp, mkdir, readFile, writeFile, rm } from 'node:fs/promises';
 import { resolve, join } from 'node:path';
 import electron from 'electron';
 import { openDisplay } from './virtual-display.mjs';
+import { evidenceDir } from './lib/evidence.mjs';
 const root = resolve(import.meta.dirname, '..'),
   owner = process.argv.includes('--owner'),
   folder = process.argv.includes('--folder'),
@@ -15,7 +16,7 @@ const name = workspace
       : folder
         ? 'native-folder'
         : 'native-restart',
-  file = join(root, `docs/progress/evidence/${workspace ? 'M2.1a-desktop' : 'M1.4b-' + name}.json`);
+  file = join(evidenceDir(root), `${workspace ? 'M2.1a-desktop' : 'M1.4b-' + name}.json`);
 await mkdir(join(root, '.local'), { recursive: true });
 await writeFile(
   file,

@@ -2,6 +2,7 @@ import type { App, BrowserWindow } from 'electron';
 import { mkdirSync, writeFileSync, readFileSync, renameSync } from 'node:fs';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
+import { evidenceDir } from './evidence.ts';
 export function createProjectSkillsFixture(cwd: string) {
   mkdirSync(join(cwd, '.agents/skills/public-project-skill'), { recursive: true });
   mkdirSync(join(cwd, '.agents/skills/broken'), { recursive: true });
@@ -38,7 +39,7 @@ export async function runSkillsProbe(
     `(async()=>{const wait=async f=>{const until=Date.now()+10000;while(!f()){if(Date.now()>until)throw Error('SKILLS_STALE_TIMEOUT');await new Promise(r=>setTimeout(r,30));}};document.querySelector('[data-action="refresh-project-skills"]').click();await wait(()=>document.querySelector('[data-skills-stale]'));return{failedRefreshMarked:true,oldViewRetained:Boolean(document.querySelector('[data-skill-name="public-project-skill"]'))};})()`,
   );
   writeFileSync(
-    join(root, 'docs/progress/evidence/screenshots/M2.8a-project-skills.png'),
+    join(evidenceDir(root), 'screenshots/M2.8a-project-skills.png'),
     (await window.webContents.capturePage()).toPNG(),
   );
   const draft = await window.webContents.executeJavaScript(
@@ -67,7 +68,7 @@ export async function runSkillsProbe(
     ).includes('SKILL_BODY_MUST_STAY_LOCAL'),
   };
   writeFileSync(
-    join(root, 'docs/progress/evidence/M2.8a-desktop.json'),
+    join(evidenceDir(root), 'M2.8a-desktop.json'),
     JSON.stringify(
       {
         status: Object.values(checks).every(Boolean) ? 'passed' : 'blocked',

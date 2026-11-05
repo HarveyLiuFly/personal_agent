@@ -8,6 +8,7 @@ import { verifiedCodex } from '../packages/codex-adapter/src/binary.ts';
 import { resolveVerifierNode } from '../packages/codex-adapter/src/launch.ts';
 import { ExecutionLedger, LedgerError } from '../packages/store/src/ledger.ts';
 import { NodeVerification } from '../packages/verification/src/verification.ts';
+import { evidenceDir } from './lib/evidence.mjs';
 const root = resolve(import.meta.dirname, '..'),
   binary = verifiedCodex(root),
   node = resolveVerifierNode(root);
@@ -171,7 +172,7 @@ const evidence = {
   modelMetadata: 'synthetic_only',
   results,
 };
-const file = join(root, 'docs/progress/evidence/M1.3b-native-verifier-negative.json');
+const file = join(evidenceDir(root), 'M1.3b-native-verifier-negative.json');
 writeFileSync(file, JSON.stringify(evidence, null, 2) + '\n');
 writeFileSync(
   file.replace('.json', `-${evidence.observedAt.replaceAll(':', '-').replaceAll('.', '-')}.json`),

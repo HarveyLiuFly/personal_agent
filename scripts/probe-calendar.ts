@@ -3,6 +3,8 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { createRequire } from 'node:module';
 import electron from 'electron';
+import { join } from 'node:path';
+import { evidenceDir } from './lib/evidence.mjs';
 const require = createRequire(import.meta.url);
 if (typeof electron !== 'string') throw new Error('ELECTRON_EXECUTABLE_UNAVAILABLE');
 const source = `import {calendarBaseline,nextCron,previousCron} from './packages/runtime/src/calendar.ts';
@@ -56,7 +58,7 @@ const evidence = {
   hashes,
 };
 writeFileSync(
-  'docs/progress/evidence/M2.3a-calendar.json',
+  join(evidenceDir(process.cwd()), 'M2.3a-calendar.json'),
   JSON.stringify(evidence, null, 2) + '\n',
 );
 console.log(JSON.stringify(evidence, null, 2));

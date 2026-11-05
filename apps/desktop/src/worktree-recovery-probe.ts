@@ -5,6 +5,7 @@ import { execFileSync } from 'node:child_process';
 import { DatabaseSync } from 'node:sqlite';
 import { ExecutionLedger } from '../../../packages/store/src/ledger.ts';
 import { resolveWorkspaceGit } from '../../../packages/workspace/src/service.ts';
+import { evidenceDir } from './evidence.ts';
 export interface RecoveryProbeState {
   archiveStops: number;
   revealed: string[];
@@ -87,13 +88,13 @@ export async function runWorktreeRecoveryProbe(
   await window.webContents.executeJavaScript(
     `document.querySelector('[data-worktree-recoveries]').scrollIntoView({block:'center'});`,
   );
-  mkdirSync(resolve(root, 'docs/progress/evidence/screenshots'), { recursive: true });
+  mkdirSync(resolve(evidenceDir(root), 'screenshots'), { recursive: true });
   writeFileSync(
-    resolve(root, 'docs/progress/evidence/screenshots/M2.5b-recovery.png'),
+    resolve(evidenceDir(root), 'screenshots/M2.5b-recovery.png'),
     (await window.webContents.capturePage()).toPNG(),
   );
   writeFileSync(
-    resolve(root, 'docs/progress/evidence/M2.5b-desktop.json'),
+    resolve(evidenceDir(root), 'M2.5b-desktop.json'),
     JSON.stringify(
       {
         observedAt: new Date().toISOString(),

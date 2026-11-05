@@ -19,9 +19,10 @@ import { MemoryService } from '../packages/runtime/src/memory-service.ts';
 import { LocalPrivacyCleanup } from '../packages/runtime/src/local-cleanup.ts';
 import { BackupService } from '../packages/backup/src/service.ts';
 import { verifiedCodex } from '../packages/codex-adapter/src/binary.ts';
+import { evidenceDir } from './lib/evidence.mjs';
 
 const root = resolve('.'),
-  evidencePath = join(root, 'docs/progress/evidence/M3.4-native-privacy.json'),
+  evidencePath = join(evidenceDir(root), 'M3.4-native-privacy.json'),
   firstMarkerPath = join(root, '.local/M3-native-privacy-state.json'),
   secondAttempt = process.argv.slice(2).join(' ') === '--attempt2-after-no-send';
 if (process.argv.length > 2 && !secondAttempt) throw Error('INVALID_NATIVE_PROBE_ARGUMENTS');
@@ -51,7 +52,7 @@ if (secondAttempt) {
   } finally {
     check.close();
   }
-  const archive = join(root, 'docs/progress/evidence/M3.4-native-privacy-attempt1.json');
+  const archive = join(evidenceDir(root), 'M3.4-native-privacy-attempt1.json');
   if (!existsSync(archive)) {
     const failedEvidence = JSON.parse(readFileSync(evidencePath, 'utf8'));
     failedEvidence.readOnlyFailureAudit = {

@@ -3,6 +3,7 @@ import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { ExecutionLedger } from '../../../packages/store/src/ledger.ts';
 import type { ForegroundExecution } from '../../../packages/runtime/src/execution.ts';
+import { evidenceDir } from './evidence.ts';
 /** Owned public fixture; this fixed harness is never exposed as Renderer evaluation capability. */
 export async function runTaskProbe(
   root: string,
@@ -47,7 +48,7 @@ export async function runTaskProbe(
     execution.diagnostics.clientTurnStarts === 2 &&
     store.outboxStatus().deadLetter === 0;
   writeFileSync(
-    join(root, `docs/progress/evidence/${budgetProbe ? 'M2.2c' : 'M2.2b'}-desktop.json`),
+    join(evidenceDir(root), `${budgetProbe ? 'M2.2c' : 'M2.2b'}-desktop.json`),
     JSON.stringify(
       {
         status: passed ? 'passed' : 'blocked',

@@ -13,6 +13,7 @@ import { ChatRouteService } from '../packages/runtime/src/chat-routes.ts';
 import { TaskService } from '../packages/runtime/src/tasks.ts';
 import { routeRoleProfile } from '../packages/runtime/src/route-profile.ts';
 import { verifiedCodex } from '../packages/codex-adapter/src/binary.ts';
+import { evidenceDir } from './lib/evidence.mjs';
 const root = resolve('.'),
   marker = join(root, '.local/M3-native-route-state.json');
 mkdirSync(join(root, '.local'), { recursive: true });
@@ -112,7 +113,7 @@ try {
 }
 evidence.observedAt = new Date().toISOString();
 writeFileSync(
-  join(root, 'docs/progress/evidence/M3.1b-native-routing.json'),
+  join(evidenceDir(root), 'M3.1b-native-routing.json'),
   JSON.stringify(evidence, null, 2) + '\n',
 );
 console.log(JSON.stringify(evidence, null, 2));

@@ -19,6 +19,7 @@ import { verifiedCodex } from '../packages/codex-adapter/src/binary.ts';
 import { resolveVerifierNode } from '../packages/codex-adapter/src/launch.ts';
 import { backupFile } from '../packages/backup/src/service.ts';
 import { createCodeFixture } from '../tests/fixtures/code-project.ts';
+import { evidenceDir } from './lib/evidence.mjs';
 const root = resolve('.'),
   marker = join(root, '.local/M3-native-goal-state.json');
 mkdirSync(join(root, '.local'), { recursive: true });
@@ -272,7 +273,7 @@ try {
 }
 evidence.observedAt = new Date().toISOString();
 writeFileSync(
-  join(root, 'docs/progress/evidence/M3.3a-native-goal.json'),
+  join(evidenceDir(root), 'M3.3a-native-goal.json'),
   JSON.stringify(evidence, null, 2) + '\n',
 );
 console.log(JSON.stringify(evidence, null, 2));

@@ -2,6 +2,7 @@ import type { App, BrowserWindow } from 'electron';
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { ForegroundExecution } from '../../../packages/runtime/src/execution.ts';
+import { evidenceDir } from './evidence.ts';
 /** Fixed public UI fixture; no evaluation or fixture controls are exposed through IPC. */
 export async function runPlanProbe(
   root: string,
@@ -37,7 +38,7 @@ export async function runPlanProbe(
     Object.entries(result).every(([k, v]) => (k === 'hasRequire' ? v === false : v === true)) &&
     execution.diagnostics.clientTurnStarts === 0;
   writeFileSync(
-    join(root, 'docs/progress/evidence/M2.2d-desktop.json'),
+    join(evidenceDir(root), 'M2.2d-desktop.json'),
     JSON.stringify(
       {
         status: passed ? 'passed' : 'blocked',

@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import type { ExecutionLedger } from '../../../packages/store/src/ledger.ts';
 import type { ForegroundExecution } from '../../../packages/runtime/src/execution.ts';
+import { evidenceDir } from './evidence.ts';
 /** Real Main sampling and PTY occupancy, no model/task inference. */
 export async function runResourceProbe(
   root: string,
@@ -33,7 +34,7 @@ export async function runResourceProbe(
     }
   });
   writeFileSync(
-    join(root, 'docs/progress/evidence/screenshots/M2.2e-resources.png'),
+    join(evidenceDir(root), 'screenshots/M2.2e-resources.png'),
     (await window.webContents.capturePage()).toPNG(),
   );
   const closed = await window.webContents.executeJavaScript(
@@ -75,7 +76,7 @@ export async function runResourceProbe(
         execution.diagnostics.clientTurnStarts === 0,
     };
   writeFileSync(
-    join(root, 'docs/progress/evidence/M2.2e-desktop.json'),
+    join(evidenceDir(root), 'M2.2e-desktop.json'),
     JSON.stringify(
       {
         status: Object.values(result).every(Boolean) ? 'passed' : 'blocked',

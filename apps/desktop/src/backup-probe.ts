@@ -3,6 +3,7 @@ import { writeFileSync, statSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { ExecutionLedger, LedgerError } from '../../../packages/store/src/ledger.ts';
+import { evidenceDir } from './evidence.ts';
 /** Real backup and corruption check of public fixture data; no model or tool execution. */
 export async function runBackupProbe(
   root: string,
@@ -118,11 +119,11 @@ export async function runBackupProbe(
       );
     const name = rehearsal ? 'M2.7b' : 'M2.7a';
     writeFileSync(
-      join(root, 'docs/progress/evidence/screenshots/' + name + '-backups.png'),
+      join(evidenceDir(root), 'screenshots/' + name + '-backups.png'),
       (await window.webContents.capturePage()).toPNG(),
     );
     writeFileSync(
-      join(root, 'docs/progress/evidence/' + name + '-desktop.json'),
+      join(evidenceDir(root), name + '-desktop.json'),
       JSON.stringify(
         {
           status: Object.values(result).every(Boolean) ? 'passed' : 'blocked',

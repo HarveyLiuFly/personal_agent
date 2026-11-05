@@ -4,6 +4,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import type { ExecutionLedger } from '../../../packages/store/src/ledger.ts';
+import { evidenceDir } from './evidence.ts';
 
 const sourceMessageId = 'public-autonomy-memory-source',
   marker = 'PUBLIC_M3_GUI_FORGET_<img src=x onerror=alert(1)>',
@@ -179,9 +180,9 @@ export async function runM3AutonomyProbe(
         claimId +
         '"]\').scrollIntoView({block:"center"});new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))',
     );
-    mkdirSync(join(root, 'docs/progress/evidence/screenshots'), { recursive: true });
+    mkdirSync(join(evidenceDir(root), 'screenshots'), { recursive: true });
     writeFileSync(
-      join(root, 'docs/progress/evidence/screenshots/M3.4-memory-revision.png'),
+      join(evidenceDir(root), 'screenshots/M3.4-memory-revision.png'),
       (await window.webContents.capturePage()).toPNG(),
     );
     phase = 'real-backup-and-rehearsal';
@@ -294,13 +295,13 @@ export async function runM3AutonomyProbe(
     await window.webContents.executeJavaScript(
       "document.querySelector('[data-memory-forget-receipt]').scrollIntoView({block:'center'});new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))",
     );
-    mkdirSync(join(root, 'docs/progress/evidence/screenshots'), { recursive: true });
+    mkdirSync(join(evidenceDir(root), 'screenshots'), { recursive: true });
     writeFileSync(
-      join(root, 'docs/progress/evidence/screenshots/M3.4-autonomy-desktop.png'),
+      join(evidenceDir(root), 'screenshots/M3.4-autonomy-desktop.png'),
       (await window.webContents.capturePage()).toPNG(),
     );
     writeFileSync(
-      join(root, 'docs/progress/evidence/M3.4-autonomy-desktop.json'),
+      join(evidenceDir(root), 'M3.4-autonomy-desktop.json'),
       JSON.stringify(
         {
           status: Object.values(checks).every(Boolean) ? 'passed' : 'blocked',
@@ -325,7 +326,7 @@ export async function runM3AutonomyProbe(
         message.match(/\b(?:M3_|PRIVACY_|INVALID_|MEMORY_|REHEARSAL_|BACKUP_)[A-Z0-9_]+\b/)?.[0] ??
         'PROBE_FAILED';
     writeFileSync(
-      join(root, 'docs/progress/evidence/M3.4-autonomy-desktop.json'),
+      join(evidenceDir(root), 'M3.4-autonomy-desktop.json'),
       JSON.stringify(
         {
           status: 'blocked',

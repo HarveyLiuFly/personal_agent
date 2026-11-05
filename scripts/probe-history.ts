@@ -10,6 +10,7 @@ import type { ThreadTurnsListResponse } from '../packages/codex-adapter/src/gene
 import type { ThreadItemsListResponse } from '../packages/codex-adapter/src/generated/v2/ThreadItemsListResponse.ts';
 import { HistoryBrowser } from '../packages/codex-adapter/src/history.ts';
 import { readConnection } from '../packages/codex-adapter/src/read-connection.ts';
+import { evidenceDir } from './lib/evidence.mjs';
 
 const root = resolve(import.meta.dirname, '..');
 const { executable, lock, platform } = verifiedCodex(root);
@@ -165,7 +166,7 @@ try {
   await rm(temporary, { recursive: true, force: true });
 }
 await writeFile(
-  join(root, 'docs/progress/evidence/M1.1b-local-native-history.json'),
+  join(evidenceDir(root), 'M1.1b-local-native-history.json'),
   JSON.stringify(evidence, null, 2) + '\n',
 );
 console.log(JSON.stringify(evidence, null, 2));

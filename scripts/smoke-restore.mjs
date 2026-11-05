@@ -4,6 +4,7 @@ import { resolve, join } from 'node:path';
 import electron from 'electron';
 import { DatabaseSync } from 'node:sqlite';
 import { openDisplay } from './virtual-display.mjs';
+import { evidenceDir } from './lib/evidence.mjs';
 const inference = !process.argv.includes('--preflight'),
   root = resolve('.');
 await mkdir(join(root, '.local'), { recursive: true });
@@ -86,10 +87,7 @@ try {
 }
 result.observedAt = new Date().toISOString();
 result.platform = process.platform + '-' + process.arch;
-const file = join(
-  root,
-  `docs/progress/evidence/${inference ? 'M2.7c-desktop' : 'M2.7c-preflight'}.json`,
-);
+const file = join(evidenceDir(root), `${inference ? 'M2.7c-desktop' : 'M2.7c-preflight'}.json`);
 await writeFile(file, JSON.stringify(result, null, 2) + '\n');
 await writeFile(
   file.replace(

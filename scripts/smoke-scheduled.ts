@@ -6,6 +6,7 @@ import { ExecutionLedger, LedgerError } from '../packages/store/src/ledger.ts';
 import { ForegroundExecution } from '../packages/runtime/src/execution.ts';
 import { ScheduleService } from '../packages/runtime/src/schedules.ts';
 import { verifiedCodex } from '../packages/codex-adapter/src/binary.ts';
+import { evidenceDir } from './lib/evidence.mjs';
 const root = resolve(import.meta.dirname, '..'),
   binary = verifiedCodex(root),
   folder = realpathSync(mkdtempSync(join(tmpdir(), 'personal-agent-native-scheduled-'))),
@@ -138,7 +139,7 @@ try {
   await execution.close();
   store.close();
 }
-const output = join(root, 'docs/progress/evidence/M2.3d-native-scheduled.json');
+const output = join(evidenceDir(root), 'M2.3d-native-scheduled.json');
 writeFileSync(output, JSON.stringify(evidence, null, 2) + '\n');
 writeFileSync(
   output.replace(

@@ -1,0 +1,33 @@
+{
+  "kind": "core_baseline",
+  "progressPoint": "CORE.0",
+  "observedAt": "2026-11-05T04:05:00Z",
+  "platform": "linux-x64 (Ubuntu 22.04.5), Node 24.19.0",
+  "tooling": { "prettier": "3.9.10", "eslint": "10.13.0", "typescript-eslint": "8.72.0", "dependency-cruiser": "18.7.0" },
+  "formatting": {
+    "commit": "598701e720d1a31b37648dd798fcb486d5484fc9",
+    "files": 239,
+    "equivalence": {
+      "compiledMinifiedIdentical": 227,
+      "tsxIdenticalAfterMergingAdjacentJsxText": 10,
+      "cssOnlyCustomPropertyLeadingSpace": 1,
+      "htmlOnlyInterTagWhitespaceCspIdentical": 1
+    },
+    "excluded": ["packages/codex-adapter/src/generated", "docs", "*.md", "lockfiles", "build", ".local"]
+  },
+  "checks": {
+    "typecheck": "passed",
+    "build": "passed",
+    "designContracts": "17 passed",
+    "tests": { "files": 7, "total": 73, "pass": 73, "fail": 0, "note": "incremental selection; full suite not run (decision D5)" },
+    "smokes": { "connection": "passed", "desktopWindow": "passed", "evidenceWrittenTo": ".local/evidence", "committedEvidenceModified": 0 }
+  },
+  "lintBaseline": { "filesLinted": 242, "filesWithFindings": 50, "byRule": { "no-empty": 45, "@typescript-eslint/no-unused-vars": 26, "prefer-const": 9, "@typescript-eslint/no-explicit-any": 3 } },
+  "dependencyBaseline": {
+    "modules": 261,
+    "dependencies": 1468,
+    "violations": { "no-circular": 2, "store-depends-on-runtime": 8, "production-imports-tests": 2, "code-imports-docs": 2 },
+    "cycles": ["packages/store/src/ledger.ts <-> packages/runtime/src/routing.ts", "packages/verification/src/verification.ts <-> packages/store/src/ledger.ts"]
+  },
+  "inferenceRequests": 0
+}

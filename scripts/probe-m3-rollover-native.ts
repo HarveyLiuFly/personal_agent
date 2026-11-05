@@ -5,13 +5,14 @@ import { ExecutionLedger } from '../packages/store/src/ledger.ts';
 import { ForegroundExecution } from '../packages/runtime/src/execution.ts';
 import { LocalPrivacyCleanup } from '../packages/runtime/src/local-cleanup.ts';
 import { verifiedCodex } from '../packages/codex-adapter/src/binary.ts';
+import { evidenceDir } from './lib/evidence.mjs';
 
 // Continue only the independently recorded, clean read-only native Run. This
 // never retries the old privacy-revoked Unknown or rewrites its evidence.
 const root = resolve('.'),
   markerPath = join(root, '.local/M3-native-rollover-state.json'),
   privacyEvidence = JSON.parse(
-    readFileSync(join(root, 'docs/progress/evidence/M3.4-native-privacy.json'), 'utf8'),
+    readFileSync(join(evidenceDir(root), 'M3.4-native-privacy.json'), 'utf8'),
   ),
   source = JSON.parse(
     readFileSync(join(root, '.local/M3-native-privacy-attempt2-state.json'), 'utf8'),
@@ -255,7 +256,7 @@ try {
 }
 evidence.observedAt = new Date().toISOString();
 writeFileSync(
-  join(root, 'docs/progress/evidence/M3.4-native-rollover.json'),
+  join(evidenceDir(root), 'M3.4-native-rollover.json'),
   JSON.stringify(evidence, null, 2) + '\n',
 );
 console.log(JSON.stringify(evidence, null, 2));

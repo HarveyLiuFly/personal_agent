@@ -7,6 +7,7 @@ import { ExecutionLedger, LedgerError } from '../packages/store/src/ledger.ts';
 import { ForegroundExecution } from '../packages/runtime/src/execution.ts';
 import { RpcFailure } from '../packages/codex-adapter/src/rpc.ts';
 import { DatabaseSync } from 'node:sqlite';
+import { evidenceDir } from './lib/evidence.mjs';
 const root = resolve(import.meta.dirname, '..'),
   binary = verifiedCodex(root),
   folder = realpathSync(process.argv[2] ?? '');
@@ -101,8 +102,8 @@ try {
   store.close();
 }
 const file = join(
-  root,
-  `docs/progress/evidence/${process.argv.includes('--policy-regression') ? 'M1.4a' : 'M1.3c'}-native-continuation.json`,
+  evidenceDir(root),
+  `${process.argv.includes('--policy-regression') ? 'M1.4a' : 'M1.3c'}-native-continuation.json`,
 );
 writeFileSync(file, JSON.stringify(evidence, null, 2) + '\n');
 writeFileSync(

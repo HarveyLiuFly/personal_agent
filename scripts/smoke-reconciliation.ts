@@ -11,6 +11,7 @@ import { ExecutionLedger, LedgerError } from '../packages/store/src/ledger.ts';
 import { ForegroundExecution, executionArguments } from '../packages/runtime/src/execution.ts';
 import { HistoryReconciliation } from '../packages/runtime/src/reconciliation.ts';
 import { DatabaseSync } from 'node:sqlite';
+import { evidenceDir } from './lib/evidence.mjs';
 const root = resolve(import.meta.dirname, '..'),
   binary = verifiedCodex(root);
 // Retry only the read-only phase of this controlled probe, never the original model request.
@@ -88,7 +89,7 @@ if (process.argv[2] === '--reconcile-existing') {
       },
       reconciliationMethods: methods,
     };
-    const output = join(root, 'docs/progress/evidence/M1.3c-native-reconciliation.json');
+    const output = join(evidenceDir(root), 'M1.3c-native-reconciliation.json');
     writeFileSync(output, JSON.stringify(proof, null, 2) + '\n');
     writeFileSync(
       output.replace(
@@ -261,7 +262,7 @@ try {
   await runtime.close();
   store.close();
 }
-const output = join(root, 'docs/progress/evidence/M1.3c-native-reconciliation.json');
+const output = join(evidenceDir(root), 'M1.3c-native-reconciliation.json');
 writeFileSync(output, JSON.stringify(evidence, null, 2) + '\n');
 writeFileSync(
   output.replace(

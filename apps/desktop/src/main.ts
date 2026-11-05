@@ -72,13 +72,10 @@ import { ScheduleService } from '../../../packages/runtime/src/schedules.ts';
 import { createDesktopWindow } from './desktop-window.ts';
 import { installBackgroundTray } from './tray.ts';
 import { runBackgroundProbe } from './background-probe.ts';
+import { evidenceDir } from './evidence.ts';
 
 const directory = dirname(fileURLToPath(import.meta.url));
 const root = resolve(directory, '../..');
-// Smokes write evidence here; PERSONAL_AGENT_EVIDENCE_DIR keeps platform runs from overwriting committed evidence.
-const evidenceDirectory = process.env.PERSONAL_AGENT_EVIDENCE_DIR
-  ? resolve(process.env.PERSONAL_AGENT_EVIDENCE_DIR)
-  : resolve(root, 'docs/progress/evidence');
 const documentPath = resolve(directory, 'renderer/index.html');
 const documentUrl = pathToFileURL(documentPath).href;
 const acceptanceProbe = nativeProbe(root, process.argv);
@@ -301,7 +298,7 @@ else
                                                     ? 'M1.1b-desktop'
                                                     : 'M0-desktop-smoke';
       writeFileSync(
-        resolve(evidenceDirectory, `${file}.json`),
+        resolve(evidenceDir(root), `${file}.json`),
         JSON.stringify({ status: 'blocked', code, observedAt: new Date().toISOString() }) + '\n',
       );
     }
@@ -1559,9 +1556,8 @@ async function boot(): Promise<void> {
       browserSandbox: app.commandLine.hasSwitch('no-sandbox') ? 'disabled' : 'enabled',
       result,
     };
-    mkdirSync(evidenceDirectory, { recursive: true });
     writeFileSync(
-      resolve(evidenceDirectory, 'M0-desktop-smoke.json'),
+      resolve(evidenceDir(root), 'M0-desktop-smoke.json'),
       JSON.stringify(evidence, null, 2) + '\n',
     );
     writeFileSync(
@@ -1625,9 +1621,8 @@ async function boot(): Promise<void> {
       methods: [...fixtureMethods].sort(),
       result,
     };
-    mkdirSync(evidenceDirectory, { recursive: true });
     writeFileSync(
-      resolve(evidenceDirectory, 'M1.1b-desktop.json'),
+      resolve(evidenceDir(root), 'M1.1b-desktop.json'),
       JSON.stringify(evidence, null, 2) + '\n',
     );
     writeFileSync(
@@ -1684,7 +1679,7 @@ async function boot(): Promise<void> {
       r.noScriptExecution === true &&
       r.draftClearedAfterAcceptance === true;
     writeFileSync(
-      resolve(evidenceDirectory, 'M1.1c-desktop.json'),
+      resolve(evidenceDir(root), 'M1.1c-desktop.json'),
       JSON.stringify(
         {
           observedAt: new Date().toISOString(),
@@ -1741,7 +1736,7 @@ async function boot(): Promise<void> {
       r.finalText === 'accept' &&
       r.taskStatus === 'needs_review';
     writeFileSync(
-      resolve(evidenceDirectory, 'M1.2-desktop.json'),
+      resolve(evidenceDir(root), 'M1.2-desktop.json'),
       JSON.stringify(
         {
           status: passed ? 'passed' : 'blocked',
@@ -1790,7 +1785,7 @@ async function boot(): Promise<void> {
         r.isolated === true &&
         r.hasRequire === false;
     writeFileSync(
-      resolve(evidenceDirectory, 'M1.3c-desktop.json'),
+      resolve(evidenceDir(root), 'M1.3c-desktop.json'),
       JSON.stringify(
         {
           status: passed ? 'passed' : 'blocked',
@@ -1892,7 +1887,7 @@ async function boot(): Promise<void> {
           execution!.diagnostics.clientThreadResumes === 1 &&
           execution!.diagnostics.clientTurnStarts === 2));
     writeFileSync(
-      resolve(evidenceDirectory, 'M1-native-code-desktop.json'),
+      resolve(evidenceDir(root), 'M1-native-code-desktop.json'),
       JSON.stringify(
         {
           status: passed ? 'passed' : 'blocked',
