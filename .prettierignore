@@ -1,0 +1,25 @@
+# Generated protocol types are locked to the Codex CLI fingerprint; never reformat them.
+packages/codex-adapter/src/generated/
+# Documents, contracts and evidence keep their own layout.
+docs/
+*.md
+# Lockfiles, build output and local runtime data.
+pnpm-lock.yaml
+codex-version.lock.json
+node_modules/
+build/
+.local/
+refs/
+# Editor, agent and shell files that may appear in a checkout but are not project sources.
+.claude/
+.idea
+.vscode
+.mcp.json
+.bash_profile
+.bashrc
+.profile
+.zprofile
+.zshrc
+.gitconfig
+.gitmodules
+.ripgreprc
