@@ -73,6 +73,8 @@ export class AppServerRuntime {
     rotateAfterRequests?: number;
     backfillCooldownMs?: number;
     now?: () => number;
+    /** Error code that fails reads fast without starting a process (e.g. while the Host warms the index). */
+    blocked?: () => string | null;
   };
   constructor(
     options: () => Options,
@@ -81,6 +83,7 @@ export class AppServerRuntime {
       rotateAfterRequests?: number;
       backfillCooldownMs?: number;
       now?: () => number;
+      blocked?: () => string | null;
     } = {},
   ) {
     this.options = options;
@@ -141,6 +144,8 @@ export class AppServerRuntime {
       return this.client;
     }
     if (now < this.retryAfter) throw new RpcFailure('CODEX_STATE_INDEX_PENDING');
+    const blocked = this.limits.blocked?.();
+    if (blocked) throw new RpcFailure(blocked);
     const client = new StdioRpcClient(options);
     this.client = client;
     this.key = key;
@@ -255,6 +260,14 @@ export class AppServerRuntime {
       () => {},
     );
     return result;
+  }
+  /** Ends an index cooldown early (the Host finished warming the state index). */
+  wake(): void {
+    this.retryAfter = 0;
+    if (this.state === 'failed') {
+      this.state = 'idle';
+      this.failureCode = null;
+    }
   }
   /** Warm the shared state index before a dedicated execution process starts. */
   prepare(signal?: AbortSignal): Promise<number> {

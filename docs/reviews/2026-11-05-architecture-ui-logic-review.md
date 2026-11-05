@@ -100,7 +100,7 @@
 
 App Server 以独立的 `sqlite_home` 启动（`launch.ts` `launchArguments`），每个数据目录（正式 `userData/codex-state`、各 Smoke 的 `.local/*`）首次启动都会把整个 `~/.codex` 历史回填进自己的状态库。本机历史 2,139 个会话、3.7 GB：Codex 在 `initialize` 里只等 30 秒，超时就退出；被中断的首次启动留下 `running` 租约，之后约 15 分钟内所有启动都在等这个租约，连接全部失败（`CODEX_STATE_INDEX_PENDING`）。租约过期后由一个保持存活的进程约 90 秒完成。
 
-**建议**：共用用户默认的 Codex 状态目录（已由用户的 Codex 维护），或在首次启动时由 Host 保持一个预热进程直到索引完成并在界面显示进度；不要让每个数据目录各建一份。Linux 验证暂用 `scripts/warm-codex-index.ts` 预热。
+**建议**：共用用户默认的 Codex 状态目录（已由用户的 Codex 维护），或在首次启动时由 Host 保持一个预热进程直到索引完成并在界面显示进度；不要让每个数据目录各建一份。CORE.1e 已改为由 Host 首次启动时保持一个无超时的预热进程直到索引完成，并在界面显示进度；各数据目录仍各建一份索引。
 
 ### A10　Codex 沙箱在两个平台上的行为不同
 

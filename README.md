@@ -14,12 +14,11 @@ Electron/React 桌面宿主，通过锁版 Codex App Server 驱动执行。当�
 bash scripts/start.sh          # 或 pnpm start
 ```
 
-第一次运行会补齐缺少的部分：Node 24（系统没有时下载官方版本到 `.local/` 并核对 SHA-256）、依赖、Linux 终端的 node-pty、Electron、锁定版 Codex CLI（装在 `.local/codex-install`），核对 Codex 哈希与登录状态，预热 Codex 状态索引，然后构建并打开窗口。之后再运行只做检查，几秒即可打开；应用已在运行时直接唤回窗口，不会重新构建。全过程不发模型请求，保留 Electron 沙箱。
+第一次运行会补齐缺少的部分：Node 24（系统没有时下载官方版本到 `.local/` 并核对 SHA-256）、依赖、Linux 终端的 node-pty、Electron、锁定版 Codex CLI（装在 `.local/codex-install`），核对 Codex 哈希与登录状态，然后构建并打开窗口。首次启动时应用会自行为 Codex 建立状态索引（读取 `~/.codex` 历史，可能需要一两分钟），左下角显示进度，完成后自动连接。之后再运行只做检查，几秒即可打开；应用已在运行时直接唤回窗口，不会重新构建。全过程不发模型请求，保留 Electron 沙箱。
 
 | 选项 | 作用 |
 |---|---|
 | `--check` | 只准备与诊断，不打开窗口 |
-| `--no-warm` | 跳过 Codex 状态索引预热 |
 | `--install-desktop-entry` | 在 Linux 应用菜单添加“Personal Agent”（输出写入 `.local/start.log`） |
 | `--log` | 所有输出追加到 `.local/start.log` |
 

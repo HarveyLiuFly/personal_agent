@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import type { ConnectionInfo } from '../src/bridge.ts';
 import { HistoryApp } from './history-app.tsx';
+import { subscribeRefresh } from './host-events.ts';
 import './style.css';
 function App() {
   const [connection, setConnection] = useState<ConnectionInfo>(),
@@ -20,12 +21,19 @@ function App() {
   useEffect(() => {
     void inspect();
   }, []);
+  const indexPending = connection?.errorCode === 'CODEX_STATE_INDEX_PENDING';
+  // While the Host builds the Codex index, its progress and completion arrive as change notices.
+  useEffect(() => (indexPending ? subscribeRefresh(inspect) : undefined), [indexPending]);
   const text = busy
     ? '正在连接 Codex…'
     : connection?.status === 'connected'
       ? 'Codex 已连接'
-      : connection?.errorCode === 'CODEX_STATE_INDEX_PENDING'
-        ? 'Codex 索引准备中'
+      : indexPending
+        ? connection?.index
+          ? connection.index.state === 'waiting'
+            ? `Codex 索引准备中（等待上次未完成的索引释放，已处理 ${connection.index.threads} 个会话）`
+            : `Codex 索引准备中（已处理 ${connection.index.threads} 个会话）`
+          : 'Codex 索引准备中'
         : 'Codex 暂未连接';
   return (
     <HistoryApp>

@@ -2,7 +2,6 @@
 # One-click start for Personal Agent.
 #   bash scripts/start.sh                          prepare whatever is missing, then open the app
 #   bash scripts/start.sh --check                  prepare and run diagnostics, do not open the app
-#   bash scripts/start.sh --no-warm                skip the Codex state index warm-up
 #   bash scripts/start.sh --install-desktop-entry  add "Personal Agent" to the Linux app menu
 #   bash scripts/start.sh --log                    append all output to .local/start.log (used by the menu entry)
 # Safe to run repeatedly: finished steps are skipped. Never sends model requests and keeps the
@@ -13,14 +12,13 @@ ROOT="$PWD"
 # shellcheck source=scripts/lib/node24.sh
 source scripts/lib/node24.sh
 
-CHECK=0 WARM=1 DESKTOP_ENTRY=0 LOG=0
+CHECK=0 DESKTOP_ENTRY=0 LOG=0
 for arg in "$@"; do
   case "$arg" in
     --check) CHECK=1 ;;
-    --no-warm) WARM=0 ;;
     --install-desktop-entry) DESKTOP_ENTRY=1 ;;
     --log) LOG=1 ;;
-    -h | --help) sed -n '2,9p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h | --help) sed -n '2,8p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) echo "Unknown option: $arg (see --help)" >&2; exit 2 ;;
   esac
 done
@@ -142,14 +140,7 @@ else
   warn "Codex is not logged in. Run: ${codex_cmd[*]} login   (the app opens, but cannot talk to a model until then)"
 fi
 
-if [ "$WARM" = 1 ] && [ "$RUNNING" = 1 ]; then
-  step "Codex state index: skipped while the app is running (it maintains the index itself)"
-elif [ "$WARM" = 1 ]; then
-  step "Codex state index"
-  echo "  first start indexes your ~/.codex history; this can take a few minutes once"
-  nodex scripts/warm-codex-index.ts "$USER_DATA/codex-state" \
-    || warn "Index not finished yet; the app shows \"index not ready\" and retries on its own."
-fi
+# The app builds its private Codex state index itself on first start and shows the progress.
 
 if [ "$CHECK" = 1 ]; then
   step "Diagnostics"

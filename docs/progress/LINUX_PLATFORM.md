@@ -37,7 +37,7 @@ M0–M3 只在 macOS arm64 实测。代码中的平台假设导致 Linux 上即�
   - 验证器在 Linux 上加 `--test-isolation=none`，在进程内运行单个目标测试文件（沙箱内不能创建带管道的子进程）；会自己再起带管道子进程的测试在 Linux 验证器里会失败，这是当前已知限制。
   - 文件浏览 `reader.mjs` 在 Linux 上把 git 输出写到沙箱临时目录的私有文件再读取（同样的 256 KB / 5 秒上限）。
   - `smoke:workspace` 的边界探针在 Linux 上接受 `ENOENT`（未挂载路径被隐藏）与 `EROFS`（只读挂载）作为拒绝；网络仍只接受 `EPERM/EACCES`。macOS 仍只接受 `EPERM/EACCES`。
-- **Codex 状态索引预热**：`scripts/warm-codex-index.ts`（`pnpm warm:codex-index`）。App Server 每个独立 `sqlite_home` 首次启动都要索引整个 `~/.codex`；本机 2,139 个会话 / 3.7 GB，Codex 只等 30 秒，被中断后留下约 15 分钟的过期租约。脚本保持一个只初始化、不发模型请求的进程直到索引完成。`verify-linux.sh` 在 Smoke 前调用。正式数据目录由应用自身完成（已有 `CODEX_STATE_INDEX_PENDING` 提示）。
+- **Codex 状态索引预热**：`scripts/warm-codex-index.ts`（`pnpm warm:codex-index`）。App Server 每个独立 `sqlite_home` 首次启动都要索引整个 `~/.codex`；本机 2,139 个会话 / 3.7 GB，Codex 只等 30 秒，被中断后留下约 15 分钟的过期租约。脚本保持一个只初始化、不发模型请求的进程直到索引完成。`verify-linux.sh` 在 Smoke 前调用。正式数据目录由应用在首次启动时自行预热并显示进度（CORE.1e，复用同一模块 `packages/codex-adapter/src/state-index.ts`）。
 - **node-pty（Linux）**：1.1.0 没有 Linux 预编译包，安装时本地编译 `build/Release/pty.node`。上游没有可固定的哈希，`pnpm setup:terminal`（postinstall 自动执行）把本地编译产物的 SHA-256、路径和 Node ABI 记录到 `.local/terminal-binding.json`；Host 每次启动终端前复核，不一致时拒绝加载并提示重新 setup。macOS arm64 的官方哈希校验不变。
 - **Worker 协议**：Host 把选定的 Shell 路径和参数随 `configure` 传给 `terminal-worker.mjs`；Worker 只接受绝对路径。
 - **Linux 托盘**（`apps/desktop/src/tray.ts`）：后台模式下提供“显示主窗口 / 退出并停止运行”。GNOME 需要 AppIndicator 扩展才显示托盘；再次运行 `pnpm dev` 也会通过单实例锁唤回窗口。
@@ -129,6 +129,6 @@ bash scripts/verify-linux.sh --with-model  # 额外 1 次只读、无工具的�
 - 托盘（GNOME 需 AppIndicator 扩展）、原生目录选择对话框、真实终端面板交互未在 GUI 中手动操作。
 - 真实代码任务端到端（模型改代码 → 沙箱验证 → 收据）未在 Linux 运行；Linux 上 M1 Gate 未关闭。
 - 测试会再起带管道子进程的项目，在 Linux 验证器中会失败（seccomp 限制）。
-- 每个数据目录各自索引 `~/.codex` 的设计问题（审查 A9）只做了预热，未改设计。
+- 每个数据目录各自索引 `~/.codex` 的设计问题（审查 A9）：应用已自行预热并显示进度（CORE.1e），各数据目录仍各建一份索引。
 - Ubuntu 23.10+/24.04 的 AppArmor 限制只按文档给出处理方式，未在该版本上实测。
 - Wayland 原生会话、arm64、GNOME 托盘扩展未实测。

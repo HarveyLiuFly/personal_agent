@@ -77,6 +77,7 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 import { BackgroundLog } from './background-log.ts';
 import { HostEvents } from './host-events.ts';
 import { BackgroundScheduler } from './background-scheduler.ts';
+import { StateIndexWarmup } from '../../../packages/codex-adapter/src/state-index.ts';
 import type { BackgroundStep } from './background-scheduler.ts';
 
 const directory = dirname(fileURLToPath(import.meta.url));
@@ -105,6 +106,8 @@ let execution: ForegroundExecution | undefined;
 let hostEvents: HostEvents | undefined;
 /** Advances outbox, plans, routes and schedules on change or due time (replaces fixed ticks). */
 let backgroundScheduler: BackgroundScheduler | undefined;
+/** Builds the private Codex state index on first start, without a request timeout (review A9). */
+let indexWarmup: StateIndexWarmup | undefined;
 let appServer: AppServerRuntime | undefined,
   appServerStopping = false;
 let chatRoutes: ChatRouteService | undefined,
@@ -467,15 +470,33 @@ async function boot(): Promise<void> {
     }
   }
   if (!historySmoke) {
-    if (!fixtureDirectory && !executionSmoke)
-      appServer = new AppServerRuntime(() => {
-        if (ledger?.pendingMemoryCleanup().length) throw new RpcFailure('PRIVACY_CLEANUP_PENDING');
-        return {
+    if (!fixtureDirectory && !executionSmoke) {
+      try {
+        indexWarmup = new StateIndexWarmup({
           executable: executable(),
-          args: restrictedAppServerArguments(state, true),
-          env: runtimeEnvironment(),
-        };
-      });
+          stateDirectory: state,
+          onChange: (warmup) => {
+            if (warmup === 'complete') appServer?.wake();
+            hostEvents?.emit('store');
+          },
+        });
+      } catch {
+        indexWarmup = undefined; // Codex not verified; the connection check reports why.
+      }
+      appServer = new AppServerRuntime(
+        () => {
+          if (ledger?.pendingMemoryCleanup().length)
+            throw new RpcFailure('PRIVACY_CLEANUP_PENDING');
+          return {
+            executable: executable(),
+            args: restrictedAppServerArguments(state, true),
+            env: runtimeEnvironment(),
+          };
+        },
+        { blocked: () => (indexWarmup?.active ? 'CODEX_STATE_INDEX_PENDING' : null) },
+      );
+      void indexWarmup?.start();
+    }
     const storageRoot = fixtureDirectory ?? app.getPath('userData'),
       runtimePaths = activeRuntimePaths(storageRoot, resolve(storageRoot, 'verification'));
     const sources = loadSourceConfiguration(
@@ -1331,6 +1352,15 @@ async function boot(): Promise<void> {
     if (runtimeTransition) return { status: 'error', errorCode: 'RUNTIME_RESTARTING' };
     if (args.length) throw new Error('UNEXPECTED_ARGUMENTS');
     if (quitting) return { status: 'error', errorCode: 'HOST_QUITTING' };
+    if (indexWarmup?.active)
+      return {
+        status: 'error',
+        errorCode: 'CODEX_STATE_INDEX_PENDING',
+        index: {
+          state: indexWarmup.state === 'waiting' ? 'waiting' : 'indexing',
+          threads: indexWarmup.index.threads,
+        },
+      };
     const request = new AbortController();
     inFlight.add(request);
     try {
@@ -2040,6 +2070,7 @@ app.on('before-quit', (event) => {
   clearInterval(goalTimer);
   goalTimer = undefined;
   backgroundScheduler?.stop();
+  indexWarmup?.stop();
   hostEvents?.close();
   if (terminalService && !terminalStopping) {
     event.preventDefault();

@@ -84,6 +84,8 @@ export interface ConnectionInfo {
   models?: number;
   defaultModel?: string;
   errorCode?: string;
+  /** While the Host builds the private Codex state index (first start of a state directory). */
+  index?: { state: 'indexing' | 'waiting'; threads: number };
 }
 export interface SmokeInfo {
   status: 'passed' | 'error';
