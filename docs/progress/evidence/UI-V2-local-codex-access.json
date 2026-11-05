@@ -1,0 +1,16 @@
+{
+  "format": 1,
+  "checkpoint": "UI-V2.local-reference",
+  "at": "2026-11-05T00:06:01.108757+00:00",
+  "request": "Inspect installed native Codex layout as design reference",
+  "tool": "mcp__cua_repl.js",
+  "api": "cua.getApp('Codex')",
+  "result": "access_denied",
+  "toolMessage": "Computer Use is not allowed to use the app 'com.openai.codex' for safety reasons.",
+  "nativeLayoutObserved": false,
+  "screenshotCaptured": false,
+  "productChanged": false,
+  "inferenceRequested": false,
+  "checksRun": false,
+  "next": "Compare a screenshot supplied directly by the user, if available; no alternate-path bypass of denied app access"
+}

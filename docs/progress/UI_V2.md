@@ -61,3 +61,9 @@ UI-V2.goal-flow提交f1b1a67088cbe4a1f0e8220d8ecb30f830c35bb9及对应标签已�
 ## 远程交付回执
 
 UI V2交付提交fc9ad9d93613bd9bcfb0786e7f464303ed1b6d36已实际推送；ls-remote确认远程main与checkpoint/UI-V2均为该SHA。最终构建原生冷开后实际Diff与4/4收据位于最新内容区域，无需手动滚动，已完成状态栏紧凑显示；之后只读核对仍7Run/6实际模型Turn、0Unknown/预留/活动计划。此同步记录只补写远程核对结果，不改变产品构建或验收口径。
+
+## UI-V2.local-reference：本机Codex布局观察受限
+
+用户提示可以直接查看本机Codex，已实际调用CUA的getApp('Codex')。工具返回“Computer Use is not allowed to use the app 'com.openai.codex' for safety reasons.”，在取得窗口/AX/截图前拒绝访问。不是未尝试，也不能由此推断本机应用不存在；此前仅看到测试Electron的说明已在当前设计中改为这一明确访问限制。
+
+本点未取得任何Codex布局证据，不能将官网对比改称本机观察；未绕过工具限制，未操作本机Codex聊天或设置。只更新设计证据范围和脱敏阻塞收据，不改产品代码、不发送模型、不运行回归。下一步如用户在对话中直接提供界面截图，可依据该图补充本机布局对比；当前工具范围内无法完成原生观察。
