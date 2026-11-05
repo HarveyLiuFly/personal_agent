@@ -67,6 +67,7 @@ interface Session {
   turnEnded?: boolean;
   usagePending?: Array<{ threadId: string; turnId: string; total: unknown }>;
   usageOverflow?: boolean;
+  completion?: Promise<void>;
 }
 export function executionArguments(
   directory: string,
@@ -95,12 +96,16 @@ export interface ExecutionOptions {
     callbacks: Pick<RpcOptions, 'onNotification' | 'onServerRequest' | 'onServerResponse'>,
   ) => StdioRpcClient;
 }
-/** Single foreground execution owner. Queries expose only scoped, bounded display projections. */
+/**
+ * Execution owner for every running conversation. Several Runs may execute at once; the ledger
+ * admits each one (capacity, one active Run per task, one writer per workspace) in a transaction.
+ * Queries expose only scoped, bounded display projections.
+ */
 export class ForegroundExecution {
   private store: ExecutionLedger;
   private options: ExecutionOptions;
-  private session?: Session;
-  private completion?: Promise<void>;
+  /** Running sessions by runId. */
+  private sessions = new Map<string, Session>();
   private epoch = 0;
   readonly diagnostics = {
     clientThreadStarts: 0,
@@ -121,8 +126,27 @@ export class ForegroundExecution {
     this.store = store;
     this.options = options;
   }
+  /** True while any Run executes (used for Host-wide quiescence such as restore and quit). */
   get busy(): boolean {
-    return this.session !== undefined;
+    return this.sessions.size > 0;
+  }
+  /** True when no further Run can be admitted until one finishes. */
+  get atCapacity(): boolean {
+    return this.sessions.size >= this.store.maxActiveRuns();
+  }
+  /** True while a Run of this project executes. */
+  activeIn(projectId: string): boolean {
+    for (const session of this.sessions.values()) if (session.projectId === projectId) return true;
+    return false;
+  }
+  private session(runId: string): Session | undefined {
+    return this.sessions.get(runId);
+  }
+  private launch(session: Session, text: string): void {
+    this.sessions.set(session.token.runId, session);
+    session.completion = this.execute(session, text).finally(() => {
+      this.sessions.delete(session.token.runId);
+    });
   }
   get supportsQueuedCode(): boolean {
     return Boolean(this.options.prepareCode && this.options.prepareContinuation);
@@ -154,21 +178,6 @@ export class ForegroundExecution {
     const mode = code ? 'workspaceWrite' : (this.options.mode ?? 'readOnly');
     if (!identity(q.projectId) || !identity(q.submissionKey) || typeof q.text !== 'string')
       throw new LedgerError('INVALID_EXECUTION_QUERY');
-    if (this.busy) {
-      if (this.session?.projectId !== q.projectId || this.session.submissionKey !== q.submissionKey)
-        throw new LedgerError('RUNTIME_BUSY');
-      const previous = this.store.beginRun(
-        q.projectId,
-        q.text,
-        q.submissionKey,
-        mode,
-        code ? hashInput(code) : undefined,
-      );
-      if (previous.created) throw new LedgerError('RUNTIME_BUSY');
-      return summary(
-        this.store.runs(q.projectId, { snapshots: false, runId: previous.token.runId })[0]!,
-      );
-    }
     const { token, created } = this.store.beginRun(
       q.projectId,
       q.text,
@@ -185,10 +194,7 @@ export class ForegroundExecution {
         code,
         abort: new AbortController(),
       };
-      this.session = session;
-      this.completion = this.execute(session, q.text).finally(() => {
-        if (this.session === session) this.session = undefined;
-      });
+      this.launch(session, q.text);
     }
     return summary(this.store.runs(q.projectId, { snapshots: false, runId: token.runId })[0]!);
   }
@@ -198,7 +204,6 @@ export class ForegroundExecution {
     buildProfile: ExecutionRoleProfile | ((token: RunToken) => ExecutionRoleProfile),
     profileKey?: string,
   ): RunSummary {
-    if (this.busy) throw new LedgerError('RUNTIME_BUSY');
     const { token, created } = this.store.beginRun(
       input.projectId,
       input.text,
@@ -241,10 +246,7 @@ export class ForegroundExecution {
           profile,
           abort: new AbortController(),
         };
-        this.session = session;
-        this.completion = this.execute(session, profile.userContext ?? input.text).finally(() => {
-          if (this.session === session) this.session = undefined;
-        });
+        this.launch(session, profile.userContext ?? input.text);
       } catch (error) {
         this.store.finish(token, 'failed');
         throw error;
@@ -257,7 +259,6 @@ export class ForegroundExecution {
     const q = query(input, ['projectId', 'runId', 'checkpointId', 'submissionKey']);
     if (!['projectId', 'runId', 'checkpointId', 'submissionKey'].every((k) => identity(q[k])))
       throw new LedgerError('INVALID_ROLLOVER_COMMAND');
-    if (this.busy) throw new LedgerError('RUNTIME_BUSY');
     const admitted = this.store.beginRollover({
       projectId: String(q.projectId),
       runId: String(q.runId),
@@ -305,18 +306,14 @@ export class ForegroundExecution {
         profile,
         abort: new AbortController(),
       };
-      this.session = session;
-      this.completion = this.execute(
-        session,
-        profile?.userContext ?? 'Resume using the Host-validated checkpoint.',
-      ).finally(() => {
-        if (this.session === session) this.session = undefined;
-      });
+      this.launch(session, profile?.userContext ?? 'Resume using the Host-validated checkpoint.');
     }
     return summary(this.store.runForHost(admitted.runId));
   }
+  /** Resolves when no Run is executing (including Runs started while waiting). */
   async wait(): Promise<void> {
-    await this.completion;
+    while (this.sessions.size)
+      await Promise.all([...this.sessions.values()].map((session) => session.completion));
   }
   /** Host-only privacy revocation; the old view and dispatch grant are already unavailable. */
   async revokeForPrivacy(
@@ -325,14 +322,14 @@ export class ForegroundExecution {
     const closedRunIds: string[] = [],
       unresolvedRunIds: string[] = [];
     for (const runId of new Set(runIds)) {
-      const s = this.session;
-      if (s?.token.runId === runId) {
+      const s = this.session(runId);
+      if (s) {
         try {
           this.store.uncertain(s.token);
           s.abort.abort();
           s.broker?.declineAll();
           await s.rpc?.close();
-          await this.completion;
+          await s.completion;
           closedRunIds.push(runId);
         } catch {
           unresolvedRunIds.push(runId);
@@ -366,11 +363,6 @@ export class ForegroundExecution {
       (!this.options.prepareCode || !this.options.prepareContinuation)
     )
       throw new LedgerError('CODE_EXECUTION_UNAVAILABLE');
-    if (
-      this.busy &&
-      (this.session?.projectId !== q.projectId || this.session.submissionKey !== q.submissionKey)
-    )
-      throw new LedgerError('RUNTIME_BUSY');
     const queued = this.store.claimTask(
       q.projectId,
       q.taskId,
@@ -389,16 +381,12 @@ export class ForegroundExecution {
           : {}),
         abort: new AbortController(),
       };
-      this.session = session;
-      this.completion = this.execute(session, queued.text).finally(() => {
-        if (this.session === session) this.session = undefined;
-      });
+      this.launch(session, queued.text);
     }
     return summary(this.store.runForHost(queued.token.runId));
   }
   /** Host-only scheduled admission. No Desktop API forwards trigger IDs to this method. */
   startScheduled(projectId: string, triggerId: string): RunSummary {
-    if (this.busy) throw new LedgerError('RUNTIME_BUSY');
     const queued = this.store.claimScheduledTask(projectId, triggerId);
     if (queued.created) {
       const session: Session = {
@@ -411,10 +399,7 @@ export class ForegroundExecution {
           : {}),
         abort: new AbortController(),
       };
-      this.session = session;
-      this.completion = this.execute(session, queued.text).finally(() => {
-        if (this.session === session) this.session = undefined;
-      });
+      this.launch(session, queued.text);
     }
     return summary(this.store.runForHost(queued.token.runId));
   }
@@ -430,11 +415,6 @@ export class ForegroundExecution {
     const source = this.view({ projectId: q.projectId, runId: q.runId });
     if (source.mode === 'workspaceWrite' && !this.options.prepareContinuation)
       throw new LedgerError('CODE_EXECUTION_UNAVAILABLE');
-    if (
-      this.busy &&
-      (this.session?.projectId !== q.projectId || this.session?.submissionKey !== q.submissionKey)
-    )
-      throw new LedgerError('RUNTIME_BUSY');
     const { token, created, threadId, mode } = this.store.beginContinuation(
       q.projectId,
       q.runId,
@@ -456,10 +436,7 @@ export class ForegroundExecution {
         resumeThreadId: threadId,
         abort: new AbortController(),
       };
-      this.session = session;
-      this.completion = this.execute(session, q.text).finally(() => {
-        if (this.session === session) this.session = undefined;
-      });
+      this.launch(session, q.text);
     }
     return summary(this.store.runForHost(token.runId));
   }
@@ -477,15 +454,15 @@ export class ForegroundExecution {
       !identity(input.requestId)
     )
       throw new LedgerError('INVALID_INTERACTION_REPLY');
-    const run = this.view({ projectId: input.projectId, runId: input.runId });
-    if (!this.session || this.session.token.runId !== run.runId || !this.session.broker)
-      throw new LedgerError('STALE_SERVER_REQUEST');
-    this.session.broker.reply(input.requestId, input);
+    const run = this.view({ projectId: input.projectId, runId: input.runId }),
+      session = this.session(run.runId);
+    if (!session?.broker) throw new LedgerError('STALE_SERVER_REQUEST');
+    session.broker.reply(input.requestId, input);
   }
   async interrupt(input: unknown): Promise<void> {
     const run = this.view(input),
-      s = this.session;
-    if (!s || s.token.runId !== run.runId) throw new LedgerError('RUN_NOT_ACTIVE');
+      s = this.session(run.runId);
+    if (!s) throw new LedgerError('RUN_NOT_ACTIVE');
     if (s.turnEnded) return;
     if (s.interrupt) return s.interrupt;
     this.store.block(s.token);
@@ -1051,9 +1028,12 @@ export class ForegroundExecution {
     }
   }
   async close(): Promise<void> {
-    this.session?.abort.abort();
-    this.session?.broker?.declineAll();
-    await this.session?.rpc?.close();
-    await this.completion;
+    const sessions = [...this.sessions.values()];
+    for (const session of sessions) {
+      session.abort.abort();
+      session.broker?.declineAll();
+    }
+    await Promise.all(sessions.map((session) => session.rpc?.close()));
+    await this.wait();
   }
 }

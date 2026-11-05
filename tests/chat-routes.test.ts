@@ -86,6 +86,10 @@ function fixture(t: { after(fn: () => void): void }) {
     get busy() {
       return busy;
     },
+    // Single-slot fake: no further Run can be admitted while one is in flight.
+    get atCapacity() {
+      return busy;
+    },
     get supportsQueuedCode() {
       return false;
     },

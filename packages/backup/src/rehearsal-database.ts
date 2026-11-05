@@ -1,7 +1,7 @@
 import { constants, openSync, closeSync, fstatSync, lstatSync, realpathSync } from 'node:fs';
 import { isAbsolute } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
-import { LedgerError } from '../../store/src/ledger.ts';
+import { LedgerError, RESTORABLE_SCHEMA_REVISIONS } from '../../store/src/ledger.ts';
 import { applyMemoryTombstones } from '../../store/src/memory.ts';
 
 export interface RehearsalWatermarks {
@@ -92,8 +92,12 @@ export function prepareRehearsalDatabase(
     if (connection.prepare("SELECT name FROM sqlite_master WHERE name='recovery_quarantine'").get())
       fail('REHEARSAL_ALREADY_QUARANTINED');
     if (
-      connection.prepare('SELECT schema_revision FROM schema_metadata WHERE singleton=1').get()
-        ?.schema_revision !== 6
+      !RESTORABLE_SCHEMA_REVISIONS.includes(
+        Number(
+          connection.prepare('SELECT schema_revision FROM schema_metadata WHERE singleton=1').get()
+            ?.schema_revision,
+        ),
+      )
     )
       fail('REHEARSAL_SCHEMA_UNSUPPORTED');
     const profiles = connection.prepare('SELECT profile_id FROM profiles').all(),

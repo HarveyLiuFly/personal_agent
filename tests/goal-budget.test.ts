@@ -13,7 +13,7 @@ function fixture(t: { after(fn: () => void): void }, quota: unknown = 90, legacy
     file = join(root, 'ledger.db');
   mkdirSync(cwd);
   const store = new ExecutionLedger(file, schema, {
-    budgetPolicy: { dailyTokens: 1000, reservationTokens: 60 },
+    budgetPolicy: { dailyTokens: 1000, reservationTokens: 60, maxActiveRuns: 1 },
   });
   store.startOwner('goal-budget-owner', true);
   const project = store.registerWorkspace(cwd, cwd),

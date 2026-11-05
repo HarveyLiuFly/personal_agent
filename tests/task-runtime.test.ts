@@ -8,12 +8,19 @@ import { ForegroundExecution } from '../packages/runtime/src/execution.ts';
 import { TaskService } from '../packages/runtime/src/tasks.ts';
 import { OutboxPump } from '../packages/runtime/src/outbox.ts';
 import { StdioRpcClient } from '../packages/codex-adapter/src/rpc.ts';
+import { SINGLE_RUN_POLICY } from './fixtures/policies.ts';
 function fixture(t: { after(fn: () => unknown): void }, mode = 'ok') {
   const root = realpathSync(mkdtempSync(join(tmpdir(), 'personal-agent-task-runtime-'))),
     cwd = join(root, 'project'),
     file = join(root, 'store.db');
   mkdirSync(cwd);
-  const store = new ExecutionLedger(file, readFileSync('docs/design/contracts/schema.sql', 'utf8'));
+  const store = new ExecutionLedger(
+    file,
+    readFileSync('docs/design/contracts/schema.sql', 'utf8'),
+    {
+      budgetPolicy: SINGLE_RUN_POLICY,
+    },
+  );
   store.startOwner('task-runtime-owner', true);
   const project = store.registerWorkspace(cwd, cwd);
   let connections = 0;

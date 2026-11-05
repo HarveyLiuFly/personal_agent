@@ -37,7 +37,8 @@ export class ScheduleService {
   step() {
     const scheduled = this.store.stepSchedules(),
       delivered = this.store.deliverScheduleWakes();
-    if (this.execution && !this.execution.busy) {
+    // Dispatch only while another Run can be admitted; the ledger still enforces capacity.
+    if (this.execution && !this.execution.atCapacity) {
       const candidates = this.store.scheduledCandidates();
       for (let n = 0; n < Math.min(20, candidates.length); n++) {
         const candidate = candidates[(this.cursor + n) % candidates.length]!;
@@ -52,7 +53,7 @@ export class ScheduleService {
       }
       this.cursor = (this.cursor + 20) % Math.max(1, candidates.length);
     }
-    if (this.execution && !this.execution.busy)
+    if (this.execution && !this.execution.atCapacity)
       for (const candidate of this.store.goalDispatchCandidates()) {
         try {
           this.execution.startTask(candidate);

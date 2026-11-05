@@ -308,7 +308,7 @@ test('revision 4 WAL migration backs up actual data and creates revision 6 atomi
   );
   const store = new ExecutionLedger(file, schema);
   try {
-    assert.equal(db.prepare('SELECT schema_revision AS n FROM schema_metadata').get()!.n, 6);
+    assert.equal(db.prepare('SELECT schema_revision AS n FROM schema_metadata').get()!.n, 7);
     const backup = join(
       root,
       readdirSync(root).find((n) => n.endsWith('.backup'))!,

@@ -1,11 +1,12 @@
 import { createInterface } from 'node:readline';
 import { appendFileSync, writeFileSync } from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
-const [mode = 'ok', database, receipts] = process.argv.slice(2);
+// Optional 4th argument: native thread ID (concurrent sessions need distinct IDs).
+const [mode = 'ok', database, receipts, fixtureThreadId] = process.argv.slice(2);
 const write = (value: unknown) => process.stdout.write(JSON.stringify(value) + '\n');
 const notify = (method: string, params: unknown) => write({ method, params });
 let cwd = '',
-  threadId = 'fixture-thread';
+  threadId = fixtureThreadId || 'fixture-thread';
 const requests = new Map<string, (result: Record<string, unknown>) => void>();
 const finish = (text: string, status = 'completed') => {
   notify('item/completed', {

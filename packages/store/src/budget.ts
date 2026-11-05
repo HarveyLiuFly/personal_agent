@@ -4,7 +4,11 @@ import type { ResourceBudget } from '../../contracts/src/budget.ts';
 export interface BudgetPolicy {
   dailyTokens: number;
   reservationTokens: number;
+  /** Runs that may execute at once across all projects (1–8). Default 3. */
+  maxActiveRuns?: number;
 }
+/** Default number of conversations that may run at the same time. */
+export const DEFAULT_MAX_ACTIVE_RUNS = 3;
 type Row = Record<string, string | number | null>;
 const hash = (data: unknown) => createHash('sha256').update(JSON.stringify(data)).digest('hex');
 const active =
@@ -27,7 +31,11 @@ export class BudgetLedger {
       policy.dailyTokens > 1e12 ||
       !Number.isSafeInteger(policy.reservationTokens) ||
       policy.reservationTokens < 1 ||
-      policy.reservationTokens > policy.dailyTokens
+      policy.reservationTokens > policy.dailyTokens ||
+      (policy.maxActiveRuns !== undefined &&
+        (!Number.isSafeInteger(policy.maxActiveRuns) ||
+          policy.maxActiveRuns < 1 ||
+          policy.maxActiveRuns > 8))
     )
       fail('INVALID_BUDGET_POLICY');
     this.db = db;
@@ -46,10 +54,11 @@ export class BudgetLedger {
   }
   initialize() {
     this.exec(
-      'INSERT OR IGNORE INTO budget_policies VALUES (?,?,?,1)',
+      'INSERT OR IGNORE INTO budget_policies VALUES (?,?,?,?)',
       this.dot,
       this.policy.dailyTokens,
       this.policy.reservationTokens,
+      this.policy.maxActiveRuns ?? DEFAULT_MAX_ACTIVE_RUNS,
     );
   }
   private bucket(now = Date.now()): Row {

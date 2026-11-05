@@ -3,7 +3,7 @@ import { ExecutionLedger } from '../../packages/store/src/ledger.ts';
 const [file, cwd] = process.argv.slice(2);
 if (!file || !cwd) throw new Error('ARGUMENTS_REQUIRED');
 const store = new ExecutionLedger(file, readFileSync('docs/design/contracts/schema.sql', 'utf8'), {
-  budgetPolicy: { dailyTokens: 100, reservationTokens: 60 },
+  budgetPolicy: { dailyTokens: 100, reservationTokens: 60, maxActiveRuns: 1 },
 });
 store.startOwner('budget-child-fixture', true);
 const project = store.registerWorkspace(cwd, cwd),

@@ -16,6 +16,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { test } from 'node:test';
 import { ExecutionLedger, LedgerError } from '../packages/store/src/ledger.ts';
 import type { RunToken } from '../packages/store/src/ledger.ts';
+import { SINGLE_RUN_POLICY } from './fixtures/policies.ts';
 const schema = readFileSync(resolve('docs/design/contracts/schema.sql'), 'utf8');
 const failure = (code: string) => (e: unknown) => e instanceof LedgerError && e.code === code;
 function fixture(t: { after(fn: () => void): void }) {
@@ -23,7 +24,7 @@ function fixture(t: { after(fn: () => void): void }) {
     workspace = join(root, 'workspace');
   mkdirSync(workspace);
   const file = join(root, 'state/store.db'),
-    ledger = new ExecutionLedger(file, schema);
+    ledger = new ExecutionLedger(file, schema, { budgetPolicy: SINGLE_RUN_POLICY });
   ledger.startOwner('fixture-owner', true);
   const project = ledger.registerWorkspace(workspace);
   t.after(() => {
@@ -62,7 +63,7 @@ test('initializes common schema, persists workspace identity and protects local 
   try {
     assert.equal(
       db.prepare('SELECT schema_revision FROM schema_metadata').get()!.schema_revision,
-      6,
+      7,
     );
     assert.equal(db.prepare('PRAGMA journal_mode').get()!.journal_mode, 'wal');
     if (process.platform !== 'win32') {

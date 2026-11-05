@@ -12,7 +12,7 @@ CREATE TABLE schema_metadata (
   singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
   schema_revision INTEGER NOT NULL CHECK (schema_revision > 0)
 );
-INSERT INTO schema_metadata VALUES (1, 6);
+INSERT INTO schema_metadata VALUES (1, 7);
 
 CREATE TABLE profiles (
   profile_id TEXT PRIMARY KEY,
@@ -676,7 +676,7 @@ CREATE TABLE budget_policies (
   dot_id TEXT PRIMARY KEY REFERENCES dots(dot_id),
   daily_token_limit INTEGER NOT NULL CHECK (daily_token_limit > 0),
   reservation_tokens INTEGER NOT NULL CHECK (reservation_tokens > 0),
-  max_active_runs INTEGER NOT NULL CHECK (max_active_runs = 1)
+  max_active_runs INTEGER NOT NULL CHECK (max_active_runs BETWEEN 1 AND 8)
 );
 
 CREATE TABLE run_usage (

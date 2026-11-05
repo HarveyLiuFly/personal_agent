@@ -8,6 +8,7 @@ import { ForegroundExecution } from '../packages/runtime/src/execution.ts';
 import type { ExecutionOptions } from '../packages/runtime/src/execution.ts';
 import { StdioRpcClient } from '../packages/codex-adapter/src/rpc.ts';
 import { DatabaseSync } from 'node:sqlite';
+import { SINGLE_RUN_POLICY } from './fixtures/policies.ts';
 function fixture(
   t: { after(fn: () => void | Promise<void>): void },
   mode = 'ok',
@@ -18,7 +19,13 @@ function fixture(
   mkdirSync(workspace);
   const file = join(root, 'store.db'),
     receipts = join(root, 'receipts.txt');
-  const store = new ExecutionLedger(file, readFileSync('docs/design/contracts/schema.sql', 'utf8'));
+  const store = new ExecutionLedger(
+    file,
+    readFileSync('docs/design/contracts/schema.sql', 'utf8'),
+    {
+      budgetPolicy: SINGLE_RUN_POLICY,
+    },
+  );
   store.startOwner('execution-fixture', true);
   const project = store.registerWorkspace(workspace);
   const runtime = new ForegroundExecution(store, {

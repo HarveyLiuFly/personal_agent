@@ -1,7 +1,7 @@
 import { constants, openSync, closeSync, fstatSync, lstatSync, realpathSync } from 'node:fs';
 import { isAbsolute } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
-import { LedgerError } from '../../store/src/ledger.ts';
+import { LedgerError, RESTORABLE_SCHEMA_REVISIONS } from '../../store/src/ledger.ts';
 import { prepareRehearsalDatabase } from './rehearsal-database.ts';
 import type { RehearsalDatabaseSummary, RehearsalWatermarks } from './rehearsal-database.ts';
 
@@ -43,8 +43,12 @@ function validate(db: DatabaseSync): State {
   if (db.prepare("SELECT name FROM sqlite_master WHERE name='recovery_quarantine'").get())
     fail('RESTORE_QUARANTINED_DATABASE');
   if (
-    db.prepare('SELECT schema_revision FROM schema_metadata WHERE singleton=1').get()
-      ?.schema_revision !== 6
+    !RESTORABLE_SCHEMA_REVISIONS.includes(
+      Number(
+        db.prepare('SELECT schema_revision FROM schema_metadata WHERE singleton=1').get()
+          ?.schema_revision,
+      ),
+    )
   )
     fail('RESTORE_SCHEMA_UNSUPPORTED');
   const profiles = rows(db, 'SELECT * FROM profiles'),
@@ -101,7 +105,9 @@ function validate(db: DatabaseSync): State {
     !integer(policy.reservation_tokens) ||
     Number(policy.reservation_tokens) < 1 ||
     Number(policy.reservation_tokens) > Number(policy.daily_token_limit) ||
-    policy.max_active_runs !== 1
+    !integer(policy.max_active_runs) ||
+    Number(policy.max_active_runs) < 1 ||
+    Number(policy.max_active_runs) > 8
   )
     fail('RESTORE_ACCOUNTING_INVALID');
   const buckets = rows(db, "SELECT * FROM budget_buckets WHERE dot_id='local-dot'");
@@ -289,11 +295,22 @@ export function prepareRestoreDatabase(
       'PRAGMA trusted_schema=OFF;PRAGMA foreign_keys=ON;PRAGMA synchronous=FULL;BEGIN IMMEDIATE;',
     );
     transaction = true;
+    // A revision-6 candidate still has CHECK (max_active_runs = 1); the ledger raises it when it
+    // migrates the restored database to the current revision.
+    const candidateRevision = Number(
+      candidateDb.prepare('SELECT schema_revision FROM schema_metadata WHERE singleton=1').get()
+        ?.schema_revision,
+    );
     candidateDb
       .prepare(
-        'INSERT INTO budget_policies VALUES (?,?,?,1) ON CONFLICT(dot_id) DO UPDATE SET daily_token_limit=excluded.daily_token_limit,reservation_tokens=excluded.reservation_tokens,max_active_runs=1',
+        'INSERT INTO budget_policies VALUES (?,?,?,?) ON CONFLICT(dot_id) DO UPDATE SET daily_token_limit=excluded.daily_token_limit,reservation_tokens=excluded.reservation_tokens,max_active_runs=excluded.max_active_runs',
       )
-      .run('local-dot', latest.policy.daily_token_limit!, latest.policy.reservation_tokens!);
+      .run(
+        'local-dot',
+        latest.policy.daily_token_limit!,
+        latest.policy.reservation_tokens!,
+        candidateRevision >= 7 ? Number(latest.policy.max_active_runs) : 1,
+      );
     for (const b of buckets)
       candidateDb
         .prepare(

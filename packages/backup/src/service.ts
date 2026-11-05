@@ -16,7 +16,12 @@ import {
 } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
-import { ExecutionLedger, LedgerError } from '../../store/src/ledger.ts';
+import {
+  ExecutionLedger,
+  LEDGER_SCHEMA_REVISION,
+  LedgerError,
+  RESTORABLE_SCHEMA_REVISIONS,
+} from '../../store/src/ledger.ts';
 import type {
   BackupCommand,
   BackupCommandResult,
@@ -167,7 +172,7 @@ function inspect(database: string): { metadata: Metadata; artifacts: Artifact[] 
       fail('BACKUP_DATABASE_INVALID');
     if (
       db.prepare('SELECT schema_revision FROM schema_metadata WHERE singleton=1').get()
-        ?.schema_revision !== 6
+        ?.schema_revision !== LEDGER_SCHEMA_REVISION
     )
       fail('BACKUP_SCHEMA_UNSUPPORTED');
     if (
@@ -184,7 +189,7 @@ function inspect(database: string): { metadata: Metadata; artifacts: Artifact[] 
       fail('BACKUP_PROFILE_UNSUPPORTED');
     const count = (sql: string) => Number(db.prepare(sql).get()!.n);
     const metadata: Metadata = {
-      schemaRevision: 6,
+      schemaRevision: LEDGER_SCHEMA_REVISION,
       profileId: String(row.profile_id),
       dotId: String(row.dot_id),
       runtimeEpoch: Number(row.runtime_epoch),
@@ -277,7 +282,7 @@ export class BackupService {
       !Number.isSafeInteger(value.createdAt) ||
       Number(value.createdAt) < 1 ||
       !object(value.metadata) ||
-      value.metadata.schemaRevision !== 6 ||
+      !RESTORABLE_SCHEMA_REVISIONS.includes(Number(value.metadata.schemaRevision)) ||
       !Array.isArray(value.files) ||
       value.files.length < 1 ||
       value.files.length > 513

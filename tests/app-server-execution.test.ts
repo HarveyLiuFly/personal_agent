@@ -8,6 +8,7 @@ import type { RpcOptions } from '../packages/codex-adapter/src/rpc.ts';
 import { ExecutionLedger } from '../packages/store/src/ledger.ts';
 import { ForegroundExecution } from '../packages/runtime/src/execution.ts';
 import { inspectCatalog } from '../packages/codex-adapter/src/smoke.ts';
+import { SINGLE_RUN_POLICY } from './fixtures/policies.ts';
 function fixture(t: { after(fn: () => Promise<void>): void }, mode = 'usage') {
   const root = realpathSync(mkdtempSync(join(tmpdir(), 'pa-managed-execution-'))),
     cwd = join(root, 'workspace');
@@ -18,6 +19,7 @@ function fixture(t: { after(fn: () => Promise<void>): void }, mode = 'usage') {
   const store = new ExecutionLedger(
     database,
     readFileSync('docs/design/contracts/schema.sql', 'utf8'),
+    { budgetPolicy: SINGLE_RUN_POLICY },
   );
   store.startOwner('managed-fixture', true);
   const project = store.registerWorkspace(cwd);

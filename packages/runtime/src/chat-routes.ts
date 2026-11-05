@@ -41,7 +41,7 @@ type Store = Pick<
     domain?: { operationId: string; result: string };
   };
 };
-type Execution = Pick<ForegroundExecution, 'submitRole' | 'continueRun' | 'busy'>;
+type Execution = Pick<ForegroundExecution, 'submitRole' | 'continueRun' | 'atCapacity'>;
 type Tasks = Pick<TaskService, 'apply'>;
 export interface ChatRouteProfileRequest {
   role: 'dot-router' | 'dot-chat';
@@ -463,7 +463,8 @@ export class ChatRouteService {
         continue;
       }
       if (dependencies.some((d) => d.state !== 'completed')) continue;
-      if (['CONTINUE_TASK', 'CHAT'].includes(step.operation.kind) && this.execution.busy) continue;
+      if (['CONTINUE_TASK', 'CHAT'].includes(step.operation.kind) && this.execution.atCapacity)
+        continue;
       let context: ReturnType<Store['routeStepContext']>;
       try {
         context = this.store.routeStepContext(route.projectId, route.id, index);

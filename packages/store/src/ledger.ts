@@ -48,7 +48,7 @@ import type {
   TaskPlanNode,
   TaskPlanOperation,
 } from '../../contracts/src/tasks.ts';
-import { BudgetLedger } from './budget.ts';
+import { BudgetLedger, DEFAULT_MAX_ACTIVE_RUNS } from './budget.ts';
 import type { BudgetPolicy } from './budget.ts';
 import type { ResourceOccupancy } from '../../contracts/src/budget.ts';
 import { TerminalLedger } from './terminal.ts';
@@ -166,6 +166,10 @@ export interface LedgerOptions {
 }
 
 /** Host-only local store. startOwner requires the caller to hold the OS single-instance lock. */
+/** Current ledger schema revision (7: several Runs may execute at once). */
+export const LEDGER_SCHEMA_REVISION = 7;
+/** Revisions a backup may contain; older ones are migrated when the restored ledger opens. */
+export const RESTORABLE_SCHEMA_REVISIONS: readonly number[] = [6, 7];
 export class ExecutionLedger {
   #db: DatabaseSync;
   #epoch = 0;
@@ -202,7 +206,7 @@ export class ExecutionLedger {
       const revision = this.one(
         'SELECT schema_revision FROM schema_metadata WHERE singleton=1',
       )?.schema_revision;
-      if (revision === 2 || revision === 3 || revision === 4 || revision === 5) {
+      if (revision === 2 || revision === 3 || revision === 4 || revision === 5 || revision === 6) {
         const ddl = (name: string) =>
           schemaSql.match(new RegExp('CREATE TABLE ' + name + ' \\([\\s\\S]*?\\n\\);'))?.[0] ??
           fail('LEDGER_MIGRATION_UNAVAILABLE');
@@ -222,26 +226,23 @@ export class ExecutionLedger {
           }
         }
         this.tx(() => {
-          if (revision === 2) this.#db.exec(ddl('runtime_requests'));
-          if (revision <= 3)
-            this.#db.exec(
-              'ALTER TABLE budget_reservations ADD COLUMN actual_units INTEGER CHECK (actual_units IS NULL OR actual_units>=0); ALTER TABLE budget_reservations ADD COLUMN settlement_hash TEXT;',
-            );
-          if (revision <= 3)
-            for (const name of ['budget_policies', 'run_usage', 'thread_usage'])
-              this.#db.exec(ddl(name));
-          if (revision <= 4)
-            for (const name of [
-              'worktree_operations',
-              'project_operation_leases',
-              'managed_worktrees',
-            ])
-              this.#db.exec(ddl(name));
-          for (const name of ['terminal_sessions', 'workspace_terminal_leases', 'terminal_inputs'])
-            this.#db.exec(ddl(name));
-          this.exec('UPDATE schema_metadata SET schema_revision=6 WHERE singleton=1');
+          if (revision <= 5) this.migrateToRevision6(revision, ddl);
+          // 6 -> 7: several Runs may execute at once. max_active_runs was fixed at 1 by a CHECK;
+          // rebuild the table with the 1..8 range and raise the forced 1 to the default.
+          this.#db.exec('ALTER TABLE budget_policies RENAME TO budget_policies_revision6');
+          this.#db.exec(ddl('budget_policies'));
+          this.#db
+            .prepare(
+              'INSERT INTO budget_policies SELECT dot_id,daily_token_limit,reservation_tokens,? FROM budget_policies_revision6',
+            )
+            .run(DEFAULT_MAX_ACTIVE_RUNS);
+          this.#db.exec('DROP TABLE budget_policies_revision6');
+          this.exec(
+            'UPDATE schema_metadata SET schema_revision=? WHERE singleton=1',
+            LEDGER_SCHEMA_REVISION,
+          );
         });
-      } else if (revision !== 6) fail('LEDGER_SCHEMA_UNSUPPORTED');
+      } else if (revision !== LEDGER_SCHEMA_REVISION) fail('LEDGER_SCHEMA_UNSUPPORTED');
       this.budget = new BudgetLedger(this.#db, this.dotId, fail, options.budgetPolicy);
       this.terminals = new TerminalLedger(this.#db, this.dotId, fail, {
         owner: () => this.owner(),
@@ -365,25 +366,20 @@ export class ExecutionLedger {
       throw error;
     }
   }
-  private hasBlockingExecution(mode: 'readOnly' | 'workspaceWrite'): boolean {
-    const rows = this.all(
-      `SELECT r.run_id,r.status,t.constraints_json FROM task_runs r JOIN tasks t USING(task_id) WHERE r.dot_id=? AND r.status IN ${active}`,
-      this.dotId,
-    );
-    return rows.some((r) => {
-      const c = JSON.parse(String(r.constraints_json));
-      return !(
-        mode === 'readOnly' &&
-        r.status === 'outcome_unknown' &&
-        c.mode === 'readOnly' &&
-        c.privacyRevoked === true &&
-        !this.one('SELECT run_id FROM workspace_write_leases WHERE run_id=?', r.run_id!) &&
-        this.one(
-          "SELECT event_id FROM task_events WHERE run_id=? AND event_type='executor_closed'",
-          r.run_id!,
-        )
+  /** Revisions 2..5 -> 6 (unchanged steps); runs inside the migration transaction. */
+  private migrateToRevision6(revision: number, ddl: (name: string) => string): void {
+    if (revision === 2) this.#db.exec(ddl('runtime_requests'));
+    if (revision <= 3)
+      this.#db.exec(
+        'ALTER TABLE budget_reservations ADD COLUMN actual_units INTEGER CHECK (actual_units IS NULL OR actual_units>=0); ALTER TABLE budget_reservations ADD COLUMN settlement_hash TEXT;',
       );
-    });
+    if (revision <= 3)
+      for (const name of ['budget_policies', 'run_usage', 'thread_usage']) this.#db.exec(ddl(name));
+    if (revision <= 4)
+      for (const name of ['worktree_operations', 'project_operation_leases', 'managed_worktrees'])
+        this.#db.exec(ddl(name));
+    for (const name of ['terminal_sessions', 'workspace_terminal_leases', 'terminal_inputs'])
+      this.#db.exec(ddl(name));
   }
   private owner(): void {
     const current = this.one('SELECT * FROM runtime_owners WHERE profile_id=?', this.profileId);
@@ -3145,7 +3141,6 @@ export class ExecutionLedger {
     if (key === JSON.parse(String(task.constraints_json)).goalDispatchKey)
       this.goals.assertDispatchCandidate(projectId, taskId, expectedVersion, key);
     const epochs = this.taskAuthority(task);
-    if (this.hasBlockingExecution(data.mode)) return fail('RUNTIME_BUSY');
     const binding = this.one(
         "SELECT execution_thread_id FROM thread_bindings WHERE task_id=? AND state='active'",
         taskId,
@@ -3524,7 +3519,6 @@ export class ExecutionLedger {
           created: false,
         };
       }
-      if (this.hasBlockingExecution(mode)) return fail('RUNTIME_BUSY');
       this.projectOperationAvailable(workspaceId);
       const taskId = randomUUID(),
         runId = randomUUID(),
@@ -3663,7 +3657,6 @@ export class ExecutionLedger {
         task.write_fence !== source.taskFence
       )
         return fail('RUN_NOT_CONTINUABLE');
-      if (this.hasBlockingExecution(source.mode)) return fail('RUNTIME_BUSY');
       const epochs = this.taskAuthority(task);
       const sourceEpochs = this.one(
         'SELECT policy_epoch,privacy_epoch,goal_plan_version FROM task_runs WHERE run_id=?',
@@ -4643,6 +4636,13 @@ export class ExecutionLedger {
       this.owner();
       return this.budget.snapshot();
     });
+  }
+  /** How many Runs may execute at once (policy, 1–8). Admission enforces it in the same transaction. */
+  maxActiveRuns(): number {
+    return Number(
+      this.one('SELECT max_active_runs AS n FROM budget_policies WHERE dot_id=?', this.dotId)?.n ??
+        DEFAULT_MAX_ACTIVE_RUNS,
+    );
   }
   /** Read-only scoped ledger counts. These are not live process probes or a promise of task admission. */
   resourceOccupancy(): ResourceOccupancy {

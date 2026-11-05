@@ -17,7 +17,7 @@ function fixture(
     file = join(root, 'ledger.db');
   mkdirSync(cwd);
   const store = new ExecutionLedger(file, schema, {
-    budgetPolicy: { dailyTokens: 1000, reservationTokens: 60 },
+    budgetPolicy: { dailyTokens: 1000, reservationTokens: 60, maxActiveRuns: 1 },
   });
   store.startOwner('privacy-admission-fixture', true);
   const project = store.registerWorkspace(cwd),

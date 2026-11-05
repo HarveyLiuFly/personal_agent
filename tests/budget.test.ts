@@ -24,7 +24,7 @@ function fixture(t: { after(fn: () => void): void }, dailyTokens = 100, reservat
     file = join(root, 'store.db');
   mkdirSync(cwd);
   const store = new ExecutionLedger(file, schema, {
-    budgetPolicy: { dailyTokens, reservationTokens },
+    budgetPolicy: { dailyTokens, reservationTokens, maxActiveRuns: 1 },
   });
   store.startOwner('budget-owner', true);
   const project = store.registerWorkspace(cwd, cwd),
@@ -347,7 +347,7 @@ for (const revision of [2, 3] as const)
     const db = new DatabaseSync(file, { readOnly: true });
     assert.equal(
       db.prepare('SELECT schema_revision FROM schema_metadata').get()!.schema_revision,
-      6,
+      7,
     );
     assert.equal(db.prepare('SELECT consumed_units FROM budget_buckets').get()!.consumed_units, 20);
     assert.equal(

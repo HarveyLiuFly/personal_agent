@@ -15,13 +15,14 @@ import { DatabaseSync } from 'node:sqlite';
 import { test } from 'node:test';
 import { ExecutionLedger } from '../packages/store/src/ledger.ts';
 import { InteractionBroker } from '../packages/runtime/src/interactions.ts';
+import { SINGLE_RUN_POLICY } from './fixtures/policies.ts';
 const schema = readFileSync('docs/design/contracts/schema.sql', 'utf8');
 function fixture(t: { after(fn: () => void): void }, timeout = 1000) {
   const root = realpathSync(mkdtempSync(join(tmpdir(), 'personal-agent-interactions-'))),
     workspace = join(root, 'workspace');
   mkdirSync(workspace);
   const file = join(root, 'state/store.db'),
-    store = new ExecutionLedger(file, schema);
+    store = new ExecutionLedger(file, schema, { budgetPolicy: SINGLE_RUN_POLICY });
   store.startOwner('interaction-owner', true);
   const project = store.registerWorkspace(workspace);
   const { token } = store.beginRun(project.id, 'interaction fixture', 'key', 'workspaceWrite');
@@ -264,7 +265,7 @@ test('revision 2 migration creates a verified private snapshot including WAL dat
   const current = new DatabaseSync(file, { readOnly: true });
   assert.equal(
     current.prepare('SELECT schema_revision FROM schema_metadata').get()!.schema_revision,
-    6,
+    7,
   );
   assert.equal(
     current.prepare('SELECT display_name FROM profiles').get()!.display_name,

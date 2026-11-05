@@ -342,7 +342,21 @@ function finishRequest(request: AbortController): void {
 }
 const hostError = (error: unknown): string =>
   error instanceof RpcFailure || error instanceof LedgerError ? error.code : 'HOST_ERROR';
-/** Exclusive command: mutates workspace/run state, so it waits for no other command or execution. */
+/** Project scope of a command argument, when it names one. */
+function commandProject(args: unknown[]): string | undefined {
+  const value = args[0];
+  return value &&
+    typeof value === 'object' &&
+    typeof (value as { projectId?: unknown }).projectId === 'string'
+    ? (value as { projectId: string }).projectId
+    : undefined;
+}
+/** True when a Run of the command's project (or, without a project, any Run) is executing. */
+function projectRunning(args: unknown[]): boolean {
+  const projectId = commandProject(args);
+  return projectId ? Boolean(execution?.activeIn(projectId)) : Boolean(execution?.busy);
+}
+/** Exclusive command: mutates workspace/run state; runs alone and not while its project executes. */
 async function historyCommand<T>(
   event: Electron.IpcMainInvokeEvent,
   args: unknown[],
@@ -352,7 +366,7 @@ async function historyCommand<T>(
   authorized(event);
   if (runtimeTransition) return { ok: false, errorCode: 'RUNTIME_RESTARTING' };
   if (args.length !== count) return { ok: false, errorCode: 'UNEXPECTED_ARGUMENTS' };
-  if (active || execution?.busy) return { ok: false, errorCode: 'RUNTIME_BUSY' };
+  if (active || projectRunning(args)) return { ok: false, errorCode: 'RUNTIME_BUSY' };
   active = true;
   const request = new AbortController();
   inFlight.add(request);
@@ -1270,7 +1284,7 @@ async function boot(): Promise<void> {
     authorized(event);
     if (runtimeTransition) return { ok: false, errorCode: 'RUNTIME_RESTARTING' };
     if (args.length !== 1) return { ok: false, errorCode: 'UNEXPECTED_ARGUMENTS' };
-    if (active || execution?.busy) return { ok: false, errorCode: 'RUNTIME_BUSY' };
+    if (active || projectRunning(args)) return { ok: false, errorCode: 'RUNTIME_BUSY' };
     active = true;
     const request = new AbortController();
     inFlight.add(request);

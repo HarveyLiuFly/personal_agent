@@ -285,7 +285,7 @@ test(
         } else {
           const store = new ExecutionLedger(file, schema);
           store.close();
-          assert.equal(db.prepare('SELECT schema_revision AS n FROM schema_metadata').get()!.n, 6);
+          assert.equal(db.prepare('SELECT schema_revision AS n FROM schema_metadata').get()!.n, 7);
           assert.equal(
             db
               .prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE name='managed_worktrees'")

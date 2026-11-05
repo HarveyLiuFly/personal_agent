@@ -13,6 +13,7 @@ import { ExecutionLedger } from '../packages/store/src/ledger.ts';
 import { ForegroundExecution } from '../packages/runtime/src/execution.ts';
 import { ScheduleService } from '../packages/runtime/src/schedules.ts';
 import { StdioRpcClient } from '../packages/codex-adapter/src/rpc.ts';
+import { SINGLE_RUN_POLICY } from './fixtures/policies.ts';
 const schema = readFileSync('docs/design/contracts/schema.sql', 'utf8'),
   start = Date.parse('2026-11-03T03:00:00Z');
 function fixture(t: { after(fn: () => unknown): void }, mode = 'ok', fault?: () => void) {
@@ -23,6 +24,7 @@ function fixture(t: { after(fn: () => unknown): void }, mode = 'ok', fault?: () 
   let now = start,
     connections = 0;
   const store = new ExecutionLedger(file, schema, {
+    budgetPolicy: SINGLE_RUN_POLICY,
     schedulerClock: () => now,
     afterScheduledClaimForTests: fault,
   });
