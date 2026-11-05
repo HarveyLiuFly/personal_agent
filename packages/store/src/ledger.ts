@@ -63,6 +63,7 @@ import { SchedulerLedger, scheduledRunKey } from './scheduler.ts';
 import { ConversationLedger, decodeCursor, validChoices } from './conversations.ts';
 import type {
   ConversationChoices,
+  ConversationGroup,
   ConversationPage,
   ConversationSummary,
   ConversationTurns,
@@ -689,12 +690,13 @@ export class ExecutionLedger {
   }
   projects(): ProjectView[] {
     return this.all(
-      "SELECT w.workspace_id,w.canonical_cwd,m.display_name FROM workspaces w LEFT JOIN managed_worktrees m USING(workspace_id) WHERE w.dot_id=? AND w.state<>'archived' ORDER BY w.rowid LIMIT 100",
+      "SELECT w.workspace_id,w.canonical_cwd,m.display_name,m.source_workspace_id FROM workspaces w LEFT JOIN managed_worktrees m USING(workspace_id) WHERE w.dot_id=? AND w.state<>'archived' ORDER BY w.rowid LIMIT 100",
       this.dotId,
     ).map((row) => ({
       id: String(row.workspace_id),
       directory: String(row.canonical_cwd),
       name: row.display_name ? String(row.display_name) : basename(String(row.canonical_cwd)),
+      ...(row.source_workspace_id ? { sourceId: String(row.source_workspace_id) } : {}),
     }));
   }
   workspace(workspaceId: string): ProjectView {
@@ -746,10 +748,17 @@ export class ExecutionLedger {
         )
           return fail('WORKTREE_IDENTITY_CHANGED');
       }
+      const source = managed
+        ? this.one(
+            'SELECT source_workspace_id FROM managed_worktrees WHERE workspace_id=?',
+            workspaceId,
+          )
+        : undefined;
       return {
         id: workspaceId,
         name: managed ? this.managedWorktree(workspaceId).name : basename(cwd),
         directory: cwd,
+        ...(source ? { sourceId: String(source.source_workspace_id) } : {}),
       };
     } catch (error) {
       if (error instanceof LedgerError) throw error;
@@ -1375,6 +1384,9 @@ export class ExecutionLedger {
   /** A page of the project's conversations (tasks the user sees), pinned first. */
   conversations(input: unknown): ConversationPage {
     return this.conversationList.list(input);
+  }
+  conversationGroups(input: unknown): ConversationGroup[] {
+    return this.conversationList.groups(input);
   }
   conversationSummary(input: unknown): ConversationSummary {
     return this.conversationList.get(input);

@@ -27,6 +27,7 @@ export const DESKTOP_API_KEYS: readonly string[] = [
   'interruptRun',
   'listBackups',
   'listChatRoutes',
+  'listConversationGroups',
   'listConversationTurns',
   'listConversations',
   'listGoalNotifications',

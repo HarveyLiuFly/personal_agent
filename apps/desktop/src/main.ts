@@ -1163,6 +1163,7 @@ async function boot(): Promise<void> {
       (input: unknown) => ledger!.projectChoices(oneId(input, 'projectId')),
     ],
     ['conversations:list', (input: unknown) => ledger!.conversations(input)],
+    ['conversations:groups', (input: unknown) => ledger!.conversationGroups(input)],
     ['conversations:get', (input: unknown) => ledger!.conversationSummary(input)],
     ['conversations:turns', (input: unknown) => ledger!.conversationTurns(input)],
     ['conversations:update', (input: unknown) => ledger!.updateConversation(input)],

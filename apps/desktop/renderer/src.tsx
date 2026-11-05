@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import type { ConnectionInfo } from '../src/bridge.ts';
-import { HistoryApp } from './history-app.tsx';
+import { AppShell } from './app-shell.tsx';
 import { subscribeRefresh } from './host-events.ts';
 import './style.css';
 function App() {
@@ -36,34 +36,38 @@ function App() {
           : 'Codex 索引准备中'
         : 'Codex 暂未连接';
   return (
-    <HistoryApp>
-      <div
-        className="connection-chip"
-        role="status"
-        data-connected={connection?.status === 'connected'}
-      >
-        <span
-          className={'status-dot ' + (connection?.status === 'connected' ? 'connected' : '')}
-          aria-hidden="true"
-        />
-        <span
-          title={
-            connection?.status === 'connected' ? `模型目录可读 · ${connection.models} 个模型` : text
-          }
+    <AppShell
+      connection={
+        <div
+          className="connection-chip"
+          role="status"
+          data-connected={connection?.status === 'connected'}
         >
-          {text}
-        </span>
-        <button
-          data-action="inspect"
-          aria-label="重新检查 Codex 连接"
-          className="text-button"
-          disabled={busy}
-          onClick={() => void inspect()}
-        >
-          ↻
-        </button>
-      </div>
-    </HistoryApp>
+          <span
+            className={'status-dot ' + (connection?.status === 'connected' ? 'connected' : '')}
+            aria-hidden="true"
+          />
+          <span
+            title={
+              connection?.status === 'connected'
+                ? `模型目录可读 · ${connection.models} 个模型`
+                : text
+            }
+          >
+            {text}
+          </span>
+          <button
+            data-action="inspect"
+            aria-label="重新检查 Codex 连接"
+            className="text-button"
+            disabled={busy}
+            onClick={() => void inspect()}
+          >
+            ↻
+          </button>
+        </div>
+      }
+    />
   );
 }
 const root = document.getElementById('root');

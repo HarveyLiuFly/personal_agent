@@ -5,6 +5,8 @@ import type {
   ModelOption,
   ProjectCheckSetting,
   ProjectCheckView,
+  ConversationGroup,
+  ConversationGroupQuery,
   ConversationPage,
   ConversationQuery,
   ConversationSummary,
@@ -219,6 +221,7 @@ export interface DesktopApi {
   }): Promise<HostResult<Required<ConversationChoices>>>;
   /** Conversations of a project (pinned first, then most recently active), one page at a time. */
   listConversations(query: ConversationQuery): Promise<HostResult<ConversationPage>>;
+  listConversationGroups(query: ConversationGroupQuery): Promise<HostResult<ConversationGroup[]>>;
   getConversation(query: {
     projectId: string;
     conversationId: string;

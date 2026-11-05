@@ -54,6 +54,7 @@ const api: DesktopApi = Object.freeze<DesktopApi>({
   runProjectCheck: (input) => ipcRenderer.invoke('checks:run', input),
   listProjectChecks: (query) => ipcRenderer.invoke('checks:list', query),
   conversationDefaults: (query) => ipcRenderer.invoke('conversations:defaults', query),
+  listConversationGroups: (query) => ipcRenderer.invoke('conversations:groups', query),
   listConversations: (query) => ipcRenderer.invoke('conversations:list', query),
   getConversation: (query) => ipcRenderer.invoke('conversations:get', query),
   listConversationTurns: (query) => ipcRenderer.invoke('conversations:turns', query),

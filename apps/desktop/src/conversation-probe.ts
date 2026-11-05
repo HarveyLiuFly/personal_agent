@@ -1,6 +1,7 @@
 // CORE.2d/2g window acceptance with the synthetic stdio backend (no model request): a new
 // conversation, a follow-up in the same conversation, the sidebar list, pinning, the Dot entry,
-// starting a new conversation from a turn, and archiving.
+// starting a new conversation from a turn, and archiving. CORE.4a adds the three-column sidebar:
+// worktrees under their project, search across projects, and the pages moved into settings.
 import { writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import type { App, BrowserWindow } from 'electron';
@@ -153,7 +154,54 @@ const script = `(async () => {
       conversationId: panel().dataset.conversationId,
     })
   ).value;
+  // CORE.4a sidebar: the worktree sits under its project; search filters every project at once.
+  const worktreeId = worktrees[0]?.id ?? '';
+  const worktreeConversationId = panel().dataset.conversationId;
+  await wait(() => rows().length === 2, 'WORKTREE_NOT_LISTED');
+  const groups = [...document.querySelectorAll('[data-project-group]')];
+  const worktreeNested =
+    groups.length === 2 &&
+    groups[0].dataset.projectGroup === projectId &&
+    groups[1].dataset.projectGroup === worktreeId &&
+    groups[1].classList.contains('worktree');
+  const search = document.querySelector('[aria-label="搜索对话"]');
+  const setSearch = (text) => {
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(search, text);
+    search.dispatchEvent(new Event('input', { bubbles: true }));
+  };
+  setSearch('WORKTREE synthetic');
+  await wait(
+    () =>
+      rows().length === 1 &&
+      rows()[0].dataset.conversationId === worktreeConversationId &&
+      !document.querySelector('[data-project-group="' + projectId + '"]'),
+    'SEARCH_NOT_APPLIED',
+  );
+  setSearch('');
+  await wait(() => rows().length === 2, 'SEARCH_NOT_CLEARED');
+  const rowTime = document.querySelector('.thread-list .thread-time')?.textContent ?? '';
+  const currentMarked =
+    document.querySelector('.thread[aria-current="page"]')?.dataset.conversationId ===
+    worktreeConversationId;
+  // Settings: memory, tasks and native history moved there from the main navigation.
+  click('[data-action="open-settings"]');
+  await wait(() => document.querySelector('[data-action="open-memory"]'), 'SETTINGS_NOT_SHOWN');
+  click('[data-action="open-memory"]');
+  await wait(() => document.querySelector('[data-memory-manager]'), 'MEMORY_NOT_SHOWN');
+  click('[data-action="open-tasks"]');
+  await wait(() => document.querySelector('[data-task-manager]'), 'TASKS_NOT_SHOWN');
+  click('[data-action="open-native-history"]');
+  await wait(() => document.querySelector('.native-history'), 'HISTORY_NOT_SHOWN');
+  click('[data-action="open-automation"]');
+  await wait(() => document.querySelector('[data-schedule-manager]'), 'SCHEDULES_NOT_SHOWN');
+  const settingsReachable = true;
+  click('.thread-list [data-conversation-id="' + worktreeConversationId + '"]');
+  await wait(() => turns().length === 1, 'WORKTREE_CONVERSATION_NOT_REOPENED');
   return {
+    worktreeNested,
+    rowTime,
+    currentMarked,
+    settingsReachable,
     worktreeCrumb,
     worktreeCount: worktrees.length,
     worktreeConversationTurns: worktreeConversation?.turns ?? 0,
@@ -236,6 +284,10 @@ export async function runConversationProbe(
     result.worktreeConversationTurns === 1 &&
     typeof result.worktreeCrumb === 'string' &&
     result.worktreeCrumb !== 'workspace' &&
+    result.worktreeNested === true &&
+    result.rowTime === '刚刚' &&
+    result.currentMarked === true &&
+    result.settingsReachable === true &&
     result.checkAfterLastTurn === true &&
     typeof result.modelCatalog === 'number' &&
     result.modelCatalog > 0 &&

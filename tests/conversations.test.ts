@@ -127,6 +127,49 @@ test('a long conversation list pages by position and finds any conversation by I
     assert.throws(() => store.conversations(bad), /INVALID_CONVERSATION/);
 });
 
+test('the sidebar reads every project at once; search also covers the first message', (t) => {
+  const { store, a, b } = fixture(t);
+  const made = Array.from({ length: 10 }, (_, i) => conversation(store, a.id, `topic ${i}`));
+  const long = conversation(
+    store,
+    b.id,
+    'Please look at this. ' + 'x'.repeat(130) + ' zebra-marker',
+  );
+  const groups = store.conversationGroups({});
+  assert.deepEqual(
+    groups.map((group) => group.projectId),
+    [a.id, b.id],
+  );
+  const first = groups[0]!;
+  assert.equal(first.items.length, 8, 'a few per project');
+  assert.ok(first.nextCursor);
+  // The rest of a project continues through the ordinary list.
+  const rest = store.conversations({ projectId: a.id, cursor: first.nextCursor! });
+  assert.deepEqual(
+    new Set([...ids(first.items), ...ids(rest.items)]),
+    new Set(made.map((m) => m.taskId)),
+  );
+  assert.equal(rest.nextCursor, null);
+  assert.deepEqual(ids(groups[1]!.items), [long.taskId]);
+  // The marker sits past the 120-character title: found by the first message.
+  const title = store.conversationSummary({ projectId: b.id, conversationId: long.taskId }).title;
+  assert.ok(!title.includes('zebra'));
+  const found = store.conversationGroups({ query: 'ZEBRA-marker' });
+  assert.deepEqual(
+    found.map((group) => ids(group.items)),
+    [[], [long.taskId]],
+  );
+  assert.deepEqual(ids(store.conversations({ projectId: b.id, query: 'zebra' }).items), [
+    long.taskId,
+  ]);
+  assert.deepEqual(
+    store.conversationGroups({ archived: true }).map((g) => g.items.length),
+    [0, 0],
+  );
+  for (const bad of [{ projectId: a.id }, { archived: 'yes' }, { query: 7 }, null])
+    assert.throws(() => store.conversationGroups(bad), /INVALID_CONVERSATION_QUERY/);
+});
+
 test('pinned conversations lead the first page; read state follows the last finished turn', (t) => {
   const { store, a } = fixture(t);
   const made = Array.from({ length: 3 }, (_, i) => conversation(store, a.id, `topic ${i}`));

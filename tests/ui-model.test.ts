@@ -7,6 +7,8 @@ import {
   DraftBank,
   latestTaskRuns,
   mergeTurns,
+  projectTree,
+  relativeTime,
   sendFailure,
   sendOnEnter,
 } from '../apps/desktop/renderer/ui-model.ts';
@@ -242,4 +244,35 @@ test('a known refusal frees the draft; anything else keeps the key so a resend c
     assert.equal(failure.retry, true, code);
     assert.match(failure.message, /不会重复/);
   }
+});
+
+test('sidebar times read as short relative phrases, then the date', () => {
+  const now = new Date(2026, 10, 5, 12, 0).getTime(),
+    minute = 60000;
+  assert.equal(relativeTime(now - 20000, now), '刚刚');
+  assert.equal(relativeTime(now + 5000, now), '刚刚', 'a clock slightly ahead is not negative');
+  assert.equal(relativeTime(now - 5 * minute, now), '5 分钟');
+  assert.equal(relativeTime(now - 3 * 60 * minute, now), '3 小时');
+  assert.equal(relativeTime(now - 2 * 1440 * minute, now), '2 天');
+  assert.equal(relativeTime(now - 15 * 1440 * minute, now), '2 周');
+  assert.equal(relativeTime(new Date(2026, 6, 9).getTime(), now), '7月9日');
+  assert.equal(relativeTime(new Date(2025, 0, 2).getTime(), now), '2025/1/2');
+});
+
+test('worktrees sit under the workspace they came from', () => {
+  const tree = projectTree([
+    { id: 'a' },
+    { id: 'w1', sourceId: 'a' },
+    { id: 'b' },
+    { id: 'w2', sourceId: 'a' },
+    { id: 'orphan', sourceId: 'gone' },
+  ]);
+  assert.deepEqual(
+    tree.map((group) => [group.project.id, group.worktrees.map((w) => w.id)]),
+    [
+      ['a', ['w1', 'w2']],
+      ['b', []],
+      ['orphan', []],
+    ],
+  );
 });

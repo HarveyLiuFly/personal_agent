@@ -60,7 +60,7 @@ export interface ConversationQuery {
   cursor?: string;
   /** List archived conversations instead of current ones. */
   archived?: boolean;
-  /** Case-insensitive title filter. */
+  /** Case-insensitive filter on the title and the first message. */
   query?: string;
 }
 export interface ConversationPage {
@@ -69,6 +69,15 @@ export interface ConversationPage {
   /** Other conversations, most recently active first. */
   items: ConversationSummary[];
   nextCursor: string | null;
+}
+/** One project's part of the sidebar: pinned and most recent conversations. */
+export interface ConversationGroup extends ConversationPage {
+  projectId: string;
+}
+/** The sidebar query: every project at once. */
+export interface ConversationGroupQuery {
+  archived?: boolean;
+  query?: string;
 }
 export interface ConversationTurnsQuery {
   projectId: string;

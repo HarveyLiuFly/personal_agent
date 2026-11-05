@@ -1,6 +1,7 @@
 import type { DatabaseSync } from 'node:sqlite';
 import type {
   ConversationChoices,
+  ConversationGroup,
   ConversationPage,
   ConversationSummary,
   PermissionMode,
@@ -10,6 +11,8 @@ type Row = Record<string, string | number | null>;
 const active =
   "('preparing','submitting','running','waiting_input','waiting_approval','outcome_unknown')";
 const PAGE = 30;
+/** Conversations per project shown in the sidebar before "more". */
+const GROUP = 8;
 const id = (value: unknown): value is string =>
   typeof value === 'string' &&
   value.length > 0 &&
@@ -151,47 +154,73 @@ export class ConversationLedger {
    */
   list(input: unknown): ConversationPage {
     const q = this.query(input, ['projectId', 'cursor', 'archived', 'query']);
+    const filter = this.filter(q);
+    this.host.workspace(String(q.projectId));
+    return this.page(String(q.projectId), filter, decodeCursor(q.cursor, this.fail), PAGE);
+  }
+  /**
+   * The sidebar: every project's pinned conversations and its few most recent ones, in one read.
+   * `nextCursor` continues a project's list through `list`.
+   */
+  groups(input: unknown): ConversationGroup[] {
+    if (
+      !input ||
+      typeof input !== 'object' ||
+      Array.isArray(input) ||
+      Object.keys(input).some((key) => !['archived', 'query'].includes(key))
+    )
+      return this.fail('INVALID_CONVERSATION_QUERY');
+    const filter = this.filter(input as Record<string, unknown>);
+    return this.all(
+      "SELECT workspace_id FROM workspaces WHERE dot_id=? AND state<>'archived' ORDER BY rowid LIMIT 100",
+      this.dot,
+    ).map((row) => ({
+      projectId: String(row.workspace_id),
+      ...this.page(String(row.workspace_id), filter, null, GROUP),
+    }));
+  }
+  private filter(q: Record<string, unknown>): { archived: number; text: string | null } {
     if (q.archived !== undefined && typeof q.archived !== 'boolean')
       return this.fail('INVALID_CONVERSATION_QUERY');
     if (q.query !== undefined && (typeof q.query !== 'string' || q.query.length > 200))
       return this.fail('INVALID_CONVERSATION_QUERY');
-    const projectId = String(q.projectId),
-      archived = q.archived === true ? 1 : 0,
-      text = typeof q.query === 'string' && q.query.trim() ? q.query.trim() : null,
-      cursor = decodeCursor(q.cursor, this.fail);
-    this.host.workspace(projectId);
-    const filter = `t.workspace_id=? AND ${visible} AND (t.archived_at_ms IS NOT NULL)=? AND (? IS NULL OR instr(lower(t.title),lower(?))>0)`;
+    return {
+      archived: q.archived === true ? 1 : 0,
+      text: typeof q.query === 'string' && q.query.trim() ? q.query.trim() : null,
+    };
+  }
+  private page(
+    projectId: string,
+    { archived, text }: { archived: number; text: string | null },
+    cursor: { at: number; row: number } | null,
+    size: number,
+  ): ConversationPage {
+    // Search covers the title and the first message; later messages live only in Codex.
+    const filter = `t.workspace_id=? AND ${visible} AND (t.archived_at_ms IS NOT NULL)=? AND (? IS NULL OR instr(lower(t.title),lower(?))>0 OR instr(lower(COALESCE(json_extract(t.constraints_json,'$.text'),'')),lower(?))>0)`,
+      args = [projectId, this.dot, archived, text, text, text];
     const pinned =
       cursor || archived
         ? []
         : this.all(
             `SELECT t.* FROM tasks t WHERE ${filter} AND t.pinned_at_ms IS NOT NULL ORDER BY t.pinned_at_ms DESC,t.rowid DESC LIMIT 50`,
-            projectId,
-            this.dot,
-            archived,
-            text,
-            text,
+            ...args,
           );
     const rows = this.all(
       `SELECT t.*,t.rowid AS row_id FROM tasks t WHERE ${filter} AND (t.pinned_at_ms IS NULL OR ?=1) AND (? IS NULL OR t.updated_at_ms<? OR (t.updated_at_ms=? AND t.rowid<?)) ORDER BY t.updated_at_ms DESC,t.rowid DESC LIMIT ?`,
-      projectId,
-      this.dot,
-      archived,
-      text,
-      text,
+      ...args,
       archived,
       cursor?.at ?? null,
       cursor?.at ?? null,
       cursor?.at ?? null,
       cursor?.row ?? null,
-      PAGE + 1,
+      size + 1,
     );
-    const page = rows.slice(0, PAGE),
+    const page = rows.slice(0, size),
       last = page.at(-1);
     return {
       pinned: pinned.map((row) => this.summary(row)),
       items: page.map((row) => this.summary(row)),
-      nextCursor: rows.length > PAGE && last ? `${last.updated_at_ms}.${last.row_id}` : null,
+      nextCursor: rows.length > size && last ? `${last.updated_at_ms}.${last.row_id}` : null,
     };
   }
   /** One conversation by ID, wherever it sits in the list. */

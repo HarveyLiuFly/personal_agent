@@ -47,6 +47,8 @@ interface Props {
   /** A new conversation started in a new worktree: the shell switches to that workspace. */
   onCreatedIn?: (workspace: ProjectView, conversationId: string) => void;
   onFork?: (source: { runId: string; title: string }) => void;
+  /** The open conversation's title, for the window's title bar. */
+  onTitle?: (title: string) => void;
 }
 
 /**
@@ -62,6 +64,7 @@ export function ConversationPanel({
   onCreated,
   onCreatedIn,
   onFork,
+  onTitle,
 }: Props) {
   const [summary, setSummary] = useState<ConversationSummary>(),
     [recent, setRecent] = useState<RunView[]>([]),
@@ -129,6 +132,7 @@ export function ConversationPanel({
         const next = await value(window.personalAgent.getConversation(scope));
         if (stopped) return;
         setSummary(next);
+        onTitle?.(next.title);
         if (next.turns !== seen.current.turns || (next.latestRunId ?? '') !== seen.current.latest) {
           const page = await value(window.personalAgent.listConversationTurns(scope));
           if (stopped) return;

@@ -496,17 +496,3 @@ export function MainChatWorkspace({
     </section>
   );
 }
-export function MainChatDialog({
-  project,
-  onClose,
-}: {
-  project: ProjectView;
-  onClose: () => void;
-}) {
-  return (
-    <>
-      <button onClick={onClose}>返回</button>
-      <MainChatWorkspace project={project} />
-    </>
-  );
-}

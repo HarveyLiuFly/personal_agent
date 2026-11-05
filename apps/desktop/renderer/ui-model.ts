@@ -185,3 +185,33 @@ export function sendFailure(code: string): { message: string; retry: boolean } {
     ? { message: known[code]!, retry: false }
     : { message: '发送结果还没有确认。消息已保留，可以再次发送，不会重复。', retry: true };
 }
+/** How long ago, in the sidebar's short form: 刚刚, 5 分钟, 3 小时, 2 天, 3 周, then the date. */
+export function relativeTime(at: number, now: number = Date.now()): string {
+  const minutes = Math.floor(Math.max(0, now - at) / 60000);
+  if (minutes < 1) return '刚刚';
+  if (minutes < 60) return `${minutes} 分钟`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} 小时`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days} 天`;
+  if (days < 28) return `${Math.floor(days / 7)} 周`;
+  const date = new Date(at);
+  return date.getFullYear() === new Date(now).getFullYear()
+    ? `${date.getMonth() + 1}月${date.getDate()}日`
+    : `${date.getFullYear()}/${date.getMonth() + 1}/${date.getDate()}`;
+}
+/**
+ * Sidebar order: projects as listed, each managed worktree right after the workspace it came
+ * from (a worktree whose source is gone stands on its own).
+ */
+export function projectTree<T extends { id: string; sourceId?: string }>(
+  projects: T[],
+): Array<{ project: T; worktrees: T[] }> {
+  const ids = new Set(projects.map((p) => p.id));
+  return projects
+    .filter((p) => !p.sourceId || !ids.has(p.sourceId))
+    .map((project) => ({
+      project,
+      worktrees: projects.filter((p) => p.sourceId === project.id),
+    }));
+}

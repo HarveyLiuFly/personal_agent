@@ -31,6 +31,8 @@ export interface ProjectView {
   id: string;
   name: string;
   directory: string;
+  /** A managed worktree: the workspace it was created from. */
+  sourceId?: string;
 }
 export interface ThreadSummary {
   id: string;
