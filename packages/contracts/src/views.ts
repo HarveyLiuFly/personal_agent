@@ -69,6 +69,8 @@ export interface SubmitMessage {
   text: string;
   submissionKey: string;
   code?: CodeTaskSpec;
+  /** Start from a copy of another conversation through this ended turn ("从这里新开"). */
+  fork?: { runId: string };
 }
 export interface ContinueMessage extends RunQuery {
   text: string;

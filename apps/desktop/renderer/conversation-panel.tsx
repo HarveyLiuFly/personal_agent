@@ -35,7 +35,10 @@ interface Props {
   conversationId?: string;
   disabled?: boolean;
   canCode?: boolean;
+  /** A new conversation started from another one's ended turn ("从这里新开"). */
+  fork?: { runId: string; title: string };
   onCreated?: (conversationId: string) => void;
+  onFork?: (source: { runId: string; title: string }) => void;
 }
 
 /**
@@ -47,7 +50,9 @@ export function ConversationPanel({
   conversationId,
   disabled = false,
   canCode = false,
+  fork,
   onCreated,
+  onFork,
 }: Props) {
   const [summary, setSummary] = useState<ConversationSummary>(),
     [recent, setRecent] = useState<RunView[]>([]),
@@ -64,6 +69,7 @@ export function ConversationPanel({
     [verifying, setVerifying] = useState(false),
     [checking, setChecking] = useState(false),
     [rolling, setRolling] = useState(false),
+    [archiving, setArchiving] = useState(false),
     [loadingOlder, setLoadingOlder] = useState(false);
   const [codeEnabled, setCodeEnabled] = useState(false),
     [target, setTarget] = useState(''),
@@ -180,7 +186,8 @@ export function ConversationPanel({
       scroller.current.scrollTop = scroller.current.scrollHeight;
   }, [stamp, requests.length, review?.diff]);
 
-  const runningHere = Boolean(summary?.activeRunId),
+  const archived = Boolean(summary?.archived),
+    runningHere = Boolean(summary?.activeRunId),
     notStarted = Boolean(summary && !summary.latestRunId),
     codeReady = !codeEnabled || Boolean(target.trim() && paths.trim()),
     canSend =
@@ -188,6 +195,7 @@ export function ConversationPanel({
       !sending &&
       !runningHere &&
       !notStarted &&
+      !archived &&
       Boolean(draft.trim()) &&
       (conversationId ? Boolean(summary?.latestRunId) : codeReady);
 
@@ -210,7 +218,8 @@ export function ConversationPanel({
               projectId: project.id,
               text,
               submissionKey: key.current,
-              ...(codeEnabled
+              ...(fork ? { fork: { runId: fork.runId } } : {}),
+              ...(codeEnabled && !fork
                 ? {
                     code: {
                       profile: 'node-test',
@@ -451,6 +460,16 @@ export function ConversationPanel({
             {review.diffTruncated && <small>仅显示部分差异</small>}
           </article>
         )}
+        {ended(run) && run.turnId && run.threadId && onFork && (
+          <button
+            className="text-button fork-turn"
+            data-action="fork-from-turn"
+            title="新开一个对话，带上到这一轮为止的内容"
+            onClick={() => onFork({ runId: run.runId, title: summary?.title ?? '' })}
+          >
+            从这里新开
+          </button>
+        )}
         {(run.snapshot?.items.some(isToolItem) || (isLatest && active)) && (
           <details className="work-log">
             <summary>查看执行过程</summary>
@@ -477,7 +496,12 @@ export function ConversationPanel({
           if (n) atEnd.current = n.scrollHeight - n.scrollTop - n.clientHeight < 90;
         }}
       >
-        {!conversationId && (
+        {!conversationId && fork && (
+          <div className="notice" data-fork-source={fork.runId}>
+            从「{fork.title || '对话'}」的这一轮新开：新对话会带上到这一轮为止的内容，原对话不变。
+          </div>
+        )}
+        {!conversationId && !fork && (
           <div className="conversation-empty">
             <span className="assistant-mark">P</span>
             <h2>把下一件事交给我</h2>
@@ -506,24 +530,47 @@ export function ConversationPanel({
         {conversationId && summary && (
           <div className="conversation-head">
             <span className="muted">{summary.turns} 轮</span>
-            <button
-              className="text-button"
-              data-action="pin-conversation"
-              aria-pressed={summary.pinned}
-              onClick={() =>
-                void value(
-                  window.personalAgent.updateConversation({
-                    projectId: project.id,
-                    conversationId,
-                    pinned: !summary.pinned,
-                  }),
-                )
-                  .then(setSummary)
-                  .catch(() => setError('暂时无法置顶。'))
-              }
-            >
-              {summary.pinned ? '取消置顶' : '置顶'}
-            </button>
+            <span className="conversation-actions">
+              <button
+                className="text-button"
+                data-action="pin-conversation"
+                aria-pressed={summary.pinned}
+                onClick={() =>
+                  void value(
+                    window.personalAgent.updateConversation({
+                      projectId: project.id,
+                      conversationId,
+                      pinned: !summary.pinned,
+                    }),
+                  )
+                    .then(setSummary)
+                    .catch(() => setError('暂时无法置顶。'))
+                }
+              >
+                {summary.pinned ? '取消置顶' : '置顶'}
+              </button>
+              <button
+                className="text-button"
+                data-action="archive-conversation"
+                aria-pressed={archived}
+                disabled={archiving || runningHere}
+                onClick={() => {
+                  setArchiving(true);
+                  void value(
+                    window.personalAgent.archiveConversation({
+                      projectId: project.id,
+                      conversationId,
+                      archived: !archived,
+                    }),
+                  )
+                    .then(setSummary)
+                    .catch(() => setError('暂时无法归档；正在运行的对话结束后再试。'))
+                    .finally(() => setArchiving(false));
+                }}
+              >
+                {archived ? '取消归档' : '归档'}
+              </button>
+            </span>
           </div>
         )}
         {olderCursor && (
@@ -581,7 +628,7 @@ export function ConversationPanel({
           {error}
         </p>
       )}
-      {canCode && !conversationId && (
+      {canCode && !conversationId && !fork && (
         <div className="execution-scope">
           <label>
             对话方式
@@ -663,13 +710,16 @@ export function ConversationPanel({
         />
         <div className="composer-tools">
           <span className="muted">
-            {runningHere
-              ? summary?.attention === 'unknown'
-                ? '先核对上一轮的结果'
-                : '这一轮结束后可以继续'
-              : (latest?.mode ?? (codeEnabled ? 'workspaceWrite' : 'readOnly')) === 'workspaceWrite'
-                ? '仅修改指定文件'
-                : '只读访问项目'}
+            {archived
+              ? '已归档，取消归档后可以继续'
+              : runningHere
+                ? summary?.attention === 'unknown'
+                  ? '先核对上一轮的结果'
+                  : '这一轮结束后可以继续'
+                : (latest?.mode ?? (codeEnabled ? 'workspaceWrite' : 'readOnly')) ===
+                    'workspaceWrite'
+                  ? '仅修改指定文件'
+                  : '只读访问项目'}
           </span>
           <button data-action="send" disabled={!canSend} onClick={() => void send()}>
             {sending ? '正在发送…' : uncertain ? '再次发送' : '发送 ↑'}

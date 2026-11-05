@@ -10,6 +10,7 @@ import {
 import type { AppServerRuntime } from '../../codex-adapter/src/app-server.ts';
 import type { ThreadStartParams } from '../../codex-adapter/src/generated/v2/ThreadStartParams.ts';
 import type { ThreadResumeParams } from '../../codex-adapter/src/generated/v2/ThreadResumeParams.ts';
+import type { ThreadForkParams } from '../../codex-adapter/src/generated/v2/ThreadForkParams.ts';
 import type { TurnStartParams } from '../../codex-adapter/src/generated/v2/TurnStartParams.ts';
 import type { ModelListResponse } from '../../codex-adapter/src/generated/v2/ModelListResponse.ts';
 import type { RunSummary, RunView } from '../../contracts/src/views.ts';
@@ -125,6 +126,7 @@ export class ForegroundExecution {
   readonly diagnostics = {
     clientThreadStarts: 0,
     clientThreadResumes: 0,
+    clientThreadForks: 0,
     clientTurnStarts: 0,
     notificationCount: 0,
     serverRequestsDenied: 0,
@@ -196,16 +198,24 @@ export class ForegroundExecution {
     if (!run) throw new LedgerError('RUN_NOT_IN_PROJECT');
     return { ...summary(run), snapshot: run.snapshot };
   }
+  /**
+   * Starts a new conversation. `fork: { runId }` starts it from a copy of another conversation's
+   * thread through that turn (read-only).
+   */
   submit(input: unknown): RunSummary {
     const q = query(
       input,
       isObject(input) && 'code' in input
         ? ['projectId', 'text', 'submissionKey', 'code']
-        : ['projectId', 'text', 'submissionKey'],
+        : isObject(input) && 'fork' in input
+          ? ['projectId', 'text', 'submissionKey', 'fork']
+          : ['projectId', 'text', 'submissionKey'],
     );
     const code = q.code === undefined ? undefined : codeInput(q.code);
     if (code && !this.options.prepareCode) throw new LedgerError('CODE_EXECUTION_UNAVAILABLE');
-    const mode = code ? 'workspaceWrite' : (this.options.mode ?? 'readOnly');
+    const fork = q.fork === undefined ? undefined : query(q.fork, ['runId']);
+    if (fork && !identity(fork.runId)) throw new LedgerError('INVALID_EXECUTION_QUERY');
+    const mode = code ? 'workspaceWrite' : fork ? 'readOnly' : (this.options.mode ?? 'readOnly');
     if (!identity(q.projectId) || !identity(q.submissionKey) || typeof q.text !== 'string')
       throw new LedgerError('INVALID_EXECUTION_QUERY');
     const { token, created } = this.store.beginRun(
@@ -214,6 +224,7 @@ export class ForegroundExecution {
       q.submissionKey,
       mode,
       code ? hashInput(code) : undefined,
+      fork ? String(fork.runId) : undefined,
     );
     if (created) {
       const session: Session = {
@@ -888,13 +899,22 @@ export class ForegroundExecution {
       );
       const { ephemeral, ...resumeParams } = threadParams;
       void ephemeral;
+      // A conversation started "from here" copies the source thread through that turn.
+      const fork = session.resumeThreadId ? null : this.store.forkOrigin(session.token.runId);
       const params = session.resumeThreadId
         ? ({
             ...resumeParams,
             threadId: session.resumeThreadId,
             excludeTurns: true,
           } satisfies ThreadResumeParams)
-        : threadParams;
+        : fork
+          ? ({
+              ...resumeParams,
+              threadId: fork.threadId,
+              lastTurnId: fork.turnId,
+              excludeTurns: true,
+            } satisfies ThreadForkParams)
+          : threadParams;
       const threadIntent = this.store.prepare(
         session.token,
         `thread:${session.token.runId}`,
@@ -905,8 +925,14 @@ export class ForegroundExecution {
       session.intentId = threadIntent.intentId;
       const threadRpcId = this.store.sending(session.token, threadIntent.intentId, epoch);
       if (session.resumeThreadId) this.diagnostics.clientThreadResumes++;
+      else if (fork) this.diagnostics.clientThreadForks++;
       else this.diagnostics.clientThreadStarts++;
-      this.diagnostics.phase = session.resumeThreadId ? 'thread/resume' : 'thread/start';
+      // A fork is recorded as a new-thread intent: like a start, it creates the task's thread.
+      this.diagnostics.phase = session.resumeThreadId
+        ? 'thread/resume'
+        : fork
+          ? 'thread/fork'
+          : 'thread/start';
       const response = await rpc.requestWithId(threadRpcId, this.diagnostics.phase, params);
       if (
         !isObject(response) ||

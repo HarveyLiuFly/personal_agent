@@ -1,5 +1,6 @@
-// CORE.2d window acceptance with the synthetic stdio backend (no model request): a new
-// conversation, a follow-up in the same conversation, the sidebar list, pinning and the Dot entry.
+// CORE.2d/2g window acceptance with the synthetic stdio backend (no model request): a new
+// conversation, a follow-up in the same conversation, the sidebar list, pinning, the Dot entry,
+// starting a new conversation from a turn, and archiving.
 import { writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import type { App, BrowserWindow } from 'electron';
@@ -66,11 +67,42 @@ const script = `(async () => {
   const dotLabel = document.querySelector('[data-main-chat]').getAttribute('aria-label');
   click('.thread-list [data-conversation-id="' + conversationId + '"]');
   await wait(() => turns().length === 2, 'CONVERSATION_NOT_REOPENED');
+  // Start a new conversation from the first turn ("从这里新开").
+  document.querySelectorAll('[data-action="fork-from-turn"]')[0].click();
+  await wait(
+    () => panel().dataset.conversationId === '' && document.querySelector('[data-fork-source]'),
+    'FORK_NOT_SHOWN',
+  );
+  type('Forked synthetic question');
+  await sendWhenReady('FORK_SEND_DISABLED');
+  await wait(
+    () => panel().dataset.conversationId && panel().dataset.conversationId !== conversationId,
+    'FORK_NOT_OPENED',
+  );
+  const forkId = panel().dataset.conversationId;
+  await wait(
+    () => turns().length === 1 && turns()[0].dataset.runStatus === 'completed',
+    'FORK_TURN_NOT_COMPLETED',
+  );
+  await wait(() => rows().length === 2, 'FORK_NOT_LISTED');
+  // Archive the fork: it leaves the list, its composer locks, and the archived list shows it.
+  click('[data-action="archive-conversation"]');
+  await wait(() => rows().length === 1, 'ARCHIVE_NOT_APPLIED');
+  type('Must not send while archived');
+  const sendLockedWhenArchived = document.querySelector('[data-action="send"]').disabled;
+  click('[data-action="toggle-archived"]');
+  await wait(
+    () => rows().length === 1 && rows()[0].dataset.conversationId === forkId,
+    'ARCHIVED_LIST_NOT_SHOWN',
+  );
+  click('[data-action="toggle-archived"]');
+  await wait(() => rows().length === 1 && rows()[0].dataset.conversationId === conversationId, 'LIST_NOT_RESTORED');
   const state = await window.personalAgent.workspaceState();
   const projectId = state.value.projects[0].id;
   const summary = (await window.personalAgent.getConversation({ projectId, conversationId })).value;
   const page = (await window.personalAgent.listConversations({ projectId })).value;
   const runs = (await window.personalAgent.listRuns({ projectId })).value;
+  const fork = (await window.personalAgent.getConversation({ projectId, conversationId: forkId })).value;
   return {
     conversationId,
     composerOpenAfterTurn,
@@ -84,7 +116,11 @@ const script = `(async () => {
     status: summary.status,
     pinnedListed: page.pinned.length,
     otherListed: page.items.length,
-    runsInOneConversation: runs.every((run) => run.taskId === conversationId) && runs.length === 2,
+    originalTurns: runs.filter((run) => run.taskId === conversationId).length,
+    forkTurns: runs.filter((run) => run.taskId === forkId).length,
+    forkedFrom: fork.forkedFrom === conversationId,
+    forkArchived: fork.archived,
+    sendLockedWhenArchived,
     dotLabel,
     markupShownAsText: document.body.textContent.includes('<b>bold</b>'),
     noInjectedMarkup: !document.querySelector('[data-execution-items] b'),
@@ -131,7 +167,11 @@ export async function runConversationProbe(
     result.unread === false &&
     result.pinnedListed === 1 &&
     result.otherListed === 0 &&
-    result.runsInOneConversation === true &&
+    result.originalTurns === 2 &&
+    result.forkTurns === 1 &&
+    result.forkedFrom === true &&
+    result.forkArchived === true &&
+    result.sendLockedWhenArchived === true &&
     result.dotLabel === 'Dot' &&
     result.markupShownAsText === true &&
     result.noInjectedMarkup === true &&
@@ -139,7 +179,8 @@ export async function runConversationProbe(
     result.isolated === true &&
     result.noRequire === true &&
     execution.diagnostics.clientThreadStarts === 1 &&
-    execution.diagnostics.clientThreadResumes === 1;
+    execution.diagnostics.clientThreadResumes === 1 &&
+    execution.diagnostics.clientThreadForks === 1;
   writeFileSync(
     resolve(directory, CONVERSATION_EVIDENCE + '.json'),
     JSON.stringify(
@@ -152,6 +193,7 @@ export async function runConversationProbe(
         result,
         threadStarts: execution.diagnostics.clientThreadStarts,
         threadResumes: execution.diagnostics.clientThreadResumes,
+        threadForks: execution.diagnostics.clientThreadForks,
       },
       null,
       2,

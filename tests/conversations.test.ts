@@ -267,3 +267,49 @@ test('revision 7 migrates to 8 with a verified backup; old tasks become read con
     backup.close();
   }
 });
+
+test('an archived conversation leaves the list, cannot continue, and comes back when restored', (t) => {
+  const { store, a } = fixture(t);
+  const kept = conversation(store, a.id, 'keep me'),
+    old = conversation(store, a.id, 'put me away');
+  store.updateConversation({ projectId: a.id, conversationId: old.taskId, pinned: true });
+  const check = store.conversationArchiveCheck({
+    projectId: a.id,
+    conversationId: old.taskId,
+    archived: true,
+  });
+  assert.equal(check.threadId, old.threadId);
+  const archived = store.setConversationArchived(a.id, old.taskId, true);
+  assert.equal(archived.archived, true);
+  assert.equal(archived.pinned, false, 'archiving unpins');
+  const page = store.conversations({ projectId: a.id });
+  assert.deepEqual(ids([...page.pinned, ...page.items]), [kept.taskId]);
+  assert.deepEqual(ids(store.conversations({ projectId: a.id, archived: true }).items), [
+    old.taskId,
+  ]);
+  assert.throws(
+    () => store.beginContinuation(a.id, old.runId, 'one more', 'archived-continue'),
+    /CONVERSATION_ARCHIVED/,
+  );
+  assert.throws(
+    () => store.updateConversation({ projectId: a.id, conversationId: old.taskId, pinned: true }),
+    /CONVERSATION_ARCHIVED/,
+  );
+  const restored = store.setConversationArchived(a.id, old.taskId, false);
+  assert.equal(restored.archived, false);
+  assert.equal(store.beginContinuation(a.id, old.runId, 'one more', 'restored').created, true);
+  // A conversation with a turn running cannot be archived.
+  assert.throws(
+    () =>
+      store.conversationArchiveCheck({
+        projectId: a.id,
+        conversationId: old.taskId,
+        archived: true,
+      }),
+    /CONVERSATION_RUNNING/,
+  );
+  assert.throws(
+    () => store.conversationArchiveCheck({ projectId: a.id, conversationId: old.taskId }),
+    /INVALID_CONVERSATION_UPDATE/,
+  );
+});

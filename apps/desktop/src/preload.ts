@@ -52,6 +52,7 @@ const api: DesktopApi = Object.freeze<DesktopApi>({
   getConversation: (query) => ipcRenderer.invoke('conversations:get', query),
   listConversationTurns: (query) => ipcRenderer.invoke('conversations:turns', query),
   updateConversation: (input) => ipcRenderer.invoke('conversations:update', input),
+  archiveConversation: (input) => ipcRenderer.invoke('conversations:archive', input),
   listTasks: (query) => ipcRenderer.invoke('tasks:list', query),
   applyTaskCommand: (command) => ipcRenderer.invoke('tasks:command', command),
   startTask: (input) => ipcRenderer.invoke('tasks:start', input),

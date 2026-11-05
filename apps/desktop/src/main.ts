@@ -981,6 +981,29 @@ async function boot(): Promise<void> {
       };
     }
   }
+  // Archive in the app's list and, for a real Codex thread, in Codex's own history too.
+  handle('conversations:archive', (event, ...args: unknown[]) =>
+    domainAsync(event, args, async () => {
+      if (!ledger) throw new LedgerError('TASKS_UNAVAILABLE');
+      const change = ledger.conversationArchiveCheck(args[0]);
+      if (change.threadId && appServer && !executionSmoke)
+        try {
+          await appServer.maintain((port) =>
+            port.request(change.archived ? 'thread/archive' : 'thread/unarchive', {
+              threadId: change.threadId,
+            }),
+          );
+        } catch (error) {
+          // Codex refused (unknown thread, or already in that state): the app's list still changes.
+          if (!(error instanceof RpcFailure && error.code.startsWith('REMOTE_'))) throw error;
+        }
+      return ledger.setConversationArchived(
+        change.projectId,
+        change.conversationId,
+        change.archived,
+      );
+    }),
+  );
   handle('chat:propose', (event, ...args: unknown[]) =>
     executionCommand(event, args, 1, () => {
       if (!chatRoutes) throw new LedgerError('MAIN_CHAT_UNAVAILABLE');

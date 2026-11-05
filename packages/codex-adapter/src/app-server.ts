@@ -17,6 +17,8 @@ const reads = new Set([
   'thread/turns/list',
   'thread/items/list',
 ]);
+/** Local thread bookkeeping a maintenance lease may change; never a model or tool call. */
+const maintenance = new Set(['thread/archive', 'thread/unarchive']);
 /** Codex filters `thread/list` by folder slowly (11–16 s measured with ~2,100 threads). */
 const readDeadlines: Record<string, number> = { 'thread/list': 60_000 };
 type State = 'idle' | 'starting' | 'ready' | 'failed' | 'closing' | 'closed';
@@ -267,6 +269,20 @@ export class AppServerRuntime {
    * in-flight request finishes in the background, still holding its slot.
    */
   read<T>(work: (port: ReadPort) => Promise<T>, signal?: AbortSignal): Promise<T> {
+    return this.admit(work, reads, signal);
+  }
+  /**
+   * A lease for local thread bookkeeping (archive/unarchive) on the same restricted connection.
+   * It can never start a thread, a turn or any tool.
+   */
+  maintain<T>(work: (port: ReadPort) => Promise<T>, signal?: AbortSignal): Promise<T> {
+    return this.admit(work, maintenance, signal);
+  }
+  private admit<T>(
+    work: (port: ReadPort) => Promise<T>,
+    allowed: ReadonlySet<string>,
+    signal?: AbortSignal,
+  ): Promise<T> {
     const fence = this.fence;
     try {
       this.check(fence, signal);
@@ -279,7 +295,7 @@ export class AppServerRuntime {
     const job = (async () => {
       await this.slot(signal);
       try {
-        return await this.lease(work, fence, signal);
+        return await this.lease(work, allowed, fence, signal);
       } finally {
         this.release();
       }
@@ -298,6 +314,7 @@ export class AppServerRuntime {
   }
   private async lease<T>(
     work: (port: ReadPort) => Promise<T>,
+    allowed: ReadonlySet<string>,
     fence: number,
     signal?: AbortSignal,
   ): Promise<T> {
@@ -310,7 +327,7 @@ export class AppServerRuntime {
         if (!live) return Promise.reject(new RpcFailure('APP_SERVER_LEASE_EXPIRED'));
         try {
           this.check(fence, signal);
-          if (!reads.has(method)) throw new RpcFailure('READ_METHOD_NOT_ALLOWED');
+          if (!allowed.has(method)) throw new RpcFailure('READ_METHOD_NOT_ALLOWED');
         } catch (error) {
           return Promise.reject(error);
         }

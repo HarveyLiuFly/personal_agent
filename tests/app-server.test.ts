@@ -361,3 +361,22 @@ test('a Run does not queue behind a slow metadata read once the index is ready',
   assert.equal(await f.runtime.prepare(), fence + 1);
   assert.equal(f.runtime.snapshot().starts, 2);
 });
+
+test('a maintenance lease may archive a thread but never read history or start work', async (t) => {
+  const f = fixture(t);
+  const archived = await f.runtime.maintain((p) =>
+    p.request<{ params: unknown }>('thread/archive', { threadId: 'fixture-thread' }),
+  );
+  assert.deepEqual(archived.params, { threadId: 'fixture-thread' });
+  for (const method of ['turn/start', 'thread/start', 'thread/list'])
+    await assert.rejects(
+      f.runtime.maintain((p) => p.request(method, {})),
+      /READ_METHOD_NOT_ALLOWED/,
+    );
+  await assert.rejects(
+    f.runtime.read((p) => p.request('thread/archive', { threadId: 'x' })),
+    /READ_METHOD_NOT_ALLOWED/,
+  );
+  assert.equal(f.events().filter((e) => e.method === 'turn/start').length, 0);
+  assert.equal(f.runtime.snapshot().starts, 1);
+});

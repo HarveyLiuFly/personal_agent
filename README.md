@@ -93,6 +93,6 @@ pnpm smoke:history:desktop
 
 `pnpm smoke:interactions:desktop` 使用真实沙箱窗口与合成 stdio 后端测试单次命令允许、越权/永久批准/重放拒绝；它不调用模型。M1.2a 的组件和迁移结果见阶段记录，原生模型交互不由该 Fixture 替代。
 
-`pnpm smoke:conversation:desktop`（CORE.2d）在真实沙箱窗口中用合成后端（不调用模型）走一遍：新对话 → 追问 → 同一对话两轮 → 侧栏一个对话 → 置顶 → 打开 Dot → 返回对话。
+`pnpm smoke:conversation:desktop`（CORE.2d/2g）在真实沙箱窗口中用合成后端（不调用模型）走一遍：新对话 → 追问 → 同一对话两轮 → 侧栏一个对话 → 置顶 → 打开 Dot → 返回对话 → 从第一轮新开 → 归档并查看已归档列表。
 
 `pnpm smoke:concurrency:desktop`（CORE.1 验收）在真实沙箱窗口中让两个临时项目同时各发一条只读问题（2 次真实模型请求，消耗额度），运行期间检查浏览文件、Diff、历史和连接检查都不被拒绝，并记录首段回答延迟和空闲 CPU。它使用独立配置目录 `.local/desktop-concurrency-smoke-data`，首次运行会先建立 Codex 索引。结果见 [CORE 计划](docs/progress/CORE.md)。

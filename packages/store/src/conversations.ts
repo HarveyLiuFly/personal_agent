@@ -104,6 +104,9 @@ export class ConversationLedger {
       threadId: (binding?.execution_thread_id as string | undefined) ?? null,
       turns,
       blocked: row.dispatch_blocked === 1,
+      forkedFrom:
+        (JSON.parse(String(row.constraints_json)).forkOf?.conversationId as string | undefined) ??
+        null,
       updatedAt: Number(row.updated_at_ms),
     };
   }
@@ -185,6 +188,64 @@ export class ConversationLedger {
         this.dot,
       ) ?? this.fail('CONVERSATION_NOT_FOUND')
     );
+  }
+  /**
+   * Checks an archive change before Codex is asked: the conversation is visible and has no turn
+   * running or awaiting a check. Returns its bound thread (if any) for the Codex side.
+   */
+  archiveCheck(input: unknown): {
+    projectId: string;
+    conversationId: string;
+    archived: boolean;
+    threadId: string | null;
+  } {
+    const q = this.query(input, ['projectId', 'conversationId', 'archived']);
+    if (!id(q.conversationId) || typeof q.archived !== 'boolean')
+      return this.fail('INVALID_CONVERSATION_UPDATE');
+    const projectId = String(q.projectId),
+      conversationId = String(q.conversationId);
+    this.host.workspace(projectId);
+    this.row(projectId, conversationId);
+    if (
+      this.one(
+        `SELECT run_id FROM task_runs WHERE task_id=? AND status IN ${active}`,
+        conversationId,
+      )
+    )
+      return this.fail('CONVERSATION_RUNNING');
+    const binding = this.one(
+      "SELECT execution_thread_id FROM thread_bindings WHERE task_id=? AND state='active'",
+      conversationId,
+    );
+    return {
+      projectId,
+      conversationId,
+      archived: q.archived,
+      threadId: (binding?.execution_thread_id as string | undefined) ?? null,
+    };
+  }
+  /** Archives (and unpins) or restores a conversation after `archiveCheck`. */
+  setArchived(projectId: string, conversationId: string, archived: boolean): ConversationSummary {
+    return this.host.tx(() => {
+      this.host.owner();
+      this.row(projectId, conversationId);
+      if (
+        this.one(
+          `SELECT run_id FROM task_runs WHERE task_id=? AND status IN ${active}`,
+          conversationId,
+        )
+      )
+        return this.fail('CONVERSATION_RUNNING');
+      if (archived)
+        this.db
+          .prepare(
+            'UPDATE tasks SET archived_at_ms=coalesce(archived_at_ms,?),pinned_at_ms=NULL WHERE task_id=?',
+          )
+          .run(Date.now(), conversationId);
+      else
+        this.db.prepare('UPDATE tasks SET archived_at_ms=NULL WHERE task_id=?').run(conversationId);
+      return this.summary(this.row(projectId, conversationId));
+    });
   }
   /** Pins/unpins or marks read. Neither changes the conversation's activity order or version. */
   update(input: unknown): ConversationSummary {

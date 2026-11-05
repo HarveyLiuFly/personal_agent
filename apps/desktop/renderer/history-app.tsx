@@ -66,6 +66,8 @@ export function HistoryApp({ children }: { children: React.ReactNode }) {
     [moreCursor, setMoreCursor] = useState<string | null>(null),
     [pages, setPages] = useState(1),
     [conversationId, setConversationId] = useState<string>(),
+    [forkSource, setForkSource] = useState<{ runId: string; title: string }>(),
+    [showArchived, setShowArchived] = useState(false),
     [newKey, setNewKey] = useState(0);
   const [threads, setThreads] = useState<Page<ThreadSummary>>(),
     [thread, setThread] = useState<ThreadSummary>(),
@@ -119,19 +121,16 @@ export function HistoryApp({ children }: { children: React.ReactNode }) {
       text = query.trim();
     async function refresh() {
       try {
-        const first = await value(
-          window.personalAgent.listConversations({ projectId, ...(text ? { query: text } : {}) }),
-        );
+        const scope = {
+          projectId,
+          ...(text ? { query: text } : {}),
+          ...(showArchived ? { archived: true } : {}),
+        };
+        const first = await value(window.personalAgent.listConversations(scope));
         const rows = [...first.items];
         let cursor = first.nextCursor;
         for (let page = 1; page < pages && cursor; page++) {
-          const next = await value(
-            window.personalAgent.listConversations({
-              projectId,
-              cursor,
-              ...(text ? { query: text } : {}),
-            }),
-          );
+          const next = await value(window.personalAgent.listConversations({ ...scope, cursor }));
           rows.push(...next.items);
           cursor = next.nextCursor;
         }
@@ -152,17 +151,20 @@ export function HistoryApp({ children }: { children: React.ReactNode }) {
       stopped = true;
       unsubscribe();
     };
-  }, [project?.id, cap.canManageTasks, query, pages]);
+  }, [project?.id, cap.canManageTasks, query, pages, showArchived]);
   useEffect(() => {
     setPinned([]);
     setListed([]);
     setMoreCursor(null);
     setPages(1);
     setConversationId(undefined);
+    setForkSource(undefined);
+    setShowArchived(false);
   }, [project?.id]);
   function newConversation() {
     if (busy) return;
     setConversationId(undefined);
+    setForkSource(undefined);
     setNewKey((k) => k + 1);
     setSurface('conversation');
   }
@@ -192,6 +194,14 @@ export function HistoryApp({ children }: { children: React.ReactNode }) {
   }
   function openConversation(id: string) {
     setConversationId(id);
+    setForkSource(undefined);
+    setSurface('conversation');
+  }
+  function forkConversation(source: { runId: string; title: string }) {
+    if (busy) return;
+    setConversationId(undefined);
+    setForkSource(source);
+    setNewKey((k) => k + 1);
     setSurface('conversation');
   }
   const choose = () =>
@@ -299,8 +309,18 @@ export function HistoryApp({ children }: { children: React.ReactNode }) {
           <kbd>{shortcutLabel('k')}</kbd>
         </div>
         <div className="project-heading">
-          <span>对话</span>
-          <small>{conversations.length}</small>
+          <span>{showArchived ? '已归档' : '对话'}</span>
+          <button
+            className="text-button"
+            data-action="toggle-archived"
+            aria-pressed={showArchived}
+            onClick={() => {
+              setShowArchived((v) => !v);
+              setPages(1);
+            }}
+          >
+            {showArchived ? '返回' : '已归档'}
+          </button>
         </div>
         <nav className="thread-list" aria-label="对话">
           {conversations.map((conversation) => {
@@ -343,7 +363,9 @@ export function HistoryApp({ children }: { children: React.ReactNode }) {
             </button>
           )}
           {project && !conversations.length && (
-            <p className="empty-nav">{query ? '没有匹配的对话' : '从一个问题开始。'}</p>
+            <p className="empty-nav">
+              {query ? '没有匹配的对话' : showArchived ? '没有已归档的对话' : '从一个问题开始。'}
+            </p>
           )}
         </nav>
         <nav className="secondary-nav">
@@ -385,7 +407,9 @@ export function HistoryApp({ children }: { children: React.ReactNode }) {
                 {surface === 'conversation'
                   ? conversationId
                     ? (selected?.title ?? '对话')
-                    : '新对话'
+                    : forkSource
+                      ? '从这里新开'
+                      : '新对话'
                   : titles[surface]}
               </h1>
             </div>
@@ -437,7 +461,9 @@ export function HistoryApp({ children }: { children: React.ReactNode }) {
                   conversationId={conversationId}
                   disabled={busy}
                   canCode={cap.canCode}
+                  {...(forkSource && !conversationId ? { fork: forkSource } : {})}
                   onCreated={openConversation}
+                  onFork={forkConversation}
                 />
               )}
               {(surface === 'goals' || surface === 'memory') && (

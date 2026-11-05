@@ -28,7 +28,14 @@ export interface ConversationSummary {
   threadId: string | null;
   turns: number;
   blocked: boolean;
+  /** The conversation this one was started from ("从这里新开"), if any. */
+  forkedFrom: string | null;
   updatedAt: number;
+}
+export interface ConversationArchive {
+  projectId: string;
+  conversationId: string;
+  archived: boolean;
 }
 export interface ConversationQuery {
   projectId: string;

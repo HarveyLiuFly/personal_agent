@@ -269,3 +269,91 @@ test("a conversation's chosen model and effort are used when the catalog offers 
   assert.equal(resume3!.model, 'synthetic-model');
   assert.equal(turn3!.effort, 'low');
 });
+
+test("a conversation can start from another one's turn; the original is untouched", async (t) => {
+  const f = fixture(t);
+  const first = f.runtime.submit({ projectId: f.project.id, text: 'Plan A', submissionKey: 'a1' });
+  await f.runtime.wait();
+  const second = f.runtime.continueRun({
+    projectId: f.project.id,
+    runId: first.runId,
+    text: 'Refine plan A',
+    submissionKey: 'a2',
+  });
+  await f.runtime.wait();
+  const source = f.runtime.view({ projectId: f.project.id, runId: first.runId });
+  // Start over from the first turn, with different words.
+  const forked = f.runtime.submit({
+    projectId: f.project.id,
+    text: 'Try plan B instead',
+    submissionKey: 'b1',
+    fork: { runId: first.runId },
+  });
+  await f.runtime.wait();
+  const sent = f.sent().filter((row) => row.method === 'thread/fork');
+  assert.equal(sent.length, 1);
+  assert.equal((sent[0] as { threadId?: string }).threadId, source.threadId);
+  assert.equal((sent[0] as { lastTurnId?: string }).lastTurnId, source.turnId);
+  const view = f.runtime.view({ projectId: f.project.id, runId: forked.runId });
+  assert.notEqual(view.taskId, first.taskId);
+  assert.notEqual(view.threadId, source.threadId);
+  assert.equal(view.status, 'completed');
+  assert.equal(f.runtime.diagnostics.clientThreadForks, 1);
+  const summary = f.store.conversationSummary({
+    projectId: f.project.id,
+    conversationId: forked.taskId,
+  });
+  assert.equal(summary.forkedFrom, first.taskId);
+  assert.equal(summary.turns, 1);
+  assert.equal(
+    f.store.conversationSummary({ projectId: f.project.id, conversationId: first.taskId }).turns,
+    2,
+    'the original keeps its turns',
+  );
+  // The fork continues in its own thread.
+  f.runtime.continueRun({
+    projectId: f.project.id,
+    runId: forked.runId,
+    text: 'More on B',
+    submissionKey: 'b2',
+  });
+  await f.runtime.wait();
+  const resumed = f
+    .sent()
+    .filter((row) => row.method === 'thread/resume')
+    .at(-1) as {
+    threadId?: string;
+  };
+  assert.equal(resumed.threadId, view.threadId);
+  // Same key: the same fork, never a second one; a fork is read-only and needs an ended turn.
+  assert.equal(
+    f.runtime.submit({
+      projectId: f.project.id,
+      text: 'Try plan B instead',
+      submissionKey: 'b1',
+      fork: { runId: first.runId },
+    }).runId,
+    forked.runId,
+  );
+  assert.throws(
+    () =>
+      f.runtime.submit({
+        projectId: f.project.id,
+        text: 'bad',
+        submissionKey: 'bad-fork',
+        fork: { runId: 'no-such-run' },
+      }),
+    /RUN_NOT_IN_PROJECT/,
+  );
+  assert.throws(
+    () =>
+      f.runtime.submit({
+        projectId: f.project.id,
+        text: 'bad',
+        submissionKey: 'bad-shape',
+        fork: { runId: first.runId, extra: 1 },
+      }),
+    /INVALID_EXECUTION_QUERY/,
+  );
+  assert.equal(second.taskId, first.taskId);
+});

@@ -1,5 +1,6 @@
 import type { MainChatInput, MainChatView } from '../../../packages/contracts/src/chat.ts';
 import type {
+  ConversationArchive,
   ConversationPage,
   ConversationQuery,
   ConversationSummary,
@@ -196,6 +197,8 @@ export interface DesktopApi {
   /** Turns of one conversation, newest first. */
   listConversationTurns(query: ConversationTurnsQuery): Promise<HostResult<ConversationTurns>>;
   updateConversation(input: ConversationUpdate): Promise<HostResult<ConversationSummary>>;
+  /** Archives or restores a conversation (also in Codex's own history when it has a thread). */
+  archiveConversation(input: ConversationArchive): Promise<HostResult<ConversationSummary>>;
   listTasks(query: { projectId: string }): Promise<HostResult<TaskSummary[]>>;
   applyTaskCommand(command: TaskCommand): Promise<HostResult<OperationReceipt>>;
   startTask(input: StartTask): Promise<HostResult<RunSummary>>;

@@ -67,7 +67,10 @@ for await (const line of createInterface({ input: process.stdin })) {
     });
     continue;
   }
-  if (database && ['thread/start', 'thread/resume', 'turn/start'].includes(m.method)) {
+  if (
+    database &&
+    ['thread/start', 'thread/resume', 'thread/fork', 'turn/start'].includes(m.method)
+  ) {
     const db = new DatabaseSync(database, { readOnly: true });
     const intent = db
       .prepare('SELECT state FROM execution_intents WHERE rpc_request_id=?')
@@ -91,11 +94,13 @@ for await (const line of createInterface({ input: process.stdin })) {
           input: m.params.input,
           model: m.params.model,
           effort: m.params.effort,
+          threadId: m.params.threadId,
+          lastTurnId: m.params.lastTurnId,
         }) + '\n',
       );
     }
   }
-  if (m.method === 'thread/start' || m.method === 'thread/resume') {
+  if (m.method === 'thread/start' || m.method === 'thread/resume' || m.method === 'thread/fork') {
     if (m.params.config?.['mcp_servers.fixture-external.enabled'] !== false) {
       write({ id: m.id, error: { code: -32602, message: 'fixture MCP was not disabled' } });
       continue;
@@ -104,7 +109,8 @@ for await (const line of createInterface({ input: process.stdin })) {
     threadId =
       m.method === 'thread/resume'
         ? m.params.threadId
-        : 'fixture-thread-' + String(m.id).slice(-12);
+        : (m.method === 'thread/fork' ? 'fixture-fork-' : 'fixture-thread-') +
+          String(m.id).slice(-12);
     write({
       id: m.id,
       result: {

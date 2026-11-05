@@ -1379,6 +1379,65 @@ export class ExecutionLedger {
   updateConversation(input: unknown): ConversationSummary {
     return this.conversationList.update(input);
   }
+  conversationArchiveCheck(input: unknown) {
+    return this.conversationList.archiveCheck(input);
+  }
+  setConversationArchived(
+    projectId: string,
+    conversationId: string,
+    archived: boolean,
+  ): ConversationSummary {
+    return this.conversationList.setArchived(projectId, conversationId, archived);
+  }
+  /**
+   * Checks that a Run's ended turn can seed a new conversation: same project, a visible user
+   * conversation, a known thread and turn, and no privacy/policy change since (a fork copies the
+   * thread's history, so forgotten content must not be carried over).
+   */
+  private forkSource(
+    workspaceId: string,
+    runId: string,
+    epochs: Row,
+  ): { conversationId: string; runId: string; threadId: string; turnId: string } {
+    const source = this.runs(workspaceId, { runId })[0];
+    if (!source) return fail('RUN_NOT_IN_PROJECT');
+    const row = this.one(
+      'SELECT r.policy_epoch,r.privacy_epoch,t.constraints_json FROM task_runs r JOIN tasks t USING(task_id) WHERE r.run_id=?',
+      runId,
+    )!;
+    if (
+      !['completed', 'failed', 'cancelled'].includes(source.status) ||
+      !source.threadId ||
+      !source.turnId ||
+      JSON.parse(String(row.constraints_json)).internalRole !== undefined ||
+      this.one(
+        "SELECT source_ref FROM privacy_tombstones WHERE dot_id=? AND source_ref IN (?,'task:'||?)",
+        this.dotId,
+        source.taskId,
+        source.taskId,
+      )
+    )
+      return fail('RUN_NOT_FORKABLE');
+    if (row.policy_epoch !== epochs.policy_epoch || row.privacy_epoch !== epochs.privacy_epoch)
+      return fail('RUN_GRANT_EXPIRED');
+    return {
+      conversationId: source.taskId,
+      runId,
+      threadId: source.threadId,
+      turnId: source.turnId,
+    };
+  }
+  /** The thread and turn a forked conversation's first Run starts from, if it is a fork. */
+  forkOrigin(runId: string): { threadId: string; turnId: string } | null {
+    const row = this.one(
+      "SELECT json_extract(t.constraints_json,'$.forkOf') AS fork,(SELECT count(*) FROM task_runs x WHERE x.task_id=t.task_id) AS turns FROM task_runs r JOIN tasks t USING(task_id) WHERE r.run_id=? AND r.dot_id=?",
+      runId,
+      this.dotId,
+    );
+    if (!row?.fork || Number(row.turns) !== 1) return null;
+    const fork = JSON.parse(String(row.fork));
+    return { threadId: String(fork.threadId), turnId: String(fork.turnId) };
+  }
   /** Model and reasoning effort chosen for the conversation of a Run (null: defaults). */
   conversationChoices(runId: string): { model: string | null; effort: string | null } {
     const row = this.one(
@@ -3663,24 +3722,34 @@ export class ExecutionLedger {
       delivery: { pending, claimed, deadLetter },
     };
   }
+  /**
+   * Starts a new conversation with its first turn. With `forkRunId` the conversation starts from
+   * a copy of another conversation's thread through that Run's (ended) turn.
+   */
   beginRun(
     workspaceId: string,
     text: string,
     key: string,
     mode: 'readOnly' | 'workspaceWrite',
     contextHash?: string,
+    forkRunId?: string,
   ): { token: RunToken; created: boolean } {
     if (
       !id(key) ||
       typeof text !== 'string' ||
       !text.trim() ||
       text.length > 32_768 ||
-      !['readOnly', 'workspaceWrite'].includes(mode)
+      !['readOnly', 'workspaceWrite'].includes(mode) ||
+      (forkRunId !== undefined && (!id(forkRunId) || mode !== 'readOnly'))
     )
       return fail('INVALID_TASK_INPUT');
     this.workspace(workspaceId);
     const inputHash = hashInput(
-      contextHash ? [workspaceId, text, mode, contextHash] : [workspaceId, text, mode],
+      forkRunId
+        ? [workspaceId, text, mode, 'fork', forkRunId]
+        : contextHash
+          ? [workspaceId, text, mode, contextHash]
+          : [workspaceId, text, mode],
     );
     return this.tx(() => {
       this.owner();
@@ -3714,14 +3783,15 @@ export class ExecutionLedger {
         epochs = this.one(
           'SELECT policy_epoch,privacy_epoch FROM dots WHERE dot_id=?',
           this.dotId,
-        )!;
+        )!,
+        forkOf = forkRunId ? this.forkSource(workspaceId, forkRunId, epochs) : undefined;
       this.exec(
         "INSERT INTO tasks(task_id,dot_id,workspace_id,title,constraints_json,status,created_at_ms,updated_at_ms,permission_mode,last_read_at_ms) VALUES (?,?,?,?,?,'created',?,?,?,?)",
         taskId,
         this.dotId,
         workspaceId,
         text.slice(0, 120),
-        JSON.stringify({ inputHash, mode, text }),
+        JSON.stringify({ inputHash, mode, text, ...(forkOf ? { forkOf } : {}) }),
         Date.now(),
         Date.now(),
         mode === 'workspaceWrite' ? 'auto' : 'readOnly',
@@ -3847,6 +3917,7 @@ export class ExecutionLedger {
         'SELECT run_id FROM task_runs WHERE task_id=? ORDER BY started_at_ms DESC,rowid DESC LIMIT 1',
         source.taskId,
       );
+      if (task.archived_at_ms !== null) return fail('CONVERSATION_ARCHIVED');
       if (
         latest?.run_id !== sourceRunId ||
         !['completed', 'failed', 'cancelled'].includes(source.status) ||

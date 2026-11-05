@@ -6,6 +6,7 @@ export const DESKTOP_API_KEYS: readonly string[] = [
   'applyTaskCommand',
   'applyTaskPlan',
   'applyWorktreeCommand',
+  'archiveConversation',
   'cancelTaskPlan',
   'chooseProject',
   'closeTerminal',
