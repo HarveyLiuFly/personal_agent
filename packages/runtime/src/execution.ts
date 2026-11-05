@@ -15,6 +15,7 @@ import type { ModelListResponse } from '../../codex-adapter/src/generated/v2/Mod
 import type { RunSummary, RunView } from '../../contracts/src/views.ts';
 import { InteractionBroker } from './interactions.ts';
 import { contextInstructions } from './context.ts';
+import { processMarker } from './process-liveness.ts';
 import { codeInput } from '../../verification/src/verification.ts';
 import type { CodeTaskSpec } from '../../contracts/src/views.ts';
 import type { InteractionContext } from './interactions.ts';
@@ -147,6 +148,10 @@ export class ForegroundExecution {
   /** True when no further Run can be admitted until one finishes. */
   get atCapacity(): boolean {
     return this.sessions.size >= this.store.maxActiveRuns();
+  }
+  /** True while this process executes the Run. */
+  isRunning(runId: string): boolean {
+    return this.sessions.has(runId);
   }
   /** True while a Run of this project executes. */
   activeIn(projectId: string): boolean {
@@ -739,6 +744,14 @@ export class ForegroundExecution {
           ? this.options.runtime.openDedicated(rpcOptions, runtimeFence!)
           : new StdioRpcClient(rpcOptions);
       const rpc = session.rpc;
+      // Which process runs this turn, so a crash can later be checked against it.
+      if (rpc.processId)
+        this.store.executorStarted(
+          session.token,
+          epoch,
+          rpc.processId,
+          processMarker(rpc.processId),
+        );
       this.diagnostics.phase = 'initialize';
       await rpc.request('initialize', {
         clientInfo: { name: 'personal_agent_desktop', version: '0.1.0' },
@@ -964,6 +977,8 @@ export class ForegroundExecution {
       this.diagnostics.externalMcpServers = 0;
       const turnParams: TurnStartParams = {
         threadId: session.threadId,
+        // One turn per Run: the Run ID lets reconciliation find exactly this message in history.
+        clientUserMessageId: session.token.runId,
         input: [{ type: 'text', text, text_elements: [] }],
         approvalPolicy: 'on-request',
         approvalsReviewer: 'user',

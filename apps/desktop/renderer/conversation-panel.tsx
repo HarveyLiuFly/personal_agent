@@ -360,7 +360,7 @@ export function ConversationPanel({
             {run.errorCode === 'RUN_NOT_SENT'
               ? '这一轮没有发送到模型，可以直接再发一次。'
               : run.status === 'outcome_unknown'
-                ? '这一轮的结果还没有确认，确认前不会自动重发。'
+                ? '这一轮的结果还没有确认。应用会在 Codex 记录里自动核对，确认前不会重发。'
                 : '这一轮没有完成。'}
             <details className="technical">
               <summary>原因详情</summary>
@@ -393,7 +393,7 @@ export function ConversationPanel({
           ))}
         {isLatest && run.status === 'outcome_unknown' && (
           <div className="notice">
-            需要先核对这一轮的结果，之后才能继续这个对话。
+            正在自动核对这一轮的结果，确认后可以继续这个对话；也可以现在手动核对。
             <button
               data-action="reconcile-run"
               disabled={checking}

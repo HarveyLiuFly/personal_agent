@@ -46,7 +46,10 @@ import { randomUUID, createHash } from 'node:crypto';
 import { ExecutionLedger, LedgerError } from '../../../packages/store/src/ledger.ts';
 import { NodeVerification } from '../../../packages/verification/src/verification.ts';
 import { ForegroundExecution } from '../../../packages/runtime/src/execution.ts';
-import { HistoryReconciliation } from '../../../packages/runtime/src/reconciliation.ts';
+import {
+  HistoryReconciliation,
+  UnknownRunReconciler,
+} from '../../../packages/runtime/src/reconciliation.ts';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { inspectConnection, inspectCatalog } from '../../../packages/codex-adapter/src/smoke.ts';
@@ -130,6 +133,8 @@ let worktreeService: WorktreeService | undefined;
 let worktreeStopping = false;
 let workspaceReader: WorkspaceService | undefined;
 let scheduleService: ScheduleService | undefined;
+/** Read-only background check of Unknown turns (set once history reconciliation exists). */
+let unknownReconciler: UnknownRunReconciler | undefined;
 let taskService: TaskService | undefined, outboxPump: OutboxPump | undefined;
 const recoverySmoke = process.argv.includes('--m2-worktree-recovery-smoke');
 const toolsSmoke = process.argv.includes('--m2-tools-smoke');
@@ -897,6 +902,7 @@ async function boot(): Promise<void> {
     if (taskService) steps.push({ name: 'plans', run: () => taskService!.stepPlans() });
     if (chatRoutes) steps.push({ name: 'routes', run: () => chatRoutes!.tick() });
     steps.push({ name: 'schedules', run: () => scheduleService!.step() });
+    steps.push({ name: 'reconcile', run: async () => void (await unknownReconciler?.step()) });
     backgroundScheduler = new BackgroundScheduler({
       steps,
       changeCount: () => ledger!.changeCount(),
@@ -1303,6 +1309,13 @@ async function boot(): Promise<void> {
           : readConnection(executable(), state, currentSignal())(read),
       )
     : undefined;
+  if (ledger && reconciliation) {
+    const reconcileLog = new BackgroundLog(resolve(app.getPath('userData'), 'logs'));
+    unknownReconciler = new UnknownRunReconciler(ledger, reconciliation, {
+      running: (runId) => Boolean(execution?.isRunning(runId)),
+      onError: (_runId, error) => reconcileLog.record('reconcile', error),
+    });
+  }
   handle('execution:reconcile', (event, ...args: unknown[]) =>
     historyCommand(event, args, 1, async () => {
       if (!execution || !reconciliation) throw new LedgerError('EXECUTION_UNAVAILABLE');

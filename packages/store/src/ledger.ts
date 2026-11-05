@@ -4853,6 +4853,89 @@ export class ExecutionLedger {
       if (run.status === 'outcome_unknown') this.budget.unknown(run.runId, true);
     });
   }
+  /** Records which process instance runs a Run's connection, so a crash can be checked later. */
+  executorStarted(
+    token: RunToken,
+    connectionEpoch: number,
+    pid: number,
+    marker: string | null,
+  ): void {
+    if (
+      !Number.isSafeInteger(connectionEpoch) ||
+      !Number.isSafeInteger(pid) ||
+      pid < 1 ||
+      (marker !== null && (typeof marker !== 'string' || marker.length > 200))
+    )
+      return fail('INVALID_EXECUTOR_PROCESS');
+    this.tx(() => {
+      this.owner();
+      const run = this.runForHost(token.runId);
+      if (run.epoch !== token.epoch || token.epoch !== this.#epoch) return fail('STALE_RUN');
+      this.event(run.taskId, run.runId, 'executor_started', {
+        connectionEpoch,
+        runtimeEpoch: token.epoch,
+        pid,
+        marker,
+      });
+    });
+  }
+  /**
+   * The recorded process of an Unknown Run's turn connection whose closure is not yet recorded
+   * (typically after the app was killed). Null when there is nothing to check.
+   */
+  executorProcess(
+    runId: string,
+  ): { pid: number; marker: string | null; connectionEpoch: number } | null {
+    this.owner();
+    const run = this.runForHost(runId),
+      intent = this.one(
+        "SELECT connection_epoch FROM execution_intents WHERE run_id=? AND kind='turn_start' AND connection_epoch IS NOT NULL",
+        runId,
+      );
+    if (run.status !== 'outcome_unknown' || !intent) return null;
+    const scoped = (type: string) =>
+      this.one(
+        "SELECT payload_json FROM task_events WHERE run_id=? AND event_type=? AND json_extract(payload_json,'$.runtimeEpoch')=? AND json_extract(payload_json,'$.connectionEpoch')=? ORDER BY sequence DESC LIMIT 1",
+        runId,
+        type,
+        run.epoch,
+        intent.connection_epoch!,
+      );
+    if (scoped('executor_closed')) return null;
+    const started = scoped('executor_started');
+    if (!started) return null;
+    const payload = JSON.parse(String(started.payload_json));
+    return {
+      pid: Number(payload.pid),
+      marker: typeof payload.marker === 'string' ? payload.marker : null,
+      connectionEpoch: Number(intent.connection_epoch),
+    };
+  }
+  /** Records an earlier executor's closure once the Host saw its exact process end. */
+  executorGone(runId: string, connectionEpoch: number): void {
+    this.tx(() => {
+      this.owner();
+      const run = this.runForHost(runId);
+      const process = this.executorProcess(runId);
+      if (!process || process.connectionEpoch !== connectionEpoch)
+        return fail('EXECUTOR_PROCESS_UNKNOWN');
+      this.event(run.taskId, run.runId, 'executor_closed', {
+        connectionEpoch,
+        runtimeEpoch: run.epoch,
+        basis: 'process_gone',
+      });
+      this.budget.unknown(run.runId, true);
+    });
+  }
+  /** Unknown conversation turns with a bound thread, oldest first (for automatic reconciliation). */
+  unknownRuns(limit = 20): Array<{ runId: string; projectId: string }> {
+    this.owner();
+    return this.all(
+      "SELECT r.run_id,t.workspace_id FROM task_runs r JOIN tasks t USING(task_id) WHERE r.dot_id=? AND r.status='outcome_unknown' AND json_extract(t.constraints_json,'$.internalRole') IS NULL AND EXISTS(SELECT 1 FROM thread_bindings b WHERE b.task_id=t.task_id AND b.state='active') ORDER BY r.started_at_ms,r.rowid LIMIT ?",
+      this.dotId,
+      Math.min(Math.max(limit, 1), 100),
+    ).map((row) => ({ runId: String(row.run_id), projectId: String(row.workspace_id) }));
+  }
   executorClosureRecorded(runId: string): boolean {
     this.owner();
     const run = this.runForHost(runId);

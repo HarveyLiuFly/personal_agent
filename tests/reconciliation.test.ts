@@ -5,11 +5,21 @@ import { join } from 'node:path';
 import { test } from 'node:test';
 import { DatabaseSync } from 'node:sqlite';
 import { ExecutionLedger } from '../packages/store/src/ledger.ts';
-import { HistoryReconciliation } from '../packages/runtime/src/reconciliation.ts';
+import {
+  HistoryReconciliation,
+  MAX_RECONCILE_ATTEMPTS,
+  UnknownRunReconciler,
+} from '../packages/runtime/src/reconciliation.ts';
 import type { ReadPort } from '../packages/codex-adapter/src/history.ts';
 function fixture(
   t: { after(fn: () => void): void },
-  options: { closed?: boolean; accepted?: boolean; requestUnknown?: boolean } = {},
+  options: {
+    closed?: boolean;
+    accepted?: boolean;
+    requestUnknown?: boolean;
+    /** Records the executor process (pid, marker) as a crash-recovery check would find it. */
+    executor?: { pid: number; marker: string | null };
+  } = {},
 ) {
   const root = realpathSync(mkdtempSync(join(tmpdir(), 'personal-agent-reconciliation-'))),
     cwd = join(root, 'workspace'),
@@ -26,6 +36,8 @@ function fixture(
   const a = store.prepare(token, 'thread', 'thread_start', {});
   store.sending(token, a.intentId, 1);
   store.accepted(token, a.intentId, { threadId: 'thread' });
+  if (options.executor)
+    store.executorStarted(token, 1, options.executor.pid, options.executor.marker);
   const b = store.prepare(token, 'turn', 'turn_start', {}, 'thread');
   store.sending(token, b.intentId, 1);
   if (options.accepted || options.requestUnknown) {
@@ -77,6 +89,11 @@ function fixture(
         const user = {
           id: 'user',
           type: 'userMessage',
+          ...(mutation === 'own-client'
+            ? { clientId: input.runId }
+            : mutation === 'foreign-client'
+              ? { clientId: 'another-run' }
+              : {}),
           content: [{ type: 'text', text: mutation === 'no-match' ? 'different' : text }],
         };
         result = {
@@ -199,4 +216,73 @@ test('foreign project IDs, paths and extra raw RPC fields fail before history ac
   ])
     await assert.rejects(f.service().reconcile(input));
   assert.equal(f.calls.length, 0);
+});
+
+test('a client message ID decides the match: its own ID reconciles, another ID with the same words does not', async (t) => {
+  const own = fixture(t);
+  own.mutate('own-client');
+  await own.service().reconcile(own.input);
+  assert.equal(own.store().runs(own.project.id)[0]!.status, 'completed');
+  const foreign = fixture(t);
+  foreign.mutate('foreign-client');
+  await assert.rejects(foreign.service().reconcile(foreign.input), /HISTORY_MATCH_NOT_FOUND/);
+  assert.equal(foreign.store().runs(foreign.project.id)[0]!.status, 'outcome_unknown');
+});
+
+test('after a crash the Host proves the old executor gone, then reconciles the turn by itself', async (t) => {
+  const f = fixture(t, { closed: false, executor: { pid: 424242, marker: 'fixture-marker' } });
+  f.reopen();
+  let alive = true,
+    now = 1000;
+  const errors: unknown[] = [];
+  const reconciler = new UnknownRunReconciler(f.store(), f.service(), {
+    now: () => now,
+    processGone: (pid, marker) => {
+      assert.equal(pid, 424242);
+      assert.equal(marker, 'fixture-marker');
+      return !alive;
+    },
+    onError: (_runId, error) => errors.push(error),
+  });
+  // Still running: no history read, no change, retried later.
+  assert.equal(await reconciler.step(), 0);
+  assert.equal(f.calls.length, 0);
+  assert.match(String(errors[0]), /EXECUTOR_STILL_RUNNING/);
+  assert.equal(await reconciler.step(), 0, 'not due again yet');
+  assert.equal(errors.length, 1);
+  alive = false;
+  now += 30_000;
+  assert.equal(await reconciler.step(), 1);
+  const view = f.store().runs(f.project.id)[0]!;
+  assert.equal(view.status, 'completed');
+  assert.equal(view.blocked, false);
+  assert.ok(
+    f.calls.every((m) => ['thread/read', 'thread/turns/list', 'thread/items/list'].includes(m)),
+    'read-only',
+  );
+  assert.equal(f.store().runs(f.project.id).length, 1, 'nothing resent');
+  assert.equal(await reconciler.step(), 0, 'nothing left');
+});
+
+test('automatic reconciliation backs off, stops after its limit and skips Runs still executing here', async (t) => {
+  const f = fixture(t);
+  f.mutate('no-match');
+  let now = 0,
+    running = true;
+  const reconciler = new UnknownRunReconciler(f.store(), f.service(), {
+    now: () => now,
+    running: () => running,
+  });
+  assert.equal(await reconciler.step(), 0);
+  assert.equal(f.calls.length, 0, 'a Run executing in this process is left alone');
+  running = false;
+  const delays: number[] = [];
+  for (let attempt = 0; attempt < MAX_RECONCILE_ATTEMPTS + 2; attempt++) {
+    const before = f.calls.length;
+    await reconciler.step();
+    if (f.calls.length > before) delays.push(now);
+    now += 30 * 60_000;
+  }
+  assert.equal(delays.length, MAX_RECONCILE_ATTEMPTS);
+  assert.equal(f.store().runs(f.project.id)[0]!.status, 'outcome_unknown');
 });

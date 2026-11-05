@@ -3,6 +3,7 @@ import type { ReconciliationClaim } from '../../store/src/ledger.ts';
 import { isObject } from '../../codex-adapter/src/rpc.ts';
 import { ThreadProjection } from '../../codex-adapter/src/projection.ts';
 import type { WithReadPort, ReadPort } from '../../codex-adapter/src/history.ts';
+import { processGone } from './process-liveness.ts';
 const fail = (code: string): never => {
   throw new LedgerError(code);
 };
@@ -115,6 +116,10 @@ export class HistoryReconciliation {
             users[0]!.content.length !== 1
           )
             continue;
+          // Turns sent since CORE.2f carry the Run ID as their client message ID: a different ID is
+          // someone else's message even with the same words.
+          const clientId = users[0]!.clientId;
+          if (typeof clientId === 'string' && clientId !== claim.runId) continue;
           const content = users[0]!.content[0];
           if (
             !isObject(content) ||
@@ -178,5 +183,65 @@ export class HistoryReconciliation {
     if (typeof thread.updatedAt !== 'number' || !Number.isFinite(thread.updatedAt))
       return fail('INVALID_HISTORY_RESPONSE');
     return thread;
+  }
+}
+
+export interface UnknownReconcilerOptions {
+  now?: () => number;
+  /** Process check (replaceable in tests). */
+  processGone?: (pid: number, marker: string | null) => boolean;
+  /** True while this process still executes the Run; such Runs are left alone. */
+  running?: (runId: string) => boolean;
+  /** Receives each failed attempt (for the background log). */
+  onError?: (runId: string, error: unknown) => void;
+}
+/** Attempts per Run in one app session before it is left for the user. */
+export const MAX_RECONCILE_ATTEMPTS = 8;
+/**
+ * Automatic, read-only reconciliation of Unknown turns. For a turn whose executor died with the
+ * app, it first proves that exact process ended (PID gone or reused), then looks the turn up in
+ * Codex history. It never sends or resumes anything; failures retry with backoff (30 s doubling
+ * to 30 min) and after a bounded number of attempts the Run stays Unknown for the user to check.
+ */
+export class UnknownRunReconciler {
+  private store: ExecutionLedger;
+  private history: Pick<HistoryReconciliation, 'reconcile'>;
+  private options: UnknownReconcilerOptions;
+  private attempts = new Map<string, { count: number; next: number }>();
+  constructor(
+    store: ExecutionLedger,
+    history: Pick<HistoryReconciliation, 'reconcile'>,
+    options: UnknownReconcilerOptions = {},
+  ) {
+    this.store = store;
+    this.history = history;
+    this.options = options;
+  }
+  /** One pass over the Unknown Runs that are due. Returns how many were resolved. */
+  async step(): Promise<number> {
+    const now = this.options.now ?? Date.now;
+    let resolved = 0;
+    for (const { runId, projectId } of this.store.unknownRuns()) {
+      if (this.options.running?.(runId)) continue;
+      const attempt = this.attempts.get(runId) ?? { count: 0, next: 0 };
+      if (attempt.count >= MAX_RECONCILE_ATTEMPTS || now() < attempt.next) continue;
+      try {
+        const executor = this.store.executorProcess(runId);
+        if (executor) {
+          if (!(this.options.processGone ?? processGone)(executor.pid, executor.marker))
+            fail('EXECUTOR_STILL_RUNNING');
+          this.store.executorGone(runId, executor.connectionEpoch);
+        }
+        await this.history.reconcile({ projectId, runId });
+        this.attempts.delete(runId);
+        resolved++;
+      } catch (error) {
+        attempt.count++;
+        attempt.next = now() + Math.min(30_000 * 2 ** (attempt.count - 1), 30 * 60_000);
+        this.attempts.set(runId, attempt);
+        this.options.onError?.(runId, error);
+      }
+    }
+    return resolved;
   }
 }
