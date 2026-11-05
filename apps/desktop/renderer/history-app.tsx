@@ -213,8 +213,16 @@ export function HistoryApp({ children }: { children: React.ReactNode }) {
   const navigate = (next: Surface) => {
     setSurface(next);
     setError('');
-    if (next === 'history') void perform(() => readThreads());
   };
+  // The Host answers from its cached first page and refreshes it in the background; re-read
+  // when it reports the refresh.
+  useEffect(() => {
+    if (surface !== 'history' || !project) return;
+    return subscribeRefresh(
+      () => readThreads().catch(() => setError('暂时无法读取 Codex 历史。')),
+      { topics: ['history'], projectId: project.id },
+    );
+  }, [surface, project?.id]);
   return (
     <div className={'shell v2-shell' + (collapsed ? ' sidebar-collapsed' : '')}>
       <aside className="sidebar" aria-label="主导航">

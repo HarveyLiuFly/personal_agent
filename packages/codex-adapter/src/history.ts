@@ -78,15 +78,39 @@ function pageResponse(value: unknown): {
   return { data, nextCursor: value.nextCursor as string | null };
 }
 
+export interface HistoryOptions {
+  /** A cached first page older than this is refreshed in the background (default 10 s). */
+  refreshAfterMs?: number;
+  /** Called after a background refresh replaced a project's cached first page. */
+  onRefreshed?: (projectId: string) => void;
+  now?: () => number;
+}
+interface FirstPage {
+  page?: Page<ThreadSummary>;
+  at: number;
+  pending?: Promise<Page<ThreadSummary>>;
+}
 /** Read-only navigation authority. Folder registration is Host-only, never a Renderer-supplied path. */
 export class HistoryBrowser {
   private projects = new Map<string, Project>();
   private cursors = new Map<string, Cursor>();
+  /** First thread page per project: Codex filters by folder slowly (seconds), so it is cached. */
+  private firstPages = new Map<string, FirstPage>();
   private withPort: WithReadPort;
   private register?: (directory: string) => ProjectView;
-  constructor(withPort: WithReadPort, register?: (directory: string) => ProjectView) {
+  private options: HistoryOptions;
+  constructor(
+    withPort: WithReadPort,
+    register?: (directory: string) => ProjectView,
+    options: HistoryOptions = {},
+  ) {
     this.withPort = withPort;
     this.register = register;
+    this.options = options;
+  }
+  /** Drops cached thread pages (e.g. after a privacy or runtime reset). */
+  clearCache(): void {
+    this.firstPages.clear();
   }
   async registerDirectory(directory: string): Promise<ProjectView> {
     const canonical = await realpath(directory);
@@ -198,16 +222,58 @@ export class HistoryBrowser {
     if (turns.length > 500) return fail('LEGACY_HISTORY_TOO_LARGE');
     return turns;
   }
+  /**
+   * The first page comes from the cache when there is one; a cache older than `refreshAfterMs` is
+   * refreshed in the background and `onRefreshed` reports the new page. Later pages are read live.
+   */
   async listThreads(input: unknown): Promise<Page<ThreadSummary>> {
     const q = query(input, ['projectId']);
     const projectId = q.projectId!;
     const project = await this.project(projectId);
-    const scope = { kind: 'threads' as const, projectId };
-    const cursor = this.cursor(q.cursor, scope);
-    if (!cursor) {
-      project.threads.clear();
-      this.clearCursors(projectId);
+    const cursor = this.cursor(q.cursor, { kind: 'threads', projectId });
+    if (cursor) return this.threadPage(project, cursor);
+    const now = this.options.now ?? Date.now;
+    const cached = this.firstPages.get(projectId);
+    if (cached?.page) {
+      if (!cached.pending && now() - cached.at >= (this.options.refreshAfterMs ?? 10_000))
+        this.loadFirst(project, cached).then(
+          () => this.options.onRefreshed?.(projectId),
+          () => undefined, // Kept the last page; the next request after the interval retries.
+        );
+      return structuredClone(cached.page);
     }
+    return structuredClone(await this.loadFirst(project, cached));
+  }
+  /** One live read of the first page per project at a time; concurrent callers share it. */
+  private loadFirst(project: Project, entry?: FirstPage): Promise<Page<ThreadSummary>> {
+    const projectId = project.view.id,
+      now = this.options.now ?? Date.now;
+    const current = entry ?? { at: 0 };
+    if (current.pending) return current.pending;
+    this.firstPages.set(projectId, current);
+    const pending = this.threadPage(project).then(
+      (page) => {
+        if (this.firstPages.get(projectId) === current) {
+          current.page = page;
+          current.at = now();
+        }
+        current.pending = undefined;
+        return page;
+      },
+      (error: unknown) => {
+        current.pending = undefined;
+        current.at = now();
+        if (!current.page && this.firstPages.get(projectId) === current)
+          this.firstPages.delete(projectId);
+        throw error;
+      },
+    );
+    current.pending = pending;
+    return pending;
+  }
+  private threadPage(project: Project, cursor?: Cursor): Promise<Page<ThreadSummary>> {
+    const projectId = project.view.id,
+      scope = { kind: 'threads' as const, projectId };
     return this.withPort(async (port) => {
       const response = pageResponse(
         await port.request('thread/list', {
@@ -222,12 +288,17 @@ export class HistoryBrowser {
       );
       // Validate every row before exporting any title or authorizing a thread ID.
       const threads = response.data.map((thread) => this.checkThread(thread, project));
-      if (
-        project.threads.size +
-          threads.filter((thread) => !project.threads.has(String(thread.id))).length >
-        500
-      )
-        return fail('HISTORY_NAVIGATION_LIMIT');
+      // A new first page replaces the old page handles; turn and item handles stay valid.
+      if (!cursor)
+        for (const [token, old] of this.cursors)
+          if (old.projectId === projectId && old.kind === 'threads') this.cursors.delete(token);
+      const added = threads.filter((thread) => !project.threads.has(String(thread.id))).length;
+      if (project.threads.size + added > 500) {
+        if (cursor) return fail('HISTORY_NAVIGATION_LIMIT');
+        // A fresh first page starts navigation over; every later read rechecks the folder anyway.
+        project.threads.clear();
+        this.clearCursors(projectId);
+      }
       const items = threads.map((thread) => {
         const threadId = String(thread.id);
         if (!project.threads.has(threadId)) project.threads.set(threadId, new Map());
@@ -255,7 +326,7 @@ export class HistoryBrowser {
           { ...scope, native: response.nextCursor, offset: 0, mode: 'paginated' },
           response.nextCursor !== null,
         ),
-        mode: 'paginated',
+        mode: 'paginated' as const,
         truncated: false,
       };
     });

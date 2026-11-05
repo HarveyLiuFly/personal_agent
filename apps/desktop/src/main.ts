@@ -746,6 +746,7 @@ async function boot(): Promise<void> {
       }
     },
     ledger ? (path) => ledger!.registerWorkspace(path) : undefined,
+    { onRefreshed: (projectId) => hostEvents?.emit('history', projectId) },
   );
   let choosingProject = false;
   handle('history:chooseProject', (event, ...args: unknown[]) =>
@@ -849,6 +850,7 @@ async function boot(): Promise<void> {
       revokeRuns: async (ids) => {
         const result = await execution!.revokeForPrivacy(ids);
         await appServer?.reset();
+        history.clearCache();
         return { stoppedRunIds: result.closedRunIds, unknownRunIds: result.unresolvedRunIds };
       },
       purgeArtifacts: async (keys) => {

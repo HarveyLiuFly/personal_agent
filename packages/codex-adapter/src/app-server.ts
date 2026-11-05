@@ -17,6 +17,8 @@ const reads = new Set([
   'thread/turns/list',
   'thread/items/list',
 ]);
+/** Codex filters `thread/list` by folder slowly (11–16 s measured with ~2,100 threads). */
+const readDeadlines: Record<string, number> = { 'thread/list': 60_000 };
 type State = 'idle' | 'starting' | 'ready' | 'failed' | 'closing' | 'closed';
 type Options = Pick<
   RpcOptions,
@@ -30,6 +32,25 @@ function stamp(file: string): string {
     if ((e as NodeJS.ErrnoException).code === 'ENOENT') return 'missing';
     throw new RpcFailure('APP_SERVER_IDENTITY_UNAVAILABLE');
   }
+}
+/** Rejects as soon as the signal aborts; the underlying work continues. */
+function abortable<T>(promise: Promise<T>, signal?: AbortSignal): Promise<T> {
+  if (!signal) return promise;
+  if (signal.aborted) return Promise.reject(new RpcFailure('CLIENT_ABORTED'));
+  return new Promise<T>((resolve, reject) => {
+    const abort = () => reject(new RpcFailure('CLIENT_ABORTED'));
+    signal.addEventListener('abort', abort, { once: true });
+    promise.then(
+      (value) => {
+        signal.removeEventListener('abort', abort);
+        resolve(value);
+      },
+      (error: unknown) => {
+        signal.removeEventListener('abort', abort);
+        reject(error);
+      },
+    );
+  });
 }
 function identity(options: Options): string {
   const env = options.env ?? {},
@@ -54,7 +75,11 @@ function identity(options: Options): string {
 export class AppServerRuntime {
   private client?: StdioRpcClient;
   private key?: string;
-  private tail: Promise<void> = Promise.resolve();
+  /** Settles when each admitted lease (waiting or running) ends; a reset waits for all. */
+  private leases = new Set<Promise<void>>();
+  private active = 0;
+  private waiters: Array<() => void> = [];
+  private starting?: Promise<StdioRpcClient>;
   private resetting?: Promise<void>;
   private stopped = false;
   private fence = 0;
@@ -72,6 +97,8 @@ export class AppServerRuntime {
   private options: () => Options;
   private limits: {
     maximumQueue?: number;
+    /** Leases running at once on the metadata connection (default 4). */
+    concurrency?: number;
     rotateAfterRequests?: number;
     backfillCooldownMs?: number;
     now?: () => number;
@@ -82,6 +109,7 @@ export class AppServerRuntime {
     options: () => Options,
     limits: {
       maximumQueue?: number;
+      concurrency?: number;
       rotateAfterRequests?: number;
       backfillCooldownMs?: number;
       now?: () => number;
@@ -118,8 +146,41 @@ export class AppServerRuntime {
     await client.close();
     if (!this.client) this.state = this.stopped ? 'closed' : 'idle';
   }
+  /** Waits for one of the concurrent lease slots (FIFO); an aborted waiter leaves the queue. */
+  private async slot(signal?: AbortSignal): Promise<void> {
+    if (signal?.aborted) throw new RpcFailure('CLIENT_ABORTED');
+    if (this.active < (this.limits.concurrency ?? 4)) {
+      this.active++;
+      return;
+    }
+    await new Promise<void>((resolve, reject) => {
+      const grant = () => {
+        signal?.removeEventListener('abort', cancel);
+        this.active++;
+        resolve();
+      };
+      const cancel = () => {
+        const index = this.waiters.indexOf(grant);
+        if (index >= 0) this.waiters.splice(index, 1);
+        reject(new RpcFailure('CLIENT_ABORTED'));
+      };
+      this.waiters.push(grant);
+      signal?.addEventListener('abort', cancel, { once: true });
+    });
+  }
+  private release(): void {
+    this.active--;
+    this.waiters.shift()?.();
+  }
   private async ready(fence: number, signal?: AbortSignal): Promise<StdioRpcClient> {
     this.check(fence, signal);
+    const starting = this.starting;
+    if (starting) {
+      // Concurrent leases share one start, including its failure, instead of spawning more.
+      await abortable(starting, signal);
+      if (this.starting === starting) this.starting = undefined;
+      return this.ready(fence, signal);
+    }
     let options: Options, key: string;
     try {
       options = this.options();
@@ -137,7 +198,8 @@ export class AppServerRuntime {
       this.client &&
       (!this.client.usable ||
         this.key !== key ||
-        this.client.requestCount >= (this.limits.rotateAfterRequests ?? 2048))
+        // Rotate only when no other lease is using the connection.
+        (this.client.requestCount >= (this.limits.rotateAfterRequests ?? 2048) && this.active <= 1))
     )
       await this.retire(this.client);
     this.check(fence, signal);
@@ -148,16 +210,26 @@ export class AppServerRuntime {
     if (now < this.retryAfter) throw new RpcFailure('CODEX_STATE_INDEX_PENDING');
     const blocked = this.limits.blocked?.();
     if (blocked) throw new RpcFailure(blocked);
+    // Not tied to this lease's signal: an aborted caller must not kill a start others share.
+    const start = this.start(options, key, fence);
+    this.starting = start;
+    void start.then(
+      () => {
+        if (this.starting === start) this.starting = undefined;
+      },
+      () => {
+        if (this.starting === start) this.starting = undefined;
+      },
+    );
+    return abortable(start, signal);
+  }
+  private async start(options: Options, key: string, fence: number): Promise<StdioRpcClient> {
     const client = new StdioRpcClient(options);
     this.client = client;
     this.key = key;
     this.starts++;
     this.generation++;
     this.state = 'starting';
-    const abort = () => {
-      void this.retire(client);
-    };
-    signal?.addEventListener('abort', abort, { once: true });
     void client.waitClosed().then(() => {
       if (this.client === client) {
         this.client = undefined;
@@ -169,7 +241,7 @@ export class AppServerRuntime {
       this.initializations++;
       await client.request('initialize', initialization);
       await client.notify('initialized');
-      this.check(fence, signal);
+      this.check(fence);
       if (!client.usable) throw new RpcFailure('PROCESS_EXITED');
       this.state = 'ready';
       this.failureCode = null;
@@ -177,24 +249,23 @@ export class AppServerRuntime {
       return client;
     } catch (error) {
       await this.retire(client);
-      this.failureCode = signal?.aborted
-        ? 'CLIENT_ABORTED'
-        : error instanceof RpcFailure
-          ? error.code
-          : 'HOST_ERROR';
+      this.failureCode = error instanceof RpcFailure ? error.code : 'HOST_ERROR';
       if (this.failureCode === 'CODEX_STATE_INDEX_PENDING') {
         this.retryAfter =
           (this.limits.now ?? Date.now)() + (this.limits.backfillCooldownMs ?? 30000);
         this.key = key;
       }
       if (!this.stopped) this.state = 'failed';
-      if (signal?.aborted) throw new RpcFailure('CLIENT_ABORTED');
       throw error;
-    } finally {
-      signal?.removeEventListener('abort', abort);
     }
   }
-  /** Leases are serialized and bounded; a failed operation is never replayed. */
+  /**
+   * Up to `concurrency` leases (default 4) share the one metadata connection; later ones wait in
+   * order and the queue is bounded. A failed operation is never replayed. A lease-local failure
+   * (remote error, invalid response, abort) leaves the connection serving the others; only a
+   * broken or stale connection is retired. An aborted caller is rejected at once while its
+   * in-flight request finishes in the background, still holding its slot.
+   */
   read<T>(work: (port: ReadPort) => Promise<T>, signal?: AbortSignal): Promise<T> {
     const fence = this.fence;
     try {
@@ -205,64 +276,81 @@ export class AppServerRuntime {
       return Promise.reject(error);
     }
     this.queue++;
-    const job = this.tail.then(async () => {
-      this.check(fence, signal);
-      const client = await this.ready(fence, signal);
-      let live = true;
-      const pending = new Set<Promise<unknown>>();
-      const abort = () => {
-        void this.retire(client);
-      };
-      signal?.addEventListener('abort', abort, { once: true });
-      const port: ReadPort = {
-        request: <R>(method: string, params: unknown): Promise<R> => {
-          if (!live) return Promise.reject(new RpcFailure('APP_SERVER_LEASE_EXPIRED'));
-          try {
-            this.check(fence, signal);
-            if (!reads.has(method)) throw new RpcFailure('READ_METHOD_NOT_ALLOWED');
-          } catch (error) {
-            return Promise.reject(error);
-          }
-          const request = client.request<R>(method, params);
-          pending.add(request);
-          void request.then(
-            () => pending.delete(request),
-            () => pending.delete(request),
-          );
-          return request;
-        },
-      };
+    const job = (async () => {
+      await this.slot(signal);
       try {
-        const result = await work(port);
-        this.check(fence, signal);
-        if (this.key !== identity(this.options()))
-          throw new RpcFailure('APP_SERVER_CONTEXT_CHANGED');
-        if (pending.size) throw new RpcFailure('APP_SERVER_REQUESTS_PENDING');
-        return result;
-      } catch (error) {
-        await this.retire(client);
-        this.failureCode = signal?.aborted
-          ? 'CLIENT_ABORTED'
-          : error instanceof RpcFailure
-            ? error.code
-            : 'HOST_ERROR';
-        if (!this.stopped) this.state = 'failed';
-        if (signal?.aborted) throw new RpcFailure('CLIENT_ABORTED');
-        throw error;
+        return await this.lease(work, fence, signal);
       } finally {
-        live = false;
-        signal?.removeEventListener('abort', abort);
-        await Promise.allSettled([...pending]);
+        this.release();
       }
-    });
-    const result = job.finally(() => {
-      this.queue--;
-    });
-    this.tail = result.then(
-      () => {},
-      () => {},
-    );
-    return result;
+    })();
+    const settled: Promise<void> = job
+      .then(
+        () => {},
+        () => {},
+      )
+      .finally(() => {
+        this.queue--;
+        this.leases.delete(settled);
+      });
+    this.leases.add(settled);
+    return abortable(job, signal);
+  }
+  private async lease<T>(
+    work: (port: ReadPort) => Promise<T>,
+    fence: number,
+    signal?: AbortSignal,
+  ): Promise<T> {
+    const client = await this.ready(fence, signal);
+    this.check(fence, signal);
+    let live = true;
+    const pending = new Set<Promise<unknown>>();
+    const port: ReadPort = {
+      request: <R>(method: string, params: unknown): Promise<R> => {
+        if (!live) return Promise.reject(new RpcFailure('APP_SERVER_LEASE_EXPIRED'));
+        try {
+          this.check(fence, signal);
+          if (!reads.has(method)) throw new RpcFailure('READ_METHOD_NOT_ALLOWED');
+        } catch (error) {
+          return Promise.reject(error);
+        }
+        const request = client.request<R>(method, params, readDeadlines[method]);
+        pending.add(request);
+        void request.then(
+          () => pending.delete(request),
+          () => pending.delete(request),
+        );
+        return request;
+      },
+    };
+    try {
+      const result = await work(port);
+      this.check(fence, signal);
+      if (this.key !== identity(this.options())) throw new RpcFailure('APP_SERVER_CONTEXT_CHANGED');
+      if (pending.size) throw new RpcFailure('APP_SERVER_REQUESTS_PENDING');
+      return result;
+    } catch (error) {
+      const code = signal?.aborted
+        ? 'CLIENT_ABORTED'
+        : error instanceof RpcFailure
+          ? error.code
+          : 'HOST_ERROR';
+      if (
+        !client.usable ||
+        code === 'APP_SERVER_CONTEXT_CHANGED' ||
+        // A timeout with nobody else on the connection may mean a stuck process.
+        (code === 'RESPONSE_TIMEOUT' && this.active <= 1)
+      ) {
+        await this.retire(client);
+        this.failureCode = code;
+        if (!this.stopped) this.state = 'failed';
+      }
+      if (signal?.aborted) throw new RpcFailure('CLIENT_ABORTED');
+      throw error;
+    } finally {
+      live = false;
+      await Promise.allSettled([...pending]);
+    }
   }
   /** Ends an index cooldown early (the Host finished warming the state index). */
   wake(): void {
@@ -308,11 +396,11 @@ export class AppServerRuntime {
     this.key = undefined;
     this.retryAfter = 0;
     this.state = 'closing';
-    const waiting = this.tail,
+    const waiting = [...this.leases, this.starting?.catch(() => {})],
       children = [...this.children];
     this.resetting = (async () => {
       await Promise.all([client?.close(), ...children.map((child) => child.close())]);
-      await waiting;
+      await Promise.all(waiting);
       this.state = this.stopped ? 'closed' : 'idle';
       this.failureCode = null;
     })();

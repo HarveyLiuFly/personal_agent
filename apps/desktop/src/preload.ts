@@ -31,10 +31,10 @@ const api: DesktopApi = Object.freeze<DesktopApi>({
   onEvent: (listener) => {
     // Only Main sends on this channel; forward a normalized copy, never the IPC event object.
     const handler = (_event: unknown, value: Partial<HostEvent> | undefined) => {
-      if (!value || (value.topic !== 'store' && value.topic !== 'terminal')) return;
+      if (!value || !['store', 'terminal', 'history'].includes(String(value.topic))) return;
       listener({
         seq: Number(value.seq),
-        topic: value.topic,
+        topic: value.topic as HostEvent['topic'],
         ...(typeof value.projectId === 'string' ? { projectId: value.projectId } : {}),
       });
     };

@@ -97,7 +97,8 @@ export interface SmokeInfo {
 /** Change notice pushed by the Host. It carries no data; the Renderer re-reads what it shows. */
 export interface HostEvent {
   seq: number;
-  topic: 'store' | 'terminal';
+  /** `history`: a project's cached Codex history page was refreshed in the background. */
+  topic: 'store' | 'terminal' | 'history';
   projectId?: string;
 }
 export interface DesktopApi {

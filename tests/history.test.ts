@@ -12,6 +12,7 @@ async function fixture(
   t: { after(fn: () => Promise<void>): void },
   override?: Override,
   mode = 'paginated',
+  options: ConstructorParameters<typeof HistoryBrowser>[2] = {},
 ) {
   // macOS tmpdir can itself be a /var -> /private/var symlink. Backend fixtures
   // must use the canonical cwd that the Host actually grants.
@@ -69,7 +70,7 @@ async function fixture(
       return (override ? override(method, p, response) : response) as T;
     },
   };
-  const browser = new HistoryBrowser(async (read) => read(port));
+  const browser = new HistoryBrowser(async (read) => read(port), undefined, options);
   const project = await browser.registerDirectory(root);
   const navigate = async () => {
     await browser.listThreads({ projectId: project.id });
@@ -180,10 +181,16 @@ test('fresh thread metadata is checked before reading message history', async (t
   );
 });
 test('native pagination cursors are replaced with scoped handles and refresh invalidates old handles', async (t) => {
-  const f = await fixture(t, (method, _p, normal) =>
-    method === 'thread/list'
-      ? { ...(normal as object), nextCursor: 'native-sensitive-cursor' }
-      : normal,
+  let refreshed!: () => void;
+  const done = new Promise<void>((r) => (refreshed = r));
+  const f = await fixture(
+    t,
+    (method, _p, normal) =>
+      method === 'thread/list'
+        ? { ...(normal as object), nextCursor: 'native-sensitive-cursor' }
+        : normal,
+    'paginated',
+    { refreshAfterMs: 0, onRefreshed: () => refreshed() },
   );
   const page = await f.browser.listThreads({ projectId: f.project.id });
   const token = page.nextCursor!;
@@ -200,11 +207,74 @@ test('native pagination cursors are replaced with scoped handles and refresh inv
   );
   await f.browser.listThreads({ projectId: f.project.id, cursor: token });
   assert.equal(f.calls.at(-1)?.params.cursor, 'native-sensitive-cursor');
-  await f.browser.listThreads({ projectId: f.project.id });
+  // The cached first page still answers at once; its background refresh replaces the handle.
+  assert.equal((await f.browser.listThreads({ projectId: f.project.id })).nextCursor, token);
+  await done;
   await assert.rejects(
     f.browser.listThreads({ projectId: f.project.id, cursor: token }),
     failure('INVALID_HISTORY_CURSOR'),
   );
+  assert.notEqual((await f.browser.listThreads({ projectId: f.project.id })).nextCursor, token);
+});
+test('the first thread page is cached, shared and refreshed in the background', async (t) => {
+  let now = 1000,
+    title = 'first',
+    fail = false,
+    refreshed = 0,
+    wake!: () => void;
+  const f = await fixture(
+    t,
+    (method, _p, normal) => {
+      if (method !== 'thread/list') return normal;
+      if (fail) throw new RpcFailure('RESPONSE_TIMEOUT');
+      const page = normal as { data: Array<Record<string, unknown>> };
+      return { ...page, data: [{ ...page.data[0], preview: title }] };
+    },
+    'paginated',
+    {
+      refreshAfterMs: 100,
+      now: () => now,
+      onRefreshed: () => {
+        refreshed++;
+        wake?.();
+      },
+    },
+  );
+  const lists = () => f.calls.filter((c) => c.method === 'thread/list').length;
+  const input = { projectId: f.project.id };
+  // Concurrent first callers share one live read.
+  const [a, b] = await Promise.all([f.browser.listThreads(input), f.browser.listThreads(input)]);
+  assert.equal(lists(), 1);
+  assert.equal(a.items[0]!.title, 'first');
+  assert.deepEqual(a, b);
+  // Within the interval: served from the cache, no read.
+  title = 'second';
+  now += 50;
+  assert.equal((await f.browser.listThreads(input)).items[0]!.title, 'first');
+  assert.equal(lists(), 1);
+  // After the interval: still answered from the cache at once, refreshed in the background.
+  now += 100;
+  const woke = new Promise<void>((r) => (wake = r));
+  assert.equal((await f.browser.listThreads(input)).items[0]!.title, 'first');
+  await woke;
+  assert.equal(lists(), 2);
+  assert.equal(refreshed, 1);
+  assert.equal((await f.browser.listThreads(input)).items[0]!.title, 'second');
+  // A failed refresh keeps the last page and does not retry before the next interval.
+  fail = true;
+  now += 100;
+  assert.equal((await f.browser.listThreads(input)).items[0]!.title, 'second');
+  await new Promise((r) => setTimeout(r, 10));
+  assert.equal(lists(), 3);
+  assert.equal((await f.browser.listThreads(input)).items[0]!.title, 'second');
+  assert.equal(lists(), 3);
+  assert.equal(refreshed, 1);
+  // Clearing the cache makes the next call read live again.
+  fail = false;
+  title = 'third';
+  f.browser.clearCache();
+  assert.equal((await f.browser.listThreads(input)).items[0]!.title, 'third');
+  assert.equal(lists(), 4);
 });
 test('turn authority and every returned item entry are checked before content export', async (t) => {
   const f = await fixture(t, (method, _p, normal) =>

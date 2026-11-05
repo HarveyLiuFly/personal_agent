@@ -1,0 +1,42 @@
+{
+  "checkpoint": "CORE.2a",
+  "date": "2026-11-05",
+  "platform": "linux-x64",
+  "cliVersion": "codex-cli 0.163.0",
+  "kind": "real pinned CLI metadata connection (scripts/probe-metadata-concurrency.ts); no model request, no thread started",
+  "status": "passed",
+  "native": {
+    "indexedThreads": 2152,
+    "listByFolderAloneMs": 16278,
+    "listDuringMs": 16142,
+    "inspectDuringListMs": 6,
+    "secondReadDuringListMs": 5,
+    "historyFirstPageMs": 13943,
+    "historyCachedPageMs": 0,
+    "metadataStarts": 1,
+    "note": "Before CORE.2a the reads queued behind the listing (CORE.1 run 3: connection check waited 11.2 s)."
+  },
+  "automated": {
+    "files": 7,
+    "tests": 53,
+    "passed": 53,
+    "new": [
+      "a slow read does not hold up other reads on the same connection",
+      "leases beyond the concurrency limit wait in order",
+      "concurrent first reads share one start and its failure",
+      "a remote error in one lease keeps the connection for the others",
+      "an aborted lease is rejected at once and leaves the shared connection serving others (rewritten)",
+      "the first thread page is cached, shared and refreshed in the background",
+      "native pagination cursors ... refresh invalidates old handles (rewritten for the cache)"
+    ]
+  },
+  "checks": {
+    "typecheck": "passed",
+    "build": "passed",
+    "prettier": "passed",
+    "eslintChangedFiles": "passed",
+    "dependencyRules": "0 errors, 14 warnings",
+    "windowSmoke": "passed (host desktop, sandboxed renderer)"
+  },
+  "modelRequests": 0
+}

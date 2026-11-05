@@ -100,8 +100,8 @@ test('a process exit fails the current request once; only a subsequent explicit 
   await f.runtime.read(inspectCatalog);
   assert.equal(f.runtime.snapshot().starts, 2);
 });
-test('abort stops only the active lease process; queued cancellation neither kills nor enters the preceding lease', async (t) => {
-  const f = fixture(t);
+test('an aborted lease is rejected at once and leaves the shared connection serving others', async (t) => {
+  const f = fixture(t, { concurrency: 1 });
   await f.runtime.read(inspectCatalog);
   let entered!: () => void, release!: () => void;
   const enteredPromise = new Promise<void>((r) => {
@@ -118,22 +118,102 @@ test('abort stops only the active lease process; queued cancellation neither kil
   await enteredPromise;
   const pid = f.runtime.snapshot().metadataPid!,
     queuedAbort = new AbortController();
-  const queued = f.runtime.read(inspectCatalog, queuedAbort.signal);
+  let queuedEntered = false;
+  const queued = f.runtime.read(async () => {
+    queuedEntered = true;
+  }, queuedAbort.signal);
   const rejected = assert.rejects(queued, /CLIENT_ABORTED/);
   queuedAbort.abort();
+  await rejected;
   release();
   assert.equal(await first, 1);
-  await rejected;
+  assert.equal(queuedEntered, false, 'a cancelled waiter never enters');
   assert.equal(f.runtime.snapshot().metadataPid, pid);
+  // Abort while a request is in flight: the caller is rejected at once, the process stays.
   const abort = new AbortController();
+  const begun = Date.now();
   const pending = f.runtime.read(async (p) => {
     setTimeout(() => abort.abort(), 40);
     return p.request('thread/items/list', {});
   }, abort.signal);
   await assert.rejects(pending, /CLIENT_ABORTED/);
-  assert.ok(gone(pid));
+  assert.ok(Date.now() - begun < 400, 'rejected before the request deadline');
+  assert.ok(!gone(pid));
   await f.runtime.read(inspectCatalog);
-  assert.equal(f.runtime.snapshot().starts, 2);
+  assert.equal(f.runtime.snapshot().metadataPid, pid);
+  assert.equal(f.runtime.snapshot().starts, 1);
+});
+test('a slow read does not hold up other reads on the same connection', async (t) => {
+  const f = fixture(t);
+  await f.runtime.read(inspectCatalog);
+  let release!: () => void;
+  const slow = f.runtime.read(
+    () => new Promise<string>((done) => (release = () => done('listed'))),
+  );
+  const begun = Date.now();
+  const [a, b] = await Promise.all([
+    f.runtime.read(inspectCatalog),
+    f.runtime.read((p) => p.request<{ pid: number }>('thread/read', {})),
+  ]);
+  assert.ok(Date.now() - begun < 300, 'answered while the slow read was still open');
+  assert.equal(a.models, 1);
+  assert.equal(b.pid, f.runtime.snapshot().metadataPid);
+  release();
+  assert.equal(await slow, 'listed');
+  assert.equal(f.runtime.snapshot().starts, 1);
+});
+test('leases beyond the concurrency limit wait in order', async (t) => {
+  const f = fixture(t, { concurrency: 2 });
+  await f.runtime.read(inspectCatalog);
+  const order: string[] = [],
+    releases: Array<() => void> = [];
+  const hold = (name: string) =>
+    f.runtime.read(async () => {
+      order.push(name);
+      await new Promise<void>((r) => releases.push(r));
+      return name;
+    });
+  const a = hold('a'),
+    b = hold('b'),
+    c = hold('c');
+  await new Promise((r) => setTimeout(r, 30));
+  assert.deepEqual(order, ['a', 'b']);
+  assert.equal(f.runtime.snapshot().queued, 3);
+  releases[0]!();
+  assert.equal(await a, 'a');
+  await new Promise((r) => setTimeout(r, 10));
+  assert.deepEqual(order, ['a', 'b', 'c']);
+  releases[1]!();
+  releases[2]!();
+  assert.deepEqual(await Promise.all([b, c]), ['b', 'c']);
+});
+test('concurrent first reads share one start and its failure', async (t) => {
+  const f = fixture(t, {}, 'backfill');
+  const results = await Promise.allSettled([
+    f.runtime.read(inspectCatalog),
+    f.runtime.read(inspectCatalog),
+    f.runtime.read(inspectCatalog),
+  ]);
+  for (const result of results) {
+    assert.equal(result.status, 'rejected');
+    assert.match(String((result as PromiseRejectedResult).reason), /CODEX_STATE_INDEX_PENDING/);
+  }
+  assert.equal(f.runtime.snapshot().starts, 1);
+});
+test('a remote error in one lease keeps the connection for the others', async (t) => {
+  const f = fixture(t);
+  await f.runtime.read(inspectCatalog);
+  const pid = f.runtime.snapshot().metadataPid!;
+  const [failed, listed] = await Promise.allSettled([
+    f.runtime.read((p) => p.request('thread/read', { remoteError: true })),
+    f.runtime.read((p) => p.request<{ pid: number }>('thread/list', {})),
+  ]);
+  assert.equal(failed.status, 'rejected');
+  assert.match(String((failed as PromiseRejectedResult).reason), /REMOTE_-32602/);
+  assert.equal(listed.status, 'fulfilled');
+  assert.equal(f.runtime.snapshot().state, 'ready');
+  assert.equal(f.runtime.snapshot().metadataPid, pid);
+  assert.ok(!gone(pid));
 });
 test('privacy reset fences queued and leaked readers, closes the process, and permits a fresh explicit connection', async (t) => {
   const f = fixture(t);

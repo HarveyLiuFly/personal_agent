@@ -37,6 +37,12 @@ createInterface({ input: process.stdin }).on('line', (line) => {
     process.exit(7);
   }
   if (q.method === 'thread/items/list') return;
+  if (q.params?.remoteError) {
+    process.stdout.write(
+      JSON.stringify({ id: q.id, error: { code: -32602, message: 'Invalid params' } }) + '\n',
+    );
+    return;
+  }
   if (q.method === 'model/list')
     send(q.id, { data: [{ id: 'fixture', isDefault: true, hidden: false }] });
   else send(q.id, { pid: process.pid, params: q.params });
