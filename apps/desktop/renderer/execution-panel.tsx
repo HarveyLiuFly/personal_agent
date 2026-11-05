@@ -13,6 +13,7 @@ import { isToolItem } from './tool-activity.ts';
 import { displayMessage, sendOnEnter, runStatusLabel } from './ui-model.ts';
 import { MessageBody } from './message-body.tsx';
 import { useDraft } from './drafts.ts';
+import { subscribeRefresh } from './host-events.ts';
 async function value<T>(request: Promise<HostResult<T>>): Promise<T> {
   const r = await request;
   if (!r.ok) throw Error(r.errorCode);
@@ -84,8 +85,7 @@ export function ExecutionPanel({
   }, [requestedRunId]);
   useEffect(() => {
     alive.current = true;
-    let stopped = false,
-      timer: ReturnType<typeof setTimeout>;
+    let stopped = false;
     async function poll() {
       try {
         const rows = await value(window.personalAgent.listRuns({ projectId: project.id }));
@@ -134,15 +134,14 @@ export function ExecutionPanel({
           }
           setError('暂时无法更新进展。输入已保留，请核对当前任务后再操作。');
         }
-      } finally {
-        if (!stopped) timer = setTimeout(() => void poll(), 800);
       }
     }
-    void poll();
+    // Re-read after each Host change notice instead of polling.
+    const unsubscribe = subscribeRefresh(poll);
     return () => {
       stopped = true;
       alive.current = false;
-      clearTimeout(timer);
+      unsubscribe();
     };
   }, [project.id, fresh]);
   const priorIds = runs

@@ -6,6 +6,7 @@ import type {
   OccurrenceView,
 } from '../../../packages/contracts/src/schedules.ts';
 import type { HostResult } from '../../../packages/contracts/src/views.ts';
+import { subscribeRefresh } from './host-events.ts';
 const states: Record<string, string> = {
   active: '已启用',
   paused: '已暂停',
@@ -59,8 +60,7 @@ export function ScheduleManager({
     [catchUp, setCatchUp] = useState(1);
   const key = useRef<string | undefined>(undefined);
   useEffect(() => {
-    let stopped = false,
-      timer: ReturnType<typeof setTimeout>;
+    let stopped = false;
     const poll = async () => {
       try {
         const plans = await value(window.personalAgent.listSchedules({ projectId })),
@@ -84,14 +84,13 @@ export function ScheduleManager({
           setOccurrences([]);
           setLoadError(true);
         }
-      } finally {
-        if (!stopped) timer = setTimeout(() => void poll(), 500);
       }
     };
-    void poll();
+    // Re-read after each Host change notice instead of polling.
+    const unsubscribe = subscribeRefresh(poll);
     return () => {
       stopped = true;
-      clearTimeout(timer);
+      unsubscribe();
     };
   }, [projectId, viewId]);
   const eligible = tasks.filter((t) => t.status === 'queued' && !t.blocked && !t.activeRunId),

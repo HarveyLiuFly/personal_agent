@@ -91,6 +91,8 @@ export interface ExecutionOptions {
     sourceRunId: string,
     signal: AbortSignal,
   ) => Promise<void>;
+  /** Called after a Run session starts or ends, with the number still running. */
+  onSessionsChanged?: (running: number) => void;
   /** Trusted tests only; no IPC entry point can supply this factory. */
   connect?: (
     callbacks: Pick<RpcOptions, 'onNotification' | 'onServerRequest' | 'onServerResponse'>,
@@ -146,7 +148,9 @@ export class ForegroundExecution {
     this.sessions.set(session.token.runId, session);
     session.completion = this.execute(session, text).finally(() => {
       this.sessions.delete(session.token.runId);
+      this.options.onSessionsChanged?.(this.sessions.size);
     });
+    this.options.onSessionsChanged?.(this.sessions.size);
   }
   get supportsQueuedCode(): boolean {
     return Boolean(this.options.prepareCode && this.options.prepareContinuation);

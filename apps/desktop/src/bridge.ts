@@ -92,6 +92,12 @@ export interface SmokeInfo {
   turnId?: string;
   errorCode?: string;
 }
+/** Change notice pushed by the Host. It carries no data; the Renderer re-reads what it shows. */
+export interface HostEvent {
+  seq: number;
+  topic: 'store' | 'terminal';
+  projectId?: string;
+}
 export interface DesktopApi {
   getRunCheckpoint(
     input: RunQuery,
@@ -151,6 +157,8 @@ export interface DesktopApi {
   applyBackupCommand(input: BackupCommand): Promise<HostResult<BackupCommandResult>>;
   readonly security: { readonly sandboxed: boolean; readonly isolated: boolean };
   inspect(): Promise<ConnectionInfo>;
+  /** Subscribes to Host change notices; returns the unsubscribe function. */
+  onEvent(listener: (event: HostEvent) => void): () => void;
   chooseProject(): Promise<HostResult<ProjectView | null>>;
   listThreads(query: ProjectQuery): Promise<HostResult<Page<ThreadSummary>>>;
   listTurns(query: ThreadQuery): Promise<HostResult<Page<TurnView>>>;

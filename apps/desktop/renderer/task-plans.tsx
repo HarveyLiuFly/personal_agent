@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import type { TaskSummary, TaskPlanView } from '../../../packages/contracts/src/tasks.ts';
 import type { HostResult } from '../../../packages/contracts/src/views.ts';
+import { subscribeRefresh } from './host-events.ts';
 const states: Record<string, string> = {
   pending: '等待处理',
   blocked: '等待前置操作',
@@ -40,8 +41,7 @@ export function TaskPlans({
   const key = useRef<string | undefined>(undefined),
     cancelKeys = useRef(new Map<string, string>());
   useEffect(() => {
-    let stopped = false,
-      timer: ReturnType<typeof setTimeout>;
+    let stopped = false;
     const poll = async () => {
       try {
         const rows = await value(window.personalAgent.listTaskPlans({ projectId }));
@@ -51,14 +51,13 @@ export function TaskPlans({
         }
       } catch {
         if (!stopped) setLoadError(true);
-      } finally {
-        if (!stopped) timer = setTimeout(() => void poll(), 500);
       }
     };
-    void poll();
+    // Re-read after each Host change notice instead of polling.
+    const unsubscribe = subscribeRefresh(poll);
     return () => {
       stopped = true;
-      clearTimeout(timer);
+      unsubscribe();
     };
   }, [projectId]);
   const ids = Object.keys(selected).sort(),

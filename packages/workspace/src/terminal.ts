@@ -42,6 +42,8 @@ export interface TerminalOptions {
   node: string;
   worker: string;
   stateDirectory: string;
+  /** Called when new output arrives for a project's terminal (not the bytes themselves). */
+  onOutput?: (projectId: string) => void;
   /** Linux local node-pty build record written by `pnpm setup:terminal`. */ bindingRecord?: string;
   /** Trusted fault hooks only. */ afterPrepared?: () => void;
   afterDispatch?: () => void;
@@ -215,6 +217,11 @@ export class TerminalService {
             live.bytes += bytes;
             while ((live.bytes > 1048576 || live.chunks.length > 4096) && live.chunks.length) {
               live.bytes -= live.chunks.shift()!.bytes;
+            }
+            try {
+              this.options.onOutput?.(session.projectId);
+            } catch {
+              /* A notice failure must not affect the terminal stream. */
             }
           } else if (data.kind === 'input' && Number.isSafeInteger(data.sequence)) {
             this.options.beforeInputAck?.();

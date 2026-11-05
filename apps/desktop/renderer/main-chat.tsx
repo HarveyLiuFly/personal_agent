@@ -16,6 +16,7 @@ import {
 } from './ui-model.ts';
 import { MessageBody } from './message-body.tsx';
 import { useDraft } from './drafts.ts';
+import { subscribeRefresh, nextHostEvent } from './host-events.ts';
 async function value<T>(work: Promise<HostResult<T>>) {
   const r = await work;
   if (!r.ok) throw Error(r.errorCode);
@@ -100,11 +101,10 @@ export function MainChatWorkspace({
   }
   useEffect(() => {
     alive.current = true;
-    void refresh();
-    const timer = setInterval(() => void refresh(), 1500);
+    const unsubscribe = subscribeRefresh(refresh);
     return () => {
       alive.current = false;
-      clearInterval(timer);
+      unsubscribe();
     };
   }, [project.id]);
   const contentStamp =
@@ -137,6 +137,7 @@ export function MainChatWorkspace({
         if (fresh)
           await finishFreshDiscussion(route, {
             active: () => alive.current,
+            wait: () => nextHostEvent('store', 5000),
             read: () => value(window.personalAgent.listChatRoutes({ projectId: project.id })),
             observe: (current) =>
               setRoutes((old) => [current, ...old.filter((r) => r.id !== current.id)]),

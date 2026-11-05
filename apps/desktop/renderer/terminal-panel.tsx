@@ -4,6 +4,7 @@ import { Terminal } from '@xterm/xterm';
 import '@xterm/xterm/css/xterm.css';
 import type { ProjectView, HostResult } from '../../../packages/contracts/src/views.ts';
 import type { TerminalView } from '../../../packages/contracts/src/terminal.ts';
+import { subscribeRefresh } from './host-events.ts';
 async function value<T>(p: Promise<HostResult<T>>) {
   const r = await p;
   if (!r.ok) throw Error(r.errorCode);
@@ -109,11 +110,14 @@ export function TerminalPanel({
   }
   useEffect(() => {
     alive.current = true;
-    void refresh();
-    const timer = setInterval(() => void refresh(), 250);
+    // Terminal output and session state arrive as Host notices for this project.
+    const unsubscribe = subscribeRefresh(refresh, {
+      topics: ['terminal', 'store'],
+      projectId: project.id,
+    });
     return () => {
       alive.current = false;
-      clearInterval(timer);
+      unsubscribe();
       inputQueue.current?.dispose();
       onBusyChange(false);
     };

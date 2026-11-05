@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron';
-import type { DesktopApi } from './bridge.ts';
+import type { DesktopApi, HostEvent } from './bridge.ts';
 
 const api: DesktopApi = Object.freeze<DesktopApi>({
   getRunCheckpoint: (input) => ipcRenderer.invoke('context:checkpoint', input),
@@ -28,6 +28,21 @@ const api: DesktopApi = Object.freeze<DesktopApi>({
     isolated: process.contextIsolated === true,
   }),
   inspect: () => ipcRenderer.invoke('runtime:inspect'),
+  onEvent: (listener) => {
+    // Only Main sends on this channel; forward a normalized copy, never the IPC event object.
+    const handler = (_event: unknown, value: Partial<HostEvent> | undefined) => {
+      if (!value || (value.topic !== 'store' && value.topic !== 'terminal')) return;
+      listener({
+        seq: Number(value.seq),
+        topic: value.topic,
+        ...(typeof value.projectId === 'string' ? { projectId: value.projectId } : {}),
+      });
+    };
+    ipcRenderer.on('pa:event', handler);
+    return () => {
+      ipcRenderer.removeListener('pa:event', handler);
+    };
+  },
   chooseProject: () => ipcRenderer.invoke('history:chooseProject'),
   listThreads: (query) => ipcRenderer.invoke('history:listThreads', query),
   listTurns: (query) => ipcRenderer.invoke('history:listTurns', query),

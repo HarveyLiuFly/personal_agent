@@ -20,6 +20,7 @@ import { taskLabels, displayMessage, latestTaskRuns } from './ui-model.ts';
 import { clearDrafts } from './drafts.ts';
 import { MessageBody } from './message-body.tsx';
 import { shortcutLabel } from './platform.ts';
+import { subscribeRefresh } from './host-events.ts';
 type Surface =
   | 'assistant'
   | 'task'
@@ -112,8 +113,7 @@ export function HistoryApp({ children }: { children: React.ReactNode }) {
   }, []);
   useEffect(() => {
     if (!project || !cap.canManageTasks) return;
-    let stopped = false,
-      timer: ReturnType<typeof setTimeout>;
+    let stopped = false;
     async function poll() {
       try {
         const [nextTasks, nextRuns, routes, epochs] = await Promise.all([
@@ -140,17 +140,16 @@ export function HistoryApp({ children }: { children: React.ReactNode }) {
         privacy.current = epochs.privacyEpoch;
       } catch {
         /* retain last confirmed navigation */
-      } finally {
-        if (!stopped) timer = setTimeout(() => void poll(), 1500);
       }
     }
     setTasks([]);
     setRuns([]);
     setTaskId(undefined);
-    void poll();
+    // Re-read after each Host change notice instead of polling.
+    const unsubscribe = subscribeRefresh(poll);
     return () => {
       stopped = true;
-      clearTimeout(timer);
+      unsubscribe();
     };
   }, [project?.id, cap.canManageTasks]);
   function newTask() {

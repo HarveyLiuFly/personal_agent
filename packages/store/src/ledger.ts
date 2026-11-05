@@ -4637,6 +4637,10 @@ export class ExecutionLedger {
       return this.budget.snapshot();
     });
   }
+  /** Rows written through this connection so far (all sub-ledgers share it); used for change notices. */
+  changeCount(): number {
+    return Number(this.#db.prepare('SELECT total_changes() AS n').get()?.n ?? 0);
+  }
   /** How many Runs may execute at once (policy, 1–8). Admission enforces it in the same transaction. */
   maxActiveRuns(): number {
     return Number(

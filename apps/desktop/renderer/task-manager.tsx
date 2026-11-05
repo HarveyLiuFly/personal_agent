@@ -9,6 +9,7 @@ import type { ResourceBudget } from '../../../packages/contracts/src/budget.ts';
 import { TaskPlans } from './task-plans.tsx';
 import { ScheduleManager } from './schedule-manager.tsx';
 import { ResourceView } from './resource-view.tsx';
+import { subscribeRefresh } from './host-events.ts';
 const labels: Record<string, string> = {
   created: '待排队',
   queued: '已排队',
@@ -103,8 +104,7 @@ export function TaskManager({
   const [budget, setBudget] = useState<ResourceBudget>(),
     [resourcesStale, setResourcesStale] = useState(false);
   useEffect(() => {
-    let stopped = false,
-      timer: ReturnType<typeof setTimeout>;
+    let stopped = false;
     alive.current = true;
     const poll = async () => {
       try {
@@ -127,14 +127,13 @@ export function TaskManager({
         }
       } catch {
         if (!stopped) setError('无法更新任务队列，请稍后刷新。');
-      } finally {
-        if (!stopped) timer = setTimeout(() => void poll(), 500);
       }
     };
-    void poll();
+    // Re-read after each Host change notice instead of polling.
+    const unsubscribe = subscribeRefresh(poll);
     return () => {
       stopped = true;
-      clearTimeout(timer);
+      unsubscribe();
     };
   }, [project.id, cursor]);
   useEffect(

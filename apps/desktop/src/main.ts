@@ -75,6 +75,7 @@ import { runBackgroundProbe } from './background-probe.ts';
 import { evidenceDir } from './evidence.ts';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { BackgroundLog } from './background-log.ts';
+import { HostEvents } from './host-events.ts';
 
 const directory = dirname(fileURLToPath(import.meta.url));
 const root = resolve(directory, '../..');
@@ -98,6 +99,8 @@ let ledger: ExecutionLedger | undefined;
 let backupService: BackupService | undefined;
 const resourceSampler = new MainResourceSampler();
 let execution: ForegroundExecution | undefined;
+/** Change notices to the Renderer (replaces Renderer polling). */
+let hostEvents: HostEvents | undefined;
 let appServer: AppServerRuntime | undefined,
   appServerStopping = false;
 let chatRoutes: ChatRouteService | undefined,
@@ -335,6 +338,19 @@ function authorized(event: Electron.IpcMainInvokeEvent): void {
 function executable(): string {
   return verifiedCodex(root).executable;
 }
+/** Registers an IPC handler; when it settles, any ledger writes become one change notice. */
+function handle<T>(
+  channel: string,
+  listener: (event: Electron.IpcMainInvokeEvent, ...args: unknown[]) => T | Promise<T>,
+): void {
+  ipcMain.handle(channel, async (event, ...args: unknown[]) => {
+    try {
+      return await listener(event, ...args);
+    } finally {
+      hostEvents?.check();
+    }
+  });
+}
 function finishRequest(request: AbortController): void {
   inFlight.delete(request);
   if (quitting || (!keepRunningWithoutWindow && BrowserWindow.getAllWindows().length === 0))
@@ -553,6 +569,7 @@ async function boot(): Promise<void> {
             worker: resolve(directory, 'terminal-worker.mjs'),
             stateDirectory: resolve(fixtureDirectory ?? app.getPath('userData'), 'terminals'),
             bindingRecord: resolve(root, '.local/terminal-binding.json'),
+            onOutput: (projectId) => hostEvents?.emit('terminal', projectId),
           }),
       );
       worktreeService = optional(
@@ -590,7 +607,17 @@ async function boot(): Promise<void> {
           }),
       );
     }
+    hostEvents = new HostEvents(
+      (event) => {
+        if (window && !window.isDestroyed()) window.webContents.send('pa:event', event);
+      },
+      () => ledger!.changeCount(),
+    );
     execution = new ForegroundExecution(ledger, {
+      onSessionsChanged: (running) => {
+        hostEvents?.check();
+        if (running) hostEvents?.watchWhile(() => Boolean(execution?.busy));
+      },
       executable: executionSmoke ? resolveExecutable('node') : executable(),
       stateDirectory: state,
       runtime: appServer,
@@ -681,7 +708,7 @@ async function boot(): Promise<void> {
     ledger ? (path) => ledger!.registerWorkspace(path) : undefined,
   );
   let choosingProject = false;
-  ipcMain.handle('history:chooseProject', (event, ...args: unknown[]) =>
+  handle('history:chooseProject', (event, ...args: unknown[]) =>
     readCommand(event, args, 0, async () => {
       if (choosingProject) throw new LedgerError('PROJECT_DIALOG_OPEN');
       choosingProject = true;
@@ -714,13 +741,13 @@ async function boot(): Promise<void> {
       }
     }),
   );
-  ipcMain.handle('history:listThreads', (event, ...args: unknown[]) =>
+  handle('history:listThreads', (event, ...args: unknown[]) =>
     readCommand(event, args, 1, () => history.listThreads(args[0])),
   );
-  ipcMain.handle('history:listTurns', (event, ...args: unknown[]) =>
+  handle('history:listTurns', (event, ...args: unknown[]) =>
     readCommand(event, args, 1, () => history.listTurns(args[0])),
   );
-  ipcMain.handle('history:listItems', (event, ...args: unknown[]) =>
+  handle('history:listItems', (event, ...args: unknown[]) =>
     readCommand(event, args, 1, () => history.listItems(args[0])),
   );
   const projectSkills = ledger
@@ -734,7 +761,7 @@ async function boot(): Promise<void> {
           )(read, signal),
       })
     : undefined;
-  ipcMain.handle('skills:list', (event, ...args: unknown[]) =>
+  handle('skills:list', (event, ...args: unknown[]) =>
     readCommand(event, args, 1, async () => {
       if (!projectSkills) throw new LedgerError('PROJECT_SKILLS_UNAVAILABLE');
       return projectSkills.list(args[0], currentSignal());
@@ -796,7 +823,10 @@ async function boot(): Promise<void> {
     const backgroundLog = new BackgroundLog(resolve(app.getPath('userData'), 'logs'));
     goalTimer = setInterval(() => {
       if (!runtimeTransition)
-        void goalService?.tick().catch((error) => backgroundLog.record('goals', error));
+        void goalService
+          ?.tick()
+          .catch((error) => backgroundLog.record('goals', error))
+          .finally(() => hostEvents?.check());
     }, 15000);
     goalTimer.unref();
     outboxPump = new OutboxPump(ledger);
@@ -809,7 +839,11 @@ async function boot(): Promise<void> {
         backgroundLog.record('outbox', error);
       }
       void taskService?.stepPlans().catch((error) => backgroundLog.record('plans', error));
-      void chatRoutes?.tick().catch((error) => backgroundLog.record('routes', error));
+      void chatRoutes
+        ?.tick()
+        .catch((error) => backgroundLog.record('routes', error))
+        .finally(() => hostEvents?.check());
+      hostEvents?.check();
     }, 250);
     outboxTimer.unref();
   }
@@ -824,6 +858,7 @@ async function boot(): Promise<void> {
         // Failed admission transactions preserve their cursor; sent runs are never retried here.
         scheduleLog.record('schedules', error);
       }
+      hostEvents?.check();
     }, 1000);
     scheduleTimer.unref();
   }
@@ -832,13 +867,13 @@ async function boot(): Promise<void> {
     ['schedules:list', 'list'],
     ['schedules:occurrences', 'occurrences'],
   ] as const)
-    ipcMain.handle(channel, (event, ...args: unknown[]) =>
+    handle(channel, (event, ...args: unknown[]) =>
       executionCommand(event, args, 1, () => {
         if (!scheduleService) throw new LedgerError('SCHEDULES_UNAVAILABLE');
         return scheduleService[method](args[0]);
       }),
     );
-  ipcMain.handle('execution:workspaceState', (event, ...args: unknown[]) =>
+  handle('execution:workspaceState', (event, ...args: unknown[]) =>
     executionCommand(event, args, 0, () => ({
       projects: ledger?.projects() ?? [],
       canSubmit: Boolean(execution),
@@ -851,13 +886,13 @@ async function boot(): Promise<void> {
       mode: interactionSmoke ? ('workspaceWrite' as const) : ('readOnly' as const),
     })),
   );
-  ipcMain.handle('chat:read', (event, ...args: unknown[]) =>
+  handle('chat:read', (event, ...args: unknown[]) =>
     executionCommand(event, args, 1, () => {
       if (!ledger) throw new LedgerError('MAIN_CHAT_UNAVAILABLE');
       return ledger.mainChat(args[0]);
     }),
   );
-  ipcMain.handle('chat:submit', (event, ...args: unknown[]) =>
+  handle('chat:submit', (event, ...args: unknown[]) =>
     executionCommand(event, args, 1, () => {
       if (!ledger) throw new LedgerError('MAIN_CHAT_UNAVAILABLE');
       return ledger.submitMainChat(args[0]);
@@ -895,48 +930,48 @@ async function boot(): Promise<void> {
       };
     }
   }
-  ipcMain.handle('chat:propose', (event, ...args: unknown[]) =>
+  handle('chat:propose', (event, ...args: unknown[]) =>
     executionCommand(event, args, 1, () => {
       if (!chatRoutes) throw new LedgerError('MAIN_CHAT_UNAVAILABLE');
       return chatRoutes.propose(args[0] as ProposeMainChat);
     }),
   );
-  ipcMain.handle('chat:routes', (event, ...args: unknown[]) =>
+  handle('chat:routes', (event, ...args: unknown[]) =>
     executionCommand(event, args, 1, () => ledger!.mainRoutes(oneId(args[0], 'projectId'))),
   );
-  ipcMain.handle('chat:commit', (event, ...args: unknown[]) =>
+  handle('chat:commit', (event, ...args: unknown[]) =>
     domainAsync(event, args, () => chatRoutes!.commit(args[0] as CommitChatRoute)),
   );
-  ipcMain.handle('chat:correct', (event, ...args: unknown[]) =>
+  handle('chat:correct', (event, ...args: unknown[]) =>
     executionCommand(event, args, 1, () =>
       chatRoutes!.correct(args[0] as Parameters<ChatRouteService['correct']>[0]),
     ),
   );
-  ipcMain.handle('goals:list', (event, ...args: unknown[]) =>
+  handle('goals:list', (event, ...args: unknown[]) =>
     executionCommand(event, args, 1, () => ledger!.listGoals(oneId(args[0], 'projectId'))),
   );
-  ipcMain.handle('goals:command', (event, ...args: unknown[]) =>
+  handle('goals:command', (event, ...args: unknown[]) =>
     domainAsync(event, args, () => goalService!.apply(args[0] as GoalCommand)),
   );
-  ipcMain.handle('goals:notifications', (event, ...args: unknown[]) =>
+  handle('goals:notifications', (event, ...args: unknown[]) =>
     executionCommand(event, args, 1, () => ledger!.goalNotifications(oneId(args[0], 'goalId'))),
   );
-  ipcMain.handle('goals:sources', (event, ...args: unknown[]) =>
+  handle('goals:sources', (event, ...args: unknown[]) =>
     executionCommand(event, args, 0, () => ledger!.goalSourceCatalog()),
   );
-  ipcMain.handle('goals:sourceEvents', (event, ...args: unknown[]) =>
+  handle('goals:sourceEvents', (event, ...args: unknown[]) =>
     executionCommand(event, args, 1, () => ledger!.goalSourceEvents(oneId(args[0], 'sourceId'))),
   );
-  ipcMain.handle('memory:state', (event, ...args: unknown[]) =>
+  handle('memory:state', (event, ...args: unknown[]) =>
     executionCommand(event, args, 0, () => ledger!.memoryState()),
   );
-  ipcMain.handle('memory:list', (event, ...args: unknown[]) =>
+  handle('memory:list', (event, ...args: unknown[]) =>
     executionCommand(event, args, 1, () => listUserMemory(ledger!, args[0])),
   );
-  ipcMain.handle('memory:remember', (event, ...args: unknown[]) =>
+  handle('memory:remember', (event, ...args: unknown[]) =>
     executionCommand(event, args, 1, () => rememberUserMessage(ledger!, args[0])),
   );
-  ipcMain.handle('context:checkpoint', (event, ...args: unknown[]) =>
+  handle('context:checkpoint', (event, ...args: unknown[]) =>
     executionCommand(event, args, 1, () => {
       const input = args[0] as { projectId: string; runId: string };
       if (
@@ -949,14 +984,14 @@ async function boot(): Promise<void> {
       return ledger!.currentRunCheckpoint(input.projectId, input.runId);
     }),
   );
-  ipcMain.handle('context:rollover', (event, ...args: unknown[]) =>
+  handle('context:rollover', (event, ...args: unknown[]) =>
     executionCommand(event, args, 1, () => {
       if (!execution) throw new LedgerError('EXECUTION_UNAVAILABLE');
       return execution.rolloverRun(args[0]);
     }),
   );
   for (const channel of ['memory:forget', 'memory:retry'])
-    ipcMain.handle(channel, (event, ...args: unknown[]) =>
+    handle(channel, (event, ...args: unknown[]) =>
       domainAsync(event, args, async () => {
         if (!memoryService) throw new LedgerError('MEMORY_UNAVAILABLE');
         if (active) throw new LedgerError('RUNTIME_BUSY');
@@ -975,19 +1010,19 @@ async function boot(): Promise<void> {
         }
       }),
     );
-  ipcMain.handle('tasks:list', (event, ...args: unknown[]) =>
+  handle('tasks:list', (event, ...args: unknown[]) =>
     executionCommand(event, args, 1, () => {
       if (!taskService) throw new LedgerError('TASKS_UNAVAILABLE');
       return taskService.list(args[0]);
     }),
   );
-  ipcMain.handle('tasks:activity', (event, ...args: unknown[]) =>
+  handle('tasks:activity', (event, ...args: unknown[]) =>
     executionCommand(event, args, 1, () => {
       if (!taskService) throw new LedgerError('TASKS_UNAVAILABLE');
       return taskService.activity(args[0]);
     }),
   );
-  ipcMain.handle('runtime:resourceBudget', (event, ...args: unknown[]) =>
+  handle('runtime:resourceBudget', (event, ...args: unknown[]) =>
     executionCommand(event, args, 0, () => {
       if (!ledger) throw new LedgerError('TASKS_UNAVAILABLE');
       let mainProcess;
@@ -1001,13 +1036,13 @@ async function boot(): Promise<void> {
       };
     }),
   );
-  ipcMain.handle('backups:list', (event, ...args: unknown[]) =>
+  handle('backups:list', (event, ...args: unknown[]) =>
     executionCommand(event, args, 0, () => {
       if (!backupService) throw new LedgerError('BACKUPS_UNAVAILABLE');
       return { ...backupService.list(), restores: restoreService?.list() };
     }),
   );
-  ipcMain.handle('backups:command', async (event, ...args: unknown[]) => {
+  handle('backups:command', async (event, ...args: unknown[]) => {
     authorized(event);
     if (runtimeTransition) return { ok: false, errorCode: 'RUNTIME_RESTARTING' };
     if (args.length !== 1) return { ok: false, errorCode: 'UNEXPECTED_ARGUMENTS' };
@@ -1054,19 +1089,19 @@ async function boot(): Promise<void> {
       return { ok: false, errorCode: error instanceof LedgerError ? error.code : 'HOST_ERROR' };
     }
   });
-  ipcMain.handle('tasks:plans', (event, ...args: unknown[]) =>
+  handle('tasks:plans', (event, ...args: unknown[]) =>
     executionCommand(event, args, 1, () => {
       if (!taskService) throw new LedgerError('TASKS_UNAVAILABLE');
       return taskService.plans(args[0]);
     }),
   );
-  ipcMain.handle('tasks:cancelPlan', (event, ...args: unknown[]) =>
+  handle('tasks:cancelPlan', (event, ...args: unknown[]) =>
     executionCommand(event, args, 1, () => {
       if (!taskService) throw new LedgerError('TASKS_UNAVAILABLE');
       return taskService.cancelPlan(args[0]);
     }),
   );
-  ipcMain.handle('tasks:plan', async (event, ...args: unknown[]) => {
+  handle('tasks:plan', async (event, ...args: unknown[]) => {
     authorized(event);
     if (runtimeTransition) return { ok: false, errorCode: 'RUNTIME_RESTARTING' };
     if (args.length !== 1) return { ok: false, errorCode: 'UNEXPECTED_ARGUMENTS' };
@@ -1081,13 +1116,13 @@ async function boot(): Promise<void> {
       };
     }
   });
-  ipcMain.handle('tasks:start', (event, ...args: unknown[]) =>
+  handle('tasks:start', (event, ...args: unknown[]) =>
     executionCommand(event, args, 1, () => {
       if (!execution || active) throw new LedgerError('RUNTIME_BUSY');
       return execution.startTask(args[0]);
     }),
   );
-  ipcMain.handle('tasks:command', async (event, ...args: unknown[]) => {
+  handle('tasks:command', async (event, ...args: unknown[]) => {
     authorized(event);
     if (runtimeTransition) return { ok: false, errorCode: 'RUNTIME_RESTARTING' };
     if (args.length !== 1) return { ok: false, errorCode: 'UNEXPECTED_ARGUMENTS' };
@@ -1108,7 +1143,7 @@ async function boot(): Promise<void> {
     ['workspace:file', 'preview'],
     ['workspace:diff', 'diff'],
   ] as const) {
-    ipcMain.handle(channel, (event, ...args: unknown[]) =>
+    handle(channel, (event, ...args: unknown[]) =>
       readCommand(event, args, 1, async () => {
         if (!workspaceReader) throw new LedgerError('WORKSPACE_READER_UNAVAILABLE');
         return workspaceReader[operation](args[0], currentSignal());
@@ -1123,7 +1158,7 @@ async function boot(): Promise<void> {
     ['terminal:close', 'close'],
     ['terminal:reconcile', 'reconcile'],
   ] as const)
-    ipcMain.handle(channel, async (event, ...args: unknown[]) => {
+    handle(channel, async (event, ...args: unknown[]) => {
       authorized(event);
       if (runtimeTransition) return { ok: false, errorCode: 'RUNTIME_RESTARTING' };
       if (args.length !== 1) return { ok: false, errorCode: 'UNEXPECTED_ARGUMENTS' };
@@ -1140,7 +1175,7 @@ async function boot(): Promise<void> {
     'worktrees:inspect',
     'worktrees:use',
   ])
-    ipcMain.handle(channel, (event, ...args: unknown[]) =>
+    handle(channel, (event, ...args: unknown[]) =>
       (channel === 'worktrees:list' || channel === 'worktrees:inspect'
         ? readCommand
         : historyCommand)(event, args, 1, async () => {
@@ -1181,25 +1216,25 @@ async function boot(): Promise<void> {
       await history.registerDirectory(project.directory);
     } catch {}
   }
-  ipcMain.handle('execution:submit', (event, ...args: unknown[]) =>
+  handle('execution:submit', (event, ...args: unknown[]) =>
     executionCommand(event, args, 1, () => {
       if (!execution || active) throw new LedgerError('RUNTIME_BUSY');
       return execution.submit(args[0]);
     }),
   );
-  ipcMain.handle('execution:continue', (event, ...args: unknown[]) =>
+  handle('execution:continue', (event, ...args: unknown[]) =>
     executionCommand(event, args, 1, () => {
       if (!execution || active) throw new LedgerError('RUNTIME_BUSY');
       return execution.continueRun(args[0]);
     }),
   );
-  ipcMain.handle('execution:list', (event, ...args: unknown[]) =>
+  handle('execution:list', (event, ...args: unknown[]) =>
     executionCommand(event, args, 1, () => {
       if (!execution) throw new LedgerError('EXECUTION_UNAVAILABLE');
       return execution.list(args[0]);
     }),
   );
-  ipcMain.handle('execution:view', (event, ...args: unknown[]) =>
+  handle('execution:view', (event, ...args: unknown[]) =>
     executionCommand(event, args, 1, () => {
       if (!execution) throw new LedgerError('EXECUTION_UNAVAILABLE');
       return execution.view(args[0]);
@@ -1212,7 +1247,7 @@ async function boot(): Promise<void> {
           : readConnection(executable(), state, currentSignal())(read),
       )
     : undefined;
-  ipcMain.handle('execution:reconcile', (event, ...args: unknown[]) =>
+  handle('execution:reconcile', (event, ...args: unknown[]) =>
     historyCommand(event, args, 1, async () => {
       if (!execution || !reconciliation) throw new LedgerError('EXECUTION_UNAVAILABLE');
       execution.view(args[0]);
@@ -1220,20 +1255,20 @@ async function boot(): Promise<void> {
       return execution.view(args[0]);
     }),
   );
-  ipcMain.handle('execution:interactions', (event, ...args: unknown[]) =>
+  handle('execution:interactions', (event, ...args: unknown[]) =>
     executionCommand(event, args, 1, () => {
       if (!execution) throw new LedgerError('EXECUTION_UNAVAILABLE');
       return execution.interactions(args[0]);
     }),
   );
-  ipcMain.handle('execution:reply', (event, ...args: unknown[]) =>
+  handle('execution:reply', (event, ...args: unknown[]) =>
     executionCommand(event, args, 1, () => {
       if (!execution) throw new LedgerError('EXECUTION_UNAVAILABLE');
       execution.reply(args[0]);
       return { state: 'submitted' as const };
     }),
   );
-  ipcMain.handle('execution:interrupt', async (event, ...args: unknown[]) => {
+  handle('execution:interrupt', async (event, ...args: unknown[]) => {
     authorized(event);
     if (runtimeTransition) return { ok: false, errorCode: 'RUNTIME_RESTARTING' };
     if (args.length !== 1) return { ok: false, errorCode: 'UNEXPECTED_ARGUMENTS' };
@@ -1277,10 +1312,10 @@ async function boot(): Promise<void> {
         : null,
     };
   }
-  ipcMain.handle('execution:review', (event, ...args: unknown[]) =>
+  handle('execution:review', (event, ...args: unknown[]) =>
     executionCommand(event, args, 1, () => review(args[0])),
   );
-  ipcMain.handle('execution:verify', async (event, ...args: unknown[]) => {
+  handle('execution:verify', async (event, ...args: unknown[]) => {
     authorized(event);
     if (runtimeTransition) return { ok: false, errorCode: 'RUNTIME_RESTARTING' };
     if (args.length !== 1) return { ok: false, errorCode: 'UNEXPECTED_ARGUMENTS' };
@@ -1301,7 +1336,7 @@ async function boot(): Promise<void> {
       finishRequest(request);
     }
   });
-  ipcMain.handle('runtime:inspect', async (event, ...args: unknown[]): Promise<ConnectionInfo> => {
+  handle('runtime:inspect', async (event, ...args: unknown[]): Promise<ConnectionInfo> => {
     authorized(event);
     if (runtimeTransition) return { status: 'error', errorCode: 'RUNTIME_RESTARTING' };
     if (args.length) throw new Error('UNEXPECTED_ARGUMENTS');
@@ -1585,6 +1620,7 @@ async function boot(): Promise<void> {
           'listWorkspaceDirectory',
           'listWorktrees',
           'memoryState',
+          'onEvent',
           'openTerminal',
           'proposeMainChat',
           'readMainChat',
@@ -2014,6 +2050,7 @@ app.on('before-quit', (event) => {
   clearInterval(goalTimer);
   goalTimer = undefined;
   clearInterval(outboxTimer);
+  hostEvents?.close();
   outboxTimer = undefined;
   clearInterval(scheduleTimer);
   scheduleTimer = undefined;
