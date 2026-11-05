@@ -261,3 +261,23 @@ test('identity changes during a read fence its result and close the old connecti
   await f.runtime.read(inspectCatalog);
   assert.equal(f.runtime.snapshot().starts, 2);
 });
+test('a Run does not queue behind a slow metadata read once the index is ready', async (t) => {
+  const f = fixture(t);
+  // Before any connection initialized, preparing goes through the queue and starts one.
+  const fence = await f.runtime.prepare();
+  assert.equal(f.runtime.snapshot().starts, 1);
+  let release!: () => void;
+  const slow = f.runtime.read(
+    () => new Promise<string>((done) => (release = () => done('listed'))),
+  );
+  await new Promise((r) => setTimeout(r, 20));
+  const begun = Date.now();
+  assert.equal(await f.runtime.prepare(), fence);
+  assert.ok(Date.now() - begun < 50, 'prepared without waiting for the slow read');
+  release();
+  assert.equal(await slow, 'listed');
+  // A reset changes the fence: the next prepare waits for a fresh initialization again.
+  await f.runtime.reset();
+  assert.equal(await f.runtime.prepare(), fence + 1);
+  assert.equal(f.runtime.snapshot().starts, 2);
+});

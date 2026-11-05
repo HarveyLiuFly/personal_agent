@@ -66,6 +66,8 @@ export class AppServerRuntime {
   private reused = 0;
   private failureCode: string | null = null;
   private retryAfter = 0;
+  /** Fence and launch identity of the last connection that finished initializing. */
+  private initialized?: { fence: number; key: string };
   private children = new Set<StdioRpcClient>();
   private options: () => Options;
   private limits: {
@@ -171,6 +173,7 @@ export class AppServerRuntime {
       if (!client.usable) throw new RpcFailure('PROCESS_EXITED');
       this.state = 'ready';
       this.failureCode = null;
+      this.initialized = { fence, key };
       return client;
     } catch (error) {
       await this.retire(client);
@@ -269,8 +272,24 @@ export class AppServerRuntime {
       this.failureCode = null;
     }
   }
-  /** Warm the shared state index before a dedicated execution process starts. */
+  /**
+   * Warm the shared state index before a dedicated execution process starts. Once a connection
+   * with the same launch identity initialized under this fence the index is ready, so a Run does
+   * not wait behind queued metadata reads (a Codex history listing can take seconds).
+   */
   prepare(signal?: AbortSignal): Promise<number> {
+    const fence = this.fence;
+    try {
+      this.check(fence, signal);
+      if (
+        this.initialized?.fence === fence &&
+        !this.limits.blocked?.() &&
+        this.initialized.key === identity(this.options())
+      )
+        return Promise.resolve(fence);
+    } catch {
+      // Closed, aborted or unavailable: the queued path reports the precise error.
+    }
     return this.read(async () => this.fence, signal);
   }
   openDedicated(options: RpcOptions, fence: number): StdioRpcClient {

@@ -1,0 +1,181 @@
+{
+  "checkpoint": "CORE.1",
+  "observedAt": "2026-11-05T05:57:35.148Z",
+  "platform": "linux-x64",
+  "cliVersion": "codex-cli 0.163.0",
+  "status": "passed",
+  "realModel": {
+    "kind": "real_electron_real_model_two_projects_concurrent",
+    "attempts": [
+      {
+        "attempt": 1,
+        "status": "passed",
+        "note": "fresh profile; app-built state index, connected after 76 s; only one read round fit inside the runs"
+      },
+      {
+        "attempt": 2,
+        "status": "blocked",
+        "note": "per-read timing added: Codex thread/list with a folder filter takes 11-13 s; probe reused a Diff id after a newer overview (probe bug, fixed)"
+      },
+      {
+        "attempt": 3,
+        "status": "passed",
+        "note": "after the prepare fix and probe fix; official result below"
+      }
+    ],
+    "modelTurns": 6,
+    "tokensPerTurn": [
+      32728,
+      32779,
+      32741,
+      32761,
+      32768,
+      32782
+    ],
+    "tokensTotal": 196559,
+    "official": {
+      "connectMs": 1903,
+      "runs": [
+        {
+          "status": "completed",
+          "taskStatus": "needs_review",
+          "thread": true,
+          "turn": true,
+          "answerChars": 117,
+          "turnAcceptedMs": 2061,
+          "firstOutputMs": 6531,
+          "totalMs": 10951
+        },
+        {
+          "status": "completed",
+          "taskStatus": "needs_review",
+          "thread": true,
+          "turn": true,
+          "answerChars": 88,
+          "turnAcceptedMs": 553,
+          "firstOutputMs": 5059,
+          "totalMs": 8140
+        }
+      ],
+      "overlapMs": 8140,
+      "rounds": 2,
+      "bothRunningRounds": 1,
+      "busyRefusals": 0,
+      "interactionsDeclined": 0,
+      "coldReads": {
+        "directory": 96,
+        "file": 92,
+        "diff": 112,
+        "overview": 107,
+        "runs": 1,
+        "inspect": 4,
+        "threads": 12621
+      },
+      "idleReads": {
+        "directory": 100,
+        "file": 80,
+        "diff": 112,
+        "overview": 110,
+        "runs": 1,
+        "inspect": 3,
+        "threads": 12395
+      },
+      "reads": {
+        "run": {
+          "ok": 4,
+          "failed": {},
+          "maxMs": 107,
+          "avgMs": 55
+        },
+        "interactions": {
+          "ok": 2,
+          "failed": {},
+          "maxMs": 26,
+          "avgMs": 14
+        },
+        "directory": {
+          "ok": 1,
+          "failed": {},
+          "maxMs": 91,
+          "avgMs": 91
+        },
+        "file": {
+          "ok": 1,
+          "failed": {},
+          "maxMs": 107,
+          "avgMs": 107
+        },
+        "diff": {
+          "ok": 1,
+          "failed": {},
+          "maxMs": 135,
+          "avgMs": 135
+        },
+        "overview": {
+          "ok": 1,
+          "failed": {},
+          "maxMs": 144,
+          "avgMs": 144
+        },
+        "runs": {
+          "ok": 1,
+          "failed": {},
+          "maxMs": 1,
+          "avgMs": 1
+        },
+        "threads": {
+          "ok": 2,
+          "failed": {},
+          "maxMs": 13487,
+          "avgMs": 13152
+        },
+        "inspect": {
+          "ok": 1,
+          "failed": {},
+          "maxMs": 11173,
+          "avgMs": 11173
+        }
+      },
+      "idle": {
+        "seconds": 60,
+        "mainCpuPercent": 0.47,
+        "processCpuPercent": {
+          "Browser": 0.02,
+          "GPU": 0,
+          "Utility": 0,
+          "Tab": 0
+        }
+      }
+    }
+  },
+  "windowSmoke": {
+    "consecutive": 5,
+    "passed": 5,
+    "connection": "connected",
+    "browserSandbox": "enabled"
+  },
+  "automated": {
+    "unknownNoResendSet": {
+      "files": 12,
+      "tests": 123,
+      "passed": 123
+    },
+    "affectedSet": {
+      "files": 5,
+      "tests": 43,
+      "passed": 43
+    },
+    "typecheck": "passed",
+    "format": "passed",
+    "dependencyRules": "0 errors"
+  },
+  "acceptance": {
+    "A7": "passed: every read during the two runs succeeded, 0 RUNTIME_BUSY",
+    "A14": "passed: idle Main CPU 0.47% over 60 s; first answer text 5.1-6.5 s after send; window smoke 5/5",
+    "twoConversationsAtOnce": "synthetic automated (CORE.1b) + one real run passed"
+  },
+  "carriedToCORE2": [
+    "metadata reads are serialized: a connection check during a Codex history listing waited 11.2 s",
+    "Codex thread/list filtered by folder takes 11-13 s with 2146 local threads (Codex-side; unfiltered 0.3 s)"
+  ]
+}

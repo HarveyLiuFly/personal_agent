@@ -76,6 +76,15 @@ export function executionArguments(
 ): string[] {
   return restrictedAppServerArguments(directory, noTools);
 }
+/** Host-side timing of one Run, in epoch milliseconds. */
+export interface RunTiming {
+  launchedAt: number;
+  /** `turn/start` accepted by the app-server. */
+  turnAcceptedAt?: number;
+  /** First streamed answer text (`item/agentMessage/delta`). */
+  firstOutputAt?: number;
+  finishedAt?: number;
+}
 export interface ExecutionOptions {
   executable: string;
   stateDirectory: string;
@@ -108,6 +117,8 @@ export class ForegroundExecution {
   private options: ExecutionOptions;
   /** Running sessions by runId. */
   private sessions = new Map<string, Session>();
+  /** Timing of the most recent Runs (bounded); Host-only, never exposed over IPC. */
+  private timings = new Map<string, RunTiming>();
   private epoch = 0;
   readonly diagnostics = {
     clientThreadStarts: 0,
@@ -144,9 +155,18 @@ export class ForegroundExecution {
   private session(runId: string): Session | undefined {
     return this.sessions.get(runId);
   }
+  /** Timing of a recent Run of this Host process. */
+  timing(runId: string): RunTiming | undefined {
+    const timing = this.timings.get(runId);
+    return timing ? { ...timing } : undefined;
+  }
   private launch(session: Session, text: string): void {
+    const timing: RunTiming = { launchedAt: Date.now() };
+    this.timings.set(session.token.runId, timing);
+    if (this.timings.size > 32) this.timings.delete(this.timings.keys().next().value!);
     this.sessions.set(session.token.runId, session);
     session.completion = this.execute(session, text).finally(() => {
+      timing.finishedAt = Date.now();
       this.sessions.delete(session.token.runId);
       this.options.onSessionsChanged?.(this.sessions.size);
     });
@@ -561,6 +581,10 @@ export class ForegroundExecution {
     const callbacks: Pick<RpcOptions, 'onNotification' | 'onServerRequest' | 'onServerResponse'> = {
       onNotification: (message) => {
         this.diagnostics.notificationCount++;
+        if (message.method === 'item/agentMessage/delta') {
+          const timing = this.timings.get(session.token.runId);
+          if (timing && !timing.firstOutputAt) timing.firstOutputAt = Date.now();
+        }
         if (
           message.method === 'thread/tokenUsage/updated' &&
           isObject(message.params) &&
@@ -958,6 +982,8 @@ export class ForegroundExecution {
       if (!isObject(accepted) || !isObject(accepted.turn) || !identity(accepted.turn.id))
         throw new RpcFailure('INVALID_TURN_RESPONSE', true);
       this.store.accepted(session.token, turnIntent.intentId, { turnId: accepted.turn.id });
+      const timing = this.timings.get(session.token.runId);
+      if (timing) timing.turnAcceptedAt = Date.now();
       session.turnId = accepted.turn.id;
       if (session.usageOverflow)
         observeUsage({ threadId: session.threadId, turnId: session.turnId, total: undefined });

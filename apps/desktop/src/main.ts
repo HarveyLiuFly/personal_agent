@@ -4,6 +4,11 @@ import { seedRestoreProbe, runRestoreProbe } from './restore-probe.ts';
 import { RestoreService, activeRuntimePaths } from '../../../packages/backup/src/restore.ts';
 import { runWorktreeRecoveryProbe } from './worktree-recovery-probe.ts';
 import { runToolProbe } from './tool-probe.ts';
+import {
+  CONCURRENCY_EVIDENCE,
+  createConcurrencyProjects,
+  runConcurrencyProbe,
+} from './concurrency-probe.ts';
 import { BackupService, backupFile } from '../../../packages/backup/src/service.ts';
 import { ChatRouteService } from '../../../packages/runtime/src/chat-routes.ts';
 import { routeRoleProfile } from '../../../packages/runtime/src/route-profile.ts';
@@ -170,6 +175,12 @@ if (nativeCodeSmoke) {
   mkdirSync(resolve(root, '.local'), { recursive: true });
   app.setPath('userData', mkdtempSync(resolve(root, '.local/desktop-native-code-')));
 }
+// CORE.1 acceptance: two projects run real turns at once. The profile is kept between runs so the
+// Codex state index is built only once.
+const concurrencySmoke = process.argv.includes('--core1-concurrency-smoke');
+let concurrencyProjects: string[] = [];
+if (concurrencySmoke)
+  app.setPath('userData', resolve(root, '.local/desktop-concurrency-smoke-data'));
 const interactionSmoke = process.argv.includes('--m1-interaction-smoke');
 const continuationSmoke = process.argv.includes('--m1-continuation-smoke');
 const budgetSmoke = process.argv.includes('--m2-budget-ui-smoke');
@@ -198,6 +209,7 @@ const keepRunningWithoutWindow =
     recoverySmoke ||
     worktreeSmoke ||
     nativeCodeSmoke ||
+    concurrencySmoke ||
     executionSmoke ||
     historySmoke ||
     acceptanceProbe ||
@@ -249,6 +261,7 @@ else
       backgroundProbe ||
       acceptanceProbe ||
       nativeCodeSmoke ||
+      concurrencySmoke ||
       executionSmoke ||
       historySmoke ||
       process.argv.includes('--m0-window-smoke')
@@ -261,59 +274,61 @@ else
           );
         } catch {}
       }
-      const file = autonomySmoke
-        ? 'M3.4-autonomy-desktop'
-        : chatSmoke
-          ? 'M3.1b-main-chat-regression'
-          : skillsSmoke
-            ? 'M2.8a-desktop'
-            : resourcesSmoke
-              ? 'M2.2e-desktop'
-              : rehearsalSmoke
-                ? 'M2.7b-desktop'
-                : backupSmoke
-                  ? 'M2.7a-desktop'
-                  : worktreeCodeSmoke
-                    ? worktreeCodePreflight
-                      ? 'M2.1b-worktree-preflight'
-                      : 'M2.1b-worktree-native'
-                    : toolsSmoke
-                      ? 'M2.1b-tools-desktop'
-                      : recoverySmoke
-                        ? 'M2.5b-desktop'
-                        : terminalSmoke
-                          ? 'M2.6a-desktop'
-                          : worktreeSmoke
-                            ? 'M2.5a-desktop'
-                            : backgroundProbe
-                              ? backgroundNativeSmoke
-                                ? 'M2.4a-native-background'
-                                : 'M2.4a-desktop'
-                              : scheduleAutoSmoke
-                                ? 'M2.3d-desktop'
-                                : scheduleSmoke
-                                  ? 'M2.3c-desktop'
-                                  : planSmoke
-                                    ? 'M2.2d-desktop'
-                                    : budgetSmoke
-                                      ? 'M2.2c-desktop'
-                                      : taskSmoke
-                                        ? 'M2.2b-desktop'
-                                        : acceptanceProbe
-                                          ? acceptanceProbe.kind === 'workspace'
-                                            ? 'M2.1a-desktop'
-                                            : `M1.4b-${acceptanceProbe.kind === 'folder' ? 'native-folder' : acceptanceProbe.kind === 'restart' ? 'native-restart' : 'owner'}`
-                                          : nativeCodeSmoke
-                                            ? 'M1-native-code-desktop'
-                                            : continuationSmoke
-                                              ? 'M1.3c-desktop'
-                                              : interactionSmoke
-                                                ? 'M1.2-desktop'
-                                                : executionSmoke
-                                                  ? 'M1.1c-desktop'
-                                                  : historySmoke
-                                                    ? 'M1.1b-desktop'
-                                                    : 'M0-desktop-smoke';
+      const file = concurrencySmoke
+        ? CONCURRENCY_EVIDENCE
+        : autonomySmoke
+          ? 'M3.4-autonomy-desktop'
+          : chatSmoke
+            ? 'M3.1b-main-chat-regression'
+            : skillsSmoke
+              ? 'M2.8a-desktop'
+              : resourcesSmoke
+                ? 'M2.2e-desktop'
+                : rehearsalSmoke
+                  ? 'M2.7b-desktop'
+                  : backupSmoke
+                    ? 'M2.7a-desktop'
+                    : worktreeCodeSmoke
+                      ? worktreeCodePreflight
+                        ? 'M2.1b-worktree-preflight'
+                        : 'M2.1b-worktree-native'
+                      : toolsSmoke
+                        ? 'M2.1b-tools-desktop'
+                        : recoverySmoke
+                          ? 'M2.5b-desktop'
+                          : terminalSmoke
+                            ? 'M2.6a-desktop'
+                            : worktreeSmoke
+                              ? 'M2.5a-desktop'
+                              : backgroundProbe
+                                ? backgroundNativeSmoke
+                                  ? 'M2.4a-native-background'
+                                  : 'M2.4a-desktop'
+                                : scheduleAutoSmoke
+                                  ? 'M2.3d-desktop'
+                                  : scheduleSmoke
+                                    ? 'M2.3c-desktop'
+                                    : planSmoke
+                                      ? 'M2.2d-desktop'
+                                      : budgetSmoke
+                                        ? 'M2.2c-desktop'
+                                        : taskSmoke
+                                          ? 'M2.2b-desktop'
+                                          : acceptanceProbe
+                                            ? acceptanceProbe.kind === 'workspace'
+                                              ? 'M2.1a-desktop'
+                                              : `M1.4b-${acceptanceProbe.kind === 'folder' ? 'native-folder' : acceptanceProbe.kind === 'restart' ? 'native-restart' : 'owner'}`
+                                            : nativeCodeSmoke
+                                              ? 'M1-native-code-desktop'
+                                              : continuationSmoke
+                                                ? 'M1.3c-desktop'
+                                                : interactionSmoke
+                                                  ? 'M1.2-desktop'
+                                                  : executionSmoke
+                                                    ? 'M1.1c-desktop'
+                                                    : historySmoke
+                                                      ? 'M1.1b-desktop'
+                                                      : 'M0-desktop-smoke';
       writeFileSync(
         resolve(evidenceDir(root), `${file}.json`),
         JSON.stringify({ status: 'blocked', code, observedAt: new Date().toISOString() }) + '\n',
@@ -428,6 +443,8 @@ async function boot(): Promise<void> {
     nativeCodeWorkspace = realpathSync(await mkdtemp(resolve(tmpdir(), 'personal-agent-code-')));
     createCodeFixture(nativeCodeWorkspace);
   }
+  if (concurrencySmoke) concurrencyProjects = createConcurrencyProjects();
+  let concurrencyChosen = 0;
   let fixtureWorkspace: string | undefined;
   const fixtureMethods = new Set<string>();
   if (
@@ -740,6 +757,11 @@ async function boot(): Promise<void> {
           return history.registerDirectory(acceptanceProbe.folderDirectory!);
         if (fixtureWorkspace) return history.registerDirectory(fixtureWorkspace);
         if (nativeCodeWorkspace) return history.registerDirectory(nativeCodeWorkspace);
+        if (concurrencySmoke) {
+          const directory = concurrencyProjects[concurrencyChosen++];
+          if (!directory) throw new LedgerError('PROJECT_DIALOG_OPEN');
+          return history.registerDirectory(directory);
+        }
         if (acceptanceProbe?.kind === 'folder') acceptanceProbe.dialogOpened = true;
         const selection = await dialog.showOpenDialog(window!, {
           title: '选择项目目录',
@@ -1417,6 +1439,17 @@ async function boot(): Promise<void> {
       },
     );
   window = await showMainWindow();
+  if (concurrencySmoke) {
+    await runConcurrencyProbe(
+      root,
+      app,
+      window,
+      execution!,
+      concurrencyProjects,
+      verifiedCodex(root).lock.cliVersion,
+    );
+    return;
+  }
   if (autonomySmoke) {
     const storageRoot = fixtureDirectory!,
       paths = activeRuntimePaths(storageRoot, resolve(storageRoot, 'verification'));

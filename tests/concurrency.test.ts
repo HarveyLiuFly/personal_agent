@@ -185,4 +185,14 @@ test('the executor runs two conversations at once and stops only the one asked',
   assert.equal(store.runForHost(second.runId).status, 'cancelled');
   assert.equal(runtime.diagnostics.clientTurnStarts, 2);
   assert.equal(existsSync(join(root, 'receipts.txt')), true);
+  const timings = [runtime.timing(first.runId)!, runtime.timing(second.runId)!];
+  for (const timing of timings)
+    assert.ok(
+      timing.launchedAt <= timing.turnAcceptedAt! && timing.turnAcceptedAt! <= timing.finishedAt!,
+    );
+  assert.ok(
+    timings[0]!.launchedAt < timings[1]!.finishedAt! &&
+      timings[1]!.launchedAt < timings[0]!.finishedAt!,
+    'the two Runs overlapped in time',
+  );
 });
