@@ -2,7 +2,7 @@
 
 远程资料完整性与当前研发入口见[研发资料同步回执](REMOTE_SYNC.md)，覆盖设计、源码、测试、进展与脱敏证据。
 
-Linux 与审查（2026-11-05）：Linux 接手先读 [Linux 平台适配](LINUX_PLATFORM.md) 并运行 `bash scripts/verify-linux.sh`；产品方向见 [架构/界面/逻辑审查](../reviews/2026-11-05-architecture-ui-logic-review.md)。
+Linux 与审查（2026-11-05）：日常启动用 `bash scripts/start.sh`；Linux 接手先读 [Linux 平台适配](LINUX_PLATFORM.md)，完整验证用 `bash scripts/verify-linux.sh`；产品方向见 [架构/界面/逻辑审查](../reviews/2026-11-05-architecture-ui-logic-review.md)。
 
 当前开发：UI V2现有M0–M3桌面交互重构已交付（checkpoint/UI-V2）。项目侧栏/单输入助手/连续Task/文件Diff并置、可读Goal计划与真实收据完成、来源化记忆、自动化/设置备份均已接线并在Sculptor原生验收；1120/900/720窗口及冷启动无重发通过。真实代码同Thread续接保留12项冻结字段，Host4/4后完成Goal。原未发送续接缺口已修复且只经明确0Intent证据核对，不重放。共6真实Turn/7Run/241,622报告Token，0预留/0租约/0活动计划；132联合增量及后11UI专项重叠不相加，TS/构建/17合同通过，无全量。见[开发记录](UI_V2.md)、[逐项验收与未验边界](UI_V2_RESULTS.md)。旧M3未通过项仍保留，M4未启动。
 

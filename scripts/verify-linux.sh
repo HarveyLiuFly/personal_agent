@@ -33,27 +33,10 @@ step() {
   return 0
 }
 
-# The project requires Node >=24.19 <25. If the system Node is older, install the official
-# Node $NODE_VERSION into .local/ (SHA-256 checked against nodejs.org SHASUMS256.txt).
-# The Host prefers .local/node-v$NODE_VERSION-<platform>/bin/node for verifier/terminal/workspace.
-NODE_ARCH="$(case "$(uname -m)" in aarch64) echo arm64;; x86_64) echo x64;; *) uname -m;; esac)"
-NODE_DIR="$ROOT/.local/node-v$NODE_VERSION-linux-$NODE_ARCH"
-setup_node() {
-  if [ -x "$NODE_DIR/bin/node" ]; then echo "using $NODE_DIR ($("$NODE_DIR/bin/node" --version))"; return 0; fi
-  local major minor
-  major="$(node -p 'process.versions.node.split(".")[0]' 2>/dev/null || echo 0)"
-  minor="$(node -p 'process.versions.node.split(".")[1]' 2>/dev/null || echo 0)"
-  if [ "$major" = 24 ] && [ "$minor" -ge 19 ]; then echo "system Node $(node --version) is suitable"; return 0; fi
-  case "$NODE_ARCH" in x64|arm64) ;; *) echo "unsupported CPU $(uname -m)"; return 1;; esac
-  local name="node-v$NODE_VERSION-linux-$NODE_ARCH" tmp
-  tmp="$(mktemp -d)"
-  curl -fsSL "https://nodejs.org/dist/v$NODE_VERSION/SHASUMS256.txt" -o "$tmp/SHASUMS256.txt" || return 1
-  curl -fSL --progress-bar "https://nodejs.org/dist/v$NODE_VERSION/$name.tar.xz" -o "$tmp/$name.tar.xz" || return 1
-  (cd "$tmp" && grep " $name.tar.xz\$" SHASUMS256.txt | sha256sum -c -) || return 1
-  tar -xJf "$tmp/$name.tar.xz" -C "$ROOT/.local" || return 1
-  rm -rf "$tmp"
-  "$NODE_DIR/bin/node" --version
-}
+# Node >=24.19 <25: shared with start.sh (existing .local Node, suitable system Node, or a checked download).
+# shellcheck source=scripts/lib/node24.sh
+source scripts/lib/node24.sh
+NODE_DIR="$(pa_node_dir)"
 
 # Same flags as `pnpm test`, but only the suites affected by the Linux changes.
 TESTS=(tests/platform.test.ts tests/terminal.test.ts tests/project-isolation.test.ts tests/scheduled-execution.test.ts
@@ -67,8 +50,8 @@ step "toolchain" bash -c 'for c in node pnpm python3 make g++ git bwrap bash zsh
 step "kernel sandbox knobs" bash -c 'for f in /proc/sys/kernel/apparmor_restrict_unprivileged_userns /proc/sys/kernel/unprivileged_userns_clone /proc/sys/user/max_user_namespaces; do printf "%s=" $f; cat $f 2>/dev/null || echo n/a; done; echo "DISPLAY=${DISPLAY:-} WAYLAND_DISPLAY=${WAYLAND_DISPLAY:-} XDG_SESSION_TYPE=${XDG_SESSION_TYPE:-}"'
 step "git status" git status --short --branch
 
-step "node 24" setup_node
-[ -x "$NODE_DIR/bin/node" ] && export PATH="$NODE_DIR/bin:$PATH"
+step "node 24" ensure_node24
+ensure_node24
 log "node on PATH: $(command -v node) ($(node --version))"
 PNPM=(pnpm)
 command -v pnpm >/dev/null 2>&1 || PNPM=(corepack pnpm)

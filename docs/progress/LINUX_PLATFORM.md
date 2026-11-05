@@ -52,6 +52,10 @@ M0–M3 只在 macOS arm64 实测。代码中的平台假设导致 Linux 上即�
 
 ## 3. 本机启用与验证
 
+日常使用：`bash scripts/start.sh`（或 `pnpm start`），自动补齐 Node 24、依赖、node-pty、Electron、锁定版 Codex，核对哈希与登录，预热正式数据目录的 Codex 状态索引后构建并打开窗口；应用已运行时只唤回窗口。`--check` 只准备并诊断，`--install-desktop-entry` 添加应用菜单入口。2026-11-05 宿主机实测：`--check` 全部通过（3.8 秒）；正常启动打开窗口，可选服务无 `unavailable`；运行中再次启动 0 秒交给已运行实例；对进程组发 SIGINT（等同终端 Ctrl+C）后所有 Electron 进程退出、无错误日志；`--log` 模式终端无输出、全部写入日志；菜单项通过 `desktop-file-validate`；Node 下载路径在空目录中实际下载并核对 SHA-256 后可用。
+
+完整验证如下。
+
 前提：Node 24.19+（<25；没有时脚本会把官方 24.19.0 装到 `.local/` 并核对 SHA-256）、pnpm 11.25、python3、make、g++、git。
 
 在桌面会话的终端里（**不要在容器或其他沙箱里**，Electron 与 Codex 沙箱都需要 user namespace）：

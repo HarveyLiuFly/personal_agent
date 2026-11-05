@@ -8,6 +8,23 @@ Electron/React 桌面宿主，通过锁版 Codex App Server 驱动执行。当�
 - [M1 独立基础组件进展](docs/progress/M1.md)
 - [本地 Codex 接手指南](docs/progress/LOCAL_HANDOFF.md)（当前接手入口，含平台差异与下一步）
 
+## 一键启动
+
+```bash
+bash scripts/start.sh          # 或 pnpm start
+```
+
+第一次运行会补齐缺少的部分：Node 24（系统没有时下载官方版本到 `.local/` 并核对 SHA-256）、依赖、Linux 终端的 node-pty、Electron、锁定版 Codex CLI（装在 `.local/codex-install`），核对 Codex 哈希与登录状态，预热 Codex 状态索引，然后构建并打开窗口。之后再运行只做检查，几秒即可打开；应用已在运行时直接唤回窗口，不会重新构建。全过程不发模型请求，保留 Electron 沙箱。
+
+| 选项 | 作用 |
+|---|---|
+| `--check` | 只准备与诊断，不打开窗口 |
+| `--no-warm` | 跳过 Codex 状态索引预热 |
+| `--install-desktop-entry` | 在 Linux 应用菜单添加“Personal Agent”（输出写入 `.local/start.log`） |
+| `--log` | 所有输出追加到 `.local/start.log` |
+
+关闭窗口后应用在后台继续运行（托盘图标）；在启动终端按 Ctrl+C，或用菜单/托盘“退出并停止运行”停止。Codex 未登录时脚本会提示登录命令（应用可以打开，但不能请求模型）。已在 Linux x64 宿主机验证；macOS 走相同步骤，尚未在此分支验证。
+
 ## 环境与依赖
 
 已验证 Linux x86_64 与 macOS arm64、Node 24.19.x、pnpm 11.25.0；使用 Codex CLI 0.163.0。各平台原生二进制与共用生成协议指纹见 `codex-version.lock.json`；其他平台尚未验收。
@@ -35,10 +52,9 @@ Electron 45 使用显式安装器下载运行时；安装器保留官方发行�
 Linux x64/arm64 桌面的启用步骤、诊断与已知限制见 [Linux 平台适配](docs/progress/LINUX_PLATFORM.md)。简要：
 
 ```bash
-bash scripts/verify-linux.sh          # 一键准备与验证（Node 24、依赖、node-pty、Codex 锁、诊断、测试、真实 Smoke）；不发模型请求
+bash scripts/start.sh                 # 一键准备并启动（见上文“一键启动”）
+bash scripts/verify-linux.sh          # 完整本机验证：诊断、增量测试、真实 Smoke；不发模型请求
 pnpm diagnose                         # 只读诊断：沙箱、显示、Codex 锁、终端、验证器
-pnpm warm:codex-index                 # 首次启动前预热 Codex 状态索引（~/.codex 历史很大时）
-pnpm dev
 ```
 
 Ubuntu 23.10+ 默认限制非特权 user namespace，Electron 沙箱可能无法启动；`pnpm dev` 会在启动前给出修复命令（setuid `chrome-sandbox` 或 AppArmor 配置），始终保留沙箱。
