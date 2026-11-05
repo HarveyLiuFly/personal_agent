@@ -1,5 +1,13 @@
 import type { MainChatInput, MainChatView } from '../../../packages/contracts/src/chat.ts';
 import type {
+  ConversationPage,
+  ConversationQuery,
+  ConversationSummary,
+  ConversationTurns,
+  ConversationTurnsQuery,
+  ConversationUpdate,
+} from '../../../packages/contracts/src/conversations.ts';
+import type {
   ChatRouteView,
   ProposeMainChat,
   CommitChatRoute,
@@ -179,6 +187,15 @@ export interface DesktopApi {
       mode: 'readOnly' | 'workspaceWrite';
     }>
   >;
+  /** Conversations of a project (pinned first, then most recently active), one page at a time. */
+  listConversations(query: ConversationQuery): Promise<HostResult<ConversationPage>>;
+  getConversation(query: {
+    projectId: string;
+    conversationId: string;
+  }): Promise<HostResult<ConversationSummary>>;
+  /** Turns of one conversation, newest first. */
+  listConversationTurns(query: ConversationTurnsQuery): Promise<HostResult<ConversationTurns>>;
+  updateConversation(input: ConversationUpdate): Promise<HostResult<ConversationSummary>>;
   listTasks(query: { projectId: string }): Promise<HostResult<TaskSummary[]>>;
   applyTaskCommand(command: TaskCommand): Promise<HostResult<OperationReceipt>>;
   startTask(input: StartTask): Promise<HostResult<RunSummary>>;

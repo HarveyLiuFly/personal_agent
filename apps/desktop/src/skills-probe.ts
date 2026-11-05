@@ -3,6 +3,7 @@ import { mkdirSync, writeFileSync, readFileSync, renameSync } from 'node:fs';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { evidenceDir } from './evidence.ts';
+import { DESKTOP_API_KEYS } from './api-keys.ts';
 export function createProjectSkillsFixture(cwd: string) {
   mkdirSync(join(cwd, '.agents/skills/public-project-skill'), { recursive: true });
   mkdirSync(join(cwd, '.agents/skills/broken'), { recursive: true });
@@ -32,7 +33,7 @@ export async function runSkillsProbe(
     const filter=document.querySelector('[data-skill-filter]'),fill=v=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(filter,v);filter.dispatchEvent(new Event('input',{bubbles:true}));};fill('does-not-exist');await wait(()=>document.querySelector('[data-skills-empty]'));const emptyFilter=document.querySelectorAll('[data-skill-id]').length===0;fill('public-project-skill');await wait(()=>document.querySelector('[data-skill-id]'));
     const id=document.querySelector('[data-skill-id]').dataset.skillId,observed=document.querySelector('[data-skills-panel]').dataset.skillsObservedAt;await click('[data-action="refresh-project-skills"]');await wait(()=>!document.querySelector('[data-action="refresh-project-skills"]').disabled&&document.querySelector('[data-skills-panel]').dataset.skillsObservedAt!==observed);const sameOpaqueId=document.querySelector('[data-skill-id]').dataset.skillId===id;
     const extra=await window.personalAgent.listProjectSkills({projectId,cwd:'/etc'}),foreign=await window.personalAgent.listProjectSkills({projectId:'foreign'});
-    document.querySelector('[data-skills-panel]').scrollIntoView({block:'start'});return{...initial,emptyFilter,sameOpaqueId,extraRejected:!extra.ok&&extra.errorCode==='INVALID_SKILL_QUERY',foreignRejected:!foreign.ok&&foreign.errorCode==='UNKNOWN_PROJECT',sandboxed:window.personalAgent.security.sandboxed,isolated:window.personalAgent.security.isolated,noRequire:typeof require==='undefined',apiCount:Object.keys(window.personalAgent).length===63};
+    document.querySelector('[data-skills-panel]').scrollIntoView({block:'start'});return{...initial,emptyFilter,sameOpaqueId,extraRejected:!extra.ok&&extra.errorCode==='INVALID_SKILL_QUERY',foreignRejected:!foreign.ok&&foreign.errorCode==='UNKNOWN_PROJECT',sandboxed:window.personalAgent.security.sandboxed,isolated:window.personalAgent.security.isolated,noRequire:typeof require==='undefined',apiCount:Object.keys(window.personalAgent).length===${DESKTOP_API_KEYS.length}};
   })()`);
   renameSync(source, source + '-moved');
   const stale = await window.webContents.executeJavaScript(

@@ -17,6 +17,7 @@ import type { RunToken } from '../packages/store/src/ledger.ts';
 import type { BudgetPolicy } from '../packages/store/src/budget.ts';
 import { ForegroundExecution } from '../packages/runtime/src/execution.ts';
 import { StdioRpcClient } from '../packages/codex-adapter/src/rpc.ts';
+import { DOWNGRADE_TO_REVISION_7 } from './fixtures/schema-history.ts';
 
 const schema = readFileSync('docs/design/contracts/schema.sql', 'utf8');
 
@@ -88,10 +89,11 @@ test('one writer per workspace; read-only Runs may run beside it', (t) => {
   assert.equal(store.beginRun(b.id, 'write b', 'write-b', 'workspaceWrite').created, true);
 });
 
-test('revision 6 migrates to 7 with a verified backup and the default capacity', (t) => {
+test('revision 6 migrates to the current revision with a verified backup and the default capacity', (t) => {
   const { root, file, store } = fixture(t);
   store.close();
   const db = new DatabaseSync(file);
+  db.exec('PRAGMA foreign_keys=OFF;' + DOWNGRADE_TO_REVISION_7);
   db.exec(`PRAGMA foreign_keys=OFF;
     ALTER TABLE budget_policies RENAME TO current_policies;
     CREATE TABLE budget_policies (
@@ -105,7 +107,7 @@ test('revision 6 migrates to 7 with a verified backup and the default capacity',
   db.close();
   const migrated = new ExecutionLedger(file, schema);
   try {
-    assert.equal(LEDGER_SCHEMA_REVISION, 7);
+    assert.equal(LEDGER_SCHEMA_REVISION, 8);
     assert.equal(migrated.maxActiveRuns(), 3);
   } finally {
     migrated.close();

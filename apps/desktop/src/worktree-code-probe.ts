@@ -8,6 +8,7 @@ import type { ForegroundExecution } from '../../../packages/runtime/src/executio
 import { verifiedCodex } from '../../../packages/codex-adapter/src/binary.ts';
 import { resolveWorkspaceGit } from '../../../packages/workspace/src/service.ts';
 import { evidenceDir } from './evidence.ts';
+import { DESKTOP_API_KEYS } from './api-keys.ts';
 /** One explicitly requested model Turn, always through the existing ledger. No retry path. */
 export async function runWorktreeCodeProbe(
   root: string,
@@ -151,7 +152,7 @@ export async function runWorktreeCodeProbe(
     sandboxed: observed.sandboxed === true,
     isolated: observed.isolated === true,
     noRequire: observed.noRequire === true,
-    apiCount: observed.apiCount === 63,
+    apiCount: observed.apiCount === DESKTOP_API_KEYS.length,
   };
   const passed = Object.values(checks).every(Boolean);
   writeFileSync(

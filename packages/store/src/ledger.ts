@@ -60,6 +60,12 @@ import type {
   WriteTerminal,
 } from '../../contracts/src/terminal.ts';
 import { SchedulerLedger, scheduledRunKey } from './scheduler.ts';
+import { ConversationLedger, decodeCursor } from './conversations.ts';
+import type {
+  ConversationPage,
+  ConversationSummary,
+  ConversationTurns,
+} from '../../contracts/src/conversations.ts';
 import type { ScheduleCommand } from '../../contracts/src/schedules.ts';
 import { ScheduleTimeError, scheduleTime } from '../../runtime/src/calendar.ts';
 import type {
@@ -123,6 +129,8 @@ export interface RunRecord extends RunToken {
   snapshot: ThreadView | null;
   mode: 'readOnly' | 'workspaceWrite';
   errorCode?: string;
+  /** Keyset position `<started_at_ms>.<rowid>` for paging a conversation's turns. */
+  position: string;
 }
 export interface ReconciliationClaim {
   runId: string;
@@ -166,10 +174,10 @@ export interface LedgerOptions {
 }
 
 /** Host-only local store. startOwner requires the caller to hold the OS single-instance lock. */
-/** Current ledger schema revision (7: several Runs may execute at once). */
-export const LEDGER_SCHEMA_REVISION = 7;
+/** Current ledger schema revision (8: a task is a conversation with its own choices). */
+export const LEDGER_SCHEMA_REVISION = 8;
 /** Revisions a backup may contain; older ones are migrated when the restored ledger opens. */
-export const RESTORABLE_SCHEMA_REVISIONS: readonly number[] = [6, 7];
+export const RESTORABLE_SCHEMA_REVISIONS: readonly number[] = [6, 7, 8];
 export class ExecutionLedger {
   #db: DatabaseSync;
   #epoch = 0;
@@ -182,6 +190,7 @@ export class ExecutionLedger {
   private memory!: MemoryLedger;
   private contexts!: ContextLedger;
   private contextSources!: DomainContextSources;
+  private conversationList!: ConversationLedger;
   readonly profileId = 'local-profile';
   readonly dotId = 'local-dot';
   constructor(path: string, schemaSql: string, options: LedgerOptions = {}) {
@@ -206,7 +215,14 @@ export class ExecutionLedger {
       const revision = this.one(
         'SELECT schema_revision FROM schema_metadata WHERE singleton=1',
       )?.schema_revision;
-      if (revision === 2 || revision === 3 || revision === 4 || revision === 5 || revision === 6) {
+      if (
+        revision === 2 ||
+        revision === 3 ||
+        revision === 4 ||
+        revision === 5 ||
+        revision === 6 ||
+        revision === 7
+      ) {
         const ddl = (name: string) =>
           schemaSql.match(new RegExp('CREATE TABLE ' + name + ' \\([\\s\\S]*?\\n\\);'))?.[0] ??
           fail('LEDGER_MIGRATION_UNAVAILABLE');
@@ -227,16 +243,19 @@ export class ExecutionLedger {
         }
         this.tx(() => {
           if (revision <= 5) this.migrateToRevision6(revision, ddl);
-          // 6 -> 7: several Runs may execute at once. max_active_runs was fixed at 1 by a CHECK;
-          // rebuild the table with the 1..8 range and raise the forced 1 to the default.
-          this.#db.exec('ALTER TABLE budget_policies RENAME TO budget_policies_revision6');
-          this.#db.exec(ddl('budget_policies'));
-          this.#db
-            .prepare(
-              'INSERT INTO budget_policies SELECT dot_id,daily_token_limit,reservation_tokens,? FROM budget_policies_revision6',
-            )
-            .run(DEFAULT_MAX_ACTIVE_RUNS);
-          this.#db.exec('DROP TABLE budget_policies_revision6');
+          if (revision <= 6) {
+            // 6 -> 7: several Runs may execute at once. max_active_runs was fixed at 1 by a CHECK;
+            // rebuild the table with the 1..8 range and raise the forced 1 to the default.
+            this.#db.exec('ALTER TABLE budget_policies RENAME TO budget_policies_revision6');
+            this.#db.exec(ddl('budget_policies'));
+            this.#db
+              .prepare(
+                'INSERT INTO budget_policies SELECT dot_id,daily_token_limit,reservation_tokens,? FROM budget_policies_revision6',
+              )
+              .run(DEFAULT_MAX_ACTIVE_RUNS);
+            this.#db.exec('DROP TABLE budget_policies_revision6');
+          }
+          this.migrateToRevision8();
           this.exec(
             'UPDATE schema_metadata SET schema_revision=? WHERE singleton=1',
             LEDGER_SCHEMA_REVISION,
@@ -294,6 +313,11 @@ export class ExecutionLedger {
         sourcePayload: (ref, sha) => this.options.sourcePayload?.(ref, sha) ?? null,
         artifactText: (key, sha) => this.options.artifactText?.(key, sha) ?? null,
         memoryClaim: (claimId, taskId) => this.memory.readContextClaim(claimId, taskId),
+      });
+      this.conversationList = new ConversationLedger(this.#db, this.dotId, fail, {
+        workspace: (projectId) => this.workspace(projectId),
+        owner: () => this.owner(),
+        tx: (work) => this.tx(work),
       });
       this.contexts = new ContextLedger(this.#db, this.dotId, fail, {
         owner: () => this.owner(),
@@ -367,6 +391,46 @@ export class ExecutionLedger {
     }
   }
   /** Revisions 2..5 -> 6 (unchanged steps); runs inside the migration transaction. */
+  /**
+   * 7 -> 8: a task is a conversation. Adds its choices (model, effort, permission mode) and list
+   * state (pinned, archived, last read). Existing conversations count as read; code tasks map to
+   * the "auto" permission mode. Assistant planning/answer tasks that were never marked internal
+   * (their profile failed before marking) are marked from the route records so they stay hidden.
+   */
+  private migrateToRevision8(): void {
+    this.#db.exec(`
+      ALTER TABLE tasks ADD COLUMN model TEXT CHECK (model IS NULL OR length(model) BETWEEN 1 AND 200);
+      ALTER TABLE tasks ADD COLUMN reasoning_effort TEXT CHECK (reasoning_effort IS NULL OR length(reasoning_effort) BETWEEN 1 AND 32);
+      ALTER TABLE tasks ADD COLUMN permission_mode TEXT NOT NULL DEFAULT 'readOnly' CHECK (permission_mode IN ('readOnly','auto','fullAccess'));
+      ALTER TABLE tasks ADD COLUMN pinned_at_ms INTEGER;
+      ALTER TABLE tasks ADD COLUMN archived_at_ms INTEGER;
+      ALTER TABLE tasks ADD COLUMN last_read_at_ms INTEGER;
+      CREATE INDEX tasks_by_workspace_activity ON tasks(workspace_id, updated_at_ms);
+      CREATE INDEX task_runs_by_task ON task_runs(task_id, started_at_ms);
+      UPDATE tasks SET permission_mode='auto' WHERE json_extract(constraints_json,'$.mode')='workspaceWrite';`);
+    this.exec('UPDATE tasks SET last_read_at_ms=?', Date.now());
+    const mark = this.#db.prepare(
+      "UPDATE tasks SET constraints_json=json_set(constraints_json,'$.internalRole',?) WHERE json_extract(constraints_json,'$.internalRole') IS NULL AND task_id=(SELECT task_id FROM task_runs WHERE run_id=?)",
+    );
+    for (const row of this.all(
+      "SELECT decision_json FROM router_decisions WHERE router_revision='main-chat-proposal-v2'",
+    )) {
+      let route: { routingRunId?: unknown; steps?: unknown } | undefined;
+      try {
+        route = JSON.parse(String(row.decision_json)).route;
+      } catch {
+        continue;
+      }
+      if (typeof route?.routingRunId === 'string') mark.run('dot-router', route.routingRunId);
+      if (Array.isArray(route?.steps))
+        for (const step of route.steps as Array<{
+          runId?: unknown;
+          operation?: { kind?: unknown };
+        }>)
+          if (step?.operation?.kind === 'CHAT' && typeof step.runId === 'string')
+            mark.run('dot-chat', step.runId);
+    }
+  }
   private migrateToRevision6(revision: number, ddl: (name: string) => string): void {
     if (revision === 2) this.#db.exec(ddl('runtime_requests'));
     if (revision <= 3)
@@ -1304,6 +1368,63 @@ export class ExecutionLedger {
       return { ...epochs, goal_plan_version: goal.plan_version! };
     }
     return epochs;
+  }
+  /** A page of the project's conversations (tasks the user sees), pinned first. */
+  conversations(input: unknown): ConversationPage {
+    return this.conversationList.list(input);
+  }
+  conversationSummary(input: unknown): ConversationSummary {
+    return this.conversationList.get(input);
+  }
+  updateConversation(input: unknown): ConversationSummary {
+    return this.conversationList.update(input);
+  }
+  /** Turns (Runs) of one conversation, newest first, ten per page. */
+  conversationTurns(input: unknown): ConversationTurns {
+    if (
+      !input ||
+      typeof input !== 'object' ||
+      Array.isArray(input) ||
+      Object.keys(input).some((key) => !['projectId', 'conversationId', 'cursor'].includes(key))
+    )
+      return fail('INVALID_CONVERSATION_QUERY');
+    const q = input as { projectId?: unknown; conversationId?: unknown; cursor?: unknown };
+    if (!id(q.projectId) || !id(q.conversationId)) return fail('INVALID_CONVERSATION_QUERY');
+    const before = decodeCursor(q.cursor, fail);
+    this.workspace(q.projectId);
+    this.conversationList.row(q.projectId, q.conversationId);
+    const rows = this.runs(q.projectId, { taskId: q.conversationId, before, limit: 11 });
+    const page = rows.slice(0, 10);
+    return {
+      items: page.map(
+        ({
+          runId,
+          taskId,
+          title,
+          status,
+          taskStatus,
+          threadId,
+          turnId,
+          blocked,
+          mode,
+          errorCode,
+          snapshot,
+        }) => ({
+          runId,
+          taskId,
+          title,
+          status,
+          taskStatus,
+          threadId,
+          turnId,
+          blocked,
+          mode,
+          ...(errorCode ? { errorCode } : {}),
+          snapshot,
+        }),
+      ),
+      nextCursor: rows.length > 10 ? page.at(-1)!.position : null,
+    };
   }
   tasks(projectId: string): TaskSummary[] {
     this.workspace(projectId);
@@ -2546,13 +2667,15 @@ export class ExecutionLedger {
           ...(input.code ? { code: input.code } : {}),
         };
       this.exec(
-        "INSERT INTO tasks(task_id,dot_id,workspace_id,title,constraints_json,status,created_at_ms,updated_at_ms) VALUES (?,?,?,?,?,'created',?,?)",
+        "INSERT INTO tasks(task_id,dot_id,workspace_id,title,constraints_json,status,created_at_ms,updated_at_ms,permission_mode,last_read_at_ms) VALUES (?,?,?,?,?,'created',?,?,?,?)",
         taskId,
         this.dotId,
         input.projectId,
         input.title ?? input.text.slice(0, 120),
         JSON.stringify(constraints),
         Date.now(),
+        Date.now(),
+        input.code ? 'auto' : 'readOnly',
         Date.now(),
       );
       this.event(taskId, null, 'task_created');
@@ -3527,13 +3650,15 @@ export class ExecutionLedger {
           this.dotId,
         )!;
       this.exec(
-        "INSERT INTO tasks(task_id,dot_id,workspace_id,title,constraints_json,status,created_at_ms,updated_at_ms) VALUES (?,?,?,?,?,'created',?,?)",
+        "INSERT INTO tasks(task_id,dot_id,workspace_id,title,constraints_json,status,created_at_ms,updated_at_ms,permission_mode,last_read_at_ms) VALUES (?,?,?,?,?,'created',?,?,?,?)",
         taskId,
         this.dotId,
         workspaceId,
         text.slice(0, 120),
         JSON.stringify({ inputHash, mode, text }),
         Date.now(),
+        Date.now(),
+        mode === 'workspaceWrite' ? 'auto' : 'readOnly',
         Date.now(),
       );
       this.event(taskId, null, 'task_created');
@@ -4401,20 +4526,42 @@ export class ExecutionLedger {
     );
     this.exec('UPDATE task_runs SET result_ref=? WHERE run_id=?', checkpointId, runId);
   }
+  /**
+   * Runs of a project, newest first. A list (no `runId`) leaves out the assistant's internal
+   * planning/answer Runs; one Run is found by ID wherever it is. `taskId` and `before` page the
+   * turns of one conversation.
+   */
   runs(
     workspaceId: string,
-    options: { snapshots?: boolean; runId?: string; includeHiddenForHost?: boolean } = {},
+    options: {
+      snapshots?: boolean;
+      runId?: string;
+      includeHiddenForHost?: boolean;
+      taskId?: string;
+      before?: { at: number; row: number } | null;
+      limit?: number;
+    } = {},
   ): RunRecord[] {
     if (!id(workspaceId)) return fail('UNKNOWN_PROJECT');
+    const listing = options.runId === undefined && options.includeHiddenForHost !== true;
     return this.all(
-      `SELECT r.*,t.workspace_id,t.title,t.constraints_json,t.status AS task_status,t.dispatch_blocked,b.execution_thread_id,CASE WHEN ? THEN c.summary_json ELSE NULL END AS summary_json FROM task_runs r JOIN tasks t USING(task_id) LEFT JOIN thread_bindings b ON b.task_id=t.task_id AND b.state='active' LEFT JOIN task_checkpoints c ON c.checkpoint_id=r.result_ref WHERE t.workspace_id=? AND t.dot_id=? AND (? IS NULL OR r.run_id=?) AND (? OR NOT EXISTS(SELECT 1 FROM privacy_tombstones p WHERE p.dot_id=t.dot_id AND p.source_ref IN (t.task_id,'task:'||t.task_id))) ORDER BY r.started_at_ms DESC,r.rowid DESC LIMIT 50`,
+      `SELECT r.*,r.rowid AS row_id,t.workspace_id,t.title,t.constraints_json,t.status AS task_status,t.dispatch_blocked,b.execution_thread_id,CASE WHEN ? THEN c.summary_json ELSE NULL END AS summary_json FROM task_runs r JOIN tasks t USING(task_id) LEFT JOIN thread_bindings b ON b.task_id=t.task_id AND b.state='active' LEFT JOIN task_checkpoints c ON c.checkpoint_id=r.result_ref WHERE t.workspace_id=? AND t.dot_id=? AND (? IS NULL OR r.run_id=?) AND (? IS NULL OR r.task_id=?) AND (? IS NULL OR r.started_at_ms<? OR (r.started_at_ms=? AND r.rowid<?)) AND (?=0 OR json_extract(t.constraints_json,'$.internalRole') IS NULL) AND (? OR NOT EXISTS(SELECT 1 FROM privacy_tombstones p WHERE p.dot_id=t.dot_id AND p.source_ref IN (t.task_id,'task:'||t.task_id))) ORDER BY r.started_at_ms DESC,r.rowid DESC LIMIT ?`,
       options.snapshots === false ? 0 : 1,
       workspaceId,
       this.dotId,
       options.runId ?? null,
       options.runId ?? null,
+      options.taskId ?? null,
+      options.taskId ?? null,
+      options.before?.at ?? null,
+      options.before?.at ?? null,
+      options.before?.at ?? null,
+      options.before?.row ?? null,
+      listing ? 1 : 0,
       options.includeHiddenForHost === true ? 1 : 0,
+      Math.min(Math.max(options.limit ?? 50, 1), 200),
     ).map((row) => ({
+      position: `${row.started_at_ms}.${row.row_id}`,
       runId: String(row.run_id),
       taskId: String(row.task_id),
       workspaceId,

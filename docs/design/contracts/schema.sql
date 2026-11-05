@@ -12,7 +12,7 @@ CREATE TABLE schema_metadata (
   singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
   schema_revision INTEGER NOT NULL CHECK (schema_revision > 0)
 );
-INSERT INTO schema_metadata VALUES (1, 7);
+INSERT INTO schema_metadata VALUES (1, 8);
 
 CREATE TABLE profiles (
   profile_id TEXT PRIMARY KEY,
@@ -174,12 +174,21 @@ CREATE TABLE tasks (
   last_event_sequence INTEGER NOT NULL DEFAULT 0 CHECK (last_event_sequence >= 0),
   created_at_ms INTEGER NOT NULL,
   updated_at_ms INTEGER NOT NULL,
+  -- A task is a conversation (revision 8): its choices and how it is shown in the list.
+  model TEXT CHECK (model IS NULL OR length(model) BETWEEN 1 AND 200),
+  reasoning_effort TEXT CHECK (reasoning_effort IS NULL OR length(reasoning_effort) BETWEEN 1 AND 32),
+  permission_mode TEXT NOT NULL DEFAULT 'readOnly'
+    CHECK (permission_mode IN ('readOnly','auto','fullAccess')),
+  pinned_at_ms INTEGER,
+  archived_at_ms INTEGER,
+  last_read_at_ms INTEGER,
   UNIQUE(task_id, dot_id),
   FOREIGN KEY(goal_id, dot_id) REFERENCES goals(goal_id, dot_id),
   FOREIGN KEY(parent_task_id, dot_id) REFERENCES tasks(task_id, dot_id),
   FOREIGN KEY(workspace_id, dot_id) REFERENCES workspaces(workspace_id, dot_id)
 );
 CREATE INDEX tasks_by_dot_status ON tasks(dot_id, status, updated_at_ms);
+CREATE INDEX tasks_by_workspace_activity ON tasks(workspace_id, updated_at_ms);
 
 CREATE TABLE conversations (
   conversation_id TEXT PRIMARY KEY,
@@ -331,6 +340,7 @@ CREATE TABLE task_runs (
 );
 CREATE UNIQUE INDEX one_active_run_per_task ON task_runs(task_id)
 WHERE status IN ('preparing','submitting','running','waiting_input','waiting_approval','outcome_unknown');
+CREATE INDEX task_runs_by_task ON task_runs(task_id, started_at_ms);
 
 CREATE TABLE workspace_write_leases (
   workspace_id TEXT PRIMARY KEY REFERENCES workspaces(workspace_id),

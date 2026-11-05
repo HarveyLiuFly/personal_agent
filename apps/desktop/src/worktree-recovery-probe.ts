@@ -6,6 +6,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { ExecutionLedger } from '../../../packages/store/src/ledger.ts';
 import { resolveWorkspaceGit } from '../../../packages/workspace/src/service.ts';
 import { evidenceDir } from './evidence.ts';
+import { DESKTOP_API_KEYS } from './api-keys.ts';
 export interface RecoveryProbeState {
   archiveStops: number;
   revealed: string[];
@@ -80,7 +81,7 @@ export async function runWorktreeRecoveryProbe(
     revealDestinationChecked:
       probe.revealed.length === 2 && probe.revealed.every((p) => p === prepared.recovery.directory),
     noModelRuns: modelRuns === 0,
-    apiCount: missingSource.apiCount === 63,
+    apiCount: missingSource.apiCount === DESKTOP_API_KEYS.length,
     sandboxed: missingSource.sandboxed,
     isolated: missingSource.isolated,
     noRequire: missingSource.noRequire,

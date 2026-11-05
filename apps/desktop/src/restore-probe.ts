@@ -7,6 +7,7 @@ import { ExecutionLedger } from '../../../packages/store/src/ledger.ts';
 import { BackupService } from '../../../packages/backup/src/service.ts';
 import { activeRuntimePaths } from '../../../packages/backup/src/restore.ts';
 import { evidenceDir } from './evidence.ts';
+import { DESKTOP_API_KEYS } from './api-keys.ts';
 /** Self-owned public fixture only; no model, auth or user's existing profile is modified. */
 export function seedRestoreProbe(state: string, store: ExecutionLedger, backups: BackupService) {
   const source = join(state, 'public-project');
@@ -92,7 +93,7 @@ export async function runRestoreProbe(
 
   if (phase === 'prepare') {
     const prepared = await window.webContents.executeJavaScript(
-      `(async()=>{const wait=async f=>{const end=Date.now()+15000;while(!f()){if(Date.now()>end)throw Error('RESTORE_UI_TIMEOUT');await new Promise(r=>setTimeout(r,30));}};await wait(()=>document.querySelector('[data-action="project-tasks"]')&&!document.querySelector('[data-action="project-tasks"]').disabled);document.querySelector('[data-action="project-tasks"]').click();await new Promise(r=>setTimeout(r,700));document.querySelector('[data-action="open-settings"]').click();await wait(()=>document.querySelector('[data-backup-manager]'));document.querySelector('[data-backup-manager]').open=true;await wait(()=>document.querySelector('[data-backup-id="${f.backupId}"] [data-action="prepare-restore"]'));document.querySelector('[data-backup-id="${f.backupId}"] [data-action="prepare-restore"]').click();await wait(()=>document.querySelector('[data-restore-state="prepared"]'));return{prepared:true,shownInUi:true,sandboxed:window.personalAgent.security.sandboxed,isolated:window.personalAgent.security.isolated,noRequire:typeof require==='undefined',apiCount:Object.keys(window.personalAgent).length===63};})()`,
+      `(async()=>{const wait=async f=>{const end=Date.now()+15000;while(!f()){if(Date.now()>end)throw Error('RESTORE_UI_TIMEOUT');await new Promise(r=>setTimeout(r,30));}};await wait(()=>document.querySelector('[data-action="project-tasks"]')&&!document.querySelector('[data-action="project-tasks"]').disabled);document.querySelector('[data-action="project-tasks"]').click();await new Promise(r=>setTimeout(r,700));document.querySelector('[data-action="open-settings"]').click();await wait(()=>document.querySelector('[data-backup-manager]'));document.querySelector('[data-backup-manager]').open=true;await wait(()=>document.querySelector('[data-backup-id="${f.backupId}"] [data-action="prepare-restore"]'));document.querySelector('[data-backup-id="${f.backupId}"] [data-action="prepare-restore"]').click();await wait(()=>document.querySelector('[data-restore-state="prepared"]'));return{prepared:true,shownInUi:true,sandboxed:window.personalAgent.security.sandboxed,isolated:window.personalAgent.security.isolated,noRequire:typeof require==='undefined',apiCount:Object.keys(window.personalAgent).length===${DESKTOP_API_KEYS.length}};})()`,
     );
     writeFileSync(
       join(evidenceDir(root), 'screenshots/M2.7c-restore-prepared.png'),

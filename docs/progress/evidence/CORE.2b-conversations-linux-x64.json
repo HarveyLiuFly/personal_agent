@@ -1,0 +1,53 @@
+{
+  "checkpoint": "CORE.2b",
+  "date": "2026-11-05",
+  "platform": "linux-x64",
+  "status": "passed",
+  "schemaRevision": 8,
+  "migrationRehearsal": [
+    {
+      "data": "local formal ledger copy (revision 7, no tasks yet)",
+      "tasks": 0,
+      "migrationMs": 12,
+      "quickCheck": "ok",
+      "foreignKeyViolations": 0,
+      "preMigrationBackups": 1
+    },
+    {
+      "data": "CORE.1 acceptance ledger copy (revision 7)",
+      "tasks": 6,
+      "runs": 6,
+      "intents": 12,
+      "countsUnchanged": true,
+      "markedRead": 6,
+      "migrationMs": 11,
+      "quickCheck": "ok",
+      "foreignKeyViolations": 0,
+      "preMigrationBackups": 1
+    }
+  ],
+  "automated": {
+    "newFile": "tests/conversations.test.ts",
+    "newTests": 4,
+    "ledgerDependentFiles": 46,
+    "ledgerDependentTests": 465,
+    "passed": 465,
+    "covers": [
+      "35 conversations over two pages, no duplicates or gaps, activity order",
+      "internal assistant tasks and other projects excluded; lookup of the oldest by ID",
+      "pinned first, unread after a finished turn, read and pin keep activity order",
+      "60 turns in 6 pages of 10, newest first",
+      "revision 7 -> 8 migration: backup, auto for code tasks, read, unmarked route task hidden, old turns readable"
+    ]
+  },
+  "checks": {
+    "typecheck": "passed",
+    "build": "passed",
+    "prettier": "passed",
+    "eslintChangedFiles": "passed",
+    "designContracts": "17 passed",
+    "dependencyRules": "0 errors, 14 warnings (unchanged)",
+    "windowSmoke": "passed (bridge has 68 methods)"
+  },
+  "modelRequests": 0
+}

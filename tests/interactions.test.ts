@@ -13,7 +13,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { test } from 'node:test';
-import { ExecutionLedger } from '../packages/store/src/ledger.ts';
+import { ExecutionLedger, LEDGER_SCHEMA_REVISION } from '../packages/store/src/ledger.ts';
 import { InteractionBroker } from '../packages/runtime/src/interactions.ts';
 import { SINGLE_RUN_POLICY } from './fixtures/policies.ts';
 const schema = readFileSync('docs/design/contracts/schema.sql', 'utf8');
@@ -265,7 +265,7 @@ test('revision 2 migration creates a verified private snapshot including WAL dat
   const current = new DatabaseSync(file, { readOnly: true });
   assert.equal(
     current.prepare('SELECT schema_revision FROM schema_metadata').get()!.schema_revision,
-    7,
+    LEDGER_SCHEMA_REVISION,
   );
   assert.equal(
     current.prepare('SELECT display_name FROM profiles').get()!.display_name,

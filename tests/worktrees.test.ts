@@ -19,7 +19,7 @@ import { join, resolve } from 'node:path';
 import { execFileSync, spawn } from 'node:child_process';
 import { once } from 'node:events';
 import { DatabaseSync } from 'node:sqlite';
-import { ExecutionLedger } from '../packages/store/src/ledger.ts';
+import { ExecutionLedger, LEDGER_SCHEMA_REVISION } from '../packages/store/src/ledger.ts';
 import { WorktreeService } from '../packages/workspace/src/worktrees.ts';
 import { WorkspaceService, resolveWorkspaceGit } from '../packages/workspace/src/service.ts';
 import { legacySchema } from './fixtures/schema-history.ts';
@@ -308,7 +308,10 @@ test('revision 4 WAL migration backs up actual data and creates revision 6 atomi
   );
   const store = new ExecutionLedger(file, schema);
   try {
-    assert.equal(db.prepare('SELECT schema_revision AS n FROM schema_metadata').get()!.n, 7);
+    assert.equal(
+      db.prepare('SELECT schema_revision AS n FROM schema_metadata').get()!.n,
+      LEDGER_SCHEMA_REVISION,
+    );
     const backup = join(
       root,
       readdirSync(root).find((n) => n.endsWith('.backup'))!,

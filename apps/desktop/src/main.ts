@@ -84,6 +84,7 @@ import { HostEvents } from './host-events.ts';
 import { BackgroundScheduler } from './background-scheduler.ts';
 import { StateIndexWarmup } from '../../../packages/codex-adapter/src/state-index.ts';
 import type { BackgroundStep } from './background-scheduler.ts';
+import { DESKTOP_API_KEYS } from './api-keys.ts';
 
 const directory = dirname(fileURLToPath(import.meta.url));
 const root = resolve(directory, '../..');
@@ -1046,6 +1047,18 @@ async function boot(): Promise<void> {
         }
       }),
     );
+  for (const [channel, operation] of [
+    ['conversations:list', (input: unknown) => ledger!.conversations(input)],
+    ['conversations:get', (input: unknown) => ledger!.conversationSummary(input)],
+    ['conversations:turns', (input: unknown) => ledger!.conversationTurns(input)],
+    ['conversations:update', (input: unknown) => ledger!.updateConversation(input)],
+  ] as const)
+    handle(channel, (event, ...args: unknown[]) =>
+      executionCommand(event, args, 1, () => {
+        if (!ledger) throw new LedgerError('TASKS_UNAVAILABLE');
+        return (operation as (input: unknown) => unknown)(args[0]);
+      }),
+    );
   handle('tasks:list', (event, ...args: unknown[]) =>
     executionCommand(event, args, 1, () => {
       if (!taskService) throw new LedgerError('TASKS_UNAVAILABLE');
@@ -1631,73 +1644,7 @@ async function boot(): Promise<void> {
       r.uiConnected === true &&
       !app.commandLine.hasSwitch('no-sandbox') &&
       (r.connection as ConnectionInfo)?.status === 'connected' &&
-      JSON.stringify(r.bridgeKeys) ===
-        JSON.stringify([
-          'applyBackupCommand',
-          'applyGoalCommand',
-          'applyScheduleCommand',
-          'applyTaskCommand',
-          'applyTaskPlan',
-          'applyWorktreeCommand',
-          'cancelTaskPlan',
-          'chooseProject',
-          'closeTerminal',
-          'commitChatRoute',
-          'continueRun',
-          'correctChatRoute',
-          'forgetMemory',
-          'getRun',
-          'getRunCheckpoint',
-          'getVerification',
-          'getWorkspace',
-          'getWorkspaceDiff',
-          'inspect',
-          'inspectWorktree',
-          'interruptRun',
-          'listBackups',
-          'listChatRoutes',
-          'listGoalNotifications',
-          'listGoalSourceEvents',
-          'listGoalSources',
-          'listGoals',
-          'listInteractions',
-          'listItems',
-          'listMemory',
-          'listProjectSkills',
-          'listRuns',
-          'listScheduleOccurrences',
-          'listSchedules',
-          'listTaskActivity',
-          'listTaskPlans',
-          'listTasks',
-          'listThreads',
-          'listTurns',
-          'listWorkspaceDirectory',
-          'listWorktrees',
-          'memoryState',
-          'onEvent',
-          'openTerminal',
-          'proposeMainChat',
-          'readMainChat',
-          'readTerminal',
-          'readWorkspaceFile',
-          'reconcileRun',
-          'reconcileTerminal',
-          'rememberMessage',
-          'replyInteraction',
-          'resizeTerminal',
-          'resourceBudget',
-          'retryMemoryCleanup',
-          'rolloverRun',
-          'security',
-          'startTask',
-          'submitMainChat',
-          'submitMessage',
-          'useWorktree',
-          'verifyRun',
-          'workspaceState',
-          'writeTerminal',
-        ]);
+      JSON.stringify(r.bridgeKeys) === JSON.stringify(DESKTOP_API_KEYS);
     const evidence = {
       observedAt: new Date().toISOString(),
       kind: 'real_electron_window_smoke',

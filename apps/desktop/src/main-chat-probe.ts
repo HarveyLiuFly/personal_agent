@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { ExecutionLedger } from '../../../packages/store/src/ledger.ts';
 import { evidenceDir } from './evidence.ts';
+import { DESKTOP_API_KEYS } from './api-keys.ts';
 export function seedMainChatProbe(store: ExecutionLedger, source: string) {
   const project = store.registerWorkspace(source);
   for (const key of ['a', 'b'])
@@ -30,7 +31,7 @@ export async function runMainChatProbe(
   const plainText=!document.querySelector('[data-main-chat] img'),state=await window.personalAgent.workspaceState(),projectId=state.value.projects[0].id,before=(await window.personalAgent.readMainChat({projectId})).value,taskId=before.tasks[0].taskId;
   const q={projectId,messageId:'public-exact-replay',text:'/query',focusRevision:before.focusRevision,taskId},first=await window.personalAgent.submitMainChat(q),same=await window.personalAgent.submitMainChat(q),conflict=await window.personalAgent.submitMainChat({...q,text:'changed'}),stale=await window.personalAgent.submitMainChat({...q,messageId:'stale-focus'}),extra=await window.personalAgent.readMainChat({projectId,cwd:'/tmp'});
   await click('[data-action="refresh-main-chat"]');await wait(()=>document.querySelector('[data-chat-message="public-exact-replay"]'));const messageCount=document.querySelectorAll('[data-chat-message]').length;await click('[data-action="project-tasks"]');const taskDraftKept=document.querySelector('[data-task-draft]').value==='UNDERLYING_TASK_DRAFT_KEPT';await click('[data-action="open-main-chat"]');await wait(()=>document.querySelector('[data-chat-message="public-exact-replay"]'));await wait(()=>!document.querySelector('[data-action="refresh-main-chat"]').disabled);
-  return{projectId,pendingShown,pendingDraftKept,plainText,taskDraftKept,reopenedSameMessages:document.querySelectorAll('[data-chat-message]').length===messageCount,sameIdDeduped:first.ok&&same.ok&&same.value.messages.filter(m=>m.messageId===q.messageId).length===1,conflictRejected:!conflict.ok&&conflict.errorCode==='IDEMPOTENCY_CONFLICT',focusCasRejected:!stale.ok&&stale.errorCode==='CHAT_FOCUS_CHANGED',extraRejected:!extra.ok&&extra.errorCode==='INVALID_CHAT_QUERY',sandboxed:window.personalAgent.security.sandboxed,isolated:window.personalAgent.security.isolated,noRequire:typeof require==='undefined',apiCount:Object.keys(window.personalAgent).length===63};
+  return{projectId,pendingShown,pendingDraftKept,plainText,taskDraftKept,reopenedSameMessages:document.querySelectorAll('[data-chat-message]').length===messageCount,sameIdDeduped:first.ok&&same.ok&&same.value.messages.filter(m=>m.messageId===q.messageId).length===1,conflictRejected:!conflict.ok&&conflict.errorCode==='IDEMPOTENCY_CONFLICT',focusCasRejected:!stale.ok&&stale.errorCode==='CHAT_FOCUS_CHANGED',extraRejected:!extra.ok&&extra.errorCode==='INVALID_CHAT_QUERY',sandboxed:window.personalAgent.security.sandboxed,isolated:window.personalAgent.security.isolated,noRequire:typeof require==='undefined',apiCount:Object.keys(window.personalAgent).length===${DESKTOP_API_KEYS.length}};
  })()`);
   renameSync(source, source + '-moved');
   const registry = await window.webContents.executeJavaScript(

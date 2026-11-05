@@ -6,6 +6,7 @@ import { resolve } from 'node:path';
 import { ExecutionLedger } from '../../../packages/store/src/ledger.ts';
 import { TerminalService } from '../../../packages/workspace/src/terminal.ts';
 import { evidenceDir } from './evidence.ts';
+import { DESKTOP_API_KEYS } from './api-keys.ts';
 async function wait(check: () => boolean, ms = 10000, stage = 'UNKNOWN') {
   const until = Date.now() + ms;
   while (!check()) {
@@ -151,7 +152,7 @@ export async function runTerminalProbe(
     noDuplicateInput: readFileSync(resolve(source, 'terminal-count.txt'), 'utf8') === 'AB',
     realProcessesStopped: stopped,
     noModelRuns: store.runs(scope).length === 0,
-    apiCount: recovery.apiCount === 63,
+    apiCount: recovery.apiCount === DESKTOP_API_KEYS.length,
     sandboxed: recovery.sandboxed,
     isolated: recovery.isolated,
     noRequire: recovery.noRequire,

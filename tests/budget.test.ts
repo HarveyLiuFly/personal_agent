@@ -14,7 +14,7 @@ import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
-import { ExecutionLedger } from '../packages/store/src/ledger.ts';
+import { ExecutionLedger, LEDGER_SCHEMA_REVISION } from '../packages/store/src/ledger.ts';
 import type { RunToken } from '../packages/store/src/ledger.ts';
 import { legacySchema } from './fixtures/schema-history.ts';
 const schema = readFileSync('docs/design/contracts/schema.sql', 'utf8');
@@ -347,7 +347,7 @@ for (const revision of [2, 3] as const)
     const db = new DatabaseSync(file, { readOnly: true });
     assert.equal(
       db.prepare('SELECT schema_revision FROM schema_metadata').get()!.schema_revision,
-      7,
+      LEDGER_SCHEMA_REVISION,
     );
     assert.equal(db.prepare('SELECT consumed_units FROM budget_buckets').get()!.consumed_units, 20);
     assert.equal(

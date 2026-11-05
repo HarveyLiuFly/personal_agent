@@ -17,7 +17,7 @@ import {
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
-import { ExecutionLedger } from '../packages/store/src/ledger.ts';
+import { ExecutionLedger, LEDGER_SCHEMA_REVISION } from '../packages/store/src/ledger.ts';
 import { TerminalService } from '../packages/workspace/src/terminal.ts';
 import { resolveVerifierNode } from '../packages/codex-adapter/src/launch.ts';
 const schema = readFileSync('docs/design/contracts/schema.sql', 'utf8'),
@@ -285,7 +285,10 @@ test(
         } else {
           const store = new ExecutionLedger(file, schema);
           store.close();
-          assert.equal(db.prepare('SELECT schema_revision AS n FROM schema_metadata').get()!.n, 7);
+          assert.equal(
+            db.prepare('SELECT schema_revision AS n FROM schema_metadata').get()!.n,
+            LEDGER_SCHEMA_REVISION,
+          );
           assert.equal(
             db
               .prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE name='managed_worktrees'")

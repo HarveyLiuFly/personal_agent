@@ -400,7 +400,7 @@ export class ChatRouteService {
       return;
     }
     if (op.kind === 'CONTINUE_TASK') {
-      const source = this.store.runs(projectId).find((run) => run.taskId === op.taskId);
+      const source = this.store.runs(projectId, { taskId: op.taskId!, limit: 1 })[0];
       if (!source || !['completed', 'failed'].includes(source.status))
         throw new LedgerError('RUN_NOT_CONTINUABLE');
       const target = this.store.routeQuery(projectId, op.taskId!);

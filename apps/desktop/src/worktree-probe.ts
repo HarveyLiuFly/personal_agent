@@ -5,6 +5,7 @@ import { execFileSync } from 'node:child_process';
 import { ExecutionLedger } from '../../../packages/store/src/ledger.ts';
 import { resolveWorkspaceGit } from '../../../packages/workspace/src/service.ts';
 import { evidenceDir } from './evidence.ts';
+import { DESKTOP_API_KEYS } from './api-keys.ts';
 export function createWorktreeFixture(directory: string) {
   const git = resolveWorkspaceGit(),
     run = (args: string[]) =>
@@ -88,7 +89,7 @@ export async function runWorktreeProbe(
         encoding: 'utf8',
       }).trim() === result.baseCommit,
     noModelRuns: store.runs(result.projectId).length === 0,
-    apiCount: result.apiCount === 63,
+    apiCount: result.apiCount === DESKTOP_API_KEYS.length,
   };
   const status = Object.values(checks).every(Boolean) ? 'passed' : 'blocked';
   mkdirSync(resolve(evidenceDir(root), 'screenshots'), { recursive: true });

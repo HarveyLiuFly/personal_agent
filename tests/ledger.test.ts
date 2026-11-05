@@ -14,7 +14,11 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { test } from 'node:test';
-import { ExecutionLedger, LedgerError } from '../packages/store/src/ledger.ts';
+import {
+  ExecutionLedger,
+  LedgerError,
+  LEDGER_SCHEMA_REVISION,
+} from '../packages/store/src/ledger.ts';
 import type { RunToken } from '../packages/store/src/ledger.ts';
 import { SINGLE_RUN_POLICY } from './fixtures/policies.ts';
 const schema = readFileSync(resolve('docs/design/contracts/schema.sql'), 'utf8');
@@ -63,7 +67,7 @@ test('initializes common schema, persists workspace identity and protects local 
   try {
     assert.equal(
       db.prepare('SELECT schema_revision FROM schema_metadata').get()!.schema_revision,
-      7,
+      LEDGER_SCHEMA_REVISION,
     );
     assert.equal(db.prepare('PRAGMA journal_mode').get()!.journal_mode, 'wal');
     if (process.platform !== 'win32') {
