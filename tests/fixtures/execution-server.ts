@@ -246,6 +246,34 @@ for await (const line of createInterface({ input: process.stdin })) {
           },
         });
     }
+    if (mode.startsWith('approval-files')) {
+      // A file change the model wants to make; the paths come with the item before approval.
+      const path =
+        mode === 'approval-files-outside' ? '/etc/fixture.conf' : cwd + '/src/fixture.txt';
+      notify('item/started', {
+        threadId,
+        turnId,
+        item: {
+          id: 'fixture-files',
+          type: 'fileChange',
+          status: 'inProgress',
+          changes: [{ path, kind: { type: 'update', move_path: null }, diff: '' }],
+        },
+      });
+      requests.set('server-request', (result) => finish(String(result.decision)));
+      write({
+        id: 'server-request',
+        method: 'item/fileChange/requestApproval',
+        params: {
+          threadId,
+          turnId,
+          itemId: 'fixture-files',
+          reason: 'fixture write',
+          grantRoot: null,
+        },
+      });
+      continue;
+    }
     if (mode.startsWith('approval') || mode === 'input') {
       requests.set('server-request', (result) => {
         if (receipts && result.decision === 'accept')

@@ -1,0 +1,37 @@
+{
+  "checkpoint": "CORE.3c",
+  "date": "2026-11-05",
+  "platform": "linux-x64",
+  "status": "passed",
+  "decisions": [
+    "decline",
+    "accept",
+    "acceptForSession"
+  ],
+  "rules": {
+    "command": "writable conversation and cwd inside the workspace; acceptForSession remembered per conversation for the same command",
+    "files": "paths reported by Codex, all inside the workspace and no extra write root",
+    "readOnly": "decline only"
+  },
+  "automated": {
+    "newTests": 2,
+    "changedAssertions": 1,
+    "affectedFiles": 59,
+    "affectedTests": 600,
+    "passed": 600
+  },
+  "windowSmokes": {
+    "window": "passed",
+    "conversation": "passed",
+    "dot": "passed",
+    "m1Approvals": "passed (session choice shown)",
+    "m1Execution": "1 of 3 timed out (streaming window race under load), 2 passed"
+  },
+  "checks": {
+    "typecheck": "passed",
+    "build": "passed",
+    "prettier": "passed",
+    "dependencyRules": "0 errors"
+  },
+  "modelRequests": 0
+}

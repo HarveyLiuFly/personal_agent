@@ -121,4 +121,4 @@ Electron Main 取得 OS 单实例锁后才提升 Owner Epoch；数据库 Epoch �
 
 当前交互支持单连接服务端请求的持久映射、单次命令决定、补问与停止。回复先保存 responding/Hash，再写 stdio；旧 Owner/连接请求不复活，超时或关闭默认拒绝。只读模式不放行命令升级；会话永久批准/策略修改未开放，文件批准须先具备可信 Diff，当前只支持拒绝。Interrupt 先持久阻止新派发，再落盘请求，只有权威 Turn interrupted 才确认取消；只有 RPC 接收或超时均保留 Unknown 并停止本地进程。
 
-Host 审批路由不依赖个人全局默认：Thread Start/Resume 与 Turn 明确选择审批策略（只读与自动为 on-request，完全访问为 never）和 `approvalsReviewer=user`，收到线程响应后按该模式复核有效审批策略、Reviewer、网络、沙箱类型及工作区/临时目录写边界；不匹配则拒绝模型派发。此 user 指通过产品 Host 的审批回调，由界面或受控测试 Owner 作单次决定；不能静默继承原生自动审核并宣称 Host 已审批。模型代码任务的显式工作区写授权与原生命令升级审批分别记录。
+Host 审批路由不依赖个人全局默认：Thread Start/Resume 与 Turn 明确选择审批策略（只读与自动为 on-request，完全访问为 never）和 `approvalsReviewer=user`，收到线程响应后按该模式复核有效审批策略、Reviewer、网络、沙箱类型及工作区/临时目录写边界；不匹配则拒绝模型派发。此 user 指通过产品 Host 的审批回调，由界面或受控测试 Owner 作单次决定；不能静默继承原生自动审核并宣称 Host 已审批。模型代码任务的显式工作区写授权与原生命令升级审批分别记录。对话内审批卡片提供“仅允许本次 / 本对话总是允许 / 拒绝”：命令只有在可写对话中、工作目录在工作区内时才可允许；“本对话总是允许”对同一条命令在该对话后续轮次由 Host 自动回答（与 Codex 的 acceptForSession 一致，按 `runtime_requests` 中的既往决定判断）；文件修改展示 Codex 报告的路径，全部在工作区内且没有申请额外写入目录时才可允许；只读对话只能拒绝。请求与决定逐条记录在 `runtime_requests`。

@@ -300,6 +300,13 @@ export class ThreadProjection {
     this.sequence = sequence;
     this.needsSnapshot = false;
   }
+  /** Paths of a file-change item as Codex reported them; null if unknown or clipped. */
+  filePaths(itemId: string): string[] | null {
+    for (const item of this.items.values())
+      if (item.id === itemId && item.kind === 'files')
+        return item.truncated ? null : item.text.split('\n').filter(Boolean);
+    return null;
+  }
   view(): ThreadView {
     return {
       threadId: this.threadId,

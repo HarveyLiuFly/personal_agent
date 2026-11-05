@@ -5,12 +5,15 @@ export function InteractionCard({
   reply,
 }: {
   request: InteractionView;
-  reply(decision: 'accept' | 'decline', answers?: Record<string, string>): Promise<void>;
+  reply(
+    decision: 'accept' | 'acceptForSession' | 'decline',
+    answers?: Record<string, string>,
+  ): Promise<void>;
 }) {
   const [answers, setAnswers] = useState<Record<string, string>>({}),
     [pending, setPending] = useState(false),
     [error, setError] = useState(false);
-  async function act(decision: 'accept' | 'decline') {
+  async function act(decision: 'accept' | 'acceptForSession' | 'decline') {
     if (pending) return;
     setPending(true);
     setError(false);
@@ -28,7 +31,27 @@ export function InteractionCard({
         <strong>{request.title}</strong>
         <span>等待你的决定</span>
       </div>
-      <pre>{request.detail}</pre>
+      {request.files?.length ? (
+        <ul className="approval-files" data-approval-files>
+          {request.files.map((file) => (
+            <li key={file}>
+              <code>{file}</code>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      <pre>
+        {request.files?.length
+          ? request.detail.split('\n').slice(request.files.length).join('\n')
+          : request.detail}
+      </pre>
+      {!request.canAccept && request.kind !== 'input' && (
+        <p className="muted">
+          {request.kind === 'command'
+            ? '只读对话不能让命令越出沙箱；需要时把权限改为“自动”后重试。'
+            : '涉及工作区以外的文件或没有可核对的文件清单，只能拒绝。'}
+        </p>
+      )}
       {request.questions.map((q) => (
         <label className="input-question" key={q.id}>
           {q.header} · {q.question}
@@ -70,6 +93,21 @@ export function InteractionCard({
         >
           {request.kind === 'input' ? '提交回答' : '仅允许本次'}
         </button>
+        {request.kind !== 'input' && (
+          <button
+            data-action="accept-request-session"
+            className="secondary"
+            disabled={pending || !request.canAcceptForSession}
+            title={
+              request.kind === 'command'
+                ? '这个对话以后再运行同一条命令时不再询问'
+                : '本轮内对这些文件的修改不再询问'
+            }
+            onClick={() => void act('acceptForSession')}
+          >
+            {request.kind === 'command' ? '本对话总是允许' : '本轮都允许'}
+          </button>
+        )}
       </div>
       {error && <p role="alert">该请求可能已结束或连接已变化，请查看最新状态。</p>}
     </article>

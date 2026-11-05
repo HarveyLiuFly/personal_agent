@@ -100,8 +100,13 @@ test('read-only grants and session/policy decisions cannot expand approval autho
     () => f.broker.reply(r.requestId, { decision: 'accept' }),
     /APPROVAL_SCOPE_BLOCKED/,
   );
+  // "Always allow" is refused like "allow" in a read-only conversation; unknown decisions too.
   assert.throws(
     () => f.broker.reply(r.requestId, { decision: 'acceptForSession' }),
+    /APPROVAL_SCOPE_BLOCKED/,
+  );
+  assert.throws(
+    () => f.broker.reply(r.requestId, { decision: 'alwaysEverything' }),
     /INVALID_APPROVAL_DECISION/,
   );
   f.broker.reply(r.requestId, { decision: 'decline' });

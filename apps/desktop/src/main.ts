@@ -1893,16 +1893,16 @@ async function boot(): Promise<void> {
       fill('Synthetic approval UI fixture.');await wait(()=>!document.querySelector('[data-action="send"]').disabled);document.querySelector('[data-action="send"]').click();
       await wait(()=>document.querySelector('[data-action="accept-request"]'));
       const awaitingApproval=document.querySelector('[data-run-status]').getAttribute('data-run-status')==='waiting_approval';
-      const shownCommand=document.body.textContent.includes('node --test');
+      const shownCommand=document.body.textContent.includes('node --test');const sessionButton=document.querySelector('[data-action="accept-request-session"]'),sessionChoiceShown=Boolean(sessionButton)&&!sessionButton.disabled;
       const state=await window.personalAgent.workspaceState(),projectId=state.value.projects[0].id;
       const rows=await window.personalAgent.listRuns({projectId}),runId=rows.value[0].runId;
       const pending=await window.personalAgent.listInteractions({projectId,runId}),requestId=pending.value[0].requestId;
       const foreign=await window.personalAgent.replyInteraction({projectId,runId:'foreign',requestId,decision:'accept'});
-      const invalid=await window.personalAgent.replyInteraction({projectId,runId,requestId,decision:'acceptForSession'});
+      const invalid=await window.personalAgent.replyInteraction({projectId,runId,requestId,decision:'alwaysEverything'});
       document.querySelector('[data-action="accept-request"]').click();await wait(()=>document.querySelector('[data-run-status="completed"]'));
       const replay=await window.personalAgent.replyInteraction({projectId,runId,requestId,decision:'accept'});
       const final=await window.personalAgent.getRun({projectId,runId});
-      return { sandboxed:window.personalAgent.security.sandboxed, isolated:window.personalAgent.security.isolated, hasRequire:typeof require!=='undefined',awaitingApproval,shownCommand,
+      return { sandboxed:window.personalAgent.security.sandboxed, isolated:window.personalAgent.security.isolated, hasRequire:typeof require!=='undefined',awaitingApproval,shownCommand,sessionChoiceShown,
         foreignRejected:foreign.ok===false,sessionApprovalRejected:invalid.ok===false,replayRejected:replay.ok===false,
         finalText:final.value.snapshot.items.find(item=>item.role==='assistant').text,taskStatus:final.value.taskStatus };
     })()`);
@@ -1913,6 +1913,7 @@ async function boot(): Promise<void> {
       r.hasRequire === false &&
       r.awaitingApproval === true &&
       r.shownCommand === true &&
+      r.sessionChoiceShown === true &&
       r.foreignRejected === true &&
       r.sessionApprovalRejected === true &&
       r.replayRejected === true &&

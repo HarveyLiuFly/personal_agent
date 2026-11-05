@@ -104,12 +104,18 @@ export interface InteractionView {
   title: string;
   detail: string;
   canAccept: boolean;
+  /** "Always allow in this conversation" is possible (same command / these files). */
+  canAcceptForSession?: boolean;
+  /** Files a file-change request touches, as Codex reported them. */
+  files?: string[];
+  /** Answered by an earlier "always allow in this conversation" decision. */
+  autoApproved?: boolean;
   questions: InputQuestion[];
   command?: string;
 }
 export interface ReplyInteraction extends RunQuery {
   requestId: string;
-  decision: 'accept' | 'decline';
+  decision: 'accept' | 'acceptForSession' | 'decline';
   answers?: Record<string, string>;
 }
 export interface VerificationView {

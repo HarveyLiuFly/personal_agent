@@ -2,6 +2,7 @@ import { ExecutionLedger, LedgerError } from '../../store/src/ledger.ts';
 import type { RunToken } from '../../store/src/ledger.ts';
 import { isObject, RpcFailure } from '../../codex-adapter/src/rpc.ts';
 import type { InputQuestion, InteractionView } from '../../contracts/src/views.ts';
+import { resolve, sep } from 'node:path';
 export interface InteractionContext {
   token: RunToken;
   connectionEpoch: number;
@@ -10,6 +11,8 @@ export interface InteractionContext {
   turnId: string;
   cwd: string;
   canWrite: boolean;
+  /** Paths of a file-change item as Codex reported them (null when the item is unknown). */
+  preview?: (itemId: string) => string[] | null;
 }
 interface Pending {
   requestId: string;
@@ -42,6 +45,11 @@ export class InteractionBroker {
       (typeof message.id !== 'string' && typeof message.id !== 'number')
     )
       throw new RpcFailure('SERVER_REQUEST_SCOPE_MISMATCH');
+    // Inside the conversation's workspace (a relative path is resolved against it).
+    const inside = (path: string) => {
+      const full = resolve(context.cwd, path);
+      return full === context.cwd || full.startsWith(context.cwd + sep);
+    };
     let payload: Omit<InteractionView, 'state' | 'requestId'>;
     if (message.method === 'item/commandExecution/requestApproval') {
       const command = text(p.command, 4096),
@@ -49,25 +57,42 @@ export class InteractionBroker {
       const canAccept =
         context.canWrite &&
         (p.kind === undefined || p.kind === 'command') &&
-        cwd === context.cwd &&
+        Boolean(cwd) &&
+        inside(cwd) &&
         typeof p.command === 'string' &&
         Boolean(p.command.trim()) &&
         p.command.length <= 4096 &&
         !/[\x00-\x08\x0b-\x1f]/.test(p.command);
       payload = {
         kind: 'command',
-        title: '单次命令批准（可能超出沙箱）',
-        detail: `${command}\n目录：${cwd}\n${text(p.reason, 2000)}`,
+        title: '运行命令（需要越出沙箱）',
+        detail: `${command}\n目录：${cwd}\n${text(p.reason, 2000)}`.trim(),
         command,
         canAccept,
+        canAcceptForSession: canAccept,
         questions: [],
       };
+      // "Always allow in this conversation": the same command was allowed for this conversation.
+      if (canAccept && this.store.conversationAllows(context.token.runId, command))
+        payload = { ...payload, title: '运行命令（本对话已允许）', autoApproved: true };
     } else if (message.method === 'item/fileChange/requestApproval') {
+      const files = (context.preview?.(p.itemId as string) ?? []).slice(0, 50),
+        root = text(p.grantRoot, 4096);
+      const canAccept =
+        context.canWrite && files.length > 0 && files.every(inside) && (!root || inside(root));
       payload = {
         kind: 'files',
-        title: '文件修改审批',
-        detail: `当前缺少可信 Diff 预览，仅可拒绝。\n${text(p.reason, 2000)}`,
-        canAccept: false,
+        title: '修改文件',
+        detail: [
+          files.length ? files.join('\n') : '没有可核对的文件清单，只能拒绝。',
+          root ? `申请写入目录：${root}` : '',
+          text(p.reason, 2000),
+        ]
+          .filter(Boolean)
+          .join('\n'),
+        files,
+        canAccept,
+        canAcceptForSession: canAccept && !root,
         questions: [],
       };
     } else if (message.method === 'item/tool/requestUserInput') {
@@ -120,7 +145,7 @@ export class InteractionBroker {
       expires,
     );
     this.rpcIds.set(rpcId, requestId);
-    return new Promise((resolve) => {
+    const promise = new Promise((resolve) => {
       const timer = setTimeout(() => {
         try {
           this.resolve(requestId, { decision: 'decline' }, true);
@@ -133,6 +158,8 @@ export class InteractionBroker {
       }, this.timeoutMs);
       this.pending.set(requestId, { requestId, context, payload, resolve, timer });
     });
+    if (payload.autoApproved) this.resolve(requestId, { decision: 'acceptForSession' }, false);
+    return promise;
   }
   reply(requestId: string, input: Record<string, unknown>): void {
     this.resolve(requestId, input, false);
@@ -144,15 +171,22 @@ export class InteractionBroker {
   ): void {
     const request = this.pending.get(requestId);
     if (!request) throw new LedgerError('STALE_SERVER_REQUEST');
-    if (!['accept', 'decline'].includes(String(input.decision)))
+    const decision = String(input.decision);
+    if (
+      !['accept', 'acceptForSession', 'decline'].includes(decision) ||
+      (decision === 'acceptForSession' && request.payload.kind === 'input')
+    )
       throw new LedgerError('INVALID_APPROVAL_DECISION');
-    if (input.decision === 'accept' && !request.payload.canAccept)
+    if (
+      (decision === 'accept' && !request.payload.canAccept) ||
+      (decision === 'acceptForSession' && !request.payload.canAcceptForSession)
+    )
       throw new LedgerError('APPROVAL_SCOPE_BLOCKED');
     const run = this.store.runs(request.context.projectId, {
       snapshots: false,
       runId: request.context.token.runId,
     })[0];
-    if (!run || (run.blocked && input.decision === 'accept'))
+    if (!run || (run.blocked && decision !== 'decline'))
       throw new LedgerError('RUN_DISPATCH_BLOCKED');
     let response: unknown;
     if (request.payload.kind === 'input') {
@@ -174,7 +208,7 @@ export class InteractionBroker {
         }
       }
       response = { answers };
-    } else response = { decision: input.decision };
+    } else response = { decision };
     this.store.responding(
       request.context.token,
       requestId,

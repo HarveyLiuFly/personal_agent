@@ -4842,6 +4842,18 @@ export class ExecutionLedger {
       return requestId;
     });
   }
+  /** True when this exact command was allowed for the rest of the Run's conversation before. */
+  conversationAllows(runId: string, command: string): boolean {
+    if (typeof command !== 'string' || !command.trim()) return false;
+    return Boolean(
+      this.one(
+        "SELECT q.request_id FROM runtime_requests q JOIN task_runs r USING(run_id) WHERE r.task_id=(SELECT task_id FROM task_runs WHERE run_id=?) AND q.kind='command' AND q.state='responded' AND q.response_hash=? AND json_extract(q.payload_json,'$.command')=? LIMIT 1",
+        runId,
+        hashInput({ decision: 'acceptForSession' }),
+        command,
+      ),
+    );
+  }
   requests(workspaceId: string, runId: string): InteractionView[] {
     return this.all(
       "SELECT q.* FROM runtime_requests q JOIN task_runs r USING(run_id) JOIN tasks t USING(task_id) WHERE q.run_id=? AND t.workspace_id=? AND t.dot_id=? ORDER BY (q.state='pending') DESC,q.rowid DESC LIMIT 32",

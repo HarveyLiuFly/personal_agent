@@ -554,3 +554,131 @@ test('words added to a running turn are sent once, and a refused steer leaves th
   await f.runtime.interrupt({ projectId: f.project.id, runId: next.runId });
   await f.runtime.wait();
 });
+
+test('approvals offer once, always in this conversation, or decline; "always" carries to later turns', async (t) => {
+  const f = fixture(t, ['approval-session', 'approval-session', 'approval-read']);
+  const pending = async (runId: string) => {
+    let rows: ReturnType<typeof f.runtime.interactions> = [];
+    await until(() => {
+      rows = f.runtime
+        .interactions({ projectId: f.project.id, runId })
+        .filter((row) => row.state === 'pending');
+      return rows.length > 0;
+    }, 'NO_PENDING_REQUEST');
+    return rows[0]!;
+  };
+  const answer = (runId: string) =>
+    f.runtime
+      .view({ projectId: f.project.id, runId })
+      .snapshot!.items.filter((item) => item.role === 'assistant')
+      .map((item) => item.text)
+      .join('');
+  const first = f.runtime.submit({
+    projectId: f.project.id,
+    text: 'Run the tests',
+    submissionKey: 'ap-1',
+    permissionMode: 'auto',
+  });
+  const request = await pending(first.runId);
+  assert.equal(request.kind, 'command');
+  assert.equal(request.command, 'node --test');
+  assert.equal(request.canAccept, true);
+  assert.equal(request.canAcceptForSession, true);
+  f.runtime.reply({
+    projectId: f.project.id,
+    runId: first.runId,
+    requestId: request.requestId,
+    decision: 'acceptForSession',
+  });
+  await f.runtime.wait();
+  assert.equal(answer(first.runId), 'acceptForSession');
+  // The same command in a later turn of this conversation is allowed without asking.
+  const second = f.runtime.continueRun({
+    projectId: f.project.id,
+    runId: first.runId,
+    text: 'Run them again',
+    submissionKey: 'ap-2',
+  });
+  await f.runtime.wait();
+  assert.equal(answer(second.runId), 'acceptForSession');
+  const remembered = f.runtime.interactions({ projectId: f.project.id, runId: second.runId });
+  assert.equal(remembered.length, 1);
+  assert.equal(remembered[0]!.autoApproved, true);
+  assert.equal(remembered[0]!.state, 'responded');
+  // A read-only conversation cannot let a command out of the sandbox; it can only decline.
+  const reader = f.runtime.submit({
+    projectId: f.project.id,
+    text: 'Only look',
+    submissionKey: 'ap-3',
+    permissionMode: 'readOnly',
+  });
+  const blocked = await pending(reader.runId);
+  assert.equal(blocked.canAccept, false);
+  assert.throws(
+    () =>
+      f.runtime.reply({
+        projectId: f.project.id,
+        runId: reader.runId,
+        requestId: blocked.requestId,
+        decision: 'accept',
+      }),
+    /APPROVAL_SCOPE_BLOCKED/,
+  );
+  f.runtime.reply({
+    projectId: f.project.id,
+    runId: reader.runId,
+    requestId: blocked.requestId,
+    decision: 'decline',
+  });
+  await f.runtime.wait();
+  assert.equal(answer(reader.runId), 'decline');
+});
+
+test('a file change approval lists the files and can be allowed only inside the workspace', async (t) => {
+  const f = fixture(t, ['approval-files', 'approval-files-outside']);
+  const pendingFor = async (runId: string) => {
+    let rows: ReturnType<typeof f.runtime.interactions> = [];
+    await until(() => {
+      rows = f.runtime
+        .interactions({ projectId: f.project.id, runId })
+        .filter((row) => row.state === 'pending');
+      return rows.length > 0;
+    }, 'NO_PENDING_REQUEST');
+    return rows[0]!;
+  };
+  const inside = f.runtime.submit({
+    projectId: f.project.id,
+    text: 'Write a file',
+    submissionKey: 'files-1',
+    permissionMode: 'auto',
+  });
+  const request = await pendingFor(inside.runId);
+  assert.equal(request.kind, 'files');
+  assert.equal(request.files?.length, 1);
+  assert.match(request.files![0]!, /src\/fixture\.txt$/);
+  assert.equal(request.canAccept, true);
+  assert.equal(request.canAcceptForSession, true);
+  f.runtime.reply({
+    projectId: f.project.id,
+    runId: inside.runId,
+    requestId: request.requestId,
+    decision: 'accept',
+  });
+  await f.runtime.wait();
+  const outside = f.runtime.continueRun({
+    projectId: f.project.id,
+    runId: inside.runId,
+    text: 'Now write outside',
+    submissionKey: 'files-2',
+  });
+  const refused = await pendingFor(outside.runId);
+  assert.deepEqual(refused.files, ['/etc/fixture.conf']);
+  assert.equal(refused.canAccept, false);
+  f.runtime.reply({
+    projectId: f.project.id,
+    runId: outside.runId,
+    requestId: refused.requestId,
+    decision: 'decline',
+  });
+  await f.runtime.wait();
+});

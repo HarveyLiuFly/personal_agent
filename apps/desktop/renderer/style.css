@@ -743,6 +743,11 @@ label:has(> input[type='checkbox']) {
   align-items: center;
   font-size: 11px;
 }
+.approval-files {
+  margin: 4px 0;
+  padding-left: 18px;
+  font-size: 12px;
+}
 .conversation-actions {
   display: flex;
   gap: 4px;

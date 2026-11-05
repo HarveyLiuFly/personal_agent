@@ -663,6 +663,7 @@ export class ForegroundExecution {
       turnId: session.turnId!,
       cwd,
       canWrite: mode === 'workspaceWrite',
+      preview: (itemId) => session.projection?.filePaths(itemId) ?? null,
     });
     let saveTimer: NodeJS.Timeout | undefined, deadline: NodeJS.Timeout | undefined;
     const flush = () => {
