@@ -67,6 +67,7 @@
     "smoke:execution:desktop": "node scripts/smoke-desktop.mjs --execution",
     "smoke:concurrency:desktop": "node scripts/smoke-desktop.mjs --concurrency",
     "smoke:conversation:desktop": "node scripts/smoke-desktop.mjs --conversation",
+    "acceptance:core2": "node scripts/acceptance-core2.mjs",
     "smoke:execution": "node --disable-warning=ExperimentalWarning scripts/smoke-execution.ts",
     "setup:headless": "node scripts/setup-headless.mjs",
     "check": "node scripts/check.mjs",

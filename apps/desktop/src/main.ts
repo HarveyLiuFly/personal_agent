@@ -87,6 +87,7 @@ import { HostEvents } from './host-events.ts';
 import { BackgroundScheduler } from './background-scheduler.ts';
 import { StateIndexWarmup } from '../../../packages/codex-adapter/src/state-index.ts';
 import type { BackgroundStep } from './background-scheduler.ts';
+import { runCore2AcceptanceProbe } from './core2-acceptance-probe.ts';
 import { CONVERSATION_EVIDENCE, runConversationProbe } from './conversation-probe.ts';
 import { DESKTOP_API_KEYS } from './api-keys.ts';
 
@@ -187,6 +188,13 @@ if (nativeCodeSmoke) {
 const concurrencySmoke = process.argv.includes('--core1-concurrency-smoke');
 // CORE.2d: conversation window flow on the synthetic stdio backend (no model request).
 const conversationSmoke = process.argv.includes('--core2-conversation-smoke');
+// CORE.2 closing acceptance (real model), one phase per launch; see scripts/acceptance-core2.mjs.
+const core2Phase = process.argv
+  .find((arg) => arg.startsWith('--core2-acceptance='))
+  ?.slice('--core2-acceptance='.length);
+const core2State = process.argv
+  .find((arg) => arg.startsWith('--core2-state='))
+  ?.slice('--core2-state='.length);
 let concurrencyProjects: string[] = [];
 if (concurrencySmoke)
   app.setPath('userData', resolve(root, '.local/desktop-concurrency-smoke-data'));
@@ -220,6 +228,7 @@ const keepRunningWithoutWindow =
     worktreeSmoke ||
     nativeCodeSmoke ||
     concurrencySmoke ||
+    core2Phase ||
     executionSmoke ||
     historySmoke ||
     acceptanceProbe ||
@@ -1500,6 +1509,17 @@ async function boot(): Promise<void> {
   window = await showMainWindow();
   if (conversationSmoke) {
     await runConversationProbe(root, app, window, execution!);
+    return;
+  }
+  if (core2Phase && core2State) {
+    const storageRoot = app.getPath('userData');
+    await runCore2AcceptanceProbe(
+      app,
+      window,
+      activeRuntimePaths(storageRoot, resolve(storageRoot, 'verification')).database,
+      core2Phase,
+      core2State,
+    );
     return;
   }
   if (concurrencySmoke) {

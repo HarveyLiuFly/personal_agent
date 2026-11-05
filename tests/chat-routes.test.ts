@@ -807,3 +807,45 @@ test('a long input keeps the answer, and a long answer is kept with a marker (L1
   assert.equal(clipped.state, 'completed');
   assert.match(clipped.steps[0]!.result!, /^Public clipped answer\n\[内容已截断\]$/);
 });
+
+test('a waiting question that is no longer fresh ends as not started and is never sent late', async (t) => {
+  const f = fixture(t);
+  const first = f.service.propose({
+    projectId: f.project.id,
+    messageId: 'hold-slot',
+    text: 'Public question holding the slot',
+    focusRevision: 0,
+  });
+  const stale = f.service.propose({
+    projectId: f.project.id,
+    messageId: 'stale-wait',
+    text: 'Public question that waited too long',
+    focusRevision: 0,
+  });
+  const legacy = f.service.propose({
+    projectId: f.project.id,
+    messageId: 'legacy-wait',
+    text: 'Public question from before the fresh-send mark',
+    focusRevision: 0,
+  });
+  assert.equal(stale.state, 'prepared');
+  f.db
+    .prepare(
+      "UPDATE router_decisions SET decision_json=json_set(decision_json,'$.route.createdAt',json_extract(decision_json,'$.route.createdAt')-660000) WHERE decision_id=?",
+    )
+    .run(stale.id);
+  f.db
+    .prepare(
+      "UPDATE router_decisions SET decision_json=json_remove(decision_json,'$.route.autoAnswer') WHERE decision_id=?",
+    )
+    .run(legacy.id);
+  f.complete(first.routingRunId!, JSON.stringify(plan([op('CLARIFY')], 'Which one?')));
+  await f.service.tick(f.project.id);
+  for (const id of [stale.id, legacy.id]) {
+    const route = f.store.routeView(f.project.id, id);
+    assert.equal(route.state, 'failed');
+    assert.equal(route.errorCode, 'ROUTE_NOT_STARTED');
+    assert.equal(route.routingRunId, null);
+  }
+  assert.equal(f.calls().roles, 1, 'nothing sent for the old questions');
+});

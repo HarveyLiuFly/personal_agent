@@ -545,7 +545,13 @@ export class ChatRouteService {
         for (const route of routes) {
           try {
             let current = route;
-            if (current.state === 'prepared') current = this.startProposal(project.id, current.id);
+            // A route waiting for capacity starts only while its send is fresh; an old one (or one
+            // migrated from before the fresh-send mark) ends as not started instead of sending late.
+            if (current.state === 'prepared')
+              current =
+                current.autoAnswer && Date.now() - current.createdAt < AUTO_ANSWER_WINDOW_MS
+                  ? this.startProposal(project.id, current.id)
+                  : this.store.failPreparedRoute(project.id, current.id, 'ROUTE_NOT_STARTED');
             if (
               current.state === 'proposing' ||
               (current.state === 'outcome_unknown' &&

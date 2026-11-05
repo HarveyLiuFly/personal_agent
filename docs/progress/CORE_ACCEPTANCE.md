@@ -26,3 +26,4 @@
 | 日期 | 工作包 | 平台 | 条目 | 结果 | 实际 Token | 证据 |
 |---|---|---|---|---|---|---|
 | 2026-11-05 | CORE.1 | Linux x64 | A7、A14（`pnpm smoke:concurrency:desktop`，两个项目同时各 1 个 Turn） | 通过：0 次忙拒绝；空闲 Main CPU 0.47%；首段回答 5.1–6.5 秒；窗口 Smoke 5/5。运行期间的连接检查排在 Codex 历史列表后用了 11 秒（转入 CORE.2） | 3 次运行 6 个 Turn 共 196,559 | [汇总](evidence/CORE.1-acceptance-linux-x64.json) |
+| 2026-11-05 | CORE.2 | Linux x64 | A1、A2、A9、A10（`pnpm acceptance:core2`：迁移旧版数据、读代码问答与追问、冷重启续接、流式中强杀后重启） | 通过：旧对话与 Dot 记录迁移后可读；追问准确引用上一轮的数字；冷重启后继续；被杀的一轮约 30 秒自动核对为中断，1 个 turn/start、无重发 | 正式运行 3 个 Turn 64,504（另 1 个被杀 Turn 无用量报告）；含第 1 次运行共 129,005 | [汇总](evidence/CORE.2-acceptance-linux-x64.json) |

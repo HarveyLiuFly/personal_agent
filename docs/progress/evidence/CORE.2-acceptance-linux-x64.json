@@ -1,0 +1,76 @@
+{
+  "checkpoint": "CORE.2",
+  "date": "2026-11-05",
+  "platform": "linux-x64",
+  "cliVersion": "codex-cli 0.163.0",
+  "status": "passed",
+  "method": "pnpm acceptance:core2 - real sandboxed window, real pinned Codex, real model turns; previous-version (checkpoint/CORE.2a, revision 7) records seeded without a model",
+  "officialRun": 3,
+  "checks": {
+    "migratedToRevision8WithBackup": true,
+    "oldConversationReadable": true,
+    "oldDotReadable": true,
+    "firstAnswerFromReadme": true,
+    "followUpCitesPreviousAnswer": true,
+    "coldRestartContinues": true,
+    "killedTurnReconciledAutomatically": true,
+    "killedTurnNotResent": true,
+    "sandboxedAndIsolated": true
+  },
+  "observations": {
+    "turn1": "one file read, then: The project codename is BLUE-HERON-42. NUMBER=73",
+    "turn2": "73",
+    "turn3AfterColdRestart": "BLUE-HERON-42",
+    "kill": {
+      "when": "fourth turn accepted and streaming",
+      "executorAliveRightAfterKill": true,
+      "executorExitedWithin2Min": true
+    },
+    "recovery": {
+      "reconciledAfterMs": 29836,
+      "events": [
+        "executor_started",
+        "owner_recovery_unknown",
+        "executor_closed (process_gone)",
+        "history_reconciled"
+      ],
+      "runStatus": "cancelled",
+      "conversationBlocked": false,
+      "turnStartIntents": 1,
+      "turnStartIntentState": "reconciled",
+      "conversationTurns": 4,
+      "codexRecordedKilledTurnAs": "interrupted"
+    }
+  },
+  "runs": [
+    {
+      "run": 1,
+      "result": "app and data correct; probe read only the first assistant message of a turn, two checks misjudged",
+      "reportedTokens": 64501,
+      "unreportedKilledTurns": 1
+    },
+    {
+      "run": 2,
+      "result": "probe script syntax error before any send",
+      "reportedTokens": 0
+    },
+    {
+      "run": 3,
+      "result": "passed",
+      "reportedTokens": 64504,
+      "unreportedKilledTurns": 1
+    }
+  ],
+  "totalReportedTokens": 129005,
+  "automated": {
+    "newTests": [
+      "stale prepared routes end as not started and are never sent late",
+      "every acceptance phase script parses"
+    ],
+    "affectedFiles": 57,
+    "affectedTests": 588,
+    "passed": 588,
+    "listAndLookup": "30+ conversations and 60 turns covered by CORE.2b tests (real SQLite)"
+  },
+  "notCovered": "the instant between writing a turn request and its acceptance is covered by synthetic tests, not by a real kill"
+}
