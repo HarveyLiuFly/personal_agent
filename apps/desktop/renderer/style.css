@@ -748,6 +748,41 @@ label:has(> input[type='checkbox']) {
   padding-left: 18px;
   font-size: 12px;
 }
+.check-step {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin: 8px 0;
+  font-size: 12px;
+}
+.check-step details {
+  flex-basis: 100%;
+}
+.check-step pre {
+  max-height: 260px;
+  overflow: auto;
+}
+.check-controls {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+}
+.check-form {
+  display: grid;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  font-size: 12px;
+}
+.inline-check {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
 .conversation-actions {
   display: flex;
   gap: 4px;

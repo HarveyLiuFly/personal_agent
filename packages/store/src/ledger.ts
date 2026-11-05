@@ -67,6 +67,7 @@ import type {
   ConversationSummary,
   ConversationTurns,
   PermissionMode,
+  ProjectCheckView,
 } from '../../contracts/src/conversations.ts';
 import type { ScheduleCommand } from '../../contracts/src/schedules.ts';
 import { ScheduleTimeError, scheduleTime } from '../../runtime/src/calendar.ts';
@@ -4841,6 +4842,46 @@ export class ExecutionLedger {
       });
       return requestId;
     });
+  }
+  /** Records a run of the project's check command as a step of a conversation. */
+  recordProjectCheck(
+    projectId: string,
+    conversationId: string,
+    result: Omit<ProjectCheckView, 'checkId' | 'at' | 'afterRunId'>,
+  ): ProjectCheckView {
+    return this.tx(() => {
+      this.owner();
+      this.conversationList.row(projectId, conversationId);
+      const latest = this.one(
+          'SELECT run_id FROM task_runs WHERE task_id=? ORDER BY started_at_ms DESC,rowid DESC LIMIT 1',
+          conversationId,
+        ),
+        view: ProjectCheckView = {
+          checkId: randomUUID(),
+          label: String(result.label).slice(0, 200),
+          status: result.status,
+          exitCode: result.exitCode,
+          durationMs: Math.max(0, Math.round(result.durationMs)),
+          output: String(result.output).slice(-16_384),
+          outputTruncated: result.outputTruncated,
+          afterRunId: (latest?.run_id as string | undefined) ?? null,
+          automatic: result.automatic,
+          at: Date.now(),
+        };
+      if (!['passed', 'failed', 'timeout', 'error'].includes(view.status))
+        return fail('INVALID_CHECK_RESULT');
+      this.event(conversationId, view.afterRunId, 'project_check', view);
+      return view;
+    });
+  }
+  /** The latest check runs of a conversation, newest first. */
+  projectChecks(projectId: string, conversationId: string): ProjectCheckView[] {
+    this.workspace(projectId);
+    this.conversationList.row(projectId, conversationId);
+    return this.all(
+      "SELECT payload_json FROM task_events WHERE task_id=? AND event_type='project_check' ORDER BY sequence DESC LIMIT 20",
+      conversationId,
+    ).map((row) => JSON.parse(String(row.payload_json)) as ProjectCheckView);
   }
   /** True when this exact command was allowed for the rest of the Run's conversation before. */
   conversationAllows(runId: string, command: string): boolean {

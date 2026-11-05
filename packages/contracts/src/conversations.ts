@@ -87,3 +87,23 @@ export interface ConversationUpdate extends ConversationChoices {
   /** Marks the conversation as read now. */
   read?: true;
 }
+/** One run of the project's check command, shown as a step of a conversation. */
+export interface ProjectCheckView {
+  checkId: string;
+  label: string;
+  status: 'passed' | 'failed' | 'timeout' | 'error';
+  exitCode: number | null;
+  durationMs: number;
+  /** The end of the command's output. */
+  output: string;
+  outputTruncated: boolean;
+  /** The turn the check ran after. */
+  afterRunId: string | null;
+  automatic: boolean;
+  at: number;
+}
+/** A project's check command setting, with the presets to choose from. */
+export interface ProjectCheckSetting {
+  config: { argv: string[]; label: string; autoRun: boolean } | null;
+  presets: Array<{ id: string; label: string; argv: string[] }>;
+}

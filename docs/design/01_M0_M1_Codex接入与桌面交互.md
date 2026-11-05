@@ -91,6 +91,8 @@ Electron Main 取得 OS 单实例锁后才提升 Owner Epoch；数据库 Epoch �
 
 当前固定验证配置支持干净 Git 工作区内的 Node 测试文件：冻结完整文件清单、测试/Node/CLI/Reporter/Host Hash、基线 Commit 与具名 Case。Host 经锁版 CLI 权限档在空白 Home、无网络、只读工作区运行固定 argv，私有 Scratch 可写；只读取公开运行库与验证依赖，不复制认证。Reporter 过滤任意输出与文件包装事件，零 Case、全跳过、错误目标、必要 Case 缺失、修改测试/验证器、越界修改或运行中工作区变更都不能通过。Diff 从基线生成并显式标记截断；收据经文件 fsync、原子发布、内容 Hash 和数据库提交后生效，只有可信通过收据使 Task completed。未知模型结果不能申领完成验证。
 
+项目检查命令（CORE.3d）是更轻的日常检查，不是上面的可信验证合同：每个项目可设一条命令（预设 npm/pnpm/node --test/pytest/go/cargo/make，或自定义一行，按引号拆成 argv、不经过 shell，拒绝 `|`、`&&`、`;`、重定向与 `$`），保存在本机 `userData/project-checks.json`。由 Host 经锁版 CLI 的 `codex sandbox` 权限档运行：整个文件系统只读、工作区与私有 Scratch 可写、无网络，缓存目录指向 Scratch；标准输出与错误写入私有文件后只保留末尾 16 KiB。结果作为对话事件（`project_check`）记录在它之后的那一轮，显示为步骤与徽标（通过/未通过/超时/无法运行）；可手动运行，也可设为“每轮修改文件后自动运行”（只在可写轮次正常完成后）；同一项目同时只运行一次。不要求工作区干净。原 Node 测试合同保留给旧代码任务。
+
 - 代码：保留真实退出码、测试发现/执行/跳过/失败数、Target、时间和当前 Run 结果引用；零测试、全跳过、错误 Target、陈旧缓存均不能替代必要执行。测试修改是否允许由任务合同明确决定。
 - 文档/研究：覆盖清单、可访问来源与产物完整性；模型评分可作辅助，必要时进入 `needs_review`。
 - 外部动作：可信 Provider Receipt 或确定对账证据；网页成功文案和模型回答不能单独确认。

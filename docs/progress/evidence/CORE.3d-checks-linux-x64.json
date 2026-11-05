@@ -1,0 +1,45 @@
+{
+  "checkpoint": "CORE.3d",
+  "date": "2026-11-05",
+  "platform": "linux-x64",
+  "status": "passed",
+  "sandbox": {
+    "kind": "real codex sandbox with a dedicated permission profile",
+    "workspaceWritable": true,
+    "outsideReadOnly": true,
+    "network": false,
+    "stderrKept": true,
+    "timeoutKillsGroup": true
+  },
+  "presets": [
+    "npm test",
+    "pnpm test",
+    "node --test",
+    "pytest",
+    "go test ./...",
+    "cargo test",
+    "make test"
+  ],
+  "automated": {
+    "newFile": "tests/project-checks.test.ts",
+    "newTests": 4,
+    "affectedFiles": 63,
+    "affectedTests": 623,
+    "passedInParallelRun": 622,
+    "loadTimeout": "state-index fresh directory test; 4/4 when rerun alone"
+  },
+  "windowSmokes": {
+    "conversation": "passed (custom check set, run, passed step after the last turn)",
+    "window": "passed",
+    "m1Execution": "passed",
+    "dot": "passed",
+    "m1Approvals": "first run failed on a script race reading the turn status, rerun passed"
+  },
+  "checks": {
+    "typecheck": "passed",
+    "build": "passed",
+    "prettier": "passed",
+    "dependencyRules": "0 errors"
+  },
+  "modelRequests": 0
+}

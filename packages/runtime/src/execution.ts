@@ -105,6 +105,8 @@ export interface ExecutionOptions {
     sourceRunId: string,
     signal: AbortSignal,
   ) => Promise<void>;
+  /** Called once a Run's session has ended (its outcome is recorded). */
+  onRunFinished?: (runId: string) => void;
   /** Called after a Run session starts or ends, with the number still running. */
   onSessionsChanged?: (running: number) => void;
   /** Trusted tests only; no IPC entry point can supply this factory. */
@@ -179,6 +181,11 @@ export class ForegroundExecution {
       timing.finishedAt = Date.now();
       this.sessions.delete(session.token.runId);
       this.options.onSessionsChanged?.(this.sessions.size);
+      try {
+        this.options.onRunFinished?.(session.token.runId);
+      } catch {
+        // A follow-up hook never changes the Run's recorded outcome.
+      }
     });
     this.options.onSessionsChanged?.(this.sessions.size);
   }

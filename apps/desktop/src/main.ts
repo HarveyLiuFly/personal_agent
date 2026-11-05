@@ -62,6 +62,10 @@ import { verifiedCodex } from '../../../packages/codex-adapter/src/binary.ts';
 import { RpcFailure, StdioRpcClient } from '../../../packages/codex-adapter/src/rpc.ts';
 import { HistoryBrowser } from '../../../packages/codex-adapter/src/history.ts';
 import { modelCatalog } from '../../../packages/codex-adapter/src/models.ts';
+import {
+  ProjectCheckService,
+  ProjectCheckStore,
+} from '../../../packages/verification/src/project-checks.ts';
 import type { ReadPort } from '../../../packages/codex-adapter/src/history.ts';
 import { readConnection } from '../../../packages/codex-adapter/src/read-connection.ts';
 import {
@@ -137,6 +141,8 @@ let workspaceReader: WorkspaceService | undefined;
 let scheduleService: ScheduleService | undefined;
 /** Read-only background check of Unknown turns (set once history reconciliation exists). */
 let unknownReconciler: UnknownRunReconciler | undefined;
+/** The project check command service (set once the ledger exists). */
+let checkService: ProjectCheckService | undefined;
 let taskService: TaskService | undefined, outboxPump: OutboxPump | undefined;
 const recoverySmoke = process.argv.includes('--m2-worktree-recovery-smoke');
 const toolsSmoke = process.argv.includes('--m2-tools-smoke');
@@ -676,6 +682,7 @@ async function boot(): Promise<void> {
       () => backgroundScheduler?.kick(),
     );
     execution = new ForegroundExecution(ledger, {
+      onRunFinished: (runId) => checkService?.afterTurn(runId),
       onSessionsChanged: (running) => {
         hostEvents?.check();
         if (running) hostEvents?.watchWhile(() => Boolean(execution?.busy));
@@ -718,6 +725,19 @@ async function boot(): Promise<void> {
           }
         : {}),
     });
+    const checksLog = new BackgroundLog(resolve(app.getPath('userData'), 'logs'));
+    checkService = new ProjectCheckService(
+      ledger,
+      new ProjectCheckStore(resolve(app.getPath('userData'), 'project-checks.json')),
+      {
+        cli: () => executable(),
+        stateDirectory: resolve(storageRoot, 'checks'),
+        onError: (error) => {
+          checksLog.record('checks', error);
+          hostEvents?.check();
+        },
+      },
+    );
   }
   const history = new HistoryBrowser(
     async (read) => {
@@ -1094,6 +1114,30 @@ async function boot(): Promise<void> {
         }
       }),
     );
+  handle('checks:get', (event, ...args: unknown[]) =>
+    executionCommand(event, args, 1, () => {
+      if (!checkService) throw new LedgerError('CHECKS_UNAVAILABLE');
+      return checkService.setting(oneId(args[0], 'projectId'));
+    }),
+  );
+  handle('checks:set', (event, ...args: unknown[]) =>
+    executionCommand(event, args, 1, () => {
+      if (!checkService) throw new LedgerError('CHECKS_UNAVAILABLE');
+      return checkService.configure(args[0]);
+    }),
+  );
+  handle('checks:list', (event, ...args: unknown[]) =>
+    executionCommand(event, args, 1, () => {
+      if (!checkService) throw new LedgerError('CHECKS_UNAVAILABLE');
+      return checkService.list(args[0]);
+    }),
+  );
+  handle('checks:run', (event, ...args: unknown[]) =>
+    domainAsync(event, args, () => {
+      if (!checkService) throw new LedgerError('CHECKS_UNAVAILABLE');
+      return checkService.run(args[0]);
+    }),
+  );
   handle('models:list', (event, ...args: unknown[]) =>
     readCommand(event, args, 0, () =>
       appServer

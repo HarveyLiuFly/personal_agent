@@ -11,6 +11,8 @@ import type {
   ConversationSummary,
 } from '../../../packages/contracts/src/conversations.ts';
 import { ComposerChoices } from './composer-choices.tsx';
+import { CheckControls, CheckStep } from './check-panel.tsx';
+import type { ProjectCheckView } from '../../../packages/contracts/src/conversations.ts';
 import { InteractionCard } from './interactions.tsx';
 import { AgentToolPanel } from './tool-panel.tsx';
 import { isToolItem } from './tool-activity.ts';
@@ -63,6 +65,7 @@ export function ConversationPanel({
     [older, setOlder] = useState<RunView[]>([]),
     [olderCursor, setOlderCursor] = useState<string | null>(null),
     [requests, setRequests] = useState<InteractionView[]>([]),
+    [checks, setChecks] = useState<ProjectCheckView[]>([]),
     [review, setReview] = useState<VerificationView>(),
     [checkpoint, setCheckpoint] = useState<string>();
   const [draft, setDraft] = useDraft(project.id + ':' + (conversationId ?? 'new')),
@@ -144,6 +147,10 @@ export function ConversationPanel({
           if (!stopped) setRequests(pending.filter((request) => request.state === 'pending'));
         } else setRequests([]);
         if (!next.activeRunId) setStopping(false);
+        const recorded = await value(window.personalAgent.listProjectChecks(scope)).catch(
+          () => [] as ProjectCheckView[],
+        );
+        if (!stopped) setChecks(recorded);
         if (next.unread && document.visibilityState === 'visible')
           void window.personalAgent.updateConversation({ ...scope, read: true });
       } catch (cause) {
@@ -538,6 +545,12 @@ export function ConversationPanel({
             {review.diffTruncated && <small>仅显示部分差异</small>}
           </article>
         )}
+        {checks
+          .filter((check) => check.afterRunId === run.runId)
+          .reverse()
+          .map((check) => (
+            <CheckStep key={check.checkId} check={check} />
+          ))}
         {ended(run) && run.turnId && run.threadId && onFork && (
           <button
             className="text-button fork-turn"
@@ -609,6 +622,12 @@ export function ConversationPanel({
           <div className="conversation-head">
             <span className="muted">{summary.turns} 轮</span>
             <span className="conversation-actions">
+              <CheckControls
+                project={project}
+                conversationId={conversationId}
+                disabled={runningHere}
+                onError={setError}
+              />
               <button
                 className="text-button"
                 data-action="pin-conversation"

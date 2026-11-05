@@ -3,6 +3,8 @@ import type {
   ConversationArchive,
   ConversationChoices,
   ModelOption,
+  ProjectCheckSetting,
+  ProjectCheckView,
   ConversationPage,
   ConversationQuery,
   ConversationSummary,
@@ -190,6 +192,25 @@ export interface DesktopApi {
       mode: 'readOnly' | 'workspaceWrite';
     }>
   >;
+  /** The project's check command (or none) and the presets to choose from. */
+  getProjectCheck(query: { projectId: string }): Promise<HostResult<ProjectCheckSetting>>;
+  /** Sets the check command from a preset or a typed command line, or removes it. */
+  setProjectCheck(input: {
+    projectId: string;
+    preset?: string;
+    command?: string;
+    autoRun?: boolean;
+    remove?: true;
+  }): Promise<HostResult<ProjectCheckSetting>>;
+  /** Runs the check command in the Codex sandbox and records it in the conversation. */
+  runProjectCheck(input: {
+    projectId: string;
+    conversationId: string;
+  }): Promise<HostResult<ProjectCheckView>>;
+  listProjectChecks(query: {
+    projectId: string;
+    conversationId: string;
+  }): Promise<HostResult<ProjectCheckView[]>>;
   /** Visible models of the pinned Codex catalog, with their reasoning efforts. */
   listModels(): Promise<HostResult<ModelOption[]>>;
   /** Choices a new conversation in this project starts with (its last ones, else "auto"). */

@@ -72,6 +72,22 @@ const script = `(async () => {
     () => document.querySelector('.thread-list [data-conversation-id="' + conversationId + '"] .pin-mark'),
     'NOT_PINNED',
   );
+  // Project check command: set a custom command, run it, see the step after the last turn.
+  click('[data-action="edit-check"]');
+  await wait(() => document.querySelector('[data-check-form]'), 'CHECK_FORM_NOT_SHOWN');
+  const presetSelect = document.querySelector('[data-check-form] select');
+  presetSelect.value = 'custom';
+  presetSelect.dispatchEvent(new Event('change', { bubbles: true }));
+  await wait(() => document.querySelector('[data-check-command]'), 'CHECK_COMMAND_INPUT');
+  const commandInput = document.querySelector('[data-check-command]');
+  Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(commandInput, 'sh -c "echo CHECK_OK; touch check-ran.txt"');
+  commandInput.dispatchEvent(new Event('input', { bubbles: true }));
+  click('[data-action="save-check"]');
+  await wait(() => document.querySelector('[data-action="run-check"]'), 'CHECK_NOT_SAVED');
+  click('[data-action="run-check"]');
+  await wait(() => document.querySelector('[data-check-status]'), 'CHECK_NOT_SHOWN', 60000);
+  const checkStatus = document.querySelector('[data-check-status]').dataset.checkStatus;
+  const checkAfterLastTurn = Boolean(turns()[1].querySelector('[data-check-status]'));
   click('[data-action="open-main-chat"]');
   await wait(() => document.querySelector('[data-main-chat]'), 'DOT_NOT_SHOWN');
   const dotLabel = document.querySelector('[data-main-chat]').getAttribute('aria-label');
@@ -134,6 +150,8 @@ const script = `(async () => {
     sendLockedWhenArchived,
     dotLabel,
     fullAccessNeedsConfirmation: confirmShown && stillAuto,
+    checkStatus,
+    checkAfterLastTurn,
     modelCatalog: catalog.ok ? catalog.value.length : catalog.errorCode,
     markupShownAsText: document.body.textContent.includes('<b>bold</b>'),
     noInjectedMarkup: !document.querySelector('[data-execution-items] b'),
@@ -187,6 +205,8 @@ export async function runConversationProbe(
     result.sendLockedWhenArchived === true &&
     result.dotLabel === 'Dot' &&
     result.fullAccessNeedsConfirmation === true &&
+    result.checkStatus === 'passed' &&
+    result.checkAfterLastTurn === true &&
     typeof result.modelCatalog === 'number' &&
     result.modelCatalog > 0 &&
     result.markupShownAsText === true &&
