@@ -2,7 +2,7 @@
 
 远程资料完整性与当前研发入口见[研发资料同步回执](REMOTE_SYNC.md)，覆盖设计、源码、测试、进展与脱敏证据。
 
-下一步（2026-11-05）：[CORE 产品主干收敛计划](CORE.md)，待确认第 7 节决策后从 CORE.0 开始；M4 暂缓。
+下一步（2026-11-05）：[CORE 产品主干收敛计划](CORE.md)，决策已确认，从 CORE.0 开始；M4 暂缓。
 
 Linux 与审查（2026-11-05）：日常启动用 `bash scripts/start.sh`；Linux 接手先读 [Linux 平台适配](LINUX_PLATFORM.md)，完整验证用 `bash scripts/verify-linux.sh`；产品方向见 [架构/界面/逻辑审查](../reviews/2026-11-05-architecture-ui-logic-review.md)。
 
