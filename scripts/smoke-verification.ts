@@ -1,12 +1,12 @@
 import {execFileSync} from 'node:child_process';
 import {mkdirSync,mkdtempSync,readFileSync,writeFileSync} from 'node:fs';
-import {resolve,join} from 'node:path';
+import {resolve,join,dirname} from 'node:path';
 import {randomUUID} from 'node:crypto';
 import {verifiedCodex} from '../packages/codex-adapter/src/binary.ts';
-import {resolveExecutable} from '../packages/codex-adapter/src/launch.ts';
+import {resolveVerifierNode} from '../packages/codex-adapter/src/launch.ts';
 import {ExecutionLedger,LedgerError} from '../packages/store/src/ledger.ts';
 import {NodeVerification} from '../packages/verification/src/verification.ts';
-const root=resolve(import.meta.dirname,'..'),{executable,lock,platform}=verifiedCodex(root),node=resolveExecutable('node');
+const root=resolve(import.meta.dirname,'..'),{executable,lock,platform}=verifiedCodex(root),node=resolveVerifierNode(root);
 mkdirSync(join(root,'.local'),{recursive:true});const folder=mkdtempSync(join(root,'.local/M1-verifier-')),cwd=join(folder,'workspace');mkdirSync(cwd);mkdirSync(join(cwd,'src'));mkdirSync(join(cwd,'test'));
 writeFileSync(join(cwd,'package.json'),'{"type":"module"}\n');writeFileSync(join(cwd,'src/math.mjs'),'export const sum=(a,b)=>a-b;\n');
 writeFileSync(join(cwd,'test/math.test.mjs'),"import {test} from 'node:test';\nimport assert from 'node:assert/strict';\nimport {sum} from '../src/math.mjs';\ntest('adds positive integers',()=>assert.equal(sum(2,3),5));\ntest('adds negative integers',()=>assert.equal(sum(-2,-3),-5));\n");
@@ -27,4 +27,4 @@ try{
   requiredCases:receipt.requiredCases.length,discovered:receipt.discovered,executed:receipt.executed,skipped:receipt.skipped,exitCode:receipt.exitCode,taskStatus:store.runs(project.id)[0]!.taskStatus,receiptHashVerified:service.result(project.id,token.runId)?.verificationId===receipt.verificationId};
 }catch(error){evidence={status:'blocked',observedAt:new Date().toISOString(),kind:'real_sandbox_node_verifier_with_synthetic_model_metadata',inferenceRequested:false,code:error instanceof LedgerError?error.code:'HOST_ERROR'};process.exitCode=1;}
 finally{store.close();}
-const file=join(root,'docs/progress/evidence/M1.3b-native-verifier.json');writeFileSync(file,JSON.stringify(evidence,null,2)+'\n');writeFileSync(file.replace('.json',`-${String(evidence.observedAt).replaceAll(':','-').replaceAll('.','-')}.json`),JSON.stringify(evidence,null,2)+'\n');console.log(JSON.stringify(evidence,null,2));
+const file=join(process.env.PERSONAL_AGENT_EVIDENCE_DIR?resolve(process.env.PERSONAL_AGENT_EVIDENCE_DIR):join(root,'docs/progress/evidence'),'M1.3b-native-verifier.json');mkdirSync(dirname(file),{recursive:true});writeFileSync(file,JSON.stringify(evidence,null,2)+'\n');writeFileSync(file.replace('.json',`-${String(evidence.observedAt).replaceAll(':','-').replaceAll('.','-')}.json`),JSON.stringify(evidence,null,2)+'\n');console.log(JSON.stringify(evidence,null,2));

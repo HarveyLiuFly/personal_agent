@@ -6,7 +6,7 @@ import { RpcFailure } from '../packages/codex-adapter/src/rpc.ts';
 
 const root = resolve(import.meta.dirname, '..');
 const { executable, lock, platform } = verifiedCodex(root);
-const directory = resolve(root, 'docs/progress/evidence');
+const directory = process.env.PERSONAL_AGENT_EVIDENCE_DIR ? resolve(process.env.PERSONAL_AGENT_EVIDENCE_DIR) : resolve(root, 'docs/progress/evidence');
 await mkdir(directory, { recursive: true });
 let evidence: Record<string, unknown>;
 try {

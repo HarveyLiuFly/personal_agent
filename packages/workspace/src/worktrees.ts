@@ -9,12 +9,43 @@ const fail=(code:string):never=>{throw new LedgerError(code);};
 const ident=(directory:string):GitIdentity=>{if(realpathSync(directory)!==directory||lstatSync(directory).isSymbolicLink())return fail('WORKTREE_IDENTITY_CHANGED');const s=lstatSync(directory,{bigint:true});if(!s.isDirectory())return fail('WORKTREE_IDENTITY_CHANGED');return{directory,device:String(s.dev),inode:String(s.ino)};};
 const present=(path:string):boolean=>{try{lstatSync(path);return true;}catch(e){if((e as NodeJS.ErrnoException).code==='ENOENT')return false;throw e;}};
 const same=(a:GitIdentity,b:GitIdentity)=>hashInput(a)===hashInput(b);
+
+/** `git worktree list --porcelain -z` needs git 2.36+; Ubuntu 22.04 LTS ships 2.34. */
+export function gitSupportsWorktreeListZ(versionOutput: string): boolean {
+  const match = /^git version (\d+)\.(\d+)/.exec(versionOutput.trim());
+  if (!match) return false;
+  const [major, minor] = [Number(match[1]), Number(match[2])];
+  return major > 2 || (major === 2 && minor >= 36);
+}
+
+/** Every line older git may print in `worktree list --porcelain` records. */
+const worktreePorcelainLine = /^(worktree \/.*|HEAD [0-9a-f]{40,64}|branch refs\/.+|bare|detached|locked( .*)?|prunable( .*)?)$/;
+
+/**
+ * Worktree paths and lock state from `git worktree list --porcelain`.
+ * With `-z` (git 2.36+) fields are NUL-terminated. Older git prints the same records
+ * newline-terminated and unquoted, so a path or lock reason containing a newline is
+ * ambiguous: that format is parsed strictly and any line outside the grammar fails closed.
+ */
+export function parseWorktreeList(output: string, nulTerminated: boolean): Map<string, { locked: boolean }> {
+  const entries = new Map<string, { locked: boolean }>();
+  let current: { locked: boolean } | undefined;
+  for (const line of output.split(nulTerminated ? '\0' : '\n')) {
+    if (!nulTerminated && line && !worktreePorcelainLine.test(line)) return fail('WORKTREE_GIT_OUTPUT_UNSUPPORTED');
+    if (line.startsWith('worktree ')) { current = { locked: false }; entries.set(line.slice(9), current); }
+    else if (current && (line === 'locked' || line.startsWith('locked '))) current.locked = true;
+  }
+  return entries;
+}
 const base=['--no-pager','--no-optional-locks','--no-replace-objects','--literal-pathspecs','-c','core.fsmonitor=false','-c','core.hooksPath=/dev/null','-c','core.attributesFile=/dev/null','-c','core.untrackedCache=false','-c','maintenance.auto=false','-c','gc.auto=0','-c','color.ui=false','-c','submodule.recurse=false','-c','protocol.allow=never'];
 export interface WorktreeOptions {git:string;node:string;worker:string;stateDirectory:string;/** Fault hooks are trusted test-only, never IPC. */afterPrepared?:()=>void;afterDispatch?:()=>void;afterGit?:()=>void;afterArchived?:()=>void;reveal?:(directory:string)=>void}
 /** Local Git operations, separate from model Runs and their execution Intents. */
 export class WorktreeService {
- private store:ExecutionLedger;private options:WorktreeOptions;private env:NodeJS.ProcessEnv;private inspections=new Map<string,{scope:string;hash:string;at:number;inspection:WorktreeInspection}>();private running=new Set<Promise<unknown>>();private stopped=false;private workerHash:string;
- constructor(store:ExecutionLedger,options:WorktreeOptions){this.store=store;this.options=options;mkdirSync(options.stateDirectory,{recursive:true,mode:0o700});mkdirSync(join(options.stateDirectory,'home'),{recursive:true,mode:0o700});mkdirSync(join(options.stateDirectory,'trees'),{recursive:true,mode:0o700});mkdirSync(join(options.stateDirectory,'removed'),{recursive:true,mode:0o700});this.workerHash=hashInput(readFileSync(options.worker).toString('base64'));this.env={PATH:dirname(options.git),HOME:join(options.stateDirectory,'home'),TMPDIR:options.stateDirectory,LANG:'C',LC_ALL:'C',GIT_CONFIG_NOSYSTEM:'1',GIT_CONFIG_GLOBAL:'/dev/null',GIT_TERMINAL_PROMPT:'0',GIT_ATTR_NOSYSTEM:'1',GIT_OPTIONAL_LOCKS:'0'};}
+ private store:ExecutionLedger;private options:WorktreeOptions;private env:NodeJS.ProcessEnv;private inspections=new Map<string,{scope:string;hash:string;at:number;inspection:WorktreeInspection}>();private running=new Set<Promise<unknown>>();private stopped=false;private workerHash:string;private worktreeListZ:boolean;
+ constructor(store:ExecutionLedger,options:WorktreeOptions){this.store=store;this.options=options;mkdirSync(options.stateDirectory,{recursive:true,mode:0o700});mkdirSync(join(options.stateDirectory,'home'),{recursive:true,mode:0o700});mkdirSync(join(options.stateDirectory,'trees'),{recursive:true,mode:0o700});mkdirSync(join(options.stateDirectory,'removed'),{recursive:true,mode:0o700});this.workerHash=hashInput(readFileSync(options.worker).toString('base64'));this.env={PATH:dirname(options.git),HOME:join(options.stateDirectory,'home'),TMPDIR:options.stateDirectory,LANG:'C',LC_ALL:'C',GIT_CONFIG_NOSYSTEM:'1',GIT_CONFIG_GLOBAL:'/dev/null',GIT_TERMINAL_PROMPT:'0',GIT_ATTR_NOSYSTEM:'1',GIT_OPTIONAL_LOCKS:'0'};
+  let version='';try{version=execFileSync(options.git,['--version'],{env:this.env,timeout:5000,maxBuffer:4096,encoding:'utf8',stdio:['ignore','pipe','ignore']});}catch{}
+  this.worktreeListZ=gitSupportsWorktreeListZ(version);}
+ private worktreeListArgs(){return this.worktreeListZ?['worktree','list','--porcelain','-z']:['worktree','list','--porcelain'];}
  private git(cwd:string,args:string[],optional=false):string {try{return execFileSync(this.options.git,[...base,'-C',cwd,...args],{env:this.env,timeout:5000,maxBuffer:262144,encoding:'utf8',stdio:['ignore','pipe','ignore']});}catch(e){if(optional&&(e as {status:number}).status===1)return '';return fail('WORKTREE_GIT_UNAVAILABLE');}}
  snapshot(directory:string,expected?:GitWorkspaceSnapshot,allowLinked=false):GitWorkspaceSnapshot {
   const rootIdentity=ident(directory),dot=join(directory,'.git');if(!existsSync(dot)||lstatSync(dot).isSymbolicLink())return fail('WORKTREE_GIT_METADATA_UNSUPPORTED');
@@ -47,7 +78,7 @@ export class WorktreeService {
   return{worktrees:this.store.worktreeList(scope).map(w=>pending.has(w.id)?{...w,state:'invalid' as const}:w),operations,canCreate:present(join(context.root,'.git'))&&lstatSync(join(context.root,'.git')).isDirectory(),recoveries};
  }
  private registrations(directory:string):Map<string,{locked:boolean}> {
-  const entries=new Map<string,{locked:boolean}>();let current:{locked:boolean}|undefined;for(const line of this.git(directory,['worktree','list','--porcelain','-z']).split('\0')){if(line.startsWith('worktree ')){current={locked:false};entries.set(line.slice(9),current);}else if(current&&(line==='locked'||line.startsWith('locked ')))current.locked=true;}return entries;
+  return parseWorktreeList(this.git(directory,this.worktreeListArgs()),this.worktreeListZ);
  }
  private recoveryDirectory(op:WorktreeDispatch):string {
   const p=op.payload,path=p.recoveryDirectory;if(op.kind!=='remove'||!path||!p.target||dirname(path)!==join(resolve(this.options.stateDirectory),'removed')||!same(ident(path),{...p.target.rootIdentity,directory:path}))return fail('WORKTREE_RECOVERY_MISSING');return path;
@@ -113,7 +144,7 @@ export class WorktreeService {
  private groupGone(pid:number):boolean {try{process.kill(-pid,0);return false;}catch(e){return(e as NodeJS.ErrnoException).code==='ESRCH';}}
  private async reconcile(scope:string,operationId:string):Promise<void> {
   const op=this.store.worktreeDispatch(scope,operationId);if(op.state!=='outcome_unknown')return fail('WORKTREE_NOT_UNKNOWN');if(op.supervisorPid&&!this.groupGone(op.supervisorPid))return fail('WORKTREE_PROCESS_NOT_STOPPED');this.snapshot(op.payload.executionDirectory,op.payload.source);
-  const registered=this.git(op.payload.executionDirectory,['worktree','list','--porcelain','-z']).split('\0').some(line=>line==='worktree '+op.payload.targetDirectory);
+  const registered=parseWorktreeList(this.git(op.payload.executionDirectory,this.worktreeListArgs()),this.worktreeListZ).has(op.payload.targetDirectory);
   if(op.kind==='create'){
    if(present(op.payload.targetDirectory)){const target=this.snapshot(op.payload.targetDirectory,undefined,true);if(!registered||this.git(target.directory,['symbolic-ref','--short','HEAD']).trim()!==op.payload.branch||target.head!==op.payload.baseCommit)return fail('WORKTREE_RECONCILIATION_AMBIGUOUS');this.store.finishWorktree(scope,operationId,'completed',target,undefined,true);}
    else if(!registered){this.store.finishWorktree(scope,operationId,'failed',undefined,'WORKTREE_ABSENT_BRANCH_PRESERVED',true);}else return fail('WORKTREE_RECONCILIATION_AMBIGUOUS');

@@ -1,3 +1,4 @@
+import {terminalAvailable} from '../packages/workspace/src/terminal-binding.ts';
 import {TerminalService} from '../packages/workspace/src/terminal.ts';
 import {resolveVerifierNode} from '../packages/codex-adapter/src/launch.ts';
 import assert from 'node:assert/strict';
@@ -61,7 +62,7 @@ test('real SIGKILL around scheduled Run commit never repeats a committed claim a
 });
 
 
-test('real user PTY makes automatic scheduling wait without a Run, then one synthetic dispatch follows close',{skip:process.platform!=='darwin'||process.arch!=='arm64'},async t=>{
+test('real user PTY makes automatic scheduling wait without a Run, then one synthetic dispatch follows close',{skip:!terminalAvailable()},async t=>{
  const f=fixture(t),schedule=f.arm('terminal-wait'),terminal=new TerminalService(f.store,{node:resolveVerifierNode(resolve('.')),worker:resolve('packages/workspace/src/terminal-worker.mjs'),stateDirectory:join(f.root,'terminals')});try{
  const opened=await terminal.open({projectId:f.project.id,commandKey:'terminal',cols:80,rows:24});f.due();f.service.step();assert.equal(f.connections(),0);assert.equal(f.store.runs(f.project.id).length,0);assert.equal(f.store.resourceBudget().reservedTokens,0);assert.equal(f.db.prepare('SELECT reason_code FROM trigger_deliveries').get()!.reason_code,'AUTO_WAIT_WORKSPACE_TERMINAL_ACTIVE');assert.equal(f.store.scheduledCandidates().length,1);
  await terminal.close({projectId:f.project.id,sessionId:opened.session!.sessionId,commandKey:'stop'});f.service.step();await f.execution.wait();assert.equal(f.connections(),1);assert.equal(f.execution.diagnostics.clientTurnStarts,1);assert.equal(f.db.prepare('SELECT reason_code FROM trigger_deliveries').get()!.reason_code,'AUTO_DISPATCHED');

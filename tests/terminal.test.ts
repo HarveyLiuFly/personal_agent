@@ -1,3 +1,4 @@
+import {terminalAvailable} from '../packages/workspace/src/terminal-binding.ts';
 import {legacySchema} from './fixtures/schema-history.ts';
 import {spawn} from 'node:child_process';
 import {once} from 'node:events';
@@ -13,7 +14,7 @@ import {resolveVerifierNode} from '../packages/codex-adapter/src/launch.ts';
 const schema=readFileSync('docs/design/contracts/schema.sql','utf8'),node=resolveVerifierNode(resolve('.')),worker=resolve('packages/workspace/src/terminal-worker.mjs');
 function fixture(t:{after(fn:()=>Promise<void>):void},options:Partial<ConstructorParameters<typeof TerminalService>[1]>={}){const root=realpathSync(mkdtempSync(join(tmpdir(),'personal-agent-terminal-'))),cwd=join(root,'workspace');mkdirSync(cwd);const file=join(root,'ledger.db'),store=new ExecutionLedger(file,schema);store.startOwner('terminal-fixture',true);const project=store.registerWorkspace(cwd,cwd),db=new DatabaseSync(file),service=new TerminalService(store,{node,worker,stateDirectory:join(root,'state'),...options});t.after(async()=>{await service.stop();db.close();store.close();rmSync(root,{recursive:true,force:true});});const open=(key='open')=>service.open({projectId:project.id,commandKey:key,cols:80,rows:24}),view=(afterSequence=0)=>service.view({projectId:project.id,afterSequence}),text=()=>view().chunks.map(c=>Buffer.from(c.data,'base64').toString('utf8')).join('');return{root,cwd,file,store,db,project,service,open,view,text};}
 async function wait(check:()=>boolean,timeout=6000){const deadline=Date.now()+timeout;while(!check()){if(Date.now()>deadline)throw Error('TERMINAL_WAIT_TIMEOUT');await new Promise(done=>setTimeout(done,20));}}
-const supported=process.platform==='darwin'&&process.arch==='arm64';
+const supported=terminalAvailable();
 test('real user PTY has tty stdin/stdout, pinned cwd, resize, input dedupe and actual process shutdown',{skip:!supported},async t=>{
  const f=fixture(t),opened=await f.open(),session=opened.session!;assert.equal(session.state,'running');const host=f.store.terminalHost(f.project.id,session.sessionId);assert.ok(host.ptyPid);assert.ok(host.supervisorPid);assert.throws(()=>f.store.beginRun(f.project.id,'must wait','busy','readOnly'),/WORKSPACE_TERMINAL_ACTIVE/);assert.equal((await f.open()).session!.sessionId,session.sessionId);
  const q={projectId:f.project.id,sessionId:session.sessionId,sequence:1,text:"test -t 0 && test -t 1 && printf '\\nTTY_OK\\n'; printf '%s\\n' \"$PWD\"; printf ONCE >> count.txt\r"};assert.equal((await f.service.write(q)).state,'accepted');await wait(()=>f.text().includes('\r\nTTY_OK\r\n'));assert.ok(f.text().includes(f.cwd));await f.service.write(q);await assert.rejects(()=>f.service.write({...q,text:'different'}),/TERMINAL_INPUT_CONFLICT/);

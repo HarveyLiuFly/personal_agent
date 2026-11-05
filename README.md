@@ -30,6 +30,21 @@ pnpm dev
 
 Electron 45 使用显式安装器下载运行时；安装器保留官方发行包校验。图形启动需要有效 DISPLAY/桌面环境。当前安全窗口启用 Context Isolation、Renderer Sandbox、CSP 与白名单 Preload；不使用关闭沙箱的启动参数。
 
+## Linux
+
+Linux x64/arm64 桌面的启用步骤、诊断与已知限制见 [Linux 平台适配](docs/progress/LINUX_PLATFORM.md)。简要：
+
+```bash
+pnpm install --frozen-lockfile        # node-pty 在 Linux 上本地编译，需要 python3/make/g++
+pnpm exec install-electron
+npm install --prefix .local/codex-install --no-audit --no-fund --save-exact @openai/codex@0.163.0
+pnpm diagnose                           # 只读诊断：沙箱、显示、Codex 锁、终端、验证器
+pnpm baseline:platform                # Codex 哈希与锁不一致时，按协议一致性建立本机锁
+pnpm dev
+```
+
+Ubuntu 23.10+ 默认限制非特权 user namespace，Electron 沙箱可能无法启动；`pnpm dev` 会在启动前给出修复命令（setuid `chrome-sandbox` 或 AppArmor 配置），始终保留沙箱。
+
 ## M0 调试
 
 ```bash

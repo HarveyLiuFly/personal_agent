@@ -1,6 +1,8 @@
 import {spawn} from 'node:child_process';
 import type {ChildProcessWithoutNullStreams} from 'node:child_process';
 import {terminalBinding} from './terminal-binding.ts';
+import {terminalShell,systemToolPath} from './platform.ts';
+import type {TerminalShell} from './platform.ts';
 import {createInterface} from 'node:readline';
 import {randomUUID,createHash} from 'node:crypto';
 import {readFileSync,mkdirSync} from 'node:fs';
@@ -10,11 +12,11 @@ import {ExecutionLedger,LedgerError} from '../../store/src/ledger.ts';
 import type {OpenTerminal,TerminalHostSession,TerminalInputReceipt,TerminalView,WriteTerminal} from '../../contracts/src/terminal.ts';
 const fail=(code:string):never=>{throw new LedgerError(code);},hash=(path:string)=>createHash('sha256').update(readFileSync(path)).digest('hex');
 interface Live {session:TerminalHostSession;child:ChildProcessWithoutNullStreams;nonce:string;chunks:{sequence:number;data:string;bytes:number}[];bytes:number;sequence:number;ready:Promise<void>;done:Promise<void>;pending:Map<number,{resolve:(value:TerminalInputReceipt)=>void;reject:(error:Error)=>void;timer:ReturnType<typeof setTimeout>}>}
-export interface TerminalOptions {node:string;worker:string;stateDirectory:string;/** Trusted fault hooks only. */afterPrepared?:()=>void;afterDispatch?:()=>void;beforeInputAck?:()=>void}
+export interface TerminalOptions {node:string;worker:string;stateDirectory:string;/** Linux local node-pty build record written by `pnpm setup:terminal`. */bindingRecord?:string;/** Trusted fault hooks only. */afterPrepared?:()=>void;afterDispatch?:()=>void;beforeInputAck?:()=>void}
 /** User-origin PTY, not an Agent tool or a model Run. Terminal text never enters SQLite. */
 export class TerminalService {
- private store:ExecutionLedger;private options:TerminalOptions;private module:string;private workerHash:string;private live=new Map<string,Live>();private stopped=false;
- constructor(store:ExecutionLedger,options:TerminalOptions){this.store=store;this.options=options;this.module=terminalBinding();this.workerHash=hash(options.worker);mkdirSync(options.stateDirectory,{recursive:true,mode:0o700});}
+ private store:ExecutionLedger;private options:TerminalOptions;private module:string;private shell:TerminalShell;private workerHash:string;private live=new Map<string,Live>();private stopped=false;
+ constructor(store:ExecutionLedger,options:TerminalOptions){this.store=store;this.options=options;this.module=terminalBinding(options.bindingRecord);this.shell=terminalShell();this.workerHash=hash(options.worker);mkdirSync(options.stateDirectory,{recursive:true,mode:0o700});}
  private query(value:unknown,keys:string[]):Record<string,unknown>{if(!value||typeof value!=='object'||Array.isArray(value)||Object.keys(value).length!==keys.length||Object.keys(value).some(k=>!keys.includes(k))||keys.some(k=>!Object.hasOwn(value,k)))return fail('INVALID_TERMINAL_QUERY');const q=value as Record<string,unknown>;for(const key of keys.filter(k=>!['cols','rows','afterSequence','sequence','text'].includes(k)))if(typeof q[key]!=='string'||!q[key]||String(q[key]).length>200||/[\x00-\x1f]/.test(String(q[key])))return fail('INVALID_TERMINAL_QUERY');return q;}
  private dimensions(cols:unknown,rows:unknown){if(!Number.isSafeInteger(cols)||!Number.isSafeInteger(rows)||Number(cols)<20||Number(cols)>240||Number(rows)<5||Number(rows)>80)return fail('INVALID_TERMINAL_SIZE');}
  async open(input:unknown):Promise<TerminalView>{const q=this.query(input,['projectId','commandKey','cols','rows']);this.dimensions(q.cols,q.rows);if(this.stopped)return fail('TERMINAL_SERVICE_STOPPED');const opened=this.store.terminalOpen(q as unknown as OpenTerminal);if(opened.created){this.options.afterPrepared?.();await this.start(opened.session);}const view=this.view({projectId:q.projectId,afterSequence:0});if(view.session?.sessionId!==opened.session.sessionId){const {sessionId,projectId,state,cols,rows,lastInputSequence,lastInputState,exitCode,errorCode,createdAt}=opened.session;return{session:{sessionId,projectId,state,cols,rows,lastInputSequence,lastInputState,exitCode,errorCode,createdAt},chunks:[],nextSequence:0,reset:false,outputAvailable:false};}return view;}
@@ -38,7 +40,7 @@ export class TerminalService {
     try{const row=this.store.terminalHost(session.projectId,session.sessionId);if(row.state!=='exited'&&row.state!=='outcome_unknown'){if((!dispatched||gotExit)&&(!child.pid||this.gone(-child.pid))&&(!row.ptyPid||this.gone(row.ptyPid)))this.store.terminalFinished(session.projectId,session.sessionId,exitCode,protocolFailed?'TERMINAL_PROTOCOL_FAILED':!dispatched?'TERMINAL_START_FAILED':undefined);else this.store.terminalUnknown(session.projectId,session.sessionId,'TERMINAL_PROCESS_OR_RECEIPT_UNKNOWN');}}catch{}
     try{live.session=this.store.terminalHost(session.projectId,session.sessionId);}catch{}readyReject(new LedgerError('TERMINAL_ENDED_BEFORE_READY'));doneResolve();
    });
-   send({kind:'configure',nonce,module:this.module,cwd:session.directory,identity:session.rootIdentity,cols:session.cols,rows:session.rows,env:{PATH:dirname(this.options.node)+':/usr/bin:/bin:/usr/sbin:/sbin',HOME:homedir(),SHELL:'/bin/zsh',TERM:'xterm-256color',COLORTERM:'truecolor',PROMPT:'%# ',RPROMPT:'',LANG:'en_US.UTF-8',TMPDIR:state}});
+   send({kind:'configure',nonce,module:this.module,cwd:session.directory,identity:session.rootIdentity,cols:session.cols,rows:session.rows,shell:this.shell.path,shellArgs:this.shell.args,env:{PATH:dirname(this.options.node)+':'+systemToolPath(),HOME:homedir(),TERM:'xterm-256color',COLORTERM:'truecolor',LANG:process.platform==='darwin'?'en_US.UTF-8':'C.UTF-8',TMPDIR:state,...this.shell.env}});
    const timer=setTimeout(()=>{child.stdin.end();readyReject(new LedgerError('TERMINAL_START_TIMEOUT'));},10000);try{await ready;}finally{clearTimeout(timer);}
   }catch(error){const live=this.live.get(session.sessionId);if(live){live.child.stdin.end();await live.done;}else if(!dispatched)this.store.terminalFinished(session.projectId,session.sessionId,null,'TERMINAL_START_FAILED');throw error;}
  }

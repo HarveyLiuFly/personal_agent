@@ -61,10 +61,13 @@ import {runPlanProbe} from './plan-probe.ts';
 import {runScheduleProbe} from './schedule-probe.ts';
 import {ScheduleService} from '../../../packages/runtime/src/schedules.ts';
 import {createDesktopWindow} from './desktop-window.ts';
+import {installBackgroundTray} from './tray.ts';
 import {runBackgroundProbe} from './background-probe.ts';
 
 const directory = dirname(fileURLToPath(import.meta.url));
 const root = resolve(directory, '../..');
+// Smokes write evidence here; PERSONAL_AGENT_EVIDENCE_DIR keeps platform runs from overwriting committed evidence.
+const evidenceDirectory = process.env.PERSONAL_AGENT_EVIDENCE_DIR ? resolve(process.env.PERSONAL_AGENT_EVIDENCE_DIR) : resolve(root, 'docs/progress/evidence');
 const documentPath = resolve(directory, 'renderer/index.html');
 const documentUrl = pathToFileURL(documentPath).href;
 const acceptanceProbe=nativeProbe(root,process.argv);
@@ -138,7 +141,7 @@ else void boot().catch(async error => {
   if (chatSmoke || skillsSmoke || resourcesSmoke || backupSmoke || worktreeCodeSmoke || recoverySmoke || terminalSmoke || worktreeSmoke || backgroundProbe || acceptanceProbe || nativeCodeSmoke || executionSmoke || historySmoke || process.argv.includes('--m0-window-smoke')) {
     if (window) { try { writeFileSync(resolve(root, '.local/desktop-failure.png'), (await window.webContents.capturePage()).toPNG()); } catch {} }
     const file = autonomySmoke?'M3.4-autonomy-desktop':chatSmoke?'M3.1b-main-chat-regression':skillsSmoke?'M2.8a-desktop':resourcesSmoke?'M2.2e-desktop':rehearsalSmoke?'M2.7b-desktop':backupSmoke?'M2.7a-desktop':worktreeCodeSmoke?(worktreeCodePreflight?'M2.1b-worktree-preflight':'M2.1b-worktree-native'):toolsSmoke?'M2.1b-tools-desktop':recoverySmoke?'M2.5b-desktop':terminalSmoke?'M2.6a-desktop':worktreeSmoke?'M2.5a-desktop':backgroundProbe?(backgroundNativeSmoke?'M2.4a-native-background':'M2.4a-desktop'):scheduleAutoSmoke?'M2.3d-desktop':scheduleSmoke?'M2.3c-desktop':planSmoke?'M2.2d-desktop':budgetSmoke?'M2.2c-desktop':taskSmoke?'M2.2b-desktop':acceptanceProbe?acceptanceProbe.kind==='workspace'?'M2.1a-desktop':`M1.4b-${acceptanceProbe.kind==='folder'?'native-folder':acceptanceProbe.kind==='restart'?'native-restart':'owner'}`:nativeCodeSmoke ? 'M1-native-code-desktop' : continuationSmoke?'M1.3c-desktop':interactionSmoke ? 'M1.2-desktop' : executionSmoke ? 'M1.1c-desktop' : historySmoke ? 'M1.1b-desktop' : 'M0-desktop-smoke';
-    writeFileSync(resolve(root, `docs/progress/evidence/${file}.json`), JSON.stringify({ status: 'blocked', code, observedAt: new Date().toISOString() }) + '\n');
+    writeFileSync(resolve(evidenceDirectory, `${file}.json`), JSON.stringify({ status: 'blocked', code, observedAt: new Date().toISOString() }) + '\n');
   }
   try {await terminalService?.stop();await worktreeService?.stop();await execution?.close();await appServer?.close(); ledger?.close();}catch{}
   app.exit(1);
@@ -170,7 +173,7 @@ async function boot(): Promise<void> {
   const fixtureMethods = new Set<string>();
   if (chatSmoke || skillsSmoke || resourcesSmoke || backupSmoke || worktreeCodeSmoke || historySmoke || executionSmoke || backgroundNativeSmoke || worktreeSmoke || terminalSmoke || recoverySmoke) {
     mkdirSync(resolve(root, '.local'), { recursive: true });
-    fixtureDirectory = worktreeCodeSmoke?realpathSync(await mkdtemp('/private/tmp/personal-agent-worktree-code-')):await mkdtemp(resolve(root, '.local/history-desktop-'));
+    fixtureDirectory = worktreeCodeSmoke?realpathSync(await mkdtemp(resolve(realpathSync(tmpdir()),'personal-agent-worktree-code-'))):await mkdtemp(resolve(root, '.local/history-desktop-'));
     fixtureWorkspace = resolve(fixtureDirectory, 'workspace'); await mkdir(fixtureWorkspace);if(chatSmoke||skillsSmoke||resourcesSmoke||worktreeSmoke||terminalSmoke||recoverySmoke)createWorktreeFixture(fixtureWorkspace);
     if(skillsSmoke)createProjectSkillsFixture(fixtureWorkspace);
     if(worktreeCodeSmoke){createCodeFixture(fixtureWorkspace);writeFileSync(resolve(fixtureWorkspace,'src/math.mjs'),'export const sum = (a, b) => a - b;\n// SOURCE_DIRTY_KEPT\n');}
@@ -191,11 +194,14 @@ async function boot(): Promise<void> {
     restoreService=new RestoreService(ledger,backupService,storageRoot);
     if(autonomySmoke)seedM3AutonomyProbe(ledger,fixtureWorkspace!);else if(chatSmoke)seedMainChatProbe(ledger,fixtureWorkspace!);
     if(restoreSmoke&&restorePhase==='prepare')seedRestoreProbe(restoreProbeState!,ledger,backupService);
-    if (!executionSmoke && process.platform === 'darwin' && process.arch === 'arm64') {
-      try { verifier = new NodeVerification(ledger,{node:resolveVerifierNode(root),cli:executable(),reporter:resolve(directory,'verification-reporter.mjs'),stateDirectory:runtimePaths.verification}); } catch {}
-      try {terminalService=new TerminalService(ledger,{node:resolveVerifierNode(root),worker:resolve(directory,'terminal-worker.mjs'),stateDirectory:resolve(fixtureDirectory??app.getPath('userData'),'terminals')});}catch{}
-      try {worktreeService=new WorktreeService(ledger,{git:resolveWorkspaceGit(),node:resolveVerifierNode(root),worker:resolve(directory,'worktree-worker.mjs'),stateDirectory:resolve(fixtureDirectory??app.getPath('userData'),'worktrees'),reveal:path=>{if(recoveryProbeState)recoveryProbeState.revealed.push(path);else shell.showItemInFolder(path);},...(recoverySmoke?{afterArchived:()=>{recoveryProbeState!.archiveStops++;throw new LedgerError('CONTROLLED_RECOVERY_GAP');}}:{})});}catch{}
-      try {workspaceReader=new WorkspaceService(id=>ledger!.workspace(id),{node:resolveVerifierNode(root),cli:executable(),git:resolveWorkspaceGit(),worker:resolve(directory,'workspace-reader.mjs'),stateDirectory:resolve(app.getPath('userData'),'workspace-read'),managedGit:id=>ledger!.worktreeMetadata(id)});}catch{}
+    // Platform-neutral: each optional service probes its own prerequisites (verified Node 24,
+    // Codex CLI, git, node-pty binding) and stays disabled with a logged reason when missing.
+    if (!executionSmoke) {
+      const optional=<T,>(name:string,create:()=>T):T|undefined=>{try{return create();}catch(error){console.warn(`[personal-agent] ${name} unavailable: ${error instanceof LedgerError||error instanceof RpcFailure?error.code:error instanceof Error&&/^[A-Z0-9_]{1,100}$/.test(error.message)?error.message:'HOST_ERROR'}`);return undefined;}};
+      verifier=optional('code verification',()=>new NodeVerification(ledger!,{node:resolveVerifierNode(root),cli:executable(),reporter:resolve(directory,'verification-reporter.mjs'),stateDirectory:runtimePaths.verification}));
+      terminalService=optional('terminal',()=>new TerminalService(ledger!,{node:resolveVerifierNode(root),worker:resolve(directory,'terminal-worker.mjs'),stateDirectory:resolve(fixtureDirectory??app.getPath('userData'),'terminals'),bindingRecord:resolve(root,'.local/terminal-binding.json')}));
+      worktreeService=optional('worktrees',()=>new WorktreeService(ledger!,{git:resolveWorkspaceGit(),node:resolveVerifierNode(root),worker:resolve(directory,'worktree-worker.mjs'),stateDirectory:resolve(fixtureDirectory??app.getPath('userData'),'worktrees'),reveal:path=>{if(recoveryProbeState)recoveryProbeState.revealed.push(path);else shell.showItemInFolder(path);},...(recoverySmoke?{afterArchived:()=>{recoveryProbeState!.archiveStops++;throw new LedgerError('CONTROLLED_RECOVERY_GAP');}}:{})}));
+      workspaceReader=optional('workspace browser',()=>new WorkspaceService(id=>ledger!.workspace(id),{node:resolveVerifierNode(root),cli:executable(),git:resolveWorkspaceGit(),worker:resolve(directory,'workspace-reader.mjs'),stateDirectory:resolve(app.getPath('userData'),'workspace-read'),managedGit:id=>ledger!.worktreeMetadata(id)}));
     }
     execution = new ForegroundExecution(ledger, { executable: executionSmoke ? resolveExecutable('node') : executable(), stateDirectory: state,runtime:appServer, mode: interactionSmoke ? 'workspaceWrite' : 'readOnly',
       ...(verifier ? { prepareCode: (token, code, signal) => verifier!.prepare(token,code,signal) } : {}),
@@ -388,6 +394,7 @@ async function boot(): Promise<void> {
   });
   windowsReady=true;
   Menu.setApplicationMenu(Menu.buildFromTemplate([{label:'Personal Agent',submenu:[{label:'显示主窗口',click:()=>{void showMainWindow().catch(()=>{});}},{type:'separator'},{label:'退出并停止运行',accelerator:'CmdOrCtrl+Q',click:()=>app.quit()}]},{role:'editMenu'},{role:'windowMenu'}]));
+  if(keepRunningWithoutWindow)installBackgroundTray([{label:'显示主窗口',click:()=>{void showMainWindow().catch(()=>{});}},{type:'separator'},{label:'退出并停止运行',click:()=>app.quit()}],()=>{void showMainWindow().catch(()=>{});});
   window=await showMainWindow();
   if(autonomySmoke){const storageRoot=fixtureDirectory!,paths=activeRuntimePaths(storageRoot,resolve(storageRoot,'verification'));await runM3AutonomyProbe(root,app,window,ledger!,fixtureWorkspace!,paths.database,storageRoot,paths.verification);return;}
   if(chatSmoke){await runMainChatProbe(root,app,window,ledger!,fixtureWorkspace!,resolve(fixtureDirectory!,'execution/ledger.db'));return;}
@@ -432,8 +439,8 @@ async function boot(): Promise<void> {
     const evidence = { observedAt: new Date().toISOString(), kind: 'real_electron_window_smoke',
       status: passed ? 'passed' : 'blocked',
       browserSandbox: app.commandLine.hasSwitch('no-sandbox') ? 'disabled' : 'enabled', result };
-    mkdirSync(resolve(root, 'docs/progress/evidence'), { recursive: true });
-    writeFileSync(resolve(root, 'docs/progress/evidence/M0-desktop-smoke.json'), JSON.stringify(evidence, null, 2) + '\n');
+    mkdirSync(evidenceDirectory, { recursive: true });
+    writeFileSync(resolve(evidenceDirectory,'M0-desktop-smoke.json'), JSON.stringify(evidence, null, 2) + '\n');
     writeFileSync(resolve(root, '.local/M0-desktop-smoke.png'), (await window.webContents.capturePage()).toPNG());
     // Use Electron's normal shutdown lifecycle before the wrapper releases its display.
     app.quit();
@@ -475,8 +482,8 @@ async function boot(): Promise<void> {
     const evidence = { status: passed ? 'passed' : 'blocked', observedAt: new Date().toISOString(), kind: 'real_electron_with_local_rpc_fixture',
       backend: 'synthetic_stdio_fixture', folderDialogSelection: 'fixed_fixture_substitution', inferenceRequested: false,
       methods: [...fixtureMethods].sort(), result };
-    mkdirSync(resolve(root, 'docs/progress/evidence'), { recursive: true });
-    writeFileSync(resolve(root, 'docs/progress/evidence/M1.1b-desktop.json'), JSON.stringify(evidence, null, 2) + '\n');
+    mkdirSync(evidenceDirectory, { recursive: true });
+    writeFileSync(resolve(evidenceDirectory,'M1.1b-desktop.json'), JSON.stringify(evidence, null, 2) + '\n');
     writeFileSync(resolve(root, '.local/M1-history-desktop.png'), (await window.webContents.capturePage()).toPNG());
     app.quit();
   }
@@ -517,7 +524,7 @@ async function boot(): Promise<void> {
       && r.runStatus === 'completed' && r.taskStatus === 'needs_review' && r.finalText === 'aab'
       && r.extraArgumentsRejected === true && r.foreignRunRejected === true && r.markupShownAsText === true
       && r.noInjectedImage === true && r.noScriptExecution === true && r.draftClearedAfterAcceptance === true;
-    writeFileSync(resolve(root, 'docs/progress/evidence/M1.1c-desktop.json'), JSON.stringify({ observedAt: new Date().toISOString(),
+    writeFileSync(resolve(evidenceDirectory,'M1.1c-desktop.json'), JSON.stringify({ observedAt: new Date().toISOString(),
       status: passed ? 'passed' : 'blocked', kind: 'real_electron_durable_execution_with_stdio_fixture',
       backend: 'synthetic_stdio_fixture', folderDialogSelection: 'fixed_fixture_substitution', inferenceRequested: false,
       diagnostics: execution!.diagnostics, result }, null, 2) + '\n');
@@ -549,7 +556,7 @@ async function boot(): Promise<void> {
     const r=result as Record<string,unknown>;
     const passed=r.sandboxed===true&&r.isolated===true&&r.hasRequire===false&&r.awaitingApproval===true&&r.shownCommand===true
       &&r.foreignRejected===true&&r.sessionApprovalRejected===true&&r.replayRejected===true&&r.finalText==='accept'&&r.taskStatus==='needs_review';
-    writeFileSync(resolve(root,'docs/progress/evidence/M1.2-desktop.json'),JSON.stringify({status:passed?'passed':'blocked',observedAt:new Date().toISOString(),
+    writeFileSync(resolve(evidenceDirectory,'M1.2-desktop.json'),JSON.stringify({status:passed?'passed':'blocked',observedAt:new Date().toISOString(),
       kind:'real_electron_approval_with_synthetic_stdio',backend:'synthetic_stdio_fixture',folderDialogSelection:'fixed_fixture_substitution',inferenceRequested:false,
       syntheticEffectCreated:readFileSync(resolve(fixtureDirectory!,'execution-receipts.effect'),'utf8')==='accepted-once',result},null,2)+'\n');
     writeFileSync(resolve(root,'.local/M1-interactions-desktop.png'),(await window.webContents.capturePage()).toPNG());app.quit();
@@ -568,7 +575,7 @@ async function boot(): Promise<void> {
         sandboxed:window.personalAgent.security.sandboxed,isolated:window.personalAgent.security.isolated,hasRequire:typeof require!=='undefined'};
     })()`);
     const r=result as Record<string,unknown>,passed=r.sameTask===true&&r.sameThread===true&&r.newRun===true&&r.status==='completed'&&r.taskStatus==='needs_review'&&r.finalText==='aab'&&r.sandboxed===true&&r.isolated===true&&r.hasRequire===false;
-    writeFileSync(resolve(root,'docs/progress/evidence/M1.3c-desktop.json'),JSON.stringify({status:passed?'passed':'blocked',observedAt:new Date().toISOString(),kind:'real_electron_explicit_continuation_with_synthetic_stdio',inferenceRequested:false,folderDialogSelection:'fixed_fixture_substitution',result},null,2)+'\n');
+    writeFileSync(resolve(evidenceDirectory,'M1.3c-desktop.json'),JSON.stringify({status:passed?'passed':'blocked',observedAt:new Date().toISOString(),kind:'real_electron_explicit_continuation_with_synthetic_stdio',inferenceRequested:false,folderDialogSelection:'fixed_fixture_substitution',result},null,2)+'\n');
     writeFileSync(resolve(root,'.local/M1-continuation-desktop.png'),(await window.webContents.capturePage()).toPNG());app.quit();
   }
   if(nativeCodeSmoke){
@@ -610,7 +617,7 @@ async function boot(): Promise<void> {
     const passed=r.runStatus==='completed'&&r.taskStatus==='completed'&&r.mode==='workspaceWrite'&&r.diffShown===true&&r.requiredCases===4
       &&r.sandboxed===true&&r.isolated===true&&r.hasRequire===false&&receipt?.status==='passed'&&receipt.executed===4&&receipt.skipped===0
       &&execution!.diagnostics.nativePolicyVerified&&JSON.stringify(r.changedFiles)===JSON.stringify(['src/math.mjs'])&&(!nativeCodeContinuationSmoke||(r.sameTask===true&&r.sameThread===true&&r.newRun===true&&r.newTurn===true&&frozenContractInherited&&execution!.diagnostics.clientThreadResumes===1&&execution!.diagnostics.clientTurnStarts===2));
-    writeFileSync(resolve(root,'docs/progress/evidence/M1-native-code-desktop.json'),JSON.stringify({status:passed?'passed':'blocked',observedAt:new Date().toISOString(),kind:'real_electron_real_model_code_task_and_trusted_sandbox_verification',
+    writeFileSync(resolve(evidenceDirectory,'M1-native-code-desktop.json'),JSON.stringify({status:passed?'passed':'blocked',observedAt:new Date().toISOString(),kind:'real_electron_real_model_code_task_and_trusted_sandbox_verification',
       backend:'native_locked_app_server',inferenceRequested:true,folderDialogSelection:'fixed_fixture_substitution',cliVersion:verifiedCodex(root).lock.cliVersion,platform:process.platform+'-'+process.arch,verifiedMethods:['thread/start',...(nativeCodeContinuationSmoke?['thread/resume']:[]),'turn/start'],frozenContractInherited,diagnostics:execution!.diagnostics,result},null,2)+'\n');
     writeFileSync(resolve(root,'.local/M1-native-code-desktop.png'),(await window.webContents.capturePage()).toPNG());app.quit();
   }

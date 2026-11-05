@@ -22,7 +22,8 @@ export async function openDisplay(root) {
     return { env: process.env, kind: 'native_desktop', close: async () => {} };
   }
   if (process.platform !== 'linux') throw new Error('DISPLAY_PLATFORM_UNSUPPORTED');
-  if (process.env.DISPLAY) return { env: process.env, kind: 'existing_display', close: async () => {} };
+  // X11 or a Wayland session (Electron uses XWayland/Ozone as configured by the desktop).
+  if (process.env.DISPLAY || process.env.WAYLAND_DISPLAY) return { env: process.env, kind: process.env.WAYLAND_DISPLAY ? 'existing_wayland_display' : 'existing_display', close: async () => {} };
   const xvfb = executable(root, 'Xvfb');
   const xauth = executable(root, 'xauth');
   const directory = await mkdtemp(join(tmpdir(), 'personal-agent-display-'));

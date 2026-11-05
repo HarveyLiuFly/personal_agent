@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {createHash,randomUUID} from 'node:crypto';
 import {mkdirSync,mkdtempSync,readFileSync,writeFileSync,realpathSync,existsSync} from 'node:fs';
-import {join,resolve} from 'node:path';
+import {join,resolve,dirname} from 'node:path';
 import {tmpdir} from 'node:os';
 import {createServer} from 'node:net';
 import {verifiedCodex} from '../packages/codex-adapter/src/binary.ts';
@@ -32,4 +32,4 @@ try{
  evidence={status:'passed',observedAt:new Date().toISOString(),kind:'real_filesystem_git_and_native_read_only_sandbox',platform:binary.platform,cliVersion:binary.lock.cliVersion,inferenceRequested:false,gitBackend:'real_system_git',sandbox:'real_locked_cli_permission_profile',ordinaryGitStatus:true,stagedAndUnstagedDiffSeparated:true,plainTextPreview:true,protectedFileNoGrant:true,indexUnchanged:true,sourceUnchangedByReads:true,outsideReadBlocked:true,protectedRootFileReadBlocked:true,workspaceWriteBlocked:true,loopbackNetworkBlocked:true,serverConnections:connections,parentToolBridgeAbsent:true,authenticationEnvironmentAbsent:true};
 }catch(error){evidence={status:'blocked',observedAt:new Date().toISOString(),kind:'real_filesystem_git_and_native_read_only_sandbox',platform:binary.platform,inferenceRequested:false,code:error instanceof LedgerError?error.code:'PROBE_ASSERTION_FAILED',serverConnections:connections};process.exitCode=1;}
 finally{if(server.listening)await new Promise<void>((done,reject)=>server.close(e=>e?reject(e):done()));store.close();}
-const output=join(root,'docs/progress/evidence/M2.1a-native-workspace.json');writeFileSync(output,JSON.stringify(evidence,null,2)+'\n');writeFileSync(output.replace('.json',`-${String(evidence.observedAt).replaceAll(':','-').replaceAll('.','-')}.json`),JSON.stringify(evidence,null,2)+'\n');console.log(JSON.stringify(evidence,null,2));
+const output=join(process.env.PERSONAL_AGENT_EVIDENCE_DIR?resolve(process.env.PERSONAL_AGENT_EVIDENCE_DIR):join(root,'docs/progress/evidence'),'M2.1a-native-workspace.json');mkdirSync(dirname(output),{recursive:true});writeFileSync(output,JSON.stringify(evidence,null,2)+'\n');writeFileSync(output.replace('.json',`-${String(evidence.observedAt).replaceAll(':','-').replaceAll('.','-')}.json`),JSON.stringify(evidence,null,2)+'\n');console.log(JSON.stringify(evidence,null,2));

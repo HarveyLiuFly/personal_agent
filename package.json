@@ -11,6 +11,8 @@
   "scripts": {
     "postinstall": "node scripts/setup-terminal.mjs",
     "setup:terminal": "node scripts/setup-terminal.mjs",
+    "diagnose": "node --disable-warning=ExperimentalWarning scripts/doctor.mjs",
+    "baseline:platform": "node --disable-warning=ExperimentalWarning scripts/baseline-platform.mjs",
     "dev": "node scripts/dev.mjs",
     "build": "node scripts/build.mjs",
     "typecheck": "tsc --noEmit",

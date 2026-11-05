@@ -1,12 +1,13 @@
 import {createServer} from 'node:http';
 import {mkdtempSync,mkdirSync,writeFileSync,readFileSync,realpathSync,existsSync,rmSync,readdirSync} from 'node:fs';
 import {join,resolve} from 'node:path';
+import {tmpdir} from 'node:os';
 import {execFileSync} from 'node:child_process';
 import {verifiedCodex} from '../packages/codex-adapter/src/binary.ts';
 import {resolveVerifierNode} from '../packages/codex-adapter/src/launch.ts';
 import {projectSkillConnection} from '../packages/runtime/src/skills-connection.ts';
 import {ProjectSkillCatalog} from '../packages/runtime/src/skills.ts';
-const root=resolve('.'),fixture=realpathSync(mkdtempSync('/private/tmp/personal-agent-project-skills-')),cwd=join(fixture,'project'),methods:string[]=[],effect=join(fixture,'MCP_OR_SKILL_EXECUTED');let connections=0;
+const root=resolve('.'),fixture=realpathSync(mkdtempSync(join(realpathSync(tmpdir()),'personal-agent-project-skills-'))),cwd=join(fixture,'project'),methods:string[]=[],effect=join(fixture,'MCP_OR_SKILL_EXECUTED');let connections=0;
 const server=createServer((_req,res)=>{res.writeHead(405);res.end();});server.on('connection',()=>{connections++;});await new Promise<void>(done=>server.listen(0,'127.0.0.1',done));const port=(server.address() as {port:number}).port;
 let evidence:Record<string,unknown>;
 try{

@@ -1,8 +1,9 @@
-import {spawn,execFileSync} from 'node:child_process';
+import {spawn} from 'node:child_process';
 import {createHash,randomUUID} from 'node:crypto';
 import {existsSync,lstatSync,mkdirSync,mkdtempSync,readFileSync,readdirSync,realpathSync,rmSync,writeFileSync} from 'node:fs';
 import {dirname,join} from 'node:path';
 import {LedgerError} from '../../store/src/ledger.ts';
+import {resolveSystemGit} from './platform.ts';
 import {isObject} from '../../codex-adapter/src/rpc.ts';
 import type {ProjectView} from '../../contracts/src/views.ts';
 import type {WorkspaceDirectory,WorkspaceOverview,WorkspacePreview,WorkspaceDiff,WorkspaceGit} from '../../contracts/src/workspace.ts';
@@ -15,9 +16,9 @@ function query(value:unknown,keys:string[]):Record<string,string>{
 }
 export interface WorkspaceReaderOptions {managedGit?:(workspaceId:string)=>{gitDir:string;commonDir:string;gitIdentity:{device:string;inode:string};commonIdentity:{device:string;inode:string}}|null;node:string;cli:string;git:string;worker:string;stateDirectory:string;timeoutMs?:number;/** Component tests only. Never supplied over IPC. */withoutSandboxForTests?:boolean}
 interface Handle {projectId:string;path:string;identity:string|null;kind:'directory'|'file'|'change';gitToken?:string;staged?:string;unstaged?:string;untracked?:boolean;rootIdentity:string}
+/** macOS: xcrun git; Linux: first system git (see platform.ts). */
 export function resolveWorkspaceGit():string {
- if(process.platform==='darwin')return realpathSync(execFileSync('/usr/bin/xcrun',['--find','git'],{encoding:'utf8',timeout:5000,stdio:['ignore','pipe','ignore'],env:{PATH:'/usr/bin:/bin',HOME:process.env.HOME}}).trim());
- return '/usr/bin/git';
+ return resolveSystemGit();
 }
 /** Workspace-scoped observation service; it cannot write source files or dispatch model/terminal requests. */
 export class WorkspaceService {

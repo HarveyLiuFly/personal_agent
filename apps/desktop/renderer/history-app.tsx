@@ -11,6 +11,7 @@ import {ProjectSkillsDialog} from './skills-panel.tsx';
 import {taskLabels,displayMessage,latestTaskRuns} from './ui-model.ts';
 import {clearDrafts} from './drafts.ts';
 import {MessageBody} from './message-body.tsx';
+import {shortcutLabel} from './platform.ts';
 type Surface='assistant'|'task'|'tasks'|'goals'|'memory'|'automation'|'workspace'|'settings'|'history';
 const titles:Record<Surface,string>={assistant:'项目助手',task:'新任务',tasks:'任务',goals:'目标',memory:'记忆',automation:'自动化',workspace:'文件与变更',settings:'设置',history:'原生历史'};
 async function value<T>(request:Promise<HostResult<T>>){const result=await request;if(!result.ok)throw Error(result.errorCode);return result.value;}
@@ -40,9 +41,9 @@ export function HistoryApp({children}:{children:React.ReactNode}){
  return <div className={'shell v2-shell'+(collapsed?' sidebar-collapsed':'')}>
   <aside className="sidebar" aria-label="主导航"><div className="brand"><span className="brand-mark">P</span><strong>Personal Agent</strong><button className="icon-button" aria-label="收起侧栏" onClick={()=>setCollapsed(true)}>‹</button></div>
    <div className="project-switcher"><select className="project-select" aria-label="已保存项目" disabled={busy} value={project?.id??''} onChange={e=>{const p=projects.find(p=>p.id===e.target.value);if(p)switchProject(p);}}>{!project&&<option value="">选择项目</option>}{projects.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select><button data-action="choose-project" aria-label="打开项目" title="打开项目文件夹" className="icon-button" disabled={busy} onClick={()=>void choose()}>＋</button></div>
-   <button className="new-chat" data-action="project-tasks" disabled={!project||busy||!cap.canSubmit} onClick={newTask}>＋ 新任务 <kbd>⌘ N</kbd></button>
+   <button className="new-chat" data-action="project-tasks" disabled={!project||busy||!cap.canSubmit} onClick={newTask}>＋ 新任务 <kbd>{shortcutLabel('n')}</kbd></button>
    <nav className="primary-nav">{(['assistant','tasks','goals'] as Surface[]).map((name,i)=><button key={name} className={surface===name?'active':''} disabled={!project||busy} data-action={name==='assistant'?'open-main-chat':name==='goals'?'open-autonomy':'open-tasks'} onClick={()=>navigate(name)}><span aria-hidden="true">{['◌','☷','◇'][i]}</span>{titles[name]}</button>)}</nav>
-   <div className="sidebar-search"><input ref={search} aria-label="搜索任务" placeholder="搜索任务…" value={query} onChange={e=>setQuery(e.target.value)}/><kbd>⌘ K</kbd></div>
+   <div className="sidebar-search"><input ref={search} aria-label="搜索任务" placeholder="搜索任务…" value={query} onChange={e=>setQuery(e.target.value)}/><kbd>{shortcutLabel('k')}</kbd></div>
    <div className="project-heading"><span>近期任务</span><small>{visibleTasks.length}</small></div>
    <nav className="thread-list" aria-label="任务会话">{visibleTasks.map(task=><button key={task.taskId} className={'thread'+(surface==='task'&&taskId===task.taskId?' selected':'')} data-task-id={task.taskId} data-run-id={latest.find(run=>run.taskId===task.taskId)?.runId} onClick={()=>openTask(task.taskId)}><span className={'task-dot '+task.status}/><span className="thread-name">{task.title}</span><small>{taskLabels[task.status]??'待核对'}</small></button>)}{project&&!visibleTasks.length&&<p className="empty-nav">{query?'没有匹配的任务':'从一个想完成的任务开始。'}</p>}</nav>
    <nav className="secondary-nav">{(['memory','automation','settings'] as Surface[]).map(name=><button data-action={'open-'+name} key={name} className={surface===name?'active':''} disabled={!project} onClick={()=>navigate(name)}>{titles[name]}</button>)}</nav>

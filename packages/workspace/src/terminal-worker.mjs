@@ -14,7 +14,8 @@ lines.on('line',line=>{
   if(!configured){if(q.kind!=='configure')throw Error();config=q;nonce=q.nonce;pty=createRequire(import.meta.url)(q.module);configured=true;send({kind:'ready',nonce,pid:process.pid});return;}
   if(q.nonce!==nonce)throw Error();
   if(q.kind==='go'&&!started){started=true;const s=lstatSync(config.cwd,{bigint:true});if(realpathSync(config.cwd)!==config.cwd||!s.isDirectory()||s.isSymbolicLink()||String(s.dev)!==config.identity.device||String(s.ino)!==config.identity.inode)throw Error();
-   terminal=pty.spawn('/bin/zsh',['-f','-i'],{name:'xterm-256color',cols:config.cols,rows:config.rows,cwd:config.cwd,env:config.env});send({kind:'started',pid:terminal.pid});
+   if(typeof config.shell!=='string'||!config.shell.startsWith('/')||!Array.isArray(config.shellArgs)||config.shellArgs.some(a=>typeof a!=='string'))throw Error();
+   terminal=pty.spawn(config.shell,config.shellArgs,{name:'xterm-256color',cols:config.cols,rows:config.rows,cwd:config.cwd,env:config.env});send({kind:'started',pid:terminal.pid});
    terminal.onData(data=>{const bytes=Buffer.from(data);let writable=true;for(let offset=0;offset<bytes.length;offset+=16384)writable=send({kind:'data',data:bytes.subarray(offset,offset+16384).toString('base64')})&&writable;if(!writable){terminal.pause();process.stdout.once('drain',()=>{if(!stopping&&!closed)terminal.resume();});}});
    terminal.onExit(event=>{closed=true;clearTimeout(timer);if(process.stdout.destroyed)process.exit(0);process.stdout.write(JSON.stringify({kind:'exit',code:event.exitCode,signal:event.signal})+'\n',()=>process.exit(0));setTimeout(()=>process.exit(0),1000).unref();});return;
   }
