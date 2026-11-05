@@ -1,6 +1,8 @@
 import type { MainChatInput, MainChatView } from '../../../packages/contracts/src/chat.ts';
 import type {
   ConversationArchive,
+  ConversationChoices,
+  ModelOption,
   ConversationPage,
   ConversationQuery,
   ConversationSummary,
@@ -188,6 +190,12 @@ export interface DesktopApi {
       mode: 'readOnly' | 'workspaceWrite';
     }>
   >;
+  /** Visible models of the pinned Codex catalog, with their reasoning efforts. */
+  listModels(): Promise<HostResult<ModelOption[]>>;
+  /** Choices a new conversation in this project starts with (its last ones, else "auto"). */
+  conversationDefaults(query: {
+    projectId: string;
+  }): Promise<HostResult<Required<ConversationChoices>>>;
   /** Conversations of a project (pinned first, then most recently active), one page at a time. */
   listConversations(query: ConversationQuery): Promise<HostResult<ConversationPage>>;
   getConversation(query: {

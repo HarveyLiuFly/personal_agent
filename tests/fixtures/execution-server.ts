@@ -92,6 +92,9 @@ for await (const line of createInterface({ input: process.stdin })) {
           method: m.method,
           developerInstructions: m.params.developerInstructions,
           input: m.params.input,
+          sandbox: m.params.sandbox,
+          sandboxPolicy: m.params.sandboxPolicy,
+          approvalPolicy: m.params.approvalPolicy,
           model: m.params.model,
           effort: m.params.effort,
           threadId: m.params.threadId,
@@ -115,18 +118,20 @@ for await (const line of createInterface({ input: process.stdin })) {
       id: m.id,
       result: {
         thread: { id: threadId, cwd, status: { type: 'idle' } },
-        approvalPolicy: 'on-request',
+        approvalPolicy: m.params.approvalPolicy ?? 'on-request',
         approvalsReviewer: mode === 'auto-review' ? 'auto_review' : m.params.approvalsReviewer,
         sandbox:
-          m.params.sandbox === 'read-only'
-            ? { type: 'readOnly', networkAccess: mode === 'unsafe-network' }
-            : {
-                type: 'workspaceWrite',
-                writableRoots: mode === 'unsafe-roots' ? ['/'] : [cwd],
-                networkAccess: mode === 'unsafe-network',
-                excludeTmpdirEnvVar: mode !== 'unsafe-temp',
-                excludeSlashTmp: true,
-              },
+          m.params.sandbox === 'danger-full-access'
+            ? { type: 'dangerFullAccess' }
+            : m.params.sandbox === 'read-only'
+              ? { type: 'readOnly', networkAccess: mode === 'unsafe-network' }
+              : {
+                  type: 'workspaceWrite',
+                  writableRoots: mode === 'unsafe-roots' ? ['/'] : [cwd],
+                  networkAccess: mode === 'unsafe-network',
+                  excludeTmpdirEnvVar: mode !== 'unsafe-temp',
+                  excludeSlashTmp: true,
+                },
       },
     });
     continue;

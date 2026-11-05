@@ -1,5 +1,6 @@
 import type { DatabaseSync } from 'node:sqlite';
 import type {
+  ConversationChoices,
   ConversationPage,
   ConversationSummary,
   PermissionMode,
@@ -14,6 +15,28 @@ const id = (value: unknown): value is string =>
   value.length > 0 &&
   value.length <= 200 &&
   !/[\x00-\x1f]/.test(value);
+const efforts = new Set(['none', 'minimal', 'low', 'medium', 'high', 'xhigh']);
+/** Checks conversation choices from the Renderer (shape only; the catalog decides at run time). */
+export function validChoices(
+  input: Record<string, unknown>,
+  fail: (code: string) => never,
+): ConversationChoices {
+  const invalid = (): never => fail('INVALID_CONVERSATION_CHOICES');
+  const out: ConversationChoices = {};
+  if (input.permissionMode !== undefined) {
+    if (!['readOnly', 'auto', 'fullAccess'].includes(String(input.permissionMode))) invalid();
+    out.permissionMode = input.permissionMode as PermissionMode;
+  }
+  if (input.model !== undefined) {
+    if (input.model !== null && (!id(input.model) || !/^[\w.:/-]+$/.test(input.model))) invalid();
+    out.model = input.model as string | null;
+  }
+  if (input.effort !== undefined) {
+    if (input.effort !== null && !efforts.has(String(input.effort))) invalid();
+    out.effort = input.effort as string | null;
+  }
+  return out;
+}
 /** Keyset handle `<time>.<rowid>`; it carries no data beyond the list position. */
 export function decodeCursor(
   value: unknown,
@@ -249,14 +272,23 @@ export class ConversationLedger {
   }
   /** Pins/unpins or marks read. Neither changes the conversation's activity order or version. */
   update(input: unknown): ConversationSummary {
-    const q = this.query(input, ['projectId', 'conversationId', 'pinned', 'read']);
+    const q = this.query(input, [
+      'projectId',
+      'conversationId',
+      'pinned',
+      'read',
+      'permissionMode',
+      'model',
+      'effort',
+    ]);
     if (
       !id(q.conversationId) ||
       (q.pinned !== undefined && typeof q.pinned !== 'boolean') ||
       (q.read !== undefined && q.read !== true) ||
-      (q.pinned === undefined && q.read === undefined)
+      ['pinned', 'read', 'permissionMode', 'model', 'effort'].every((key) => q[key] === undefined)
     )
       return this.fail('INVALID_CONVERSATION_UPDATE');
+    const choices = validChoices(q, this.fail);
     const projectId = String(q.projectId),
       conversationId = String(q.conversationId);
     this.host.workspace(projectId);
@@ -274,6 +306,22 @@ export class ConversationLedger {
         this.db
           .prepare('UPDATE tasks SET last_read_at_ms=? WHERE task_id=?')
           .run(now, conversationId);
+      // Choices apply from the next turn. A code task keeps its write contract.
+      if (choices.permissionMode !== undefined) {
+        if (JSON.parse(String(row.constraints_json)).code && choices.permissionMode !== 'auto')
+          return this.fail('CODE_TASK_PERMISSION_FIXED');
+        this.db
+          .prepare('UPDATE tasks SET permission_mode=? WHERE task_id=?')
+          .run(choices.permissionMode, conversationId);
+      }
+      if (choices.model !== undefined)
+        this.db
+          .prepare('UPDATE tasks SET model=? WHERE task_id=?')
+          .run(choices.model, conversationId);
+      if (choices.effort !== undefined)
+        this.db
+          .prepare('UPDATE tasks SET reasoning_effort=? WHERE task_id=?')
+          .run(choices.effort, conversationId);
       return this.summary(this.row(projectId, conversationId));
     });
   }

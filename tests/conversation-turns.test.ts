@@ -357,3 +357,132 @@ test("a conversation can start from another one's turn; the original is untouche
   );
   assert.equal(second.taskId, first.taskId);
 });
+
+test('the permission mode decides the sandbox and approvals of each turn, and can change between turns', async (t) => {
+  const f = fixture(t);
+  const sent = (method: string) =>
+    f.sent().filter((row) => row.method === method) as Array<{
+      sandbox?: string;
+      approvalPolicy?: string;
+      sandboxPolicy?: { type: string; writableRoots?: string[]; networkAccess?: boolean };
+    }>;
+  // "Auto": workspace writes, approvals on request; no verification contract needed.
+  const first = f.runtime.submit({
+    projectId: f.project.id,
+    text: 'Edit the README',
+    submissionKey: 'auto-1',
+    permissionMode: 'auto',
+  });
+  await f.runtime.wait();
+  assert.equal(f.runtime.view({ projectId: f.project.id, runId: first.runId }).status, 'completed');
+  assert.equal(sent('thread/start')[0]!.sandbox, 'workspace-write');
+  assert.equal(sent('thread/start')[0]!.approvalPolicy, 'on-request');
+  assert.equal(sent('turn/start')[0]!.sandboxPolicy!.type, 'workspaceWrite');
+  assert.equal(sent('turn/start')[0]!.sandboxPolicy!.networkAccess, false);
+  assert.equal(
+    f.store.conversationSummary({ projectId: f.project.id, conversationId: first.taskId })
+      .permissionMode,
+    'auto',
+  );
+  // Switch to full access for the next turn: no sandbox, no approvals.
+  f.store.updateConversation({
+    projectId: f.project.id,
+    conversationId: first.taskId,
+    permissionMode: 'fullAccess',
+  });
+  const second = f.runtime.continueRun({
+    projectId: f.project.id,
+    runId: first.runId,
+    text: 'Also update the changelog',
+    submissionKey: 'full-1',
+  });
+  await f.runtime.wait();
+  assert.equal(
+    f.runtime.view({ projectId: f.project.id, runId: second.runId }).status,
+    'completed',
+  );
+  assert.equal(sent('thread/resume')[0]!.sandbox, 'danger-full-access');
+  assert.equal(sent('thread/resume')[0]!.approvalPolicy, 'never');
+  assert.equal(sent('turn/start')[1]!.sandboxPolicy!.type, 'dangerFullAccess');
+  // And back to read-only.
+  f.store.updateConversation({
+    projectId: f.project.id,
+    conversationId: first.taskId,
+    permissionMode: 'readOnly',
+  });
+  const third = f.runtime.continueRun({
+    projectId: f.project.id,
+    runId: second.runId,
+    text: 'Just explain what changed',
+    submissionKey: 'read-1',
+  });
+  await f.runtime.wait();
+  assert.equal(f.runtime.view({ projectId: f.project.id, runId: third.runId }).mode, 'readOnly');
+  assert.equal(sent('thread/resume')[1]!.sandbox, 'read-only');
+  assert.equal(sent('turn/start')[2]!.sandboxPolicy!.type, 'readOnly');
+  assert.equal(f.runtime.diagnostics.nativePolicyVerified, true);
+});
+
+test('choices are validated, remembered per project and fixed for code tasks', async (t) => {
+  const f = fixture(t);
+  assert.deepEqual(f.store.projectChoices(f.project.id), {
+    permissionMode: 'auto',
+    model: null,
+    effort: null,
+  });
+  const run = f.runtime.submit({
+    projectId: f.project.id,
+    text: 'Look around',
+    submissionKey: 'choose-1',
+    permissionMode: 'readOnly',
+    model: 'synthetic-alternative',
+    effort: 'high',
+  });
+  await f.runtime.wait();
+  assert.equal(f.sent()[0]!.model, 'synthetic-alternative');
+  assert.equal(f.sent()[1]!.effort, 'high');
+  assert.deepEqual(f.store.projectChoices(f.project.id), {
+    permissionMode: 'readOnly',
+    model: 'synthetic-alternative',
+    effort: 'high',
+  });
+  for (const bad of [
+    { permissionMode: 'everything' },
+    { model: 'bad model name' },
+    { effort: 'extreme' },
+  ])
+    assert.throws(
+      () =>
+        f.store.updateConversation({
+          projectId: f.project.id,
+          conversationId: run.taskId,
+          ...bad,
+        }),
+      /INVALID_CONVERSATION_CHOICES/,
+    );
+  assert.throws(
+    () =>
+      f.runtime.submit({
+        projectId: f.project.id,
+        text: 'x',
+        submissionKey: 'bad-fork-mode',
+        fork: { runId: run.runId },
+        permissionMode: 'auto',
+      }),
+    /INVALID_EXECUTION_QUERY/,
+  );
+  // A legacy code task keeps its write contract.
+  f.sql(
+    "UPDATE tasks SET constraints_json=json_set(constraints_json,'$.code',json('{\"profile\":\"node-test\"}')),permission_mode='auto' WHERE task_id=?",
+    run.taskId,
+  );
+  assert.throws(
+    () =>
+      f.store.updateConversation({
+        projectId: f.project.id,
+        conversationId: run.taskId,
+        permissionMode: 'readOnly',
+      }),
+    /CODE_TASK_PERMISSION_FIXED/,
+  );
+});

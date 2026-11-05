@@ -60,11 +60,13 @@ import type {
   WriteTerminal,
 } from '../../contracts/src/terminal.ts';
 import { SchedulerLedger, scheduledRunKey } from './scheduler.ts';
-import { ConversationLedger, decodeCursor } from './conversations.ts';
+import { ConversationLedger, decodeCursor, validChoices } from './conversations.ts';
 import type {
+  ConversationChoices,
   ConversationPage,
   ConversationSummary,
   ConversationTurns,
+  PermissionMode,
 } from '../../contracts/src/conversations.ts';
 import type { ScheduleCommand } from '../../contracts/src/schedules.ts';
 import { ScheduleTimeError, scheduleTime } from '../../runtime/src/calendar.ts';
@@ -1438,10 +1440,14 @@ export class ExecutionLedger {
     const fork = JSON.parse(String(row.fork));
     return { threadId: String(fork.threadId), turnId: String(fork.turnId) };
   }
-  /** Model and reasoning effort chosen for the conversation of a Run (null: defaults). */
-  conversationChoices(runId: string): { model: string | null; effort: string | null } {
+  /** Model, reasoning effort (null: defaults) and permission mode of a Run's conversation. */
+  conversationChoices(runId: string): {
+    model: string | null;
+    effort: string | null;
+    permissionMode: PermissionMode;
+  } {
     const row = this.one(
-      'SELECT t.model,t.reasoning_effort FROM task_runs r JOIN tasks t USING(task_id) WHERE r.run_id=? AND r.dot_id=?',
+      'SELECT t.model,t.reasoning_effort,t.permission_mode FROM task_runs r JOIN tasks t USING(task_id) WHERE r.run_id=? AND r.dot_id=?',
       runId,
       this.dotId,
     );
@@ -1449,6 +1455,24 @@ export class ExecutionLedger {
     return {
       model: (row.model as string | null) ?? null,
       effort: (row.reasoning_effort as string | null) ?? null,
+      permissionMode: row.permission_mode as PermissionMode,
+    };
+  }
+  /**
+   * The choices a new conversation in this project starts with: those of the user's most recent
+   * conversation there, else the product default (auto: workspace writes, approval on request).
+   */
+  projectChoices(projectId: string): Required<ConversationChoices> {
+    this.workspace(projectId);
+    const row = this.one(
+      "SELECT model,reasoning_effort,permission_mode FROM tasks t WHERE workspace_id=? AND dot_id=? AND json_extract(constraints_json,'$.internalRole') IS NULL AND json_extract(constraints_json,'$.code') IS NULL ORDER BY created_at_ms DESC,rowid DESC LIMIT 1",
+      projectId,
+      this.dotId,
+    );
+    return {
+      permissionMode: (row?.permission_mode as PermissionMode | undefined) ?? 'auto',
+      model: (row?.model as string | null | undefined) ?? null,
+      effort: (row?.reasoning_effort as string | null | undefined) ?? null,
     };
   }
   /** Turns (Runs) of one conversation, newest first, ten per page. */
@@ -3733,6 +3757,7 @@ export class ExecutionLedger {
     mode: 'readOnly' | 'workspaceWrite',
     contextHash?: string,
     forkRunId?: string,
+    choices?: ConversationChoices,
   ): { token: RunToken; created: boolean } {
     if (
       !id(key) ||
@@ -3743,13 +3768,18 @@ export class ExecutionLedger {
       (forkRunId !== undefined && (!id(forkRunId) || mode !== 'readOnly'))
     )
       return fail('INVALID_TASK_INPUT');
+    const chosen = validChoices({ ...choices }, fail);
+    if (chosen.permissionMode && (chosen.permissionMode === 'readOnly') !== (mode === 'readOnly'))
+      return fail('INVALID_TASK_INPUT');
     this.workspace(workspaceId);
     const inputHash = hashInput(
       forkRunId
         ? [workspaceId, text, mode, 'fork', forkRunId]
         : contextHash
           ? [workspaceId, text, mode, contextHash]
-          : [workspaceId, text, mode],
+          : choices
+            ? [workspaceId, text, mode, chosen]
+            : [workspaceId, text, mode],
     );
     return this.tx(() => {
       this.owner();
@@ -3786,7 +3816,7 @@ export class ExecutionLedger {
         )!,
         forkOf = forkRunId ? this.forkSource(workspaceId, forkRunId, epochs) : undefined;
       this.exec(
-        "INSERT INTO tasks(task_id,dot_id,workspace_id,title,constraints_json,status,created_at_ms,updated_at_ms,permission_mode,last_read_at_ms) VALUES (?,?,?,?,?,'created',?,?,?,?)",
+        "INSERT INTO tasks(task_id,dot_id,workspace_id,title,constraints_json,status,created_at_ms,updated_at_ms,permission_mode,last_read_at_ms,model,reasoning_effort) VALUES (?,?,?,?,?,'created',?,?,?,?,?,?)",
         taskId,
         this.dotId,
         workspaceId,
@@ -3794,8 +3824,10 @@ export class ExecutionLedger {
         JSON.stringify({ inputHash, mode, text, ...(forkOf ? { forkOf } : {}) }),
         Date.now(),
         Date.now(),
-        mode === 'workspaceWrite' ? 'auto' : 'readOnly',
+        chosen.permissionMode ?? (mode === 'workspaceWrite' ? 'auto' : 'readOnly'),
         Date.now(),
+        chosen.model ?? null,
+        chosen.effort ?? null,
       );
       this.event(taskId, null, 'task_created');
       this.transition(taskId, 'queued');
@@ -3882,7 +3914,16 @@ export class ExecutionLedger {
         this.one('SELECT role FROM prompt_manifests WHERE run_id=?', sourceRunId)?.role !== 'coding'
       )
         return fail('ROLE_THREAD_NOT_RESUMABLE');
-      const inputHash = hashInput([workspaceId, text, source.mode, 'continuation', sourceRunId]);
+      // The next turn runs with the conversation's current permission mode; a legacy code task
+      // (Node test contract) always writes under its contract.
+      const settings = this.one(
+          'SELECT permission_mode,constraints_json FROM tasks WHERE task_id=?',
+          source.taskId,
+        )!,
+        coded = Boolean(JSON.parse(String(settings.constraints_json)).code),
+        mode: 'readOnly' | 'workspaceWrite' =
+          coded || settings.permission_mode !== 'readOnly' ? 'workspaceWrite' : 'readOnly';
+      const inputHash = hashInput([workspaceId, text, mode, 'continuation', sourceRunId]);
       const previous = this.one(
         'SELECT * FROM task_runs WHERE idempotency_key=? AND dot_id=?',
         key,
@@ -3906,7 +3947,7 @@ export class ExecutionLedger {
           },
           created: false,
           threadId: source.threadId,
-          mode: source.mode,
+          mode: this.runForHost(String(previous.run_id)).mode,
         };
       }
       this.projectOperationAvailable(workspaceId);
@@ -3955,8 +3996,7 @@ export class ExecutionLedger {
         : undefined;
       if (task.goal_id && (!goalPlan || sourceEpochs.goal_plan_version !== goalPlan.plan_version))
         return fail('RUN_GRANT_EXPIRED');
-      if (source.mode === 'workspaceWrite' && !this.verificationPlan(sourceRunId))
-        return fail('VERIFICATION_NOT_CONFIGURED');
+      if (coded && !this.verificationPlan(sourceRunId)) return fail('VERIFICATION_NOT_CONFIGURED');
       this.transition(source.taskId, 'queued');
       this.transition(source.taskId, 'running');
       this.exec(
@@ -3986,7 +4026,7 @@ export class ExecutionLedger {
         Date.now(),
       );
       this.budget.reserve(runId, task.goal_id as string | null);
-      if (source.mode === 'workspaceWrite') {
+      if (mode === 'workspaceWrite') {
         this.projectOperationAvailable(workspaceId);
         if (this.one('SELECT run_id FROM workspace_write_leases WHERE workspace_id=?', workspaceId))
           return fail('WORKSPACE_BUSY');
@@ -4010,9 +4050,9 @@ export class ExecutionLedger {
         "INSERT INTO prompt_manifests VALUES (?,?,'coding',?,?,?,?,?,'[]',NULL)",
         randomUUID(),
         runId,
-        source.mode === 'readOnly' ? 'read-only' : 'execution',
+        mode === 'readOnly' ? 'read-only' : 'execution',
         JSON.stringify({ submission: inputHash, user: hashInput(text) }),
-        hashInput({ mode: source.mode }),
+        hashInput({ mode }),
         epochs.policy_epoch!,
         epochs.privacy_epoch!,
       );
@@ -4029,8 +4069,9 @@ export class ExecutionLedger {
         Number(task.version),
       );
       this.exec(
-        "UPDATE tasks SET constraints_json=json_set(constraints_json,'$.text',?) WHERE task_id=?",
+        "UPDATE tasks SET constraints_json=json_set(constraints_json,'$.text',?,'$.mode',?) WHERE task_id=?",
         text,
+        mode,
         source.taskId,
       );
       this.exec('UPDATE task_runs SET operation_id=? WHERE run_id=?', operation.operationId, runId);
@@ -4039,7 +4080,7 @@ export class ExecutionLedger {
         token: { runId, epoch: this.#epoch, taskFence: fence },
         created: true,
         threadId: source.threadId,
-        mode: source.mode,
+        mode,
       };
     });
   }

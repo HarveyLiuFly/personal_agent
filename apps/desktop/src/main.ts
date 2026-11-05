@@ -61,6 +61,7 @@ import {
 import { verifiedCodex } from '../../../packages/codex-adapter/src/binary.ts';
 import { RpcFailure, StdioRpcClient } from '../../../packages/codex-adapter/src/rpc.ts';
 import { HistoryBrowser } from '../../../packages/codex-adapter/src/history.ts';
+import { modelCatalog } from '../../../packages/codex-adapter/src/models.ts';
 import type { ReadPort } from '../../../packages/codex-adapter/src/history.ts';
 import { readConnection } from '../../../packages/codex-adapter/src/read-connection.ts';
 import {
@@ -1093,7 +1094,18 @@ async function boot(): Promise<void> {
         }
       }),
     );
+  handle('models:list', (event, ...args: unknown[]) =>
+    readCommand(event, args, 0, () =>
+      appServer
+        ? appServer.read((port) => modelCatalog(port), currentSignal())
+        : Promise.reject(new LedgerError('MODEL_CATALOG_UNAVAILABLE')),
+    ),
+  );
   for (const [channel, operation] of [
+    [
+      'conversations:defaults',
+      (input: unknown) => ledger!.projectChoices(oneId(input, 'projectId')),
+    ],
     ['conversations:list', (input: unknown) => ledger!.conversations(input)],
     ['conversations:get', (input: unknown) => ledger!.conversationSummary(input)],
     ['conversations:turns', (input: unknown) => ledger!.conversationTurns(input)],
